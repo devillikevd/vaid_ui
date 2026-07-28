@@ -81,6 +81,7 @@ data class CachedMedicine(
     val genericName: String?,
     val manufacturer: String?,
     val price: Double?,
+    val mrp: Double? = null,
     val category: String,
     val description: String?,
     val requiresPrescription: Boolean,

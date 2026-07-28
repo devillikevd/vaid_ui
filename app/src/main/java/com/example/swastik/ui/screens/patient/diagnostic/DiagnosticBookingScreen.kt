@@ -43,9 +43,9 @@ import com.example.swastik.R
 import com.example.swastik.ui.components.shimmerEffect
 import androidx.compose.material3.MaterialTheme
 
-private val SwastikPrimary = Color(0xFF00695C)
-private val SwastikPrimaryLight = Color(0xFFE0F2F1)
-private val SwastikPrimaryDark = Color(0xFF004D40)
+private val DiagnosticAccent = Color(0xFF00695C)
+private val DiagnosticAccentLight = Color(0xFFE0F2F1)
+private val DiagnosticAccentDark = Color(0xFF004D40)
 
 /**
  * Diagnostic Booking Screen — search centers, view tests, and book.
@@ -116,7 +116,7 @@ fun DiagnosticBookingScreen(
                         viewModel.resetBooking()
                         onBackClick()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+                    colors = ButtonDefaults.buttonColors(containerColor = DiagnosticAccent)
                 ) { Text(stringResource(R.string.done)) }
             },
             dismissButton = {
@@ -144,7 +144,7 @@ fun DiagnosticBookingScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SwastikPrimary, titleContentColor = Color.White, navigationIconContentColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = DiagnosticAccent, titleContentColor = Color.White, navigationIconContentColor = Color.White)
             )
         }
     ) { padding ->
@@ -346,7 +346,7 @@ private fun CenterCard(center: DiagnosticCenterDto, onClick: () -> Unit) {
                             Icon(
                                 Icons.Outlined.LocationOn,
                                 contentDescription = null,
-                                tint = SwastikPrimary,
+                                tint = DiagnosticAccent,
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
@@ -551,7 +551,7 @@ private fun CenterTestsView(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                    colors = ButtonDefaults.buttonColors(containerColor = DiagnosticAccent),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.EventAvailable, null)
@@ -570,9 +570,9 @@ private fun CenterTestsView(
 
             if (isUploading) {
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = SwastikPrimary)
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = DiagnosticAccent)
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text(stringResource(R.string.uploading_1), color = SwastikPrimary)
+                    Text(stringResource(R.string.uploading_1), color = DiagnosticAccent)
                 }
             } else if (uploadSuccess) {
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
@@ -593,31 +593,31 @@ private fun CenterTestsView(
                         onClick = { galleryLauncher.launch(arrayOf("image/*", "application/pdf")) },
                         modifier = Modifier.weight(1f).height(48.dp),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, SwastikPrimary)
+                        border = BorderStroke(1.dp, DiagnosticAccent)
                     ) {
-                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = DiagnosticAccent, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.gallery), color = SwastikPrimary, fontSize = 11.sp)
+                        Text(stringResource(R.string.gallery), color = DiagnosticAccent, fontSize = 11.sp)
                     }
                     OutlinedButton(
                         onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
                         modifier = Modifier.weight(1f).height(48.dp),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, SwastikPrimary)
+                        border = BorderStroke(1.dp, DiagnosticAccent)
                     ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = DiagnosticAccent, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.camera), color = SwastikPrimary, fontSize = 11.sp)
+                        Text(stringResource(R.string.camera), color = DiagnosticAccent, fontSize = 11.sp)
                     }
                     OutlinedButton(
                         onClick = { showRecordsSheet = true },
                         modifier = Modifier.weight(1f).height(48.dp),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, SwastikPrimary)
+                        border = BorderStroke(1.dp, DiagnosticAccent)
                     ) {
-                        Icon(Icons.Default.Folder, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Folder, contentDescription = null, tint = DiagnosticAccent, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.records), color = SwastikPrimary, fontSize = 11.sp)
+                        Text(stringResource(R.string.records), color = DiagnosticAccent, fontSize = 11.sp)
                     }
                 }
             }
@@ -637,7 +637,7 @@ private fun TestCard(
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(
-            containerColor = SwastikPrimaryLight
+            containerColor = DiagnosticAccentLight
         )
     ) {
         Row(
@@ -666,30 +666,30 @@ private fun TestCard(
                             text = test.name.take(1).uppercase(),
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
-                            color = SwastikPrimary.copy(alpha = 0.5f)
+                            color = DiagnosticAccent.copy(alpha = 0.5f)
                         )
                     }
                 }
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(test.name, fontWeight = FontWeight.SemiBold, color = SwastikPrimaryDark)
-                test.category?.let { Text(it, color = SwastikPrimary.copy(alpha = 0.7f), fontSize = 12.sp) }
+                Text(test.name, fontWeight = FontWeight.SemiBold, color = DiagnosticAccentDark)
+                test.category?.let { Text(it, color = DiagnosticAccent.copy(alpha = 0.7f), fontSize = 12.sp) }
                 val turnaroundLabel = test.reportTime
                     ?: test.turnaroundHours?.let { hours ->
                         if (hours == 24) "24 hours" else "$hours hours"
                     }
-                turnaroundLabel?.let { Text(stringResource(R.string.report_in, it), color = SwastikPrimary.copy(alpha = 0.7f), fontSize = 12.sp) }
-                test.sampleType?.let { Text(stringResource(R.string.sample_label, it), color = SwastikPrimary.copy(alpha = 0.7f), fontSize = 12.sp) }
+                turnaroundLabel?.let { Text(stringResource(R.string.report_in, it), color = DiagnosticAccent.copy(alpha = 0.7f), fontSize = 12.sp) }
+                test.sampleType?.let { Text(stringResource(R.string.sample_label, it), color = DiagnosticAccent.copy(alpha = 0.7f), fontSize = 12.sp) }
             }
             test.price?.let {
-                Text(stringResource(R.string.rupee_format, it.toInt().toString()), fontWeight = FontWeight.Bold, color = SwastikPrimary, fontSize = 16.sp)
+                Text(stringResource(R.string.rupee_format, it.toInt().toString()), fontWeight = FontWeight.Bold, color = DiagnosticAccent, fontSize = 16.sp)
             }
             Spacer(Modifier.width(8.dp))
             if (isSelected) {
-                Icon(Icons.Default.CheckCircle, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.CheckCircle, null, tint = DiagnosticAccent, modifier = Modifier.size(24.dp))
             } else {
-                Icon(Icons.Outlined.RadioButtonUnchecked, null, tint = SwastikPrimary.copy(alpha = 0.4f), modifier = Modifier.size(24.dp))
+                Icon(Icons.Outlined.RadioButtonUnchecked, null, tint = DiagnosticAccent.copy(alpha = 0.4f), modifier = Modifier.size(24.dp))
             }
         }
     }
@@ -747,7 +747,7 @@ fun DiagnosticBookingFlow(
                             Icon(Icons.Default.ArrowBack, "Back")
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = SwastikPrimary, titleContentColor = Color.White, navigationIconContentColor = Color.White)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = DiagnosticAccent, titleContentColor = Color.White, navigationIconContentColor = Color.White)
                 )
 
                 // Stepper
@@ -760,14 +760,14 @@ fun DiagnosticBookingFlow(
                             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                 if (isPrescriptionBooking) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.UploadFile, contentDescription = null, tint = SwastikPrimary)
+                                        Icon(Icons.Default.UploadFile, contentDescription = null, tint = DiagnosticAccent)
                                         Spacer(Modifier.width(8.dp))
-                                        Text(stringResource(R.string.prescription_uploaded), fontWeight = FontWeight.Bold, color = SwastikPrimary)
+                                        Text(stringResource(R.string.prescription_uploaded), fontWeight = FontWeight.Bold, color = DiagnosticAccent)
                                     }
                                 } else {
                                     Text(stringResource(R.string.test_label, testName ?: ""), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                                     testPrice?.let {
-                                        Text(stringResource(R.string.price_format, it.toInt().toString()), color = SwastikPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                        Text(stringResource(R.string.price_format, it.toInt().toString()), color = DiagnosticAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                     }
                                 }
                                 
@@ -779,14 +779,14 @@ fun DiagnosticBookingFlow(
                                     enabled = false,
                                     trailingIcon = {
                                         IconButton(onClick = { showDatePicker = true }) {
-                                            Icon(Icons.Outlined.CalendarMonth, contentDescription = "Pick Date", tint = SwastikPrimary)
+                                            Icon(Icons.Outlined.CalendarMonth, contentDescription = "Pick Date", tint = DiagnosticAccent)
                                         }
                                     },
                                     colors = OutlinedTextFieldDefaults.colors(
                                         disabledTextColor = MaterialTheme.colorScheme.onSurface,
                                         disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                         disabledBorderColor = MaterialTheme.colorScheme.outline,
-                                        disabledTrailingIconColor = SwastikPrimary
+                                        disabledTrailingIconColor = DiagnosticAccent
                                     ),
                                     singleLine = true
                                 )
@@ -798,14 +798,14 @@ fun DiagnosticBookingFlow(
                                     enabled = false,
                                     trailingIcon = {
                                         IconButton(onClick = { showTimePicker = true }) {
-                                            Icon(Icons.Outlined.AccessTime, contentDescription = "Pick Time", tint = SwastikPrimary)
+                                            Icon(Icons.Outlined.AccessTime, contentDescription = "Pick Time", tint = DiagnosticAccent)
                                         }
                                     },
                                     colors = OutlinedTextFieldDefaults.colors(
                                         disabledTextColor = MaterialTheme.colorScheme.onSurface,
                                         disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                         disabledBorderColor = MaterialTheme.colorScheme.outline,
-                                        disabledTrailingIconColor = SwastikPrimary
+                                        disabledTrailingIconColor = DiagnosticAccent
                                     ),
                                     singleLine = true
                                 )
@@ -857,7 +857,7 @@ fun DiagnosticBookingFlow(
                                                 modifier = Modifier.padding(16.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Icon(Icons.Default.LocationOn, tint = SwastikPrimary, contentDescription = null)
+                                                Icon(Icons.Default.LocationOn, tint = DiagnosticAccent, contentDescription = null)
                                                 Spacer(modifier = Modifier.width(12.dp))
                                                 Text(
                                                     text = collectionAddress,
@@ -868,7 +868,7 @@ fun DiagnosticBookingFlow(
                                                     onClick = { collectionAddress = "" },
                                                     modifier = Modifier.padding(start = 8.dp)
                                                 ) {
-                                                    Text(stringResource(R.string.change_address), color = SwastikPrimary, fontWeight = FontWeight.Bold)
+                                                    Text(stringResource(R.string.change_address), color = DiagnosticAccent, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                         }
@@ -926,7 +926,7 @@ fun DiagnosticBookingFlow(
                             else if (currentStep == 2 && (collectionType == "walk_in" || (collectionAddress.isNotBlank() && patientPhone.isNotBlank()))) currentStep++
                         },
                         modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                        colors = ButtonDefaults.buttonColors(containerColor = DiagnosticAccent),
                         enabled = when (currentStep) {
                             1 -> bookingDate.isNotBlank()
                             2 -> collectionType == "walk_in" || (collectionAddress.isNotBlank() && patientPhone.isNotBlank())
@@ -958,7 +958,7 @@ fun DiagnosticBookingFlow(
                         )
                     }
                     showDatePicker = false
-                }) { Text(stringResource(R.string.ok), color = SwastikPrimary) }
+                }) { Text(stringResource(R.string.ok), color = DiagnosticAccent) }
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.cancel)) }
@@ -981,7 +981,7 @@ fun DiagnosticBookingFlow(
                 TextButton(onClick = {
                     bookingTime = String.format(Locale.US, "%02d:%02d", timePickerState.hour, timePickerState.minute)
                     showTimePicker = false
-                }) { Text(stringResource(R.string.ok), color = SwastikPrimary) }
+                }) { Text(stringResource(R.string.ok), color = DiagnosticAccent) }
             },
             dismissButton = {
                 TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.cancel)) }

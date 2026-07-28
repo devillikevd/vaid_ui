@@ -47,6 +47,45 @@ router.get('/:id', asyncHandler(async (req, res) => {
     res.json({ success: true, data: clinic });
 }));
 
+// Get reviews (public)
+router.get('/:id/reviews', asyncHandler(async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const reviewService = require('../services/reviewService');
+    const result = await reviewService.getEntityReviews('clinic', req.params.id, page, limit);
+    res.json({ success: true, ...result });
+}));
+
+// Add review (authenticated)
+router.post('/:id/reviews',
+    authenticate,
+    [
+        body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
+        body('comment').optional().isString(),
+    ],
+    validate,
+    asyncHandler(async (req, res) => {
+        const { supabaseAdmin } = require('../config/supabase');
+        const { data: patient } = await supabaseAdmin.from('patients')
+            .select('id')
+            .eq('user_id', req.user.id)
+            .single();
+
+        if (!patient) return res.status(404).json({ success: false, message: 'Patient profile not found' });
+
+        const reviewService = require('../services/reviewService');
+        const reviewData = {
+            reviewableType: 'clinic',
+            reviewableId: req.params.id,
+            rating: req.body.rating,
+            comment: req.body.comment
+        };
+
+        const review = await reviewService.submitReview(patient.id, reviewData);
+        res.status(201).json({ success: true, data: review });
+    })
+);
+
 // Protected routes
 router.use(authenticate);
 
@@ -85,7 +124,9 @@ router.put('/owner/profile', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async
         'name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
         'latitude', 'longitude', 'specializations', 'facilities', 'description',
         'opening_hours', 'is_24_hours', 'profile_image_url', 'image_url', 'profile_image',
-        'registration_number', 'license_number', 'license_document_url'
+        'registration_number', 'license_number', 'license_document_url',
+        'website_url', 'established_year', 'insurance_accepted', 'virtual_tour_url',
+        'gallery_urls', 'accreditations', 'images'
     ];
     const safeUpdates = {};
     for (const key of allowed) {
@@ -288,6 +329,70 @@ router.get('/owner/reviews', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async
     const reviewService = require('../services/reviewService');
     const result = await reviewService.getEntityReviews('clinic', clinic.id, parseInt(page), parseInt(limit));
     res.json({ success: true, ...result });
+}));
+
+// Reels (Clinic Videos)
+router.post('/owner/reels', requireRole(ROLES.CLINIC_OWNER), [
+    body('video_url').isString().trim().notEmpty().withMessage('Video URL is required'),
+    body('thumbnail_url').optional().isString().trim(),
+    body('title').optional().isString().trim(),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const reel = await clinicService.addReel(clinic.id, req.user.id, req.body);
+    res.json({ success: true, reel });
+}));
+
+router.delete('/owner/reels/:reelId', requireRole(ROLES.CLINIC_OWNER), [
+    param('reelId').isUUID().withMessage('Invalid reel ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    await clinicService.deleteReel(clinic.id, req.user.id, req.params.reelId);
+    res.json({ success: true });
+}));
+
+// Departments
+router.get('/owner/departments', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const departments = await clinicService.getClinicDepartments(clinic.id);
+    res.json({ success: true, data: departments });
+}));
+
+router.post('/owner/departments', requireRole(ROLES.CLINIC_OWNER), [
+    body('name').trim().notEmpty().withMessage('Department name is required'),
+    body('description').optional().isString().trim(),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const department = await clinicService.addDepartment(clinic.id, req.user.id, req.body);
+    res.json({ success: true, data: department });
+}));
+
+router.put('/owner/departments/:departmentId', requireRole(ROLES.CLINIC_OWNER), [
+    param('departmentId').isUUID().withMessage('Invalid department ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const department = await clinicService.updateDepartment(clinic.id, req.user.id, req.params.departmentId, req.body);
+    res.json({ success: true, data: department });
+}));
+
+router.delete('/owner/departments/:departmentId', requireRole(ROLES.CLINIC_OWNER), [
+    param('departmentId').isUUID().withMessage('Invalid department ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    await clinicService.deleteDepartment(clinic.id, req.user.id, req.params.departmentId);
+    res.json({ success: true });
+}));
+
+// Analytics
+router.get('/owner/analytics', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const { period = '30d' } = req.query;
+    const analytics = await clinicService.getAnalytics(clinic.id, req.user.id, period);
+    res.json({ success: true, data: analytics });
 }));
 
 module.exports = router;

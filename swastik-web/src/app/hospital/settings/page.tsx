@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Save, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Save, Loader2, Plus, X, Globe, Calendar, Clock, Image as ImageIcon, Shield, Building2, Bed } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -9,8 +9,15 @@ import { useAuthStore } from '@/stores/authStore';
 import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
 import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
-import { hospitalApi, authApi } from '@/lib/api';
+import { hospitalApi, authApi, uploadApi } from '@/lib/api';
 import { getResubmissionSuccessMessage, refreshAuthenticatedUser } from '@/lib/authSession';
+
+const FACILITY_OPTIONS = [
+    'Parking', 'Pharmacy', 'Canteen', 'Wheelchair Access', 'ICU',
+    'NICU', 'Blood Bank', 'Ambulance', 'Wi-Fi', 'Waiting Lounge',
+    'Lab', 'X-Ray', 'MRI', 'CT Scan', 'Ultrasound', 'Dialysis',
+    'Operation Theatre', 'Ventilator', 'Oxygen Supply', 'Elevator',
+];
 
 export default function HospitalSettingsPage() {
     const user = useAuthStore((s) => s.user);
@@ -23,14 +30,26 @@ export default function HospitalSettingsPage() {
         phone: '',
         address: '',
         bedCapacity: '',
+        bedsAvailable: '',
         licenseNumber: '',
         licenseDocumentUrl: '',
         accreditations: '',
         profileImage: '' as string | null,
         latitude: null as number | null,
         longitude: null as number | null,
+        description: '',
+        openingHours: '',
+        websiteUrl: '',
+        establishedYear: '',
+        facilities: [] as string[],
+        galleryUrls: [] as string[],
+        insuranceAccepted: '',
+        virtualTourUrl: '',
+        floorGuideMapUrl: '',
     });
     const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
+    const [galleryUploading, setGalleryUploading] = useState(false);
+    const galleryInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         (async () => {
@@ -44,18 +63,58 @@ export default function HospitalSettingsPage() {
                         phone: p.phone || '',
                         address: p.address || '',
                         bedCapacity: p.total_beds?.toString() || p.bed_capacity?.toString() || '',
+                        bedsAvailable: p.beds_available?.toString() || '',
                         licenseNumber: p.license_number || '',
                         licenseDocumentUrl: p.license_document_url || '',
                         accreditations: Array.isArray(p.accreditations) ? p.accreditations.join(', ') : '',
                         profileImage: p.profile_image_url || p.profile_image || p.profileImage || p.image_url || p.avatar_url || null,
                         latitude: p.latitude ?? null,
                         longitude: p.longitude ?? null,
+                        description: p.description || '',
+                        openingHours: p.opening_hours || '',
+                        websiteUrl: p.website_url || '',
+                        establishedYear: p.established_year?.toString() || '',
+                        facilities: Array.isArray(p.facilities) ? p.facilities : [],
+                        galleryUrls: Array.isArray(p.gallery_urls) ? p.gallery_urls : [],
+                        insuranceAccepted: Array.isArray(p.insurance_accepted) ? p.insurance_accepted.join(', ') : '',
+                        virtualTourUrl: p.virtual_tour_url || '',
+                        floorGuideMapUrl: p.floor_guide_map_url || '',
                     });
                 }
             } catch { /* use defaults */ }
             setIsLoading(false);
         })();
     }, []);
+
+    const toggleFacility = (facility: string) => {
+        setProfile(p => ({
+            ...p,
+            facilities: p.facilities.includes(facility)
+                ? p.facilities.filter(f => f !== facility)
+                : [...p.facilities, facility],
+        }));
+    };
+
+    const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        setGalleryUploading(true);
+        try {
+            for (const file of Array.from(files)) {
+                const res = await uploadApi.uploadFile(file, 'hospital-gallery');
+                if (res.success && res.url) {
+                    const url = res.url as string;
+                    setProfile(p => ({ ...p, galleryUrls: [...p.galleryUrls, url] }));
+                }
+            }
+        } catch { setSaveStatus({ type: 'error', message: 'Failed to upload gallery image' }); }
+        setGalleryUploading(false);
+        if (galleryInputRef.current) galleryInputRef.current.value = '';
+    };
+
+    const removeGalleryImage = (index: number) => {
+        setProfile(p => ({ ...p, galleryUrls: p.galleryUrls.filter((_, i) => i !== index) }));
+    };
 
     const handleSaveProfile = async () => {
         setIsSaving(true);
@@ -75,6 +134,7 @@ export default function HospitalSettingsPage() {
             const res = await hospitalApi.updateProfile({
                 name: profile.name, email: profile.email, phone: profile.phone, address: profile.address,
                 total_beds: Number(profile.bedCapacity) || undefined,
+                beds_available: Number(profile.bedsAvailable) || undefined,
                 license_number: profile.licenseNumber.trim() || undefined,
                 license_document_url: profile.licenseDocumentUrl.trim() || undefined,
                 accreditations: profile.accreditations
@@ -83,6 +143,18 @@ export default function HospitalSettingsPage() {
                     .filter(Boolean),
                 profile_image_url: profile.profileImage || undefined,
                 ...(profile.latitude != null && profile.longitude != null ? { latitude: profile.latitude, longitude: profile.longitude } : {}),
+                description: profile.description.trim() || undefined,
+                opening_hours: profile.openingHours.trim() || undefined,
+                website_url: profile.websiteUrl.trim() || undefined,
+                established_year: Number(profile.establishedYear) || undefined,
+                facilities: profile.facilities.length > 0 ? profile.facilities : undefined,
+                gallery_urls: profile.galleryUrls.length > 0 ? profile.galleryUrls : undefined,
+                insurance_accepted: profile.insuranceAccepted
+                    .split(',')
+                    .map((item) => item.trim())
+                    .filter(Boolean),
+                virtual_tour_url: profile.virtualTourUrl.trim() || undefined,
+                floor_guide_map_url: profile.floorGuideMapUrl.trim() || undefined,
             });
             if (res.success) {
                 const refreshedUser = await refreshAuthenticatedUser();
@@ -121,6 +193,7 @@ export default function HospitalSettingsPage() {
                 <div className={`px-4 py-3 rounded-lg text-sm border ${saveStatus.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>{saveStatus.message}</div>
             )}
 
+            {/* Basic Information */}
             <Card>
                 <CardHeader><CardTitle>Hospital Information</CardTitle></CardHeader>
                 <CardContent>
@@ -150,9 +223,169 @@ export default function HospitalSettingsPage() {
                             label="Hospital Location"
                             height="250px"
                         />
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bed Capacity</label><Input type="number" value={profile.bedCapacity} onChange={e => setProfile(p => ({ ...p, bedCapacity: e.target.value }))} /></div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* About & Details */}
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5 text-teal-600" />About & Details</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description / About Us</label>
+                            <textarea
+                                value={profile.description}
+                                onChange={e => setProfile(p => ({ ...p, description: e.target.value }))}
+                                placeholder="Tell patients about your hospital — its mission, specialties, and what makes it unique..."
+                                rows={4}
+                                maxLength={2000}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                            />
+                            <p className="text-xs text-gray-400 mt-1">{profile.description.length}/2000</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <Globe className="inline h-4 w-4 mr-1 text-teal-600" />Website URL
+                                </label>
+                                <Input value={profile.websiteUrl} onChange={e => setProfile(p => ({ ...p, websiteUrl: e.target.value }))} placeholder="https://www.yourhospital.com" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <Calendar className="inline h-4 w-4 mr-1 text-teal-600" />Established Year
+                                </label>
+                                <Input type="number" value={profile.establishedYear} onChange={e => setProfile(p => ({ ...p, establishedYear: e.target.value }))} placeholder="e.g. 1995" min="1800" max={new Date().getFullYear()} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <Clock className="inline h-4 w-4 mr-1 text-teal-600" />Opening Hours
+                            </label>
+                            <Input value={profile.openingHours} onChange={e => setProfile(p => ({ ...p, openingHours: e.target.value }))} placeholder="Mon-Sat: 9:00 AM - 9:00 PM, Sun: 10:00 AM - 2:00 PM" />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Bed & Capacity */}
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Bed className="h-5 w-5 text-teal-600" />Bed & Capacity</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total Bed Capacity</label><Input type="number" value={profile.bedCapacity} onChange={e => setProfile(p => ({ ...p, bedCapacity: e.target.value }))} placeholder="e.g. 200" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currently Available Beds</label><Input type="number" value={profile.bedsAvailable} onChange={e => setProfile(p => ({ ...p, bedsAvailable: e.target.value }))} placeholder="e.g. 45" /></div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">Update available beds regularly to help patients find open beds in emergencies.</p>
+                </CardContent>
+            </Card>
+
+            {/* Facilities */}
+            <Card>
+                <CardHeader><CardTitle>Facilities & Amenities</CardTitle></CardHeader>
+                <CardContent>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Select all facilities available at your hospital</p>
+                    <div className="flex flex-wrap gap-2">
+                        {FACILITY_OPTIONS.map(facility => (
+                            <button
+                                key={facility}
+                                type="button"
+                                onClick={() => toggleFacility(facility)}
+                                className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                                    profile.facilities.includes(facility)
+                                        ? 'bg-teal-600 text-white border-teal-600'
+                                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-teal-400'
+                                }`}
+                            >
+                                {profile.facilities.includes(facility) && '✓ '}{facility}
+                            </button>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Premium Features */}
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Globe className="h-5 w-5 text-teal-600" />Premium Hospital Features</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                360° Virtual Tour URL (Matterport, Kuula, etc.)
+                            </label>
+                            <Input 
+                                value={profile.virtualTourUrl} 
+                                onChange={e => setProfile(p => ({ ...p, virtualTourUrl: e.target.value }))} 
+                                placeholder="https://my.matterport.com/show/?m=..." 
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Embedded directly inside the Patient App for premium engagement.</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Interactive Floor Guide / Map URL
+                            </label>
+                            <Input 
+                                value={profile.floorGuideMapUrl} 
+                                onChange={e => setProfile(p => ({ ...p, floorGuideMapUrl: e.target.value }))} 
+                                placeholder="https://..." 
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Helps patients navigate inside your hospital seamlessly.</p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Gallery */}
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5 text-teal-600" />Hospital Gallery</CardTitle></CardHeader>
+                <CardContent>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Upload photos of your hospital — reception, rooms, OPD area, facilities. Patients see these on the app.</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        {profile.galleryUrls.map((url, i) => (
+                            <div key={i} className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 aspect-video">
+                                <img src={url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
+                                <button
+                                    type="button"
+                                    onClick={() => removeGalleryImage(i)}
+                                    className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => galleryInputRef.current?.click()}
+                            disabled={galleryUploading}
+                            className="aspect-video flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-teal-500 transition-colors text-gray-400 hover:text-teal-600"
+                        >
+                            {galleryUploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Plus className="h-6 w-6" />}
+                            <span className="text-xs mt-1">{galleryUploading ? 'Uploading...' : 'Add Photo'}</span>
+                        </button>
+                    </div>
+                    <input
+                        ref={galleryInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleGalleryUpload}
+                        className="hidden"
+                    />
+                </CardContent>
+            </Card>
+
+            {/* Credentials & Compliance */}
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5 text-teal-600" />Credentials & Compliance</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number</label><Input value={profile.licenseNumber} onChange={e => setProfile(p => ({ ...p, licenseNumber: e.target.value }))} placeholder="Hospital license number" /></div>
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Accreditations</label><Input value={profile.accreditations} onChange={e => setProfile(p => ({ ...p, accreditations: e.target.value }))} placeholder="NABH, ISO 9001, JCI" /></div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Insurance Accepted</label>
+                            <Input value={profile.insuranceAccepted} onChange={e => setProfile(p => ({ ...p, insuranceAccepted: e.target.value }))} placeholder="Star Health, ICICI Lombard, Max Bupa, CGHS, ECHS" />
+                            <p className="text-xs text-gray-400 mt-1">Comma-separated list of insurance providers accepted</p>
+                        </div>
                         <ComplianceDocumentUpload
                             label="Hospital License Document"
                             providerType="hospital"
@@ -160,11 +393,16 @@ export default function HospitalSettingsPage() {
                             onChange={(url) => setProfile((prev) => ({ ...prev, licenseDocumentUrl: url }))}
                             description="Upload the hospital license or paste a hosted document URL for admin review."
                         />
-                        <Button onClick={handleSaveProfile} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>Save Profile</Button>
                     </div>
                 </CardContent>
             </Card>
 
+            {/* Save Button */}
+            <div className="flex justify-end">
+                <Button onClick={handleSaveProfile} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>Save All Changes</Button>
+            </div>
+
+            {/* Change Password */}
             <Card>
                 <CardHeader><CardTitle>Change Password</CardTitle></CardHeader>
                 <CardContent>

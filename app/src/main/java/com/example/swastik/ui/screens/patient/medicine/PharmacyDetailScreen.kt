@@ -31,6 +31,9 @@ import com.example.swastik.data.model.FacilityType
 import com.example.swastik.ui.theme.SwastikGreen
 import com.example.swastik.ui.theme.SwastikOrange
 import com.example.swastik.ui.theme.SwastikPrimary
+import com.example.swastik.ui.components.HospitalReelsSection
+import com.example.swastik.ui.components.VideoReelPlayer
+import com.example.swastik.data.model.HospitalReel
 import com.example.swastik.utils.NavigationHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,6 +44,7 @@ fun PharmacyDetailScreen(
     onNavigateToHospital: (String) -> Unit = {},
     onNavigateToClinic: (String) -> Unit,
     onNavigateToOrderHistory: () -> Unit = {},
+    isLoggedIn: Boolean = false,
     viewModel: PharmacyDetailViewModel = hiltViewModel(),
     hospitalViewModel: com.example.swastik.ui.viewmodel.HospitalFinderViewModel = hiltViewModel(),
     medicineViewModel: com.example.swastik.ui.viewmodel.MedicineViewModel = hiltViewModel()
@@ -48,6 +52,7 @@ fun PharmacyDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     val hospitalState by hospitalViewModel.uiState.collectAsState()
     var showPharmacyBookingDialog by remember { mutableStateOf(false) }
+    var selectedReel by remember { mutableStateOf<HospitalReel?>(null) }
     val colorScheme = MaterialTheme.colorScheme
     val isDarkSurface = colorScheme.surface.luminance() < 0.5f
     val bgColor = if (isDarkSurface) colorScheme.background else Color(0xFFF8FAFC)
@@ -200,6 +205,49 @@ fun PharmacyDetailScreen(
                             }
                         }
 
+                        // Trust Badges
+                        item {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Surface(
+                                    color = SwastikGreen.copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                                    ) {
+                                        Icon(Icons.Default.Verified, contentDescription = null, tint = SwastikGreen, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Column {
+                                            Text("Verified Pharmacy", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = SwastikGreen)
+                                            Text("Licensed & approved", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                                Surface(
+                                    color = SwastikPrimary.copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                                    ) {
+                                        Icon(Icons.Default.LocalShipping, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Column {
+                                            Text("Home Delivery", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = SwastikPrimary)
+                                            Text("Within 15km radius", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // Quick Actions
                         item {
                             Row(
@@ -270,6 +318,19 @@ fun PharmacyDetailScreen(
                                 }
                             }
                         }
+
+                        // Reels Section
+                        if (facility.reels.isNotEmpty()) {
+                            item {
+                                HospitalReelsSection(
+                                    reels = facility.reels,
+                                    isDark = isDarkSurface,
+                                    sectionTitle = "Pharmacy Videos",
+                                    onReelClick = { reel -> selectedReel = reel }
+                                )
+                            }
+                        }
+
                         // Reviews Section
                         item {
                             Spacer(modifier = Modifier.height(8.dp))
@@ -279,7 +340,8 @@ fun PharmacyDetailScreen(
                                 onClearState = { viewModel.clearReviewState() },
                                 onSubmitReview = { rating, comment ->
                                     viewModel.submitPharmacyReview(facility.id, rating, comment)
-                                }
+                                },
+                                isLoggedIn = isLoggedIn
                             )
                         }
                     }
@@ -322,6 +384,63 @@ fun PharmacyDetailScreen(
                         onNavigateToOrderHistory()
                     }
                 )
+            }
+
+            // Full-screen Reel Video Player Bottom Sheet
+            if (selectedReel != null) {
+                ModalBottomSheet(
+                    onDismissRequest = { selectedReel = null },
+                    containerColor = Color.Black,
+                    dragHandle = null,
+                    modifier = Modifier.fillMaxHeight(0.92f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight()
+                    ) {
+                        selectedReel?.videoUrl?.let { videoUrl ->
+                            VideoReelPlayer(
+                                videoUrl = videoUrl,
+                                modifier = Modifier.fillMaxSize(),
+                                playWhenReady = true
+                            )
+                        }
+                        IconButton(
+                            onClick = { selectedReel = null },
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(16.dp)
+                                .size(40.dp)
+                                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        selectedReel?.title?.let { title ->
+                            Surface(
+                                color = Color.Black.copy(alpha = 0.7f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .align(Alignment.BottomCenter)
+                                    .padding(16.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = title,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -392,7 +511,8 @@ fun PharmacyReviewSection(
     facilityId: String,
     uiState: PharmacyDetailUiState,
     onClearState: () -> Unit,
-    onSubmitReview: (Int, String?) -> Unit
+    onSubmitReview: (Int, String?) -> Unit,
+    isLoggedIn: Boolean = false
 ) {
     var showReviewForm by remember { androidx.compose.runtime.mutableStateOf(false) }
     var userRating by remember { androidx.compose.runtime.mutableIntStateOf(0) }
@@ -400,7 +520,6 @@ fun PharmacyReviewSection(
     val colorScheme = MaterialTheme.colorScheme
     val isDarkSurface = colorScheme.surface.luminance() < 0.5f
     val titleColor = if (isDarkSurface) Color(0xFFE2E8F0) else Color(0xFF1E293B)
-    val isLoggedIn = true // Assume true for now
 
     val rating = uiState.facility?.rating ?: 0f
     val reviewCount = uiState.facility?.reviewCount ?: 0
@@ -615,7 +734,9 @@ fun PharmacyReviewSection(
                     }
                 }
             }
-        } else if (!uiState.reviewsLoading && uiState.reviews.isEmpty()) {
+        }
+
+        if (!uiState.reviewsLoading && uiState.reviews.isEmpty()) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 stringResource(R.string.no_reviews_yet_be_the),
@@ -625,3 +746,5 @@ fun PharmacyReviewSection(
         }
     }
 }
+
+// ==================== DETAIL INFO CARD ====================

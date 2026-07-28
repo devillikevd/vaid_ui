@@ -47,10 +47,10 @@ class MedicineRepository @Inject constructor(
     /**
      * Search medicines — network-first with cache fallback.
      */
-    suspend fun searchMedicines(query: String, page: Int = 1): Result<List<Medicine>> {
+    suspend fun searchMedicines(query: String, category: String? = null, page: Int = 1): Result<List<Medicine>> {
         // Try network first
         try {
-            val response = apiService.searchMedicines(query = query, page = page)
+            val response = apiService.searchMedicines(query = query, category = category, page = page)
             if (response.isSuccessful && response.body()?.success == true) {
                 val medicines = response.body()?.data ?: emptyList()
                 // Cache search results (page 1)
@@ -390,7 +390,8 @@ class MedicineRepository @Inject constructor(
         genericName = genericName,
         manufacturer = manufacturer,
         price = price?.toDouble(),
-        category = category.name,
+        mrp = mrp?.toDouble(),
+        category = therapeuticCategory ?: dosageForm ?: category.name,
         description = description,
         requiresPrescription = requiresPrescription,
         imageUrl = imageUrl
@@ -402,8 +403,10 @@ class MedicineRepository @Inject constructor(
         genericName = genericName,
         manufacturer = manufacturer,
         price = price?.toFloat(),
+        mrp = mrp?.toFloat(),
         requiresPrescription = requiresPrescription,
         category = try { MedicineCategory.valueOf(category) } catch (_: Exception) { MedicineCategory.TABLET },
+        therapeuticCategory = category,
         description = description,
         inStock = true,
         stockCount = 0,

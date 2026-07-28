@@ -284,8 +284,7 @@ fun HomeTabContent(
         label = "PulseAlpha"
     )
 
-    // Demo notification state (can be passed as parameter later)
-    val hasAINotification = true
+    val hasAINotification = unreadNotificationsCount > 0
         
     // Floating AI Chatbot Button (Bottom-Right)
     Box(

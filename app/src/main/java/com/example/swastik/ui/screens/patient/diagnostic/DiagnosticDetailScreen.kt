@@ -31,6 +31,10 @@ import com.example.swastik.data.model.MedicalFacility
 import com.example.swastik.ui.theme.SwastikGreen
 import com.example.swastik.ui.theme.SwastikOrange
 import com.example.swastik.ui.theme.SwastikPrimary
+import com.example.swastik.ui.components.HospitalReelsSection
+import com.example.swastik.ui.components.VideoReelPlayer
+import com.example.swastik.data.model.HospitalReel
+import androidx.compose.foundation.shape.CircleShape
 import com.example.swastik.utils.NavigationHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,9 +45,11 @@ fun DiagnosticDetailScreen(
     onBookTestsClick: (MedicalFacility) -> Unit,
     onNavigateToHospital: (String) -> Unit,
     onNavigateToClinic: (String) -> Unit,
+    isLoggedIn: Boolean = false,
     viewModel: DiagnosticDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var selectedReel by remember { mutableStateOf<HospitalReel?>(null) }
     val colorScheme = MaterialTheme.colorScheme
     val isDarkSurface = colorScheme.surface.luminance() < 0.5f
     val bgColor = if (isDarkSurface) colorScheme.background else Color(0xFFF8FAFC)
@@ -264,6 +270,19 @@ fun DiagnosticDetailScreen(
                                 }
                             }
                         }
+
+                        // Reels Section
+                        if (facility.reels.isNotEmpty()) {
+                            item {
+                                HospitalReelsSection(
+                                    reels = facility.reels,
+                                    isDark = isDarkSurface,
+                                    sectionTitle = "Diagnostic Videos",
+                                    onReelClick = { reel -> selectedReel = reel }
+                                )
+                            }
+                        }
+
                         // Reviews Section
                         item {
                             Spacer(modifier = Modifier.height(8.dp))
@@ -273,9 +292,50 @@ fun DiagnosticDetailScreen(
                                 onClearState = { viewModel.clearReviewState() },
                                 onSubmitReview = { rating, comment ->
                                     viewModel.submitDiagnosticCenterReview(facility.id, rating, comment)
-                                }
+                                },
+                                isLoggedIn = isLoggedIn
                             )
                     }
+                }
+            }
+        }
+    }
+
+    // Full-screen Reel Video Player Bottom Sheet
+    if (selectedReel != null) {
+        ModalBottomSheet(
+            onDismissRequest = { selectedReel = null },
+            containerColor = Color.Black,
+            dragHandle = null,
+            modifier = Modifier.fillMaxHeight(0.92f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .background(Color.Black)
+            ) {
+                selectedReel?.videoUrl?.let { videoUrl ->
+                    VideoReelPlayer(
+                        videoUrl = videoUrl,
+                        modifier = Modifier.fillMaxSize(),
+                        playWhenReady = true
+                    )
+                }
+                IconButton(
+                    onClick = { selectedReel = null },
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(16.dp)
+                        .size(40.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
         }
@@ -347,7 +407,8 @@ fun DiagnosticReviewSection(
     facilityId: String,
     uiState: DiagnosticDetailUiState,
     onClearState: () -> Unit,
-    onSubmitReview: (Int, String?) -> Unit
+    onSubmitReview: (Int, String?) -> Unit,
+    isLoggedIn: Boolean = false
 ) {
     var showReviewForm by remember { androidx.compose.runtime.mutableStateOf(false) }
     var userRating by remember { androidx.compose.runtime.mutableIntStateOf(0) }
@@ -355,8 +416,6 @@ fun DiagnosticReviewSection(
     val colorScheme = MaterialTheme.colorScheme
     val isDarkSurface = colorScheme.surface.luminance() < 0.5f
     val titleColor = if (isDarkSurface) Color(0xFFE2E8F0) else Color(0xFF1E293B)
-    val isLoggedIn = true // Assume true for now
-
     val rating = uiState.facility?.rating ?: 0f
     val reviewCount = uiState.facility?.reviewCount ?: 0
 

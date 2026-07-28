@@ -8,18 +8,41 @@ const { calculateDistance, formatDistance, getBoundingBox } = require('../utils/
 const { sanitizeSearch } = require('../utils/sanitize');
 const { logSearch } = require('../utils/auditLogger');
 
-// Medicine categories
+// Medicine categories — fetched from DB with static fallback
+// name = lowercase key (matches medicines.category DB values)
+// display_name = human-readable label for UI chips
+const getCategories = async () => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('medicine_categories')
+      .select('id, name, display_name, icon')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+
+    if (!error && data && data.length > 0) {
+      return data.map(c => ({
+        id: c.id,
+        name: c.name,
+        display_name: c.display_name || c.name,
+        icon: c.icon || '',
+      }));
+    }
+  } catch (_) {}
+
+  return CATEGORIES;
+};
+
 const CATEGORIES = [
-  { id: 'general', name: 'General Medicine' },
-  { id: 'antibiotic', name: 'Antibiotics' },
-  { id: 'painkiller', name: 'Painkillers' },
-  { id: 'vitamin', name: 'Vitamins & Supplements' },
-  { id: 'cardiac', name: 'Cardiac Medicine' },
-  { id: 'diabetes', name: 'Diabetes Medicine' },
-  { id: 'skin', name: 'Skin Care' },
-  { id: 'respiratory', name: 'Respiratory' },
-  { id: 'digestive', name: 'Digestive Health' },
-  { id: 'ayurvedic', name: 'Ayurvedic' },
+  { id: 'general', name: 'general', display_name: 'General Medicine', icon: '💊' },
+  { id: 'antibiotic', name: 'antibiotic', display_name: 'Antibiotic', icon: '🧫' },
+  { id: 'painkiller', name: 'painkiller', display_name: 'Painkiller', icon: '🩹' },
+  { id: 'vitamin', name: 'vitamin', display_name: 'Vitamin', icon: '🍊' },
+  { id: 'cardiac', name: 'cardiac', display_name: 'Cardiac', icon: '❤️' },
+  { id: 'diabetes', name: 'diabetes', display_name: 'Diabetes', icon: '🩸' },
+  { id: 'skin', name: 'skin', display_name: 'Skin Care', icon: '🧴' },
+  { id: 'respiratory', name: 'respiratory', display_name: 'Respiratory', icon: '🫁' },
+  { id: 'digestive', name: 'digestive', display_name: 'Digestive Health', icon: '🌿' },
+  { id: 'ayurvedic', name: 'ayurvedic', display_name: 'Ayurvedic', icon: '🍃' },
 ];
 
 const FORM_CATEGORIES = {
@@ -74,8 +97,11 @@ const inferDosageFormCategory = (item = {}) => {
 
 const normalizeMedicineForClient = (medicine = {}) => ({
   ...medicine,
+  // Keep category as-is (therapeutic category from DB, e.g. 'antibiotic')
+  // Add dosage_form as separate field for UI (tablet, capsule, syrup, etc.)
+  dosage_form: medicine.dosage_form || inferDosageFormCategory(medicine),
+  // Legacy field for backward compat — now equivalent to dosage_form
   therapeutic_category: medicine.category || null,
-  category: medicine.dosage_form || inferDosageFormCategory(medicine), // Use stored dosage_form, fallback to inference
 });
 
 const isDosageFormCategory = (category) =>
@@ -126,11 +152,6 @@ const getNearbyActivePharmacies = async (latitude, longitude, radius = 10) => {
     .sort((left, right) => left.distance - right.distance);
 };
 
-// Get categories
-const getCategories = async () => {
-  return CATEGORIES;
-};
-
 // Get popular medicines
 const getPopularMedicines = async (page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
@@ -138,7 +159,7 @@ const getPopularMedicines = async (page = 1, limit = 20) => {
     .from('medicines')
     .select('*', { count: 'exact' })
     .eq('is_active', true)
-    .order('created_at', { ascending: false })
+    .order('search_count', { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
@@ -162,7 +183,8 @@ const searchMedicines = async (query, filters = {}, page = 1, limit = 20) => {
     if (q) dbQuery = dbQuery.or(`name.ilike.%${q}%,generic_name.ilike.%${q}%,manufacturer.ilike.%${q}%`);
   }
   if (filters.category && !isDosageFormCategory(filters.category)) {
-    dbQuery = dbQuery.eq('category', filters.category);
+    // Case-insensitive therapeutic category filter
+    dbQuery = dbQuery.ilike('category', filters.category);
   }
   if (filters.requiresPrescription) dbQuery = dbQuery.eq('requires_prescription', true);
   if (filters.maxPrice) dbQuery = dbQuery.lte('price', filters.maxPrice);
@@ -176,7 +198,7 @@ const searchMedicines = async (query, filters = {}, page = 1, limit = 20) => {
   const normalizedData = (data || []).map(normalizeMedicineForClient);
   const categoryFilter = filters.category ? String(filters.category).toLowerCase() : null;
   const filteredData = isDosageFormCategory(categoryFilter)
-    ? normalizedData.filter((medicine) => medicine.category === categoryFilter)
+    ? normalizedData.filter((medicine) => (medicine.dosage_form || '').toLowerCase() === categoryFilter)
     : normalizedData;
 
   return {

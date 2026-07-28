@@ -719,7 +719,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onBackClick = { navController.popBackStack() },
                     onNavigateToHospital = { hId -> navController.navigateSafe(Screen.HospitalDetail.createRoute(hId)) },
                     onNavigateToClinic = { cId -> navController.navigateSafe(Screen.ClinicDetail.createRoute(cId)) },
-                    onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.createRoute(0)) }
+                    onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.createRoute(0)) },
+                    isLoggedIn = tokenManager.isAuthenticated()
                 )
             }
         }
@@ -741,7 +742,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                         navController.navigateSafe(Screen.DiagnosticBooking.createRoute(facility.id))
                     },
                     onNavigateToHospital = { hId -> navController.navigateSafe(Screen.HospitalDetail.createRoute(hId)) },
-                    onNavigateToClinic = { cId -> navController.navigateSafe(Screen.ClinicDetail.createRoute(cId)) }
+                    onNavigateToClinic = { cId -> navController.navigateSafe(Screen.ClinicDetail.createRoute(cId)) },
+                    isLoggedIn = tokenManager.isAuthenticated()
                 )
             }
         }
@@ -785,7 +787,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             MedicineDetailScreen(
                 medicineId = medicineId,
                 onBackClick = { navController.popBackStack() },
-                onNavigateToCart = { navController.navigateSafe(Screen.MedicineCart.createRoute("GLOBAL")) }
+                onNavigateToCart = { navController.navigateSafe(Screen.MedicineCart.createRoute("GLOBAL")) },
+                onMedicineClick = { id -> navController.navigateSafe("medicine_detail/$id") }
             )
             }
         }

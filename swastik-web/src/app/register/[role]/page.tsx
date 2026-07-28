@@ -124,6 +124,9 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     const [registrationNumber, setRegistrationNumber] = useState('');
     const [specialization, setSpecialization] = useState('');
     const [address, setAddress] = useState('');
+    const [city, setCity] = useState('');
+    const [state, setState] = useState('');
+    const [pincode, setPincode] = useState('');
     const [experience, setExperience] = useState('');
     const [qualification, setQualification] = useState('');
     const [consultationFee, setConsultationFee] = useState('');
@@ -217,6 +220,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
             if (!facilityName.trim()) errors.facilityName = 'Facility name is required';
             if (!licenseNumber.trim()) errors.licenseNumber = 'License/Registration number is required';
             if (!address.trim()) errors.address = 'Address is required';
+            if (!city.trim()) errors.city = 'City is required';
             if (latitude == null || longitude == null) errors.location = 'Map location is required for approval';
         }
 
@@ -264,6 +268,9 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                         facility_name: facilityName.trim(),
                         license_number: licenseNumber,
                         address: address.trim(),
+                        city: city.trim(),
+                        ...(state.trim() ? { state: state.trim() } : {}),
+                        ...(pincode.trim() ? { pincode: pincode.trim() } : {}),
                         ...(latitude != null && longitude != null && !(latitude === 0 && longitude === 0) ? { latitude, longitude } : {}),
                         ...(config.role === 'hospital_owner' ? { is_emergency_available: isEmergencyAvailable, type: hospitalType } : {}),
                     };
@@ -616,6 +623,28 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                         error={fieldErrors.address}
                                         required
                                     />
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <Input
+                                            label={withRequiredMark('City', true)}
+                                            value={city}
+                                            onChange={(e) => { setCity(e.target.value); setFieldErrors(p => { const { city, ...rest } = p; return rest; }); }}
+                                            placeholder="e.g. Mumbai"
+                                            error={fieldErrors.city}
+                                            required
+                                        />
+                                        <Input
+                                            label="State"
+                                            value={state}
+                                            onChange={(e) => setState(e.target.value)}
+                                            placeholder="e.g. Maharashtra"
+                                        />
+                                        <Input
+                                            label="Pincode"
+                                            value={pincode}
+                                            onChange={(e) => setPincode(e.target.value)}
+                                            placeholder="e.g. 400001"
+                                        />
+                                    </div>
                                     <div className="rounded-xl overflow-hidden border border-white/10 relative mt-2 mb-4 bg-white/[0.02]">
                                         <LocationPicker
                                             latitude={latitude}

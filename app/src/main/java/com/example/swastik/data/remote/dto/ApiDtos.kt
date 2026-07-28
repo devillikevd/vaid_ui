@@ -264,6 +264,7 @@ data class NearbyMedicineDto(
     val name: String,
     @SerializedName("generic_name") val genericName: String? = null,
     val category: String?,
+    @SerializedName("therapeuticCategory") val therapeuticCategory: String? = null,
     val price: Float,
     val mrp: Float? = null,
     @SerializedName("pack_size") val packSize: Int? = 1,
@@ -667,8 +668,9 @@ data class MedicineDto(
 data class MedicineCategoryDto(
     val id: String,
     val name: String,
+    @SerializedName("display_name") val displayName: String? = null,
     val icon: String,
-    val count: Int
+    val count: Int = 0
 )
 
 // ==================== REPORT DTOs ====================
@@ -998,7 +1000,43 @@ data class ClinicDto(
     val email: String? = null,
     @SerializedName("opening_time") val openTime: String? = null,
     @SerializedName("closing_time") val closeTime: String? = null,
-    @SerializedName("image_url") val imageUrl: String? = null
+    @SerializedName("image_url") val imageUrl: String? = null,
+    val facilities: List<String>? = null,
+    val description: String? = null,
+    @SerializedName("opening_hours") val openingHours: String? = null,
+    @SerializedName("website_url") val websiteUrl: String? = null,
+    @SerializedName("established_year") val establishedYear: Int? = null,
+    @SerializedName("insurance_accepted") val insuranceAccepted: List<String>? = null,
+    @SerializedName("virtual_tour_url") val virtualTourUrl: String? = null,
+    @SerializedName("gallery_urls") val galleryUrls: List<String>? = null,
+    val accreditations: List<String>? = null,
+    val images: List<String>? = null,
+    @SerializedName("is_emergency_available") val isEmergencyAvailable: Boolean? = null,
+    val departments: List<ClinicDepartmentDto>? = null,
+    val reels: List<ClinicReelDto>? = null
+)
+
+data class ClinicDepartmentDto(
+    val id: String? = null,
+    val name: String? = null,
+    val description: String? = null,
+    @SerializedName("is_active") val isActive: Boolean? = null
+)
+
+data class ClinicReelDto(
+    val id: String? = null,
+    @SerializedName("video_url") val videoUrl: String? = null,
+    @SerializedName("thumbnail_url") val thumbnailUrl: String? = null,
+    val title: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
+data class DiagnosticReelDto(
+    val id: String,
+    @SerializedName("video_url") val videoUrl: String,
+    @SerializedName("thumbnail_url") val thumbnailUrl: String? = null,
+    val title: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null
 )
 
 data class DiagnosticCenterDto(
@@ -1028,7 +1066,9 @@ data class DiagnosticCenterDto(
     @SerializedName("hospital_id") val hospitalId: String? = null,
     @SerializedName("clinic_id") val clinicId: String? = null,
     val accreditations: List<String>? = null,
-    val images: List<String>? = null
+    val images: List<String>? = null,
+    val reels: List<DiagnosticReelDto>? = null,
+    val tests: List<DiagnosticTestDto>? = null
 )
 
 // ==================== COMMON DTOs ====================
@@ -1241,7 +1281,8 @@ data class ClinicDoctorDto(
     @SerializedName("consultation_fee") val consultationFee: Int?,
     @SerializedName("experience_years") val experienceYears: Int?,
     val rating: Float? = null,
-    @SerializedName("average_rating") val averageRating: Float? = null
+    @SerializedName("average_rating") val averageRating: Float? = null,
+    @SerializedName("intro_video_url") val introVideoUrl: String? = null
 ) {
     /** Unified accessor: prefer explicit rating, then average_rating, default 0 */
     val resolvedRating: Float get() = rating ?: averageRating ?: 0f

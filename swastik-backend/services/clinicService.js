@@ -139,11 +139,11 @@ const mapClinicConsultation = (consultation, patientContactMap = new Map()) => {
     },
     appointment: consultation?.appointment
       ? {
-          id: consultation.appointment.id || '',
-          appointment_date: consultation.appointment.appointment_date || null,
-          time_slot: consultation.appointment.time_slot || '',
-          type: consultation.appointment.type || consultation.type || 'video',
-        }
+        id: consultation.appointment.id || '',
+        appointment_date: consultation.appointment.appointment_date || null,
+        time_slot: consultation.appointment.time_slot || '',
+        type: consultation.appointment.type || consultation.type || 'video',
+      }
       : null,
   };
 };
@@ -161,13 +161,13 @@ const searchClinics = async (filters = {}, page = 1, limit = 20) => {
   if (filters.specialization) query = query.contains('specializations', [filters.specialization]);
   if (filters.search) {
     const s = sanitizeSearch(filters.search);
-    if (s) query = query.or(`name.ilike.%${s}%,city.ilike.%${s}%`);
+    if (s) query = query.or(`name.ilike.%${s}%,city.ilike.%${s}%,address.ilike.%${s}%`);
   }
 
   const { data, error } = await query;
 
   if (error) throw error;
-  
+
   let results = data || [];
 
   // SMART RANKING: Top suggested based on rating and reviews
@@ -230,7 +230,7 @@ const findNearby = async (latitude, longitude, radius = 25, specialization) => {
 const getClinicById = async (id) => {
   const { data, error } = await supabaseAdmin
     .from('clinics')
-    .select('*')
+    .select('*, departments:clinic_departments(*), doctors:clinic_doctors(*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee, is_approved, intro_video_url, experience_years, rating)), reels:clinic_reels(*)')
     .eq('id', id)
     .eq('is_active', true)
     .eq('is_approved', true)
@@ -239,6 +239,27 @@ const getClinicById = async (id) => {
   if (error || !data) {
     throw new ApiError(404, 'Clinic not found');
   }
+
+  // Filter inactive departments
+  if (data && data.departments) {
+    data.departments = data.departments.filter(d => d.is_active !== false);
+  }
+
+  // Filter and enrich doctors (same pattern as hospital)
+  if (Array.isArray(data.doctors)) {
+    data.doctors = data.doctors
+      .filter((entry) => entry?.is_active !== false && entry?.doctor?.is_approved === true)
+      .map((entry) => {
+        if (!entry?.doctor) return entry;
+        const { is_approved: _ignored, ...doctor } = entry.doctor;
+        const rating = parseFloat(doctor.rating) || 0;
+        const reviews = parseInt(doctor.total_reviews) || 0;
+        const score = (rating * 10) + (Math.log10(reviews + 1) * 5);
+        return { ...entry, doctor: { ...doctor, smart_score: score } };
+      })
+      .sort((a, b) => (b.doctor?.smart_score || 0) - (a.doctor?.smart_score || 0));
+  }
+
   const [recordWithPhone] = await enrichMissingPhonesFromOwners([data]);
   return recordWithPhone || data;
 };
@@ -274,7 +295,7 @@ const registerClinic = async (userId, clinicData) => {
 const getClinicByOwner = async (userId) => {
   const { data, error } = await supabaseAdmin
     .from('clinics')
-    .select('*')
+    .select('*, reels:clinic_reels(*), departments:clinic_departments(*)')
     .eq('owner_id', userId)
     .single();
 
@@ -380,7 +401,9 @@ const updateClinic = async (clinicId, userId, updates) => {
   const allowedFields = ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
     'latitude', 'longitude', 'specializations', 'description', 'opening_hours',
     'profile_image_url', 'image_url', 'profile_image', 'is_24_hours', 'facilities',
-    'registration_number', 'license_number', 'license_document_url'];
+    'registration_number', 'license_number', 'license_document_url',
+    'website_url', 'established_year', 'insurance_accepted', 'virtual_tour_url',
+    'gallery_urls', 'accreditations', 'images'];
   const safeUpdates = {};
   for (const key of allowedFields) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
@@ -753,6 +776,137 @@ const getClinicDoctorsPublic = async (clinicId) => {
   doctors.sort((a, b) => b.smart_score - a.smart_score);
   return doctors;
 };
+// ── Clinic Reels ──
+const addReel = async (clinicId, userId, data) => {
+  const { video_url, thumbnail_url, title } = data;
+  const { data: reel, error } = await supabaseAdmin
+    .from('clinic_reels')
+    .insert({
+      clinic_id: clinicId,
+      video_url,
+      thumbnail_url,
+      title
+    })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return reel;
+};
+
+const deleteReel = async (clinicId, userId, reelId) => {
+  const { error } = await supabaseAdmin
+    .from('clinic_reels')
+    .delete()
+    .eq('id', reelId)
+    .eq('clinic_id', clinicId);
+
+  if (error) throw error;
+  return true;
+};
+
+// ── Clinic Departments ──
+const getClinicDepartments = async (clinicId) => {
+  const { data, error } = await supabaseAdmin
+    .from('clinic_departments')
+    .select('*')
+    .eq('clinic_id', clinicId)
+    .eq('is_active', true)
+    .order('name', { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+};
+
+const addDepartment = async (clinicId, userId, deptData) => {
+  const { data, error } = await supabaseAdmin
+    .from('clinic_departments')
+    .insert({
+      clinic_id: clinicId,
+      name: deptData.name,
+      description: deptData.description || null,
+      head_doctor_id: deptData.head_doctor_id || null,
+      contact_extension: deptData.contact_extension || null,
+    })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+const updateDepartment = async (clinicId, userId, departmentId, updates) => {
+  const allowed = ['name', 'description', 'head_doctor_id', 'contact_extension', 'is_active'];
+  const safeUpdates = {};
+  for (const key of allowed) {
+    if (updates[key] !== undefined) safeUpdates[key] = updates[key];
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('clinic_departments')
+    .update(safeUpdates)
+    .eq('id', departmentId)
+    .eq('clinic_id', clinicId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+const deleteDepartment = async (clinicId, userId, departmentId) => {
+  const { error } = await supabaseAdmin
+    .from('clinic_departments')
+    .delete()
+    .eq('id', departmentId)
+    .eq('clinic_id', clinicId);
+
+  if (error) throw error;
+  return true;
+};
+
+// ── Clinic Analytics ──
+const getAnalytics = async (clinicId, userId, period = '30d') => {
+  const activeDoctorIds = await getActiveClinicDoctorIds(clinicId);
+  if (activeDoctorIds.length === 0) {
+    return { totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, totalRevenue: 0, avgRating: 0 };
+  }
+
+  const days = parseInt(period) || 30;
+  const fromDate = new Date();
+  fromDate.setDate(fromDate.getDate() - days);
+  const fromDateStr = fromDate.toISOString().split('T')[0];
+
+  const [
+    { count: totalAppointments },
+    { count: completedAppointments },
+    { count: cancelledAppointments },
+    { data: feeRows },
+  ] = await Promise.all([
+    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true })
+      .eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds)
+      .gte('appointment_date', fromDateStr),
+    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true })
+      .eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds)
+      .eq('status', 'completed').gte('appointment_date', fromDateStr),
+    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true })
+      .eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds)
+      .eq('status', 'cancelled').gte('appointment_date', fromDateStr),
+    supabaseAdmin.from('appointments').select('fee')
+      .eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds)
+      .eq('status', 'completed').gte('appointment_date', fromDateStr),
+  ]);
+
+  const totalRevenue = (feeRows || []).reduce((sum, r) => sum + (parseFloat(r.fee) || 0), 0);
+
+  return {
+    totalAppointments: totalAppointments || 0,
+    completedAppointments: completedAppointments || 0,
+    cancelledAppointments: cancelledAppointments || 0,
+    totalRevenue,
+    period: `${days}d`,
+  };
+};
 
 module.exports = {
   searchClinics,
@@ -770,4 +924,11 @@ module.exports = {
   getAppointments,
   getConsultations,
   getClinicDoctorsPublic,
+  addReel,
+  deleteReel,
+  getClinicDepartments,
+  addDepartment,
+  updateDepartment,
+  deleteDepartment,
+  getAnalytics,
 };

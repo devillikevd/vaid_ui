@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
+import { VideoUpload } from '@/components/shared/VideoUpload';
 import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
 import { useAuthStore } from '@/stores/authStore';
 import { doctorApi, authApi } from '@/lib/api';
@@ -43,6 +44,7 @@ export default function DoctorSettingsPage() {
         licenseDocumentUrl: '',
         degreeCertificateUrl: '',
         profileImage: '' as string | null,
+        introVideoUrl: '' as string | null,
         awards: '',
         consultationTypes: [] as string[],
     });
@@ -77,6 +79,7 @@ export default function DoctorSettingsPage() {
                         licenseDocumentUrl: p.license_document_url || '',
                         degreeCertificateUrl: p.degree_certificate_url || '',
                         profileImage: p.profile_image_url || p.profile_image || p.profileImage || p.avatar_url || null,
+                        introVideoUrl: p.intro_video_url || null,
                         awards: Array.isArray(p.awards) ? p.awards.join(', ') : (p.awards || ''),
                         consultationTypes: Array.isArray(p.consultation_types) ? p.consultation_types : ['In-Person', 'Video'],
                     });
@@ -141,6 +144,7 @@ export default function DoctorSettingsPage() {
                 license_document_url: profile.licenseDocumentUrl.trim() || undefined,
                 degree_certificate_url: profile.degreeCertificateUrl.trim() || undefined,
                 profile_image: profile.profileImage || undefined,
+                intro_video_url: profile.introVideoUrl || undefined,
                 awards: profile.awards.split(',').map((item) => item.trim()).filter(Boolean),
                 consultation_types: profile.consultationTypes,
             });
@@ -309,6 +313,19 @@ export default function DoctorSettingsPage() {
                         />
                         <Button onClick={handleSaveProfile} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>Save Profile</Button>
                     </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader><CardTitle>Intro Video Reel (15-Sec)</CardTitle></CardHeader>
+                <CardContent>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        Upload a 15-second intro video that will appear as an Instagram-style story ring on your profile across the patient app. This significantly boosts booking rates.
+                    </p>
+                    <VideoUpload
+                        currentVideo={profile.introVideoUrl}
+                        onUploadComplete={(url) => setProfile(p => ({ ...p, introVideoUrl: url }))}
+                    />
                 </CardContent>
             </Card>
 

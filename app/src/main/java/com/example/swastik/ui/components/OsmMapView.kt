@@ -59,10 +59,13 @@ fun OsmMapView(
 ) {
     val context = LocalContext.current
 
-    // Configure osmdroid once
+    // Configure osmdroid once with valid User-Agent to comply with OSM Tile Usage Policy (prevent 403 error)
     LaunchedEffect(Unit) {
         Configuration.getInstance().apply {
-            userAgentValue = context.packageName
+            load(context, android.preference.PreferenceManager.getDefaultSharedPreferences(context))
+            val validUserAgent = "${context.packageName}/1.0.0 (Swastik Healthcare Telemedicine App; contact: support@swastik.com)"
+            userAgentValue = validUserAgent
+            additionalHttpRequestProperties.put("User-Agent", validUserAgent)
             osmdroidBasePath = context.cacheDir
             osmdroidTileCache = java.io.File(context.cacheDir, "osmdroid/tiles")
         }
@@ -109,7 +112,18 @@ fun OsmMapView(
                     position = GeoPoint(userLatitude, userLongitude)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                     title = "Your Location"
-                    icon = getTintedPinDrawable(context, android.graphics.Color.parseColor("#7C3AED"))
+                    val drawable = ContextCompat.getDrawable(context, R.drawable.ic_map_user)
+                    if (drawable != null) {
+                        val bitmap = android.graphics.Bitmap.createBitmap(
+                            drawable.intrinsicWidth.takeIf { it > 0 } ?: 96,
+                            drawable.intrinsicHeight.takeIf { it > 0 } ?: 96,
+                            android.graphics.Bitmap.Config.ARGB_8888
+                        )
+                        val canvas = android.graphics.Canvas(bitmap)
+                        drawable.setBounds(0, 0, canvas.width, canvas.height)
+                        drawable.draw(canvas)
+                        icon = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+                    }
                 }
                 mapView.overlays.add(userMarker)
             }
@@ -175,7 +189,18 @@ fun OsmMapView(
                     title = markerData.title
                     snippet = markerData.snippet
                     if (markerData.iconRes != null) {
-                        icon = androidx.core.content.ContextCompat.getDrawable(context, markerData.iconRes)
+                        val drawable = androidx.core.content.ContextCompat.getDrawable(context, markerData.iconRes)
+                        if (drawable != null) {
+                            val bitmap = android.graphics.Bitmap.createBitmap(
+                                drawable.intrinsicWidth.takeIf { it > 0 } ?: 96,
+                                drawable.intrinsicHeight.takeIf { it > 0 } ?: 96,
+                                android.graphics.Bitmap.Config.ARGB_8888
+                            )
+                            val canvas = android.graphics.Canvas(bitmap)
+                            drawable.setBounds(0, 0, canvas.width, canvas.height)
+                            drawable.draw(canvas)
+                            icon = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
+                        }
                     } else {
                         icon = getTintedPinDrawable(context, markerData.markerColor)
                     }

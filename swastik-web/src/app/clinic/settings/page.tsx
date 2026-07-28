@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Save, Loader2, Lock } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Save, Loader2, Plus, X, Globe, Calendar, Clock, Image as ImageIcon, Shield, Building2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -9,192 +9,398 @@ import { useAuthStore } from '@/stores/authStore';
 import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
 import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
-import { clinicApi, authApi } from '@/lib/api';
+import { clinicApi, authApi, uploadApi } from '@/lib/api';
 import { getResubmissionSuccessMessage, refreshAuthenticatedUser } from '@/lib/authSession';
+
+const FACILITY_OPTIONS = [
+    'Parking', 'Pharmacy', 'Canteen', 'Wheelchair Access', 'ICU',
+    'NICU', 'Blood Bank', 'Ambulance', 'Wi-Fi', 'Waiting Lounge',
+    'Lab', 'X-Ray', 'MRI', 'CT Scan', 'Ultrasound', 'Dialysis',
+    'Operation Theatre', 'Ventilator', 'Oxygen Supply', 'Elevator',
+];
 
 export default function ClinicSettingsPage() {
     const user = useAuthStore((s) => s.user);
+    const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-    const [form, setForm] = useState({
+    const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [profile, setProfile] = useState({
         name: '',
+        email: '',
         phone: '',
         address: '',
-        email: '',
-        registrationNumber: '',
         licenseNumber: '',
         licenseDocumentUrl: '',
+        accreditations: '',
         profileImage: '' as string | null,
         latitude: null as number | null,
         longitude: null as number | null,
+        description: '',
+        openingHours: '',
+        websiteUrl: '',
+        establishedYear: '',
+        facilities: [] as string[],
+        galleryUrls: [] as string[],
+        insuranceAccepted: '',
+        virtualTourUrl: '',
+        is24Hours: false,
     });
-    const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    const [pwSaving, setPwSaving] = useState(false);
+    const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
+    const [galleryUploading, setGalleryUploading] = useState(false);
+    const galleryInputRef = useRef<HTMLInputElement>(null);
 
-    const loadProfile = async () => {
-        setIsLoading(true);
-        try {
-            const res = await clinicApi.getProfile();
-            if (res.success && res.data) {
-                const raw = res.data as any;
-                const d = raw.data || raw;
-                setForm({
-                    name: d.name || user?.name || '',
-                    phone: d.phone || '',
-                    address: d.address || '',
-                    email: d.email || user?.email || '',
-                    registrationNumber: d.registration_number || '',
-                    licenseNumber: d.license_number || '',
-                    licenseDocumentUrl: d.license_document_url || '',
-                    profileImage: d.profile_image_url || d.profile_image || d.profileImage || d.image_url || d.avatar_url || null,
-                    latitude: d.latitude ?? null,
-                    longitude: d.longitude ?? null,
-                });
-            } else {
-                setForm(f => ({ ...f, name: user?.name || '', email: user?.email || '' }));
-            }
-        } catch {
-            setForm(f => ({ ...f, name: user?.name || '', email: user?.email || '' }));
-        }
-        setIsLoading(false);
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await clinicApi.getProfile();
+                if (res.success) {
+                    const p = (res.data as any)?.clinic || (res.data as any)?.profile || (res.data as any) || {};
+                    setProfile({
+                        name: p.name || user?.name || '',
+                        email: p.email || user?.email || '',
+                        phone: p.phone || '',
+                        address: p.address || '',
+                        licenseNumber: p.license_number || '',
+                        licenseDocumentUrl: p.license_document_url || '',
+                        accreditations: Array.isArray(p.accreditations) ? p.accreditations.join(', ') : '',
+                        profileImage: p.profile_image_url || p.profile_image || p.profileImage || p.image_url || p.avatar_url || null,
+                        latitude: p.latitude ?? null,
+                        longitude: p.longitude ?? null,
+                        description: p.description || '',
+                        openingHours: p.opening_hours || '',
+                        websiteUrl: p.website_url || '',
+                        establishedYear: p.established_year?.toString() || '',
+                        facilities: Array.isArray(p.facilities) ? p.facilities : [],
+                        galleryUrls: Array.isArray(p.gallery_urls) ? p.gallery_urls : [],
+                        insuranceAccepted: Array.isArray(p.insurance_accepted) ? p.insurance_accepted.join(', ') : '',
+                        virtualTourUrl: p.virtual_tour_url || '',
+                        is24Hours: Boolean(p.is_24_hours),
+                    });
+                }
+            } catch { /* use defaults */ }
+            setIsLoading(false);
+        })();
+    }, []);
+
+    const toggleFacility = (facility: string) => {
+        setProfile(p => ({
+            ...p,
+            facilities: p.facilities.includes(facility)
+                ? p.facilities.filter(f => f !== facility)
+                : [...p.facilities, facility],
+        }));
     };
 
-    useEffect(() => { loadProfile(); }, []);
+    const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        setGalleryUploading(true);
+        try {
+            for (const file of Array.from(files)) {
+                const res = await uploadApi.uploadFile(file, 'clinic-gallery');
+                if (res.success && res.url) {
+                    const url = res.url as string;
+                    setProfile(p => ({ ...p, galleryUrls: [...p.galleryUrls, url] }));
+                }
+            }
+        } catch { setSaveStatus({ type: 'error', message: 'Failed to upload gallery image' }); }
+        setGalleryUploading(false);
+        if (galleryInputRef.current) galleryInputRef.current.value = '';
+    };
 
-    const handleSave = async () => {
-        setSaving(true);
-        setStatus(null);
+    const removeGalleryImage = (index: number) => {
+        setProfile(p => ({ ...p, galleryUrls: p.galleryUrls.filter((_, i) => i !== index) }));
+    };
+
+    const handleSaveProfile = async () => {
+        setIsSaving(true);
+        setSaveStatus(null);
         const previousApprovalStatus = user?.approval_status;
-        if (!form.phone.trim()) {
-            setStatus({ type: 'error', message: 'Phone is required for approval and patient contact.' });
-            setSaving(false);
+        if (!profile.phone.trim()) {
+            setSaveStatus({ type: 'error', message: 'Phone is required for approval and patient contact.' });
+            setIsSaving(false);
             return;
         }
-        if (form.latitude == null || form.longitude == null) {
-            setStatus({ type: 'error', message: 'Location is required so patients can find your clinic on map.' });
-            setSaving(false);
+        if (profile.latitude == null || profile.longitude == null) {
+            setSaveStatus({ type: 'error', message: 'Location is required so patients can find your clinic on map.' });
+            setIsSaving(false);
             return;
         }
         try {
-            const payload: Record<string, unknown> = {
-                name: form.name,
-                phone: form.phone,
-                address: form.address,
-                registration_number: form.registrationNumber.trim() || undefined,
-                license_number: form.licenseNumber.trim() || undefined,
-                license_document_url: form.licenseDocumentUrl.trim() || undefined,
-            };
-            // Include location if both lat/lng are set
-            if (form.latitude != null && form.longitude != null) {
-                payload.latitude = form.latitude;
-                payload.longitude = form.longitude;
-            }
-            // Include profile image if set (backend will normalize it)
-            if (form.profileImage) {
-                payload.profile_image_url = form.profileImage;
-            }
-            const res = await clinicApi.updateProfile(payload);
+            const res = await clinicApi.updateProfile({
+                name: profile.name, email: profile.email, phone: profile.phone, address: profile.address,
+                license_number: profile.licenseNumber.trim() || undefined,
+                license_document_url: profile.licenseDocumentUrl.trim() || undefined,
+                accreditations: profile.accreditations
+                    .split(',')
+                    .map((item) => item.trim())
+                    .filter(Boolean),
+                profile_image_url: profile.profileImage || undefined,
+                ...(profile.latitude != null && profile.longitude != null ? { latitude: profile.latitude, longitude: profile.longitude } : {}),
+                description: profile.description.trim() || undefined,
+                opening_hours: profile.openingHours.trim() || undefined,
+                website_url: profile.websiteUrl.trim() || undefined,
+                established_year: Number(profile.establishedYear) || undefined,
+                facilities: profile.facilities.length > 0 ? profile.facilities : undefined,
+                gallery_urls: profile.galleryUrls.length > 0 ? profile.galleryUrls : undefined,
+                insurance_accepted: profile.insuranceAccepted
+                    .split(',')
+                    .map((item) => item.trim())
+                    .filter(Boolean),
+                virtual_tour_url: profile.virtualTourUrl.trim() || undefined,
+                is_24_hours: profile.is24Hours,
+            });
             if (res.success) {
                 const refreshedUser = await refreshAuthenticatedUser();
-                setStatus({
+                setSaveStatus({
                     type: 'success',
-                    message: getResubmissionSuccessMessage(previousApprovalStatus, refreshedUser?.approval_status, 'Settings saved successfully.'),
+                    message: getResubmissionSuccessMessage(previousApprovalStatus, refreshedUser?.approval_status, 'Clinic profile updated!'),
                 });
-            } else setStatus({ type: 'error', message: res.error || 'Failed to save settings.' });
-        } catch { setStatus({ type: 'error', message: 'Network error.' }); }
-        setSaving(false);
-        setTimeout(() => setStatus(null), 4000);
+            } else {
+                setSaveStatus({ type: 'error', message: res.error || 'Failed to update profile' });
+            }
+        } catch { setSaveStatus({ type: 'error', message: 'Network error.' }); }
+        setIsSaving(false);
+        setTimeout(() => setSaveStatus(null), 4000);
     };
 
-    const handlePasswordChange = async () => {
-        if (pwForm.newPassword !== pwForm.confirmPassword) { setStatus({ type: 'error', message: 'Passwords do not match.' }); return; }
-        if (pwForm.newPassword.length < 6) { setStatus({ type: 'error', message: 'Password must be at least 6 characters.' }); return; }
-        setPwSaving(true);
-        setStatus(null);
+    const handleChangePassword = async () => {
+        if (passwords.new !== passwords.confirm) { setSaveStatus({ type: 'error', message: 'Passwords do not match.' }); return; }
+        if (passwords.new.length < 6) { setSaveStatus({ type: 'error', message: 'Password must be at least 6 characters.' }); return; }
+        setIsSaving(true);
         try {
-            const res = await authApi.changePassword(pwForm.currentPassword, pwForm.newPassword);
-            if (res.success) {
-                setStatus({ type: 'success', message: 'Password changed successfully.' });
-                setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-            } else setStatus({ type: 'error', message: res.error || 'Failed to change password.' });
-        } catch { setStatus({ type: 'error', message: 'Network error.' }); }
-        setPwSaving(false);
-        setTimeout(() => setStatus(null), 4000);
+            const res = await authApi.changePassword(passwords.current, passwords.new);
+            if (res.success) { setSaveStatus({ type: 'success', message: 'Password changed!' }); setPasswords({ current: '', new: '', confirm: '' }); }
+            else { setSaveStatus({ type: 'error', message: (res as any).error || 'Failed' }); }
+        } catch { setSaveStatus({ type: 'error', message: 'Network error.' }); }
+        setIsSaving(false);
+        setTimeout(() => setSaveStatus(null), 4000);
     };
 
-    if (isLoading) return <div className="flex items-center justify-center h-96"><Loader2 className="h-8 w-8 animate-spin text-pink-600" /></div>;
+    if (isLoading) return <div className="flex items-center justify-center h-96"><Loader2 className="h-8 w-8 animate-spin text-teal-600" /></div>;
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div><h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Clinic configuration</p></div>
-                <Button onClick={handleSave} isLoading={saving} leftIcon={<Save className="h-4 w-4" />}>Save Changes</Button>
-            </div>
+            <div><h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Clinic configuration</p></div>
 
-            {status && (
-                <div className={`px-4 py-3 rounded-lg text-sm border ${status.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
-                    {status.message}
-                </div>
+            {saveStatus && (
+                <div className={`px-4 py-3 rounded-lg text-sm border ${saveStatus.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>{saveStatus.message}</div>
             )}
 
+            {/* Basic Information */}
             <Card>
                 <CardHeader><CardTitle>Clinic Information</CardTitle></CardHeader>
                 <CardContent>
-                    <ProfileImageUpload
-                        currentImage={form.profileImage}
-                        name={form.name}
-                        onUploadComplete={(url) => setForm(f => ({ ...f, profileImage: url }))}
-                        accentColor="pink"
-                    />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                        <Input label="Clinic Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-                        <Input label="Email" value={form.email} readOnly className="bg-gray-50 dark:bg-gray-800" />
-                        <Input label="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 XXXXX XXXXX" />
-                        <Input label="Registration Number" value={form.registrationNumber} onChange={e => setForm(f => ({ ...f, registrationNumber: e.target.value }))} placeholder="Clinic registration number" />
-                        <Input label="License Number" value={form.licenseNumber} onChange={e => setForm(f => ({ ...f, licenseNumber: e.target.value }))} placeholder="Clinic license number" />
-                        <Input label="Address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Clinic address" />
-                    </div>
-                    <div className="mt-4">
+                    <div className="space-y-4">
+                        <ProfileImageUpload
+                            currentImage={profile.profileImage}
+                            name={profile.name}
+                            onUploadComplete={(url) => setProfile(p => ({ ...p, profileImage: url }))}
+                            accentColor="teal"
+                        />
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Clinic Name</label><Input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label><Input value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} placeholder="clinic@example.com" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label><Input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="+91..." /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label><Input value={profile.address} onChange={e => setProfile(p => ({ ...p, address: e.target.value }))} placeholder="Full address" /></div>
                         <LocationPicker
-                            latitude={form.latitude}
-                            longitude={form.longitude}
-                            address={form.address}
+                            latitude={profile.latitude}
+                            longitude={profile.longitude}
+                            address={profile.address}
                             onLocationChange={(lat, lng) => {
                                 if (lat === 0 && lng === 0) {
-                                    setForm(f => ({ ...f, latitude: null, longitude: null }));
+                                    setProfile(p => ({ ...p, latitude: null, longitude: null }));
                                 } else {
-                                    setForm(f => ({ ...f, latitude: lat, longitude: lng }));
+                                    setProfile(p => ({ ...p, latitude: lat, longitude: lng }));
                                 }
                             }}
-                            accentColor="pink"
+                            accentColor="teal"
                             label="Clinic Location"
                             height="250px"
-                        />
-                    </div>
-                    <div className="mt-4">
-                        <ComplianceDocumentUpload
-                            label="Clinic License Document"
-                            providerType="clinic"
-                            value={form.licenseDocumentUrl}
-                            onChange={(url) => setForm((prev) => ({ ...prev, licenseDocumentUrl: url }))}
-                            description="Upload the clinic license or paste the hosted document URL used for admin review."
                         />
                     </div>
                 </CardContent>
             </Card>
 
+            {/* About & Details */}
             <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Lock className="h-4 w-4" />Change Password</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5 text-teal-600" />About & Details</CardTitle></CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Input label="Current Password" type="password" value={pwForm.currentPassword} onChange={e => setPwForm(f => ({ ...f, currentPassword: e.target.value }))} />
-                        <Input label="New Password" type="password" value={pwForm.newPassword} onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))} />
-                        <Input label="Confirm Password" type="password" value={pwForm.confirmPassword} onChange={e => setPwForm(f => ({ ...f, confirmPassword: e.target.value }))} />
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description / About Us</label>
+                            <textarea
+                                value={profile.description}
+                                onChange={e => setProfile(p => ({ ...p, description: e.target.value }))}
+                                placeholder="Tell patients about your clinic — its mission, specialties, and what makes it unique..."
+                                rows={4}
+                                maxLength={2000}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                            />
+                            <p className="text-xs text-gray-400 mt-1">{profile.description.length}/2000</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <Globe className="inline h-4 w-4 mr-1 text-teal-600" />Website URL
+                                </label>
+                                <Input value={profile.websiteUrl} onChange={e => setProfile(p => ({ ...p, websiteUrl: e.target.value }))} placeholder="https://www.yourclinic.com" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <Calendar className="inline h-4 w-4 mr-1 text-teal-600" />Established Year
+                                </label>
+                                <Input type="number" value={profile.establishedYear} onChange={e => setProfile(p => ({ ...p, establishedYear: e.target.value }))} placeholder="e.g. 1995" min="1800" max={new Date().getFullYear()} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <Clock className="inline h-4 w-4 mr-1 text-teal-600" />Opening Hours
+                            </label>
+                            <Input value={profile.openingHours} onChange={e => setProfile(p => ({ ...p, openingHours: e.target.value }))} placeholder="Mon-Sat: 9:00 AM - 9:00 PM, Sun: 10:00 AM - 2:00 PM" />
+                        </div>
                     </div>
-                    <div className="mt-4">
-                        <Button variant="outline" onClick={handlePasswordChange} isLoading={pwSaving} disabled={!pwForm.currentPassword || !pwForm.newPassword}>Change Password</Button>
+                </CardContent>
+            </Card>
+
+            {/* Facilities */}
+            <Card>
+                <CardHeader><CardTitle>Facilities & Amenities</CardTitle></CardHeader>
+                <CardContent>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Select all facilities available at your clinic</p>
+                    <div className="flex flex-wrap gap-2">
+                        {FACILITY_OPTIONS.map(facility => (
+                            <button
+                                key={facility}
+                                type="button"
+                                onClick={() => toggleFacility(facility)}
+                                className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                                    profile.facilities.includes(facility)
+                                        ? 'bg-teal-600 text-white border-teal-600'
+                                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-teal-400'
+                                }`}
+                            >
+                                {profile.facilities.includes(facility) && '✓ '}{facility}
+                            </button>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Premium Features */}
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Globe className="h-5 w-5 text-teal-600" />Premium Clinic Features</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                360° Virtual Tour URL (Matterport, Kuula, etc.)
+                            </label>
+                            <Input 
+                                value={profile.virtualTourUrl} 
+                                onChange={e => setProfile(p => ({ ...p, virtualTourUrl: e.target.value }))} 
+                                placeholder="https://my.matterport.com/show/?m=..." 
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Embedded directly inside the Patient App for premium engagement.</p>
+                        </div>
+                        <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                            <div>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Open 24 Hours</p>
+                                <p className="text-xs text-gray-500 mt-0.5">Toggle if your clinic operates round the clock</p>
+                            </div>
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={profile.is24Hours}
+                                onClick={() => setProfile(p => ({ ...p, is24Hours: !p.is24Hours }))}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    profile.is24Hours ? 'bg-teal-600' : 'bg-gray-300 dark:bg-gray-600'
+                                }`}
+                            >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    profile.is24Hours ? 'translate-x-6' : 'translate-x-1'
+                                }`} />
+                            </button>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Gallery */}
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5 text-teal-600" />Clinic Gallery</CardTitle></CardHeader>
+                <CardContent>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Upload photos of your clinic — reception, rooms, OPD area, facilities. Patients see these on the app.</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        {profile.galleryUrls.map((url, i) => (
+                            <div key={i} className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 aspect-video">
+                                <img src={url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
+                                <button
+                                    type="button"
+                                    onClick={() => removeGalleryImage(i)}
+                                    className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => galleryInputRef.current?.click()}
+                            disabled={galleryUploading}
+                            className="aspect-video flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-teal-500 transition-colors text-gray-400 hover:text-teal-600"
+                        >
+                            {galleryUploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Plus className="h-6 w-6" />}
+                            <span className="text-xs mt-1">{galleryUploading ? 'Uploading...' : 'Add Photo'}</span>
+                        </button>
+                    </div>
+                    <input
+                        ref={galleryInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleGalleryUpload}
+                        className="hidden"
+                    />
+                </CardContent>
+            </Card>
+
+            {/* Credentials & Compliance */}
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5 text-teal-600" />Credentials & Compliance</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number</label><Input value={profile.licenseNumber} onChange={e => setProfile(p => ({ ...p, licenseNumber: e.target.value }))} placeholder="Clinic license number" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Accreditations</label><Input value={profile.accreditations} onChange={e => setProfile(p => ({ ...p, accreditations: e.target.value }))} placeholder="NABH, ISO 9001, JCI" /></div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Insurance Accepted</label>
+                            <Input value={profile.insuranceAccepted} onChange={e => setProfile(p => ({ ...p, insuranceAccepted: e.target.value }))} placeholder="Star Health, ICICI Lombard, Max Bupa, CGHS, ECHS" />
+                            <p className="text-xs text-gray-400 mt-1">Comma-separated list of insurance providers accepted</p>
+                        </div>
+                        <ComplianceDocumentUpload
+                            label="Clinic License Document"
+                            providerType="clinic"
+                            value={profile.licenseDocumentUrl}
+                            onChange={(url) => setProfile((prev) => ({ ...prev, licenseDocumentUrl: url }))}
+                            description="Upload the clinic license or paste a hosted document URL for admin review."
+                        />
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Save Button */}
+            <div className="flex justify-end">
+                <Button onClick={handleSaveProfile} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>Save All Changes</Button>
+            </div>
+
+            {/* Change Password */}
+            <Card>
+                <CardHeader><CardTitle>Change Password</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Current Password</label><Input type="password" value={passwords.current} onChange={e => setPasswords(p => ({ ...p, current: e.target.value }))} /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New Password</label><Input type="password" value={passwords.new} onChange={e => setPasswords(p => ({ ...p, new: e.target.value }))} /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirm Password</label><Input type="password" value={passwords.confirm} onChange={e => setPasswords(p => ({ ...p, confirm: e.target.value }))} /></div>
+                        <Button variant="outline" onClick={handleChangePassword} isLoading={isSaving}>Change Password</Button>
                     </div>
                 </CardContent>
             </Card>

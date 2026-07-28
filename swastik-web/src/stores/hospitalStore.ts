@@ -123,6 +123,7 @@ interface HospitalState {
     addDepartment: (data: Record<string, unknown>) => Promise<boolean>;
     updateDepartment: (departmentId: string, data: Record<string, unknown>) => Promise<boolean>;
     deleteDepartment: (departmentId: string) => Promise<boolean>;
+    updateErWaitTime: (waitMinutes: number) => Promise<boolean>;
     clearError: () => void;
     reset: () => void;
 }
@@ -438,6 +439,21 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
         } catch (error) {
             console.error('Error fetching reviews:', error);
             set({ error: 'Failed to load reviews.', loadingReviews: false });
+        }
+    },
+
+    updateErWaitTime: async (waitMinutes: number) => {
+        try {
+            const response = await hospitalApi.updateErWaitTime(waitMinutes);
+            if (response.success) {
+                return true;
+            }
+            set({ error: response.error || 'Failed to update ER wait time' });
+            return false;
+        } catch (error) {
+            console.error('Error updating ER wait time:', error);
+            set({ error: 'Failed to update ER wait time.' });
+            return false;
         }
     },
 }));

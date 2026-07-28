@@ -78,6 +78,7 @@ router.put('/me/profile',
     body('license_document_url').optional().isString().trim(),
     body('degree_certificate_url').optional().isString().trim(),
     body('profile_image_url').optional().isString().trim(),
+    body('intro_video_url').optional().isString().trim(),
   ],
   validate,
   asyncHandler(async (req, res) => {

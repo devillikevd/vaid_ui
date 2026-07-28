@@ -16,6 +16,34 @@ const { deleteOldImageUrl } = require('../config/minio');
 router.use(authenticate);
 router.use(requireRole(ROLES.SUPER_ADMIN, ROLES.ADMIN));
 
+// Category normalization helper — caches valid names from medicine_categories table
+let _validCategoryCache = null;
+let _categoryCacheTime = 0;
+const normalizeCategory = async (category) => {
+    if (!category) return null;
+    const name = category.toString().trim().toLowerCase();
+    if (!name) return null;
+    const now = Date.now();
+    if (!_validCategoryCache || now - _categoryCacheTime > 300000) {
+        try {
+            const { data } = await require('../config/supabase').supabaseAdmin
+                .from('medicine_categories').select('name').eq('is_active', true);
+            if (data) { _validCategoryCache = data.map(c => c.name); _categoryCacheTime = now; }
+        } catch (_) {}
+    }
+    if (_validCategoryCache && _validCategoryCache.length > 0) {
+        const exact = _validCategoryCache.find(c => c === name);
+        if (exact) return exact;
+        // Only partial match if name is 3+ chars and appears at word boundary
+        if (name.length >= 3) {
+            const partial = _validCategoryCache.find(c => c.startsWith(name) || name.startsWith(c));
+            if (partial) return partial;
+        }
+        return name;
+    }
+    return name;
+};
+
 // ==================== DASHBOARD ====================
 
 /**
@@ -430,11 +458,13 @@ router.post('/medicines', [
     const { supabaseAdmin } = require('../config/supabase');
     const m = req.body;
 
+    const normalizedCategory = await normalizeCategory(m.category);
+
     const medicine = {
         name: m.name,
         generic_name: m.generic_name || null,
         manufacturer: m.manufacturer || null,
-        category: m.category || null,
+        category: normalizedCategory,
         subcategory: m.subcategory || null,
         description: m.description || null,
         form: m.form || null,
@@ -475,7 +505,7 @@ router.put('/medicines/:id', [
     if (m.name !== undefined) updates.name = m.name;
     if (m.generic_name !== undefined) updates.generic_name = m.generic_name || null;
     if (m.manufacturer !== undefined) updates.manufacturer = m.manufacturer || null;
-    if (m.category !== undefined) updates.category = m.category || null;
+    if (m.category !== undefined) updates.category = await normalizeCategory(m.category);
     if (m.subcategory !== undefined) updates.subcategory = m.subcategory || null;
     if (m.description !== undefined) updates.description = m.description || null;
     if (m.form !== undefined) updates.form = m.form || null;
@@ -545,31 +575,54 @@ router.post('/medicines/bulk', [
 ], asyncHandler(async (req, res) => {
     const { medicines } = req.body;
     
-    // Validate each medicine loosely to avoid failing whole batch unnecessarily
-    const validMedicines = medicines.filter(m => m.name).map(m => ({
-        name: m.name,
-        generic_name: m.generic_name || m.genericname || m.genericName || null,
-        manufacturer: m.manufacturer || null,
-        category: m.category || null,
-        price: parseFloat(m.price) || 0,
-        mrp: parseFloat(m.mrp) || parseFloat(m.price) || 0,
-        requires_prescription: m.requires_prescription === 'true' || m.requiresprescription === 'true' || m.requiresPrescription === true || false,
-    }));
+    // Validate and normalize each medicine
+    const validMedicines = (await Promise.all(medicines.filter(m => m.name).map(async m => {
+        return {
+            name: m.name,
+            generic_name: m.generic_name || m.genericname || m.genericName || null,
+            manufacturer: m.manufacturer || null,
+            category: await normalizeCategory(m.category),
+            dosage_form: m.dosage_form || m.dosageForm || null,
+            strength: m.strength || null,
+            price: parseFloat(m.price) || 0,
+            mrp: parseFloat(m.mrp) || parseFloat(m.price) || 0,
+            requires_prescription: m.requires_prescription === 'true' || m.requiresprescription === 'true' || m.requiresPrescription === true || false,
+        };
+    }))).filter(m => m.name);
 
     if (validMedicines.length === 0) {
         return res.status(400).json({ success: false, message: 'No valid medicines found to import' });
     }
 
-    // Insert into Supabase directly since we don't have a specific service method yet
+    // Insert into Supabase directly, dedup by name (case-insensitive)
     const { supabaseAdmin } = require('../config/supabase');
-    const { data, error } = await supabaseAdmin.from('medicines').insert(validMedicines);
+    
+    // Fetch existing medicine names to skip duplicates
+    const namesToCheck = validMedicines.map(m => m.name.toLowerCase());
+    const { data: existingMedicines } = await supabaseAdmin
+        .from('medicines')
+        .select('name')
+        .in('name', validMedicines.map(m => m.name));
+    const existingNames = new Set((existingMedicines || []).map(m => m.name.toLowerCase()));
+    
+    const newMedicines = validMedicines.filter(m => !existingNames.has(m.name.toLowerCase()));
+    const skippedCount = validMedicines.length - newMedicines.length;
+    
+    if (newMedicines.length === 0) {
+        return res.json({ success: true, message: `All ${skippedCount} medicines already exist in catalog`, skipped: skippedCount });
+    }
+
+    const { data, error } = await supabaseAdmin.from('medicines').insert(newMedicines);
 
     if (error) {
         console.error('Error importing medicines:', error);
         return res.status(500).json({ success: false, message: 'Failed to import medicines', error: error.message });
     }
 
-    res.json({ success: true, message: `Successfully imported ${validMedicines.length} medicines` });
+    const msg = skippedCount > 0 
+        ? `Imported ${newMedicines.length} medicines, skipped ${skippedCount} duplicates`
+        : `Successfully imported ${newMedicines.length} medicines`;
+    res.json({ success: true, message: msg, imported: newMedicines.length, skipped: skippedCount });
 }));
 
 // ==================== SYSTEM ====================
