@@ -976,7 +976,9 @@ data class PharmacyDto(
     @SerializedName("delivery_radius_km") val deliveryRadiusKm: Int? = null,
     @SerializedName("min_order_delivery") val minOrderDelivery: Double? = null,
     @SerializedName("hospital_id") val hospitalId: String? = null,
-    @SerializedName("clinic_id") val clinicId: String? = null
+    @SerializedName("clinic_id") val clinicId: String? = null,
+    @SerializedName("gallery_urls") val galleryUrls: List<String>? = null,
+    val reels: List<PharmacyReelDto>? = null
 )
 
 data class ClinicDto(
@@ -1031,6 +1033,14 @@ data class ClinicReelDto(
     @SerializedName("created_at") val createdAt: String? = null
 )
 
+data class PharmacyReelDto(
+    val id: String?,
+    @SerializedName("video_url") val videoUrl: String?,
+    @SerializedName("thumbnail_url") val thumbnailUrl: String?,
+    val title: String?,
+    @SerializedName("created_at") val createdAt: String?
+)
+
 data class DiagnosticReelDto(
     val id: String,
     @SerializedName("video_url") val videoUrl: String,
@@ -1066,7 +1076,7 @@ data class DiagnosticCenterDto(
     @SerializedName("hospital_id") val hospitalId: String? = null,
     @SerializedName("clinic_id") val clinicId: String? = null,
     val accreditations: List<String>? = null,
-    val images: List<String>? = null,
+    @SerializedName("gallery_urls") val galleryUrls: List<String>? = null,
     val reels: List<DiagnosticReelDto>? = null,
     val tests: List<DiagnosticTestDto>? = null
 )

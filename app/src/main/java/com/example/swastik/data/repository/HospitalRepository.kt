@@ -701,7 +701,9 @@ class HospitalRepository @Inject constructor(
             reels = reels.orEmpty(),
             erWaitTimeMinutes = erWaitTimeMinutes,
             virtualTourUrl = virtualTourUrl,
-            floorGuideMapUrl = floorGuideMapUrl
+            floorGuideMapUrl = floorGuideMapUrl,
+            associatedPharmacies = associatedPharmacies.orEmpty(),
+            associatedDiagnosticCenters = associatedDiagnosticCenters.orEmpty()
         )
     }
 
@@ -769,7 +771,9 @@ private fun ClinicDto.toMedicalFacility(
                 title = reel.title,
                 createdAt = reel.createdAt
             )
-        } ?: emptyList()
+        } ?: emptyList(),
+        associatedPharmacies = associatedPharmacies ?: emptyList(),
+        associatedDiagnosticCenters = associatedDiagnosticCenters ?: emptyList()
     )
 }
 
@@ -807,6 +811,16 @@ private fun ClinicDto.toMedicalFacility(
             isOpen = isOpen ?: true,
             is24Hours = is24Hours ?: false,
             imageUrl = imageUrl,
+            images = galleryUrls ?: emptyList(),
+            reels = reels?.map { reel ->
+                HospitalReel(
+                    id = reel.id ?: "",
+                    videoUrl = reel.videoUrl ?: "",
+                    thumbnailUrl = reel.thumbnailUrl,
+                    title = reel.title,
+                    createdAt = reel.createdAt
+                )
+            } ?: emptyList(),
             deliveryAvailable = deliveryAvailable ?: offersDelivery ?: false,
             minOrderDelivery = minOrderDelivery,
             deliveryRadiusKm = deliveryRadiusKm,
@@ -843,7 +857,7 @@ private fun ClinicDto.toMedicalFacility(
             homeCollectionFee = homeCollectionFee,
             testCategories = specialties ?: emptyList(),
             accreditations = accreditations ?: emptyList(),
-            images = images ?: emptyList(),
+            images = galleryUrls ?: emptyList(),
             hospitalId = hospitalId,
             clinicId = clinicId,
             reels = reels?.map { reel ->

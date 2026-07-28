@@ -37,6 +37,9 @@ import com.example.swastik.R
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.components.*
 import com.example.swastik.ui.screens.patient.components.shimmerEffect
+import com.example.swastik.ui.screens.patient.components.HospitalReelsSection
+import com.example.swastik.ui.screens.patient.components.AssociatedNetworkSection
+import com.example.swastik.ui.screens.patient.components.HealthAlertCard
 import com.example.swastik.ui.theme.SwastikOrange
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.HospitalDetailViewModel
@@ -372,7 +375,19 @@ fun HospitalDetailScreen(
                         }
                     }
 
-                    // ─── 5.5 PREMIUM FEATURES + FLOOR GUIDE MAP ────────────────
+                    // ─── 5.5 HEALTH ALERTS ─────────────────────────────────────
+                    item {
+                        HealthAlertCard(isDark = isDark)
+                    }
+
+                    // ─── 5.6 HOSPITAL REELS & TOURS ────────────────────────────
+                    if (!facility.reels.isNullOrEmpty()) {
+                        item {
+                            HospitalReelsSection(reels = facility.reels, isDark = isDark)
+                        }
+                    }
+
+                    // ─── 5.7 PREMIUM FEATURES + FLOOR GUIDE MAP ────────────────
                     if (!facility.virtualTourUrl.isNullOrBlank() || !facility.floorGuideMapUrl.isNullOrBlank() || facility.type == FacilityType.HOSPITAL) {
                         item {
                             PremiumActionsRow(facility = facility, modifier = Modifier.padding(vertical = 8.dp), isDark = isDark)
@@ -436,6 +451,17 @@ fun HospitalDetailScreen(
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    // ─── 8.5 ASSOCIATED NETWORK ───────────────────────
+                    if (!facility.associatedPharmacies.isNullOrEmpty() || !facility.associatedDiagnosticCenters.isNullOrEmpty()) {
+                        item {
+                            AssociatedNetworkSection(
+                                pharmacies = facility.associatedPharmacies,
+                                diagnostics = facility.associatedDiagnosticCenters,
+                                isDark = isDark
+                            )
                         }
                     }
 

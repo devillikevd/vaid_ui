@@ -58,7 +58,9 @@ data class MedicalFacility(
     @SerializedName("floor_guide_map_url") val floorGuideMapUrl: String? = null,
     val reels: List<HospitalReel> = emptyList(),
     val inventory: List<PharmacyMedicine> = emptyList(),
-    val tests: List<DiagnosticTest> = emptyList()
+    val tests: List<DiagnosticTest> = emptyList(),
+    val associatedPharmacies: List<Pharmacy> = emptyList(),
+    val associatedDiagnosticCenters: List<DiagnosticCenter> = emptyList()
 )
 
 data class PharmacyMedicine(

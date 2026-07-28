@@ -206,7 +206,18 @@ data class Hospital(
     val reels: List<HospitalReel>? = null,
     @SerializedName("er_wait_time_minutes") val erWaitTimeMinutes: Int? = null,
     @SerializedName("virtual_tour_url") val virtualTourUrl: String? = null,
-    @SerializedName("floor_guide") val floorGuideMapUrl: String? = null
+    @SerializedName("floor_guide") val floorGuideMapUrl: String? = null,
+    @SerializedName("owner_id") val ownerId: String? = null,
+    @SerializedName("license_number") val licenseNumber: String? = null,
+    @SerializedName("license_document_url") val licenseDocumentUrl: String? = null,
+    @SerializedName("is_approved") val isApproved: Boolean? = null,
+    @SerializedName("approval_status") val approvalStatus: String? = null,
+    @SerializedName("emergency_phone") val emergencyPhone: String? = null,
+    @SerializedName("icu_beds") val icuBeds: Int? = null,
+    @SerializedName("icu_beds_available") val icuBedsAvailable: Int? = null,
+    @SerializedName("emergency_beds") val emergencyBeds: Int? = null,
+    @SerializedName("associated_pharmacies") val associatedPharmacies: List<Pharmacy>? = null,
+    @SerializedName("associated_diagnostic_centers") val associatedDiagnosticCenters: List<DiagnosticCenter>? = null
 )
 
 data class HospitalDepartment(
@@ -253,7 +264,26 @@ data class Clinic(
     @SerializedName("is_emergency_available") val isEmergencyAvailable: Boolean? = null,
     @SerializedName("gallery_urls") val galleryUrls: List<String>? = null,
     @SerializedName("opening_time") val openTime: String? = null,
-    @SerializedName("closing_time") val closeTime: String? = null
+    @SerializedName("closing_time") val closeTime: String? = null,
+    val city: String? = null,
+    val departments: List<HospitalDepartment>? = null,
+    val doctors: List<HospitalDoctorAssignment>? = null,
+    val description: String? = null,
+    @SerializedName("opening_hours") val openingHours: String? = null,
+    val accreditations: List<String>? = null,
+    @SerializedName("website_url") val websiteUrl: String? = null,
+    @SerializedName("established_year") val establishedYear: Int? = null,
+    @SerializedName("insurance_accepted") val insuranceAccepted: List<String>? = null,
+    val reels: List<HospitalReel>? = null,
+    @SerializedName("virtual_tour_url") val virtualTourUrl: String? = null,
+    @SerializedName("floor_guide") val floorGuideMapUrl: String? = null,
+    @SerializedName("owner_id") val ownerId: String? = null,
+    @SerializedName("license_number") val licenseNumber: String? = null,
+    @SerializedName("license_document_url") val licenseDocumentUrl: String? = null,
+    @SerializedName("is_approved") val isApproved: Boolean? = null,
+    @SerializedName("approval_status") val approvalStatus: String? = null,
+    @SerializedName("associated_pharmacies") val associatedPharmacies: List<Pharmacy>? = null,
+    @SerializedName("associated_diagnostic_centers") val associatedDiagnosticCenters: List<DiagnosticCenter>? = null
 )
 
 data class Review(

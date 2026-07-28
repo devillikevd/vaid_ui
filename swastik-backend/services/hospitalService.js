@@ -272,13 +272,23 @@ const searchHospitals = async (query, latitude, longitude) => {
 
 // Get hospital by ID (only approved & active facilities visible to patients)
 const getHospitalById = async (id) => {
-  const { data, error } = await supabaseAdmin
-    .from('hospitals')
-    .select('*, departments:hospital_departments(*), doctors:hospital_doctors(*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee, is_approved)), reels:hospital_reels(*)')
-    .eq('id', id)
-    .eq('is_approved', true)
-    .eq('is_active', true)
-    .single();
+  const [hospitalRes, associationsRes] = await Promise.all([
+    supabaseAdmin
+      .from('hospitals')
+      .select('*, departments:hospital_departments(*), doctors:hospital_doctors(*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee, is_approved, rating, total_reviews, experience_years, intro_video_url)), reels:hospital_reels(*)')
+      .eq('id', id)
+      .eq('is_approved', true)
+      .eq('is_active', true)
+      .single(),
+    supabaseAdmin
+      .from('facility_provider_associations')
+      .select('*')
+      .eq('facility_type', 'hospital')
+      .eq('facility_id', id)
+      .eq('is_active', true)
+  ]);
+
+  const { data, error } = hospitalRes;
 
   if (error || !data) {
     throw new ApiError(404, 'Hospital not found');
@@ -302,6 +312,23 @@ const getHospitalById = async (id) => {
 
   if (Array.isArray(data.departments)) {
     data.departments = data.departments.filter((department) => department?.is_active !== false);
+  }
+
+  // Attach Associated Facilities
+  if (associationsRes.data && associationsRes.data.length > 0) {
+    const pharmacyIds = associationsRes.data.filter(a => a.provider_type === 'pharmacy').map(a => a.provider_id);
+    const diagnosticIds = associationsRes.data.filter(a => a.provider_type === 'diagnostic_center').map(a => a.provider_id);
+    
+    const [pharmaciesRes, diagnosticsRes] = await Promise.all([
+      pharmacyIds.length > 0 ? supabaseAdmin.from('pharmacies').select('id, name, address, rating, is_open, image_url').in('id', pharmacyIds) : Promise.resolve({ data: [] }),
+      diagnosticIds.length > 0 ? supabaseAdmin.from('diagnostic_centers').select('id, name, address, rating, is_24_hours, image_url').in('id', diagnosticIds) : Promise.resolve({ data: [] })
+    ]);
+    
+    data.associated_pharmacies = pharmaciesRes.data || [];
+    data.associated_diagnostic_centers = diagnosticsRes.data || [];
+  } else {
+    data.associated_pharmacies = [];
+    data.associated_diagnostic_centers = [];
   }
 
   return data;

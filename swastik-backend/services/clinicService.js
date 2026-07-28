@@ -228,13 +228,23 @@ const findNearby = async (latitude, longitude, radius = 25, specialization) => {
 
 // Get clinic by ID
 const getClinicById = async (id) => {
-  const { data, error } = await supabaseAdmin
-    .from('clinics')
-    .select('*, departments:clinic_departments(*), doctors:clinic_doctors(*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee, is_approved, intro_video_url, experience_years, rating)), reels:clinic_reels(*)')
-    .eq('id', id)
-    .eq('is_active', true)
-    .eq('is_approved', true)
-    .single();
+  const [clinicRes, associationsRes] = await Promise.all([
+    supabaseAdmin
+      .from('clinics')
+      .select('*, departments:clinic_departments(*), doctors:clinic_doctors(*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee, is_approved, intro_video_url, experience_years, rating, total_reviews)), reels:clinic_reels(*)')
+      .eq('id', id)
+      .eq('is_active', true)
+      .eq('is_approved', true)
+      .single(),
+    supabaseAdmin
+      .from('facility_provider_associations')
+      .select('*')
+      .eq('facility_type', 'clinic')
+      .eq('facility_id', id)
+      .eq('is_active', true)
+  ]);
+
+  let { data, error } = clinicRes;
 
   if (error || !data) {
     throw new ApiError(404, 'Clinic not found');
@@ -245,7 +255,7 @@ const getClinicById = async (id) => {
     data.departments = data.departments.filter(d => d.is_active !== false);
   }
 
-  // Filter and enrich doctors (same pattern as hospital)
+  // Filter and enrich doctors
   if (Array.isArray(data.doctors)) {
     data.doctors = data.doctors
       .filter((entry) => entry?.is_active !== false && entry?.doctor?.is_approved === true)
@@ -258,6 +268,23 @@ const getClinicById = async (id) => {
         return { ...entry, doctor: { ...doctor, smart_score: score } };
       })
       .sort((a, b) => (b.doctor?.smart_score || 0) - (a.doctor?.smart_score || 0));
+  }
+
+  // Attach Associated Facilities
+  if (associationsRes.data && associationsRes.data.length > 0) {
+    const pharmacyIds = associationsRes.data.filter(a => a.provider_type === 'pharmacy').map(a => a.provider_id);
+    const diagnosticIds = associationsRes.data.filter(a => a.provider_type === 'diagnostic_center').map(a => a.provider_id);
+    
+    const [pharmaciesRes, diagnosticsRes] = await Promise.all([
+      pharmacyIds.length > 0 ? supabaseAdmin.from('pharmacies').select('id, name, address, rating, is_open, image_url').in('id', pharmacyIds) : Promise.resolve({ data: [] }),
+      diagnosticIds.length > 0 ? supabaseAdmin.from('diagnostic_centers').select('id, name, address, rating, is_24_hours, image_url').in('id', diagnosticIds) : Promise.resolve({ data: [] })
+    ]);
+    
+    data.associated_pharmacies = pharmaciesRes.data || [];
+    data.associated_diagnostic_centers = diagnosticsRes.data || [];
+  } else {
+    data.associated_pharmacies = [];
+    data.associated_diagnostic_centers = [];
   }
 
   const [recordWithPhone] = await enrichMissingPhonesFromOwners([data]);
