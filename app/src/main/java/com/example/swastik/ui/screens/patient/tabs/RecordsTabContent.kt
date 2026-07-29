@@ -56,9 +56,10 @@ fun RecordsTabContent(
     onNotificationClick: () -> Unit = {},
     onNavigateToPrescriptions: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
-    viewModel: RecordsViewModel = hiltViewModel()
+    viewModel: RecordsViewModel = hiltViewModel(),
+    initialFilter: RecordFilter = RecordFilter.ALL
 ) {
-    var selectedFilter by remember { mutableStateOf(RecordFilter.ALL) }
+    var selectedFilter by remember { mutableStateOf(initialFilter) }
     var showUploadDialog by remember { mutableStateOf(false) }
 
     androidx.activity.compose.BackHandler(enabled = selectedFilter != RecordFilter.ALL) {
@@ -832,7 +833,7 @@ private fun getDocumentTypeIconColor(type: DocumentType, colorScheme: ColorSchem
     else -> colorScheme.onSurfaceVariant
 }
 
-private enum class RecordFilter {
+enum class RecordFilter {
     ALL,
     CONSULTATIONS,
     PRESCRIPTIONS,

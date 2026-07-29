@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -20,12 +23,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.core.content.ContextCompat
 import com.example.swastik.data.remote.dto.UpdateProfileRequest
 import com.example.swastik.ui.screens.patient.components.*
-import com.example.swastik.ui.screens.patient.profile.SavedAddressesDialog
+import com.example.swastik.ui.screens.patient.location.AddLocationDetailsBottomSheet
+import com.example.swastik.data.model.SavedAddress
 import com.example.swastik.ui.screens.patient.tabs.*
 import com.example.swastik.ui.theme.*
 import com.example.swastik.ui.viewmodel.PatientDashboardViewModel
@@ -57,6 +65,7 @@ fun PatientDashboardScreen(
     onNavigateToPrescriptions: () -> Unit = {},
     onNavigateToChatbot: () -> Unit = {},
     onNavigateToBooking: (String?) -> Unit = {},
+    onNavigateToLocationSelection: () -> Unit = {},
     onNavigateToEmergency: () -> Unit = {},
     onNavigateToDiagnostic: () -> Unit = {},
     onNavigateToOrderHistory: () -> Unit = {},
@@ -67,6 +76,8 @@ fun PatientDashboardScreen(
     onNavigateToMedicineDetail: (String) -> Unit = {},
     onNavigateToMedicineCart: (String) -> Unit = {},
     onNavigateToFavoriteMedicines: () -> Unit = {},
+    onNavigateToFavoriteDoctors: () -> Unit = {},
+    onNavigateToFavoriteFacilities: (String) -> Unit = {},
     onNavigateToVitals: () -> Unit = {},
     onStartInPersonConsultation: () -> Unit = {},
     onStartVideoConsultation: () -> Unit = {},
@@ -79,8 +90,21 @@ fun PatientDashboardScreen(
 ) {
     val selectedTab by viewModel.selectedTab.collectAsState()
     var showNotificationPanel by remember { mutableStateOf(false) }
-    var showAddressesDialog by remember { mutableStateOf(false) }
+    var showAddressesDialog by remember { mutableStateOf(false) }  // add/edit bottom sheet
+    var showAddressListDialog by remember { mutableStateOf(false) } // list of addresses
+    var addressToEdit by remember { mutableStateOf<SavedAddress?>(null) }
     val context = LocalContext.current
+    val fusedLocationClient = remember {
+        com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context)
+    }
+    var pendingAddressLocationCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
+    
+    val favoriteDoctorsCount by viewModel.favoriteDoctorsCount.collectAsState()
+    val favoriteHospitalsCount by viewModel.favoriteHospitalsCount.collectAsState()
+    val favoriteClinicsCount by viewModel.favoriteClinicsCount.collectAsState()
+    val favoriteDiagnosticsCount by viewModel.favoriteDiagnosticsCount.collectAsState()
+    val favoritePharmaciesCount by viewModel.favoritePharmaciesCount.collectAsState()
+    val consultations by viewModel.consultations.collectAsState()
 
     // Initialize tab from initialTab only once
     LaunchedEffect(initialTab) {
@@ -122,10 +146,49 @@ fun PatientDashboardScreen(
     }
 
 
+    // Location permission launcher for saving addresses (from profile tab)
+    val addressLocationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                      permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            try {
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    if (location != null) {
+                        val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            geocoder.getFromLocation(location.latitude, location.longitude, 1) { addrs ->
+                                val addr = addrs.firstOrNull()
+                                if (addr != null) {
+                                    val parts = listOfNotNull(addr.subLocality, addr.locality, addr.adminArea, addr.postalCode).filter { it.isNotBlank() }
+                                    val text = if (parts.isNotEmpty()) parts.joinToString(", ") else addr.getAddressLine(0) ?: ""
+                                    pendingAddressLocationCallback?.invoke(text)
+                                    pendingAddressLocationCallback = null
+                                }
+                            }
+                        } else {
+                            @Suppress("DEPRECATION")
+                            val addrs = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                            val addr = addrs?.firstOrNull()
+                            if (addr != null) {
+                                val parts = listOfNotNull(addr.subLocality, addr.locality, addr.adminArea, addr.postalCode).filter { it.isNotBlank() }
+                                val text = if (parts.isNotEmpty()) parts.joinToString(", ") else addr.getAddressLine(0) ?: ""
+                                pendingAddressLocationCallback?.invoke(text)
+                                pendingAddressLocationCallback = null
+                            }
+                        }
+                    }
+                }
+            } catch (e: SecurityException) { /* ignore */ }
+        }
+    }
+
     LaunchedEffect(Unit) {
         // Allow the first frame to render before firing permission requests
         // and system service calls that cause frame drops.
         delay(200)
+
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
@@ -268,9 +331,7 @@ fun PatientDashboardScreen(
                             onNavigateToBooking = onNavigateToBooking,
                             onNavigateToMedicineDetail = onNavigateToMedicineDetail,
                             onSearchClick = onSearchClick,
-                            onLocationUpdate = { newLocation ->
-                                viewModel.updateProfile(UpdateProfileRequest(location = newLocation))
-                            },
+                            onLocationClick = onNavigateToLocationSelection,
                             onAddAddressClick = { showAddressesDialog = true },
                             onRefresh = { viewModel.refresh() },
                             onFindDoctorSpecialityClick = onFindDoctorSpecialityClick,
@@ -308,12 +369,23 @@ fun PatientDashboardScreen(
                             stats = stats,
                             reminders = reminders,
                             unreadNotificationsCount = unreadCount,
+                            favoriteDoctorsCount = favoriteDoctorsCount,
+                            favoriteHospitalsCount = favoriteHospitalsCount,
+                            favoriteClinicsCount = favoriteClinicsCount,
+                            favoriteDiagnosticsCount = favoriteDiagnosticsCount,
+                            favoritePharmaciesCount = favoritePharmaciesCount,
+                            recentConsultations = consultations,
+                            upcomingAppointments = uiState.dashboard?.upcomingAppointments ?: emptyList(),
+                            recentPrescriptions = uiState.dashboard?.recentPrescriptions ?: emptyList(),
                             onNotificationClick = { showNotificationPanel = true },
                             onNavigateToPrescriptions = onNavigateToPrescriptions,
                             onNavigateToReports = onNavigateToReports,
                             onNavigateToAppointments = onNavigateToAppointments,
                             onNavigateToOrderHistory = onNavigateToOrderHistory,
-                            onNavigateToBookingHistory = onNavigateToBookingHistory
+                            onNavigateToBookingHistory = onNavigateToBookingHistory,
+                            onNavigateToFavoriteDoctors = onNavigateToFavoriteDoctors,
+                            onNavigateToFavoriteMedicines = onNavigateToFavoriteMedicines,
+                            onNavigateToFavoriteFacilities = onNavigateToFavoriteFacilities
                         )
                         4 -> {
                             ProfileTabContent(
@@ -323,7 +395,9 @@ fun PatientDashboardScreen(
                                 unreadNotificationsCount = unreadCount,
                                 onNotificationClick = { showNotificationPanel = true },
                                 onLogout = onLogout,
-                                onAddressesClick = { showAddressesDialog = true },
+                        onAddressesClick = {
+                            showAddressListDialog = true
+                        },
                                 viewModel = viewModel
                             )
                         }
@@ -371,16 +445,170 @@ fun PatientDashboardScreen(
             )
         }
 
-        // Saved Addresses Dialog
+        // Saved Addresses List Dialog — shows all saved addresses with edit/delete
+        if (showAddressListDialog) {
+            val savedAddresses = profile?.savedAddresses ?: emptyList()
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { showAddressListDialog = false }
+            ) {
+                Surface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Saved Addresses",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                            IconButton(onClick = { showAddressListDialog = false }) {
+                                Icon(Icons.Filled.Close, contentDescription = "Close")
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        if (savedAddresses.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "No saved addresses yet.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        } else {
+                            savedAddresses.forEach { addr ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        if (addr.label.equals("Home", ignoreCase = true))
+                                            Icons.Filled.Home
+                                        else if (addr.label.equals("Office", ignoreCase = true) || addr.label.equals("Work", ignoreCase = true))
+                                            Icons.Filled.Work
+                                        else
+                                            Icons.Outlined.LocationOn,
+                                        contentDescription = null,
+                                        tint = SwastikPrimary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            addr.label,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                                        )
+                                        Text(
+                                            addr.address,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    IconButton(onClick = {
+                                        addressToEdit = addr
+                                        showAddressListDialog = false
+                                        showAddressesDialog = true
+                                    }) {
+                                        Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    IconButton(onClick = {
+                                        viewModel?.deleteAddress(addr.id)
+                                    }) {
+                                        Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                addressToEdit = null
+                                showAddressListDialog = false
+                                showAddressesDialog = true
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Add New Address")
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add/Edit Address Bottom Sheet — using the same modern bottom sheet as LocationSelectionScreen
         if (showAddressesDialog) {
-            SavedAddressesDialog(
-                addresses = profile?.savedAddresses ?: emptyList(),
-                onDismiss = { showAddressesDialog = false },
-                onAddAddress = { label, address ->
-                    viewModel?.addAddress(label, address)
+            AddLocationDetailsBottomSheet(
+                initialLabel = addressToEdit?.label ?: "",
+                initialAddress = addressToEdit?.address ?: "",
+                onDismiss = {
+                    showAddressesDialog = false
+                    addressToEdit = null
                 },
-                onDeleteAddress = { addressId ->
-                    viewModel?.deleteAddress(addressId)
+                onSaveAddress = { label, address ->
+                    addressToEdit?.let { old -> viewModel?.deleteAddress(old.id) }
+                    viewModel?.addAddress(label, address)
+                    showAddressesDialog = false
+                    addressToEdit = null
+                },
+                onFetchLocation = { onLocationFetched ->
+                    pendingAddressLocationCallback = onLocationFetched
+                    val hasFine = androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    val hasCoarse = androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    if (hasFine || hasCoarse) {
+                        try {
+                            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                                if (location != null) {
+                                    val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
+                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                        geocoder.getFromLocation(location.latitude, location.longitude, 1) { addrs ->
+                                            val addr = addrs.firstOrNull()
+                                            if (addr != null) {
+                                                val parts = listOfNotNull(addr.subLocality, addr.locality, addr.adminArea, addr.postalCode).filter { it.isNotBlank() }
+                                                val text = if (parts.isNotEmpty()) parts.joinToString(", ") else addr.getAddressLine(0) ?: ""
+                                                onLocationFetched(text)
+                                                pendingAddressLocationCallback = null
+                                            }
+                                        }
+                                    } else {
+                                        @Suppress("DEPRECATION")
+                                        val addrs = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                                        val addr = addrs?.firstOrNull()
+                                        if (addr != null) {
+                                            val parts = listOfNotNull(addr.subLocality, addr.locality, addr.adminArea, addr.postalCode).filter { it.isNotBlank() }
+                                            val text = if (parts.isNotEmpty()) parts.joinToString(", ") else addr.getAddressLine(0) ?: ""
+                                            onLocationFetched(text)
+                                            pendingAddressLocationCallback = null
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e: SecurityException) { /* ignore */ }
+                    } else {
+                        addressLocationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    }
                 }
             )
         }

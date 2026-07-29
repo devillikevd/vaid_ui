@@ -235,6 +235,18 @@ fun AppointmentBookingScreen(
 
     val recommendedDoctors by patientDashboardViewModel.recommendedDoctors.collectAsState()
 
+    androidx.activity.compose.BackHandler {
+        when {
+            currentStep == 6 -> onBackClick()
+            currentStep == 5 -> currentStep = 4
+            currentStep == 4 -> currentStep = 3
+            currentStep == 3 -> currentStep = 2
+            currentStep > 1 && preselectedDoctorId.isNullOrBlank() -> currentStep--
+            currentStep == 2 && !preselectedDoctorId.isNullOrBlank() -> onBackClick()
+            else -> onBackClick()
+        }
+    }
+
     Scaffold(
         topBar = {
             if (currentStep != 6) {

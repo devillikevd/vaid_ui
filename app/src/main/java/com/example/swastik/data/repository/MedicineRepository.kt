@@ -391,7 +391,7 @@ class MedicineRepository @Inject constructor(
         manufacturer = manufacturer,
         price = price?.toDouble(),
         mrp = mrp?.toDouble(),
-        category = therapeuticCategory ?: dosageForm ?: category?.name ?: "Tablet",
+        category = therapeuticCategory ?: dosageForm ?: category.name,
         description = description,
         requiresPrescription = requiresPrescription,
         imageUrl = imageUrl

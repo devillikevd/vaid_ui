@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -84,7 +85,9 @@ class PatientDashboardViewModel @Inject constructor(
     networkObserver: NetworkObserver,
     @ApplicationContext private val context: Context,
     private val fitnessRepository: com.example.swastik.data.repository.FitnessRepository,
-    private val guardianRepository: com.example.swastik.data.repository.GuardianRepository
+    private val guardianRepository: com.example.swastik.data.repository.GuardianRepository,
+    private val favoriteDoctorsStore: com.example.swastik.data.repository.FavoriteDoctorsStore,
+    private val favoriteFacilitiesStore: com.example.swastik.data.repository.FavoriteFacilitiesStore
 ) : ViewModel() {
 
     val healthConnectManager = HealthConnectManager(context)
@@ -131,6 +134,26 @@ class PatientDashboardViewModel @Inject constructor(
     val stats = patientRepository.stats
     val reminders = patientRepository.reminders
     val recommendedDoctors = patientRepository.recommendedDoctors
+    val consultations = patientRepository.consultations
+
+    val favoriteDoctors: StateFlow<Set<com.example.swastik.data.model.Doctor>> = favoriteDoctorsStore.favorites
+
+    val favoriteDoctorsCount: StateFlow<Int> = favoriteDoctorsStore.favorites.map { it.size }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val favoriteHospitalsCount: StateFlow<Int> = favoriteFacilitiesStore.favorites.map { list -> list.count { it.type == com.example.swastik.data.model.FacilityType.HOSPITAL } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val favoriteFacilities: StateFlow<Set<com.example.swastik.data.model.MedicalFacility>> = favoriteFacilitiesStore.favorites
+
+    val favoriteClinicsCount: StateFlow<Int> = favoriteFacilitiesStore.favorites.map { list -> list.count { it.type == com.example.swastik.data.model.FacilityType.CLINIC } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val favoriteDiagnosticsCount: StateFlow<Int> = favoriteFacilitiesStore.favorites.map { list -> list.count { it.type == com.example.swastik.data.model.FacilityType.DIAGNOSTIC_CENTER } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val favoritePharmaciesCount: StateFlow<Int> = favoriteFacilitiesStore.favorites.map { list -> list.count { it.type == com.example.swastik.data.model.FacilityType.MEDICAL_STORE } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val notifications: StateFlow<List<NotificationItem>> = patientRepository.notifications
         .combine(patientRepository.reminders) { notifs, rems ->
@@ -654,7 +677,6 @@ class PatientDashboardViewModel @Inject constructor(
             )) {
                 is Result.Success -> {
                     _profileUpdateState.value = ProfileUpdateState.Success("Address added successfully!")
-                    loadDashboard()
                 }
                 is Result.Error -> {
                     _profileUpdateState.value = ProfileUpdateState.Error(result.message)
@@ -670,7 +692,6 @@ class PatientDashboardViewModel @Inject constructor(
             when (val result = patientRepository.deleteSavedAddress(addressId)) {
                 is Result.Success -> {
                     _profileUpdateState.value = ProfileUpdateState.Success("Address deleted successfully!")
-                    loadDashboard()
                 }
                 is Result.Error -> {
                     _profileUpdateState.value = ProfileUpdateState.Error(result.message)

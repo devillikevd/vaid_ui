@@ -156,7 +156,6 @@ fun ProfileTabContent(
                         onImageClick = { showFullScreenImage = it }
                     )
                 }
-                item { ProfileCompletionCard(profile = profile) }
                 item { QuickStatsSection(stats = stats ?: PatientStats()) }
 
                 item {

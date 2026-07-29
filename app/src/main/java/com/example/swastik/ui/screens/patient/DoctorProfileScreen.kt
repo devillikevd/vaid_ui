@@ -57,9 +57,24 @@ fun DoctorProfileScreen(
         viewModel.fetchDoctorDetails(doctorId)
     }
 
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, doctorId) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                // Ensure we don't double-fetch on first load, though fetchDoctorDetails is safe to call again
+                // (it will just show Loading briefly and get fresh data)
+                viewModel.fetchDoctorDetails(doctorId)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     val uiState by viewModel.uiState.collectAsState()
+    val favoriteDoctors by viewModel.favoriteDoctors.collectAsState()
     val context = LocalContext.current
-    var isFavorite by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -71,7 +86,12 @@ fun DoctorProfileScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { isFavorite = !isFavorite }) {
+                    val currentDoctor = (uiState as? DoctorProfileViewModel.UiState.Success)?.details?.doctor
+                    val isFavorite = currentDoctor != null && favoriteDoctors.any { it.id == currentDoctor.id }
+                    
+                    IconButton(onClick = { 
+                        currentDoctor?.let { viewModel.toggleFavorite(it) } 
+                    }) {
                         Icon(
                             if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, 
                             contentDescription = "Favorite",
@@ -287,13 +307,13 @@ fun DoctorProfileContent(
 
             Column {
                 Text(
-                    text = doctor.name,
+                    text = (doctor.name as String?) ?: "Unknown Doctor",
                     fontWeight = FontWeight.Bold,
                     fontSize = 24.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = doctor.specialization,
+                    text = (doctor.specialization as String?) ?: "General Physician",
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 16.sp,
                     color = SwastikPrimary,
@@ -602,13 +622,13 @@ fun DoctorProfileContent(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.LocalHospital, contentDescription = null, tint = SwastikPrimary)
                             Spacer(Modifier.width(8.dp))
-                            Text(clinic.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text((clinic.name as String?) ?: "Clinic", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                         Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.Top) {
                             Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(clinic.address, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text((clinic.address as String?) ?: "Address not available", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(12.dp))
                         Spacer(Modifier.height(12.dp))
@@ -657,13 +677,13 @@ fun DoctorProfileContent(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.LocalHospital, contentDescription = null, tint = SwastikPrimary)
                             Spacer(Modifier.width(8.dp))
-                            Text(hospital.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text((hospital.name as String?) ?: "Hospital", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                         Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.Top) {
                             Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(hospital.address, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text((hospital.address as String?) ?: "Address not available", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(12.dp))
                         Spacer(Modifier.height(12.dp))
@@ -709,23 +729,24 @@ fun DoctorProfileContent(
         }
 
         // Reviews Section
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-            Text(stringResource(R.string.patient_reviews), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text(stringResource(R.string.view_all), color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.clickable {
-                com.example.swastik.ui.components.SnackbarManager.showMessage("Detailed reviews page will be available soon.")
-            })
-        }
+        Text(stringResource(R.string.patient_reviews), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 16.dp))
 
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(0.3f)) {
+                val avgRating = doctor.averageRating ?: 5.0f
                 Text(
-                    text = doctor.averageRating?.let { String.format(Locale.US, "%.1f", it) } ?: "5.0",
+                    text = String.format(Locale.US, "%.1f", avgRating),
                     fontWeight = FontWeight.Bold,
                     fontSize = 40.sp
                 )
                 Row {
-                    repeat(5) {
-                        Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFFFB800), modifier = Modifier.size(16.dp))
+                    repeat(5) { i ->
+                        val icon = when {
+                            avgRating >= i + 1 -> Icons.Filled.Star
+                            avgRating >= i + 0.5f -> Icons.Filled.StarHalf
+                            else -> Icons.Outlined.StarOutline
+                        }
+                        Icon(icon, contentDescription = null, tint = Color(0xFFFFB800), modifier = Modifier.size(16.dp))
                     }
                 }
                 Text(
@@ -740,11 +761,14 @@ fun DoctorProfileContent(
 
             // Progress Bars
             Column(modifier = Modifier.weight(0.7f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                val dist = details.reviewDistribution ?: emptyMap()
-                val total = doctor.totalReviews ?: 1
+                // Use backend distribution if available, otherwise calculate from fetched reviews
+                val dist = details.reviewDistribution?.takeIf { it.isNotEmpty() } 
+                    ?: details.reviews?.groupingBy { it.rating.toString() }?.eachCount() 
+                    ?: emptyMap()
+                val total = doctor.totalReviews?.takeIf { it > 0 } ?: details.reviews?.size ?: 1
                 listOf(5, 4, 3, 2, 1).forEach { stars ->
-                    val count = dist[stars.toString()] ?: 0
-                    val progress = if (total > 0) count.toFloat() / total else 0f
+                    val count = dist[stars.toString()] ?: dist["${stars}.0"] ?: dist["$stars.0"] ?: 0
+                    val progress = if (total > 0) (count.toFloat() / total).coerceIn(0f, 1f) else 0f
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("$stars", fontSize = 12.sp, modifier = Modifier.width(12.dp))
                         Icon(Icons.Filled.Star, contentDescription = null, modifier = Modifier.size(10.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -766,14 +790,13 @@ fun DoctorProfileContent(
         
         // Individual Review Cards
         if (!details.reviews.isNullOrEmpty()) {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp),
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
             ) {
-                items(details.reviews) { review ->
+                details.reviews.forEach { review ->
                     Card(
-                        modifier = Modifier.width(320.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                         shape = RoundedCornerShape(12.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -803,6 +826,21 @@ fun DoctorProfileContent(
                         }
                     }
                 }
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No reviews yet. Book an appointment and become the first to review!",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 14.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
             }
         }
 

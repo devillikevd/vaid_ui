@@ -27,6 +27,7 @@ interface DoctorRepository {
     suspend fun getDoctorDetails(id: String): Result<DoctorDetails>
     suspend fun getDoctorQueueStats(id: String): Result<com.example.swastik.data.remote.dto.DoctorQueueStatsDto>
     suspend fun getDoctorSlots(doctorId: String, date: String): Result<SlotsResponse>
+    suspend fun getDoctorReviews(doctorId: String, page: Int = 1, limit: Int = 20): Result<List<Review>>
 }
 
 /**
@@ -170,6 +171,19 @@ class DoctorRepositoryImpl @Inject constructor(
                 Result.Success(response.body()!!.data)
             } else {
                 Result.Error("Failed to fetch queue stats")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun getDoctorReviews(doctorId: String, page: Int, limit: Int): Result<List<Review>> {
+        return try {
+            val response = apiService.getEntityReviews("doctor", doctorId, page, limit)
+            if (response.isSuccessful && response.body() != null) {
+                Result.Success(response.body()!!.data)
+            } else {
+                Result.Error("Failed to fetch doctor reviews")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")

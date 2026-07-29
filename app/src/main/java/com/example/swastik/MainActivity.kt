@@ -1,9 +1,12 @@
 package com.example.swastik
 
 import android.os.Bundle
+import android.annotation.SuppressLint
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -102,7 +105,42 @@ private fun AuthGuard(
     }
 }
 
+@android.annotation.SuppressLint("MissingPermission")
+private fun fetchCurrentLocationDirectly(
+    context: android.content.Context,
+    fusedLocationClient: com.google.android.gms.location.FusedLocationProviderClient,
+    onLocationFetched: (String) -> Unit
+) {
+    try {
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            if (location != null) {
+                val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
+                        val address = addresses.firstOrNull()
+                        if (address != null) {
+                            val locality = address.locality ?: address.subAdminArea ?: address.adminArea ?: "Unknown"
+                            onLocationFetched(locality)
+                        }
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                    val address = addresses?.firstOrNull()
+                    if (address != null) {
+                        val locality = address.locality ?: address.subAdminArea ?: address.adminArea ?: "Unknown"
+                        onLocationFetched(locality)
+                    }
+                }
+            }
+        }
+    } catch (e: Exception) {
+        // Ignore or handle
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
     val navController = rememberNavController()
@@ -156,16 +194,28 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 startDestination = startDestination,
                 // modifier = Modifier.padding(paddingValues), // Removed to allow edge-to-edge drawing
                 enterTransition = {
-                    fadeIn(animationSpec = tween(200))
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> fullWidth },
+                        animationSpec = tween(300)
+                    )
                 },
                 exitTransition = {
-                    fadeOut(animationSpec = tween(200))
+                    slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> -fullWidth / 3 },
+                        animationSpec = tween(300)
+                    ) + fadeOut(animationSpec = tween(300))
                 },
                 popEnterTransition = {
-                    fadeIn(animationSpec = tween(150))
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> -fullWidth / 3 },
+                        animationSpec = tween(300)
+                    ) + fadeIn(animationSpec = tween(300))
                 },
                 popExitTransition = {
-                    fadeOut(animationSpec = tween(150))
+                    slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> fullWidth },
+                        animationSpec = tween(300)
+                    )
                 }
             ) {
 
@@ -244,6 +294,114 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             )
         }
 
+        composable(Screen.LocationSelection.route) {
+            AuthGuard(navController, tokenManager) {
+                val dashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                val profile by dashboardViewModel.patientProfile.collectAsState()
+                var showAddressesDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                var addressToEdit by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.example.swastik.data.model.SavedAddress?>(null) }
+                
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val fusedLocationClient = androidx.compose.runtime.remember { 
+                    com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context) 
+                }
+                var pendingLocationCallback by androidx.compose.runtime.remember { 
+                    androidx.compose.runtime.mutableStateOf<((String) -> Unit)?>(null) 
+                }
+                val locationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    contract = androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+                ) { permissions ->
+                    val isGranted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true || 
+                                    permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+                    if (isGranted) {
+                        try {
+                            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                                if (location != null) {
+                                    val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
+                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                        geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
+                                            val address = addresses.firstOrNull()
+                                            if (address != null) {
+                                                val locality = address.locality ?: address.subAdminArea ?: address.adminArea ?: "Unknown"
+                                                pendingLocationCallback?.invoke(locality)
+                                                pendingLocationCallback = null
+                                            }
+                                        }
+                                    } else {
+                                        @Suppress("DEPRECATION")
+                                        val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                                        val address = addresses?.firstOrNull()
+                                        if (address != null) {
+                                            val locality = address.locality ?: address.subAdminArea ?: address.adminArea ?: "Unknown"
+                                            pendingLocationCallback?.invoke(locality)
+                                            pendingLocationCallback = null
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e: SecurityException) {
+                            // Permission was revoked
+                        }
+                    }
+                }
+                
+                Box(modifier = Modifier.fillMaxSize()) {
+                    com.example.swastik.ui.screens.patient.location.LocationSelectionScreen(
+                        profile = profile,
+                        onBackClick = { navController.popBackStack() },
+                        onLocationSelected = { newLocation ->
+                            dashboardViewModel.updateProfile(com.example.swastik.data.remote.dto.UpdateProfileRequest(location = newLocation))
+                            navController.popBackStack()
+                        },
+                        onAddAddressClick = { 
+                            addressToEdit = null
+                            showAddressesDialog = true 
+                        },
+                        onEditAddressClick = { address ->
+                            addressToEdit = address
+                            showAddressesDialog = true
+                        },
+                        onDeleteAddressClick = { addressId ->
+                            dashboardViewModel.deleteAddress(addressId)
+                        }
+                    )
+
+                    if (showAddressesDialog) {
+                        com.example.swastik.ui.screens.patient.location.AddLocationDetailsBottomSheet(
+                            initialLabel = addressToEdit?.label ?: "",
+                            initialAddress = addressToEdit?.address ?: "",
+                            onDismiss = { showAddressesDialog = false },
+                            onSaveAddress = { label, address ->
+                                addressToEdit?.let { oldAddress ->
+                                    dashboardViewModel.deleteAddress(oldAddress.id)
+                                }
+                                dashboardViewModel.addAddress(label, address)
+                            },
+                            onFetchLocation = { onLocationFetched ->
+                                pendingLocationCallback = onLocationFetched
+                                val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+                                                   androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                
+                                if (hasPermission) {
+                                    fetchCurrentLocationDirectly(context, fusedLocationClient) { locality ->
+                                        pendingLocationCallback?.invoke(locality)
+                                        pendingLocationCallback = null
+                                    }
+                                } else {
+                                    locationPermissionLauncher.launch(
+                                        arrayOf(
+                                            android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                            android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                        )
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
         // ── Patient Dashboard ─────────────────────────────
         composable(
             route = Screen.PatientDashboard.route,
@@ -302,6 +460,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     }
                 },
                 onNavigateToEmergency = { navController.navigateSafe(Screen.Emergency.route) },
+                onNavigateToLocationSelection = { navController.navigateSafe(Screen.LocationSelection.route) },
                 onNavigateToDiagnostic = {
                     navController.navigateSafe(Screen.HospitalFinder.createRoute(FacilityType.DIAGNOSTIC_CENTER))
                 },
@@ -314,6 +473,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 },
                 onNavigateToMedicineCart = { cartType -> navController.navigateSafe(Screen.MedicineCart.createRoute(cartType)) },
                 onNavigateToFavoriteMedicines = { navController.navigateSafe(Screen.FavoriteMedicines.route) },
+                onNavigateToFavoriteDoctors = { navController.navigateSafe(Screen.FavoriteDoctors.route) },
+                onNavigateToFavoriteFacilities = { type -> navController.navigateSafe(Screen.FavoriteFacilities.createRoute(type)) },
                 onSearchClick = { navController.navigateSafe(Screen.FindDoctorsCategories.createRoute("in_person")) },
                 onNotificationActionRoute = { route -> navController.navigateSafe(route) },
                 onFindDoctorSpecialityClick = { speciality ->
@@ -331,6 +492,38 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     navController.navigateSafe(Screen.AppointmentBooking.createRoute(consultationMode = "recommended"))
                 }
             )
+            }
+        }
+
+        composable(Screen.FavoriteDoctors.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.FavoriteDoctorsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onDoctorClick = { doctorId -> 
+                        navController.navigateSafe(Screen.DoctorProfile.createRoute(doctorId))
+                    }
+                )
+            }
+        }
+
+        composable(
+            route = Screen.FavoriteFacilities.route,
+            arguments = listOf(
+                navArgument("type") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val type = backStackEntry.arguments?.getString("type") ?: ""
+                com.example.swastik.ui.screens.patient.FavoriteFacilitiesScreen(
+                    facilityTypeStr = type,
+                    onNavigateBack = { navController.popBackStack() },
+                    onFacilityClick = { facilityId, facilityType ->
+                        navController.navigateSafe(Screen.FacilityDetail.createRoute(facilityId, facilityType))
+                    }
+                )
             }
         }
 
@@ -632,7 +825,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                         navController.navigateSafe(Screen.PharmacyDetail.createRoute(pharmacyId))
                     },
                     onDiagnosticDetailClick = { centerId ->
-                        navController.navigateSafe(Screen.DiagnosticDetail.createRoute(centerId))
+                    navController.navigateSafe(Screen.DiagnosticDetail.createRoute(centerId))
                     },
                     onMedicineClick = { medicineId ->
                         navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
@@ -645,6 +838,43 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     },
                     onNavigateToDiagnosticBooking = { centerId ->
                         navController.navigateSafe(Screen.DiagnosticBooking.createRoute(centerId))
+                    }
+                )
+            }
+        }
+
+        composable(
+            Screen.FacilityDetail.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("facilityId") {
+                    type = androidx.navigation.NavType.StringType
+                },
+                androidx.navigation.navArgument("facilityType") {
+                    type = androidx.navigation.NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val facilityId = backStackEntry.arguments?.getString("facilityId") ?: return@AuthGuard
+                val typeStr = backStackEntry.arguments?.getString("facilityType") ?: return@AuthGuard
+                val type = runCatching { FacilityType.valueOf(typeStr) }.getOrNull() ?: FacilityType.HOSPITAL
+
+                FacilityDetailScreen(
+                    facilityId = facilityId,
+                    facilityType = type,
+                    onBackClick = { navController.popBackStack() },
+                    isLoggedIn = tokenManager.isAuthenticated(),
+                    onDoctorBookClick = { doctor, facility ->
+                        navController.navigateSafe(
+                            Screen.AppointmentBooking.createRoute(
+                                doctorId = doctor.id.ifBlank { null },
+                                hospitalId = if (type == FacilityType.HOSPITAL) facility.id.ifBlank { null } else null,
+                                clinicId = if (type == FacilityType.CLINIC) facility.id.ifBlank { null } else null
+                            )
+                        )
+                    },
+                    onNavigateToOrders = {
+                        navController.navigateSafe(Screen.OrderHistory.createRoute(0))
                     }
                 )
             }
@@ -1078,8 +1308,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 )
             }
         }
-
-        }
     }
+}
 }
 }

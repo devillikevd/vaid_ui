@@ -574,7 +574,7 @@ class PatientService {
     // Get recommended doctors (smart recommendation engine)
     // Performance hardening: cap recommendation compute time for dashboard requests
     const recommendedDoctors = await Promise.race([
-      this.getRecommendedDoctors(patient.id, userId),
+      this.getRecommendedDoctors(patient.id, userId, 5),
       new Promise((resolve) => setTimeout(() => resolve([]), 1800)),
     ]).catch(() => []);
 
@@ -607,10 +607,10 @@ class PatientService {
    * 3. Specialists matching patient's chronic conditions
    * 4. Fallback: top-rated, available doctors across all specializations
    */
-  async getRecommendedDoctors(patientId, userId, limit = 8) {
+  async getRecommendedDoctors(patientId, userId, limit = 5) {
     const normalizedLimit = Number.isFinite(Number(limit))
       ? Math.min(Math.max(parseInt(limit, 10), 1), 20)
-      : 8;
+      : 5;
     // Specialist mapping: condition/symptom keywords → specialization
     const CONDITION_SPECIALIST_MAP = {
       'Cardiology': ['heart', 'chest pain', 'palpitations', 'blood pressure', 'hypertension', 'cholesterol', 'cardiac'],

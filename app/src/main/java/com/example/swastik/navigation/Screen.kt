@@ -22,6 +22,7 @@ sealed class Screen(val route: String) {
     object PatientDashboard : Screen("patient_dashboard?tab={tab}") {
         fun createRoute(tab: Int = 0): String = "patient_dashboard?tab=${tab.coerceIn(0, 4)}"
     }
+    object LocationSelection : Screen("location_selection")
     object AppointmentHistory : Screen("appointment_history?filter={filter}") {
         fun createRoute(filter: String? = null): String {
             return if (filter == null) "appointment_history" else "appointment_history?filter=$filter"
@@ -58,6 +59,10 @@ sealed class Screen(val route: String) {
     }
     object MedicineFinder : Screen("medicine_finder")
     object FavoriteMedicines : Screen("favorite_medicines")
+    object FavoriteDoctors : Screen("favorite_doctors")
+    object FavoriteFacilities : Screen("favorite_facilities/{type}") {
+        fun createRoute(type: String): String = "favorite_facilities/$type"
+    }
     object MedicineDetail : Screen("medicine_detail/{medicineId}") {
         fun createRoute(medicineId: String): String = "medicine_detail/$medicineId"
     }
@@ -78,6 +83,9 @@ sealed class Screen(val route: String) {
     }
     object HospitalDetail : Screen("hospital_detail/{hospitalId}") {
         fun createRoute(hospitalId: String): String = "hospital_detail/$hospitalId"
+    }
+    object FacilityDetail : Screen("facility_detail/{facilityId}/{facilityType}") {
+        fun createRoute(facilityId: String, facilityType: String): String = "facility_detail/$facilityId/$facilityType"
     }
     object ClinicDetail : Screen("clinic_detail/{clinicId}") {
         fun createRoute(clinicId: String): String = "clinic_detail/$clinicId"

@@ -833,7 +833,10 @@ fun DiagnosticBookingFlow(
                             }
                         }
                         2 -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Column(
+                                modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
                                 Text(stringResource(R.string.collection_type), fontWeight = FontWeight.Medium, fontSize = 16.sp)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     FilterChip(

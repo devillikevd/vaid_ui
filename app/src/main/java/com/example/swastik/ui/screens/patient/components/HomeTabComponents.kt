@@ -910,45 +910,50 @@ fun TopHealthcareServicesRow(
     onPharmacyClick: () -> Unit,
     onDiagnosticsClick: () -> Unit
 ) {
-    Column(
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    // Screen width - padding (16dp*2) - spacing (8dp*3) divided by 4
+    val itemWidth = (configuration.screenWidthDp.dp - 32.dp - 24.dp) / 4
+
+    androidx.compose.foundation.lazy.LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(vertical = 12.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            ModernServiceMiniCard(
-                modifier = Modifier.weight(1f),
-                title = "Hospitals",
-                subtitle = "Nearby",
+        item {
+            TopServiceIconCard(
+                modifier = Modifier.width(itemWidth),
                 imageRes = R.drawable.find_hospital,
-                gradient = listOf(Color(0xFF00695C), Color(0xFF00897B)),
+                backgroundColor = Color(0xFFE8F1FC), // Light blue
+                imageAlignment = androidx.compose.ui.BiasAlignment(0f, 0.7f), // Shift UP significantly to crop top location icon
                 onClick = onHospitalsClick
             )
-            ModernServiceMiniCard(
-                modifier = Modifier.weight(1f),
-                title = "Clinics",
-                subtitle = "Book OPD",
+        }
+        item {
+            TopServiceIconCard(
+                modifier = Modifier.width(itemWidth),
                 imageRes = R.drawable.clinic_visit,
-                gradient = listOf(Color(0xFF1565C0), Color(0xFF1E88E5)),
+                backgroundColor = Color(0xFFE8F5E9), // Light green
+                imageAlignment = androidx.compose.ui.BiasAlignment(0f, -0.5f), // Shift slightly UP from TopCenter
                 onClick = onClinicsClick
             )
-            ModernServiceMiniCard(
-                modifier = Modifier.weight(1f),
-                title = "Medicine",
-                subtitle = "Order",
+        }
+        item {
+            TopServiceIconCard(
+                modifier = Modifier.width(itemWidth),
                 imageRes = R.drawable.order_medicine,
-                gradient = listOf(Color(0xFFE65100), Color(0xFFFB8C00)),
+                backgroundColor = Color(0xFFFFF0E6), // Light peach
+                imageAlignment = androidx.compose.ui.BiasAlignment(0f, -0.5f), // Shift slightly UP from TopCenter
                 onClick = onPharmacyClick
             )
-            ModernServiceMiniCard(
-                modifier = Modifier.weight(1f),
-                title = "Lab Tests",
-                subtitle = "Book",
+        }
+        item {
+            TopServiceIconCard(
+                modifier = Modifier.width(itemWidth),
                 imageRes = R.drawable.book_test_lab,
-                gradient = listOf(Color(0xFF6A1B9A), Color(0xFF8E24AA)),
+                backgroundColor = Color(0xFFF4EBF7), // Light purple
+                imageAlignment = androidx.compose.ui.BiasAlignment(0f, -0.5f), // Shift slightly UP from TopCenter
                 onClick = onDiagnosticsClick
             )
         }
@@ -956,61 +961,33 @@ fun TopHealthcareServicesRow(
 }
 
 @Composable
-private fun ModernServiceMiniCard(
+fun TopServiceIconCard(
     modifier: Modifier = Modifier,
-    title: String,
-    subtitle: String,
     imageRes: Int,
-    gradient: List<Color>,
+    backgroundColor: Color,
+    imageAlignment: Alignment = Alignment.Center,
     onClick: () -> Unit
 ) {
     Card(
         modifier = modifier
-            .aspectRatio(1f)
+            .aspectRatio(1.25f) // Wider rectangle makes the cards shorter! This automatically crops out the vertical margins!
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Brush.linearGradient(gradient))
+        Image(
+            painter = painterResource(id = imageRes),
+            contentDescription = imageRes.toString(),
+            contentScale = ContentScale.Crop, // Magically zooms past the baked-in white margins
+            alignment = imageAlignment, // Allows shifting hospital to bottom
+            modifier = Modifier.fillMaxSize(), // No padding guarantees 0 borders!
+            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
+                color = backgroundColor,
+                blendMode = androidx.compose.ui.graphics.BlendMode.Multiply
             )
-            Image(
-                painter = painterResource(id = imageRes),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-                alpha = 0.25f,
-                colorFilter = ColorFilter.tint(Color.White, BlendMode.SrcAtop)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.3f))))
-            )
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(10.dp)
-            ) {
-                Text(
-                    text = subtitle,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.85f)
-                )
-                Text(
-                    text = title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-        }
+        )
     }
 }
 
@@ -1124,19 +1101,12 @@ private fun PremiumServiceCard(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Brush.linearGradient(gradient))
-            )
             Image(
                 painter = painterResource(id = imageRes),
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                alpha = 0.12f,
-                colorFilter = ColorFilter.tint(Color.White, BlendMode.SrcAtop)
+                contentScale = ContentScale.Crop
             )
             Box(
                 modifier = Modifier

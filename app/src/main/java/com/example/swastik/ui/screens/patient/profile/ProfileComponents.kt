@@ -97,14 +97,23 @@ fun ProfileInfoCard(
                 modifier = Modifier.padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box {
+                Box(
+                    modifier = Modifier.size(110.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        progress = { profile?.completionPercentage ?: 0f },
+                        modifier = Modifier.fillMaxSize(),
+                        color = colorScheme.primary,
+                        strokeWidth = 4.dp,
+                        trackColor = colorScheme.surfaceVariant
+                    )
                     Box(
                         modifier = Modifier
                             .size(90.dp)
                             .clip(CircleShape)
                             .background(colorScheme.primaryContainer)
-                            .border(3.dp, colorScheme.primary, CircleShape)
-                            .clickable { profile?.profileImageUrl?.let { if(it.isNotEmpty()) onImageClick(it) } },
+                            .clickable { onCameraClick() },
                         contentAlignment = Alignment.Center
                     ) {
                         if (profile?.profileImageUrl?.isNotEmpty() == true) {
@@ -130,46 +139,57 @@ fun ProfileInfoCard(
                         }
                     }
 
-                    if (profile?.isVerified == true) {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
-                                .border(2.dp, colorScheme.surface, CircleShape)
-                                .align(Alignment.BottomEnd),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Check, contentDescription = "Verified", tint = MaterialTheme.colorScheme.surface, modifier = Modifier.size(16.dp))
-                        }
-                    }
-
-                    Box(
+                    // Percentage Badge
+                    Surface(
                         modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(colorScheme.surface)
-                            .border(1.dp, colorScheme.outline.copy(alpha = 0.45f), CircleShape)
-                            .align(Alignment.TopEnd)
-                            .clickable { onCameraClick() },
-                        contentAlignment = Alignment.Center
+                            .align(Alignment.BottomCenter)
+                            .offset(y = 10.dp),
+                        color = colorScheme.primary,
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(
-                            Icons.Outlined.CameraAlt,
-                            contentDescription = "Change Photo",
-                            tint = colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(14.dp)
+                        Text(
+                            text = "${((profile?.completionPercentage ?: 0f) * 100).toInt()}%",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colorScheme.onPrimary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    profile?.name?.ifEmpty { "Add Your Name" } ?: "Add Your Name",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colorScheme.onSurface
-                )
+                Spacer(modifier = Modifier.height(20.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        profile?.name?.ifEmpty { "Add Your Name" } ?: "Add Your Name",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.onSurface
+                    )
+                    
+                    if (profile?.isVerified == true) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            Icons.Default.CheckCircle, 
+                            contentDescription = "Verified", 
+                            tint = colorScheme.primary, 
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    IconButton(
+                        onClick = onCameraClick,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.CameraAlt, 
+                            contentDescription = "Change Photo", 
+                            tint = colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
                 Text(profile?.phoneNumber ?: "", fontSize = 14.sp, color = colorScheme.onSurfaceVariant)
                 if (profile?.email?.isNotEmpty() == true) {
                     Text(profile.email, fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
@@ -351,7 +371,7 @@ private fun QuickStatCard(icon: ImageVector, value: String, label: String, conta
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp, horizontal = 4.dp)
+                .padding(vertical = 12.dp, horizontal = 4.dp)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -359,18 +379,18 @@ private fun QuickStatCard(icon: ImageVector, value: String, label: String, conta
             ) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(10.dp))
                         .background(iconColor.copy(alpha = 0.18f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
+                    Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(value, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = contentColor)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(value, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = contentColor)
                 Text(
                     text = label, 
-                    fontSize = 11.sp, 
+                    fontSize = 10.sp, 
                     color = contentColor.copy(alpha = 0.9f), 
                     fontWeight = FontWeight.Medium,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,

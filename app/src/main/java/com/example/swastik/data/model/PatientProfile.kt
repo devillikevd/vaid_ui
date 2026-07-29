@@ -24,13 +24,30 @@ data class PatientProfile(
     @SerializedName("linked_hospitals") val linkedHospitals: Int = 0,
     @SerializedName("family_members") val familyMembers: List<FamilyMember> = emptyList(),
     @SerializedName("emergency_contacts") val emergencyContacts: List<EmergencyContact> = emptyList(),
-    @SerializedName("saved_addresses") val savedAddresses: List<SavedAddress> = emptyList()
+    @SerializedName("saved_addresses") val savedAddresses: List<SavedAddress> = emptyList(),
+    @SerializedName("recent_searches") val recentSearches: List<RecentSearch> = emptyList()
 ) {
     val displayAge: String get() = if (age > 0) "$age" else "--"
     val displayBloodGroup: String get() = bloodGroup.ifEmpty { "--" }
     val displayWeight: String get() = if (weight > 0) weight.toInt().toString() else "--"
     val displayHeight: String get() = if (height > 0) height.toInt().toString() else "--"
     val initials: String get() = name.split(" ").mapNotNull { it.firstOrNull()?.uppercase() }.take(2).joinToString("")
+    
+    val completionPercentage: Float get() {
+        val completedFields = listOf(
+            name.isNotEmpty(),
+            age > 0,
+            gender.isNotEmpty(),
+            bloodGroup.isNotEmpty(),
+            weight > 0f,
+            height > 0f,
+            location.isNotEmpty(),
+            profileImageUrl.isNotEmpty(),
+            emergencyContacts.isNotEmpty(),
+            email.isNotEmpty()
+        )
+        return completedFields.count { it }.toFloat() / completedFields.size
+    }
 }
 
 data class FamilyMember(
@@ -54,4 +71,11 @@ data class SavedAddress(
     val city: String,
     val pincode: String,
     @SerializedName("is_default") val isDefault: Boolean = false
+)
+
+data class RecentSearch(
+    val id: String,
+    val locationName: String,
+    val address: String,
+    val timeOrDistance: String
 )

@@ -9,6 +9,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -42,11 +44,25 @@ class FacilityDetailViewModel @Inject constructor(
     private val hospitalRepository: HospitalRepository,
     private val emergencyRepository: EmergencyRepository,
     private val locationHelper: LocationHelper,
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val favoriteFacilitiesStore: com.example.swastik.data.repository.FavoriteFacilitiesStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HospitalDetailUiState())
     val uiState: StateFlow<HospitalDetailUiState> = _uiState.asStateFlow()
+
+    val isFavorite: StateFlow<Boolean> = kotlinx.coroutines.flow.combine(
+        _uiState, favoriteFacilitiesStore.favorites
+    ) { state, favs ->
+        val facilityId = state.facility?.id ?: return@combine false
+        favs.any { it.id == facilityId }
+    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), false)
+
+    fun toggleFavorite() {
+        uiState.value.facility?.let { facility ->
+            favoriteFacilitiesStore.toggleFavorite(facility)
+        }
+    }
 
     fun loadHospitalDetails(hospitalId: String) {
         checkCooldown(hospitalId)

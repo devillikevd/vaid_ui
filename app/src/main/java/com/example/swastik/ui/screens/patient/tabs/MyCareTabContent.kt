@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -31,6 +32,8 @@ import com.example.swastik.data.model.PatientProfile
 import com.example.swastik.data.model.PatientStats
 import com.example.swastik.data.model.Reminder
 import com.example.swastik.data.model.ReminderType
+import com.example.swastik.data.model.Appointment
+import com.example.swastik.data.model.ConsultationRecord
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.RecordsViewModel
 
@@ -47,9 +50,21 @@ fun MyCareTabContent(
     onNavigateToAppointments: () -> Unit = {},
     onNavigateToOrderHistory: () -> Unit = {},
     onNavigateToBookingHistory: () -> Unit = {},
+    favoriteDoctorsCount: Int = 0,
+    favoriteHospitalsCount: Int = 0,
+    favoriteClinicsCount: Int = 0,
+    favoriteDiagnosticsCount: Int = 0,
+    favoritePharmaciesCount: Int = 0,
+    recentConsultations: List<ConsultationRecord> = emptyList(),
+    upcomingAppointments: List<Appointment> = emptyList(),
+    recentPrescriptions: List<com.example.swastik.data.model.Prescription> = emptyList(),
+    onNavigateToFavoriteDoctors: () -> Unit = {},
+    onNavigateToFavoriteMedicines: () -> Unit = {},
+    onNavigateToFavoriteFacilities: (String) -> Unit = {},
     recordsViewModel: RecordsViewModel = hiltViewModel()
 ) {
     var currentView by remember { mutableStateOf("CARDS") }
+    var initialRecordsFilter by remember { mutableStateOf(com.example.swastik.ui.screens.patient.tabs.RecordFilter.ALL) }
 
     if (currentView == "CARDS") {
         MyCareCardsView(
@@ -61,9 +76,27 @@ fun MyCareTabContent(
             onNavigateToAppointments = onNavigateToAppointments,
             onNavigateToOrderHistory = onNavigateToOrderHistory,
             onNavigateToBookingHistory = onNavigateToBookingHistory,
-            onNavigateToMedicalRecords = { currentView = "RECORDS" }
+            onNavigateToMedicalRecords = { filter ->
+                initialRecordsFilter = filter
+                currentView = "RECORDS" 
+            },
+            favoriteDoctorsCount = favoriteDoctorsCount,
+            favoriteHospitalsCount = favoriteHospitalsCount,
+            favoriteClinicsCount = favoriteClinicsCount,
+            favoriteDiagnosticsCount = favoriteDiagnosticsCount,
+            favoritePharmaciesCount = favoritePharmaciesCount,
+            onNavigateToFavoriteDoctors = onNavigateToFavoriteDoctors,
+            onNavigateToFavoriteMedicines = onNavigateToFavoriteMedicines,
+            onNavigateToFavoriteFacilities = onNavigateToFavoriteFacilities,
+            recentConsultations = recentConsultations,
+            upcomingAppointments = upcomingAppointments,
+            recentPrescriptions = recentPrescriptions,
+            onNavigateToPrescriptions = onNavigateToPrescriptions
         )
     } else {
+        androidx.activity.compose.BackHandler {
+            currentView = "CARDS"
+        }
         Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             // Back Button Header
             Row(
@@ -84,7 +117,8 @@ fun MyCareTabContent(
                 onNotificationClick = onNotificationClick,
                 onNavigateToPrescriptions = onNavigateToPrescriptions,
                 onNavigateToReports = onNavigateToReports,
-                viewModel = recordsViewModel
+                viewModel = recordsViewModel,
+                initialFilter = initialRecordsFilter
             )
         }
     }
@@ -100,7 +134,19 @@ fun MyCareCardsView(
     onNavigateToAppointments: () -> Unit,
     onNavigateToOrderHistory: () -> Unit,
     onNavigateToBookingHistory: () -> Unit,
-    onNavigateToMedicalRecords: () -> Unit
+    onNavigateToMedicalRecords: (com.example.swastik.ui.screens.patient.tabs.RecordFilter) -> Unit,
+    favoriteDoctorsCount: Int = 0,
+    favoriteHospitalsCount: Int = 0,
+    favoriteClinicsCount: Int = 0,
+    favoriteDiagnosticsCount: Int = 0,
+    favoritePharmaciesCount: Int = 0,
+    onNavigateToFavoriteDoctors: () -> Unit = {},
+    onNavigateToFavoriteMedicines: () -> Unit = {},
+    onNavigateToFavoriteFacilities: (String) -> Unit = {},
+    recentConsultations: List<ConsultationRecord> = emptyList(),
+    upcomingAppointments: List<Appointment> = emptyList(),
+    recentPrescriptions: List<com.example.swastik.data.model.Prescription> = emptyList(),
+    onNavigateToPrescriptions: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 
@@ -179,35 +225,46 @@ fun MyCareCardsView(
                     Text("Excellent", fontSize = 11.sp, color = SwastikPrimary, fontWeight = FontWeight.SemiBold)
                 }
                 
-                Divider(modifier = Modifier.height(60.dp).width(1.dp), color = Color(0xFFE2E8F0))
+                // Divider removed
                 
                 // Next Appointment
-                Column {
+                Column(modifier = Modifier.align(Alignment.Top)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.Event, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Next Appointment", fontSize = 11.sp, color = Color(0xFF64748B))
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("Tomorrow", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF1E293B))
-                    Text("10:00 AM", fontSize = 12.sp, color = Color(0xFF1E293B))
-                    Text("Dr. Krish Soni", fontSize = 11.sp, color = Color(0xFF64748B))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val nextAppt = upcomingAppointments.firstOrNull()
+                    if (nextAppt != null) {
+                        Text(nextAppt.date, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF1E293B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(nextAppt.timeSlot, fontSize = 12.sp, color = Color(0xFF1E293B))
+                        Text("Dr. ${nextAppt.doctor?.name ?: "Unknown"}", fontSize = 11.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    } else {
+                        Text("None Scheduled", fontSize = 13.sp, color = Color(0xFF475569), fontWeight = FontWeight.Medium)
+                    }
                 }
                 
-                Divider(modifier = Modifier.height(60.dp).width(1.dp), color = Color(0xFFE2E8F0))
+                // Divider removed
                 
                 // Medicine Reminder
-                Column {
+                Column(modifier = Modifier.align(Alignment.Top)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.Medication, contentDescription = null, tint = Color(0xFFF97316), modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Medicine Reminder", fontSize = 11.sp, color = Color(0xFF64748B))
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("Today", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF1E293B))
-                    Text("3:00 PM", fontSize = 12.sp, color = Color(0xFF1E293B))
-                    val medCount = reminders.count { it.type == ReminderType.MEDICINE }
-                    Text(if (medCount > 0) "$medCount Medicines" else "2 Medicines", fontSize = 11.sp, color = Color(0xFF64748B))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val medReminders = reminders.filter { it.type == ReminderType.MEDICINE }
+                    val nextMed = medReminders.firstOrNull { !it.isCompleted } ?: medReminders.firstOrNull()
+                    if (nextMed != null) {
+                        Text(nextMed.time, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF1E293B))
+                        Text(nextMed.title, fontSize = 12.sp, color = Color(0xFF1E293B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val medCount = medReminders.size
+                        Text("$medCount Medicines", fontSize = 11.sp, color = Color(0xFF64748B))
+                    } else {
+                        Text("None Active", fontSize = 13.sp, color = Color(0xFF475569), fontWeight = FontWeight.Medium)
+                    }
                 }
             }
         }
@@ -266,7 +323,7 @@ fun MyCareCardsView(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onNavigateToMedicalRecords),
+                .clickable(onClick = { onNavigateToMedicalRecords(com.example.swastik.ui.screens.patient.tabs.RecordFilter.ALL) }),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -317,21 +374,99 @@ fun MyCareCardsView(
 
         // 5. Recent Activity
         SectionHeader("Recent Activity", null)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { ActivityCard("Blood Test Completed", "CBC Test", "2 May 2025 • 10:10 AM", Icons.Outlined.Science, SwastikPrimary, Color(0xFFDCFCE7)) }
-            item { ActivityCard("Medicine Delivered", "Order #09723AB", "1 May 2025 • 4:20 PM", Icons.Outlined.LocalShipping, Color(0xFFF97316), Color(0xFFFFF7ED)) }
-            item { ActivityCard("Appointment Booked", "Dr. Krish Soni", "30 Apr 2025 • 11:15 AM", Icons.Outlined.Event, Color(0xFF3B82F6), Color(0xFFEFF6FF)) }
+        
+        val recentActivities = remember(recentConsultations, upcomingAppointments) {
+            val activities = mutableListOf<Pair<Long, @Composable () -> Unit>>()
+            
+            recentConsultations.forEach { consultation ->
+                // Basic sorting heuristic by string if date is formatted simply. Or just default 0.
+                val timestamp = 0L 
+                activities.add(
+                    timestamp to { 
+                        ActivityCard(
+                            title = "Consultation Completed", 
+                            subtitle = "Dr. ${consultation.doctorName}", 
+                            time = consultation.date, 
+                            icon = Icons.Outlined.Science, 
+                            iconTint = SwastikPrimary, 
+                            bgColor = Color(0xFFDCFCE7),
+                            onClick = { onNavigateToMedicalRecords(com.example.swastik.ui.screens.patient.tabs.RecordFilter.CONSULTATIONS) }
+                        ) 
+                    }
+                )
+            }
+            
+            upcomingAppointments.forEach { appointment ->
+                val timestamp = 1L
+                activities.add(
+                    timestamp to { 
+                        ActivityCard(
+                            title = "Appointment Booked", 
+                            subtitle = "Dr. ${appointment.doctor?.name ?: "Unknown"}", 
+                            time = "${appointment.date} • ${appointment.timeSlot}", 
+                            icon = Icons.Outlined.Event, 
+                            iconTint = Color(0xFF3B82F6), 
+                            bgColor = Color(0xFFEFF6FF),
+                            onClick = onNavigateToAppointments
+                        ) 
+                    }
+                )
+            }
+            
+            recentPrescriptions.forEach { prescription ->
+                val timestamp = 2L
+                activities.add(
+                    timestamp to { 
+                        ActivityCard(
+                            title = "Prescription Generated", 
+                            subtitle = prescription.diagnosis, 
+                            time = prescription.createdAt, 
+                            icon = Icons.Outlined.Description, 
+                            iconTint = Color(0xFFF97316), 
+                            bgColor = Color(0xFFFFF7ED),
+                            onClick = onNavigateToPrescriptions
+                        ) 
+                    }
+                )
+            }
+            
+            activities.sortedByDescending { it.first }.map { it.second }
+        }
+
+        if (recentActivities.isEmpty()) {
+            Text(
+                text = "No recent activity",
+                fontSize = 14.sp,
+                color = Color(0xFF64748B),
+                modifier = Modifier.padding(vertical = 12.dp)
+            )
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(recentActivities.size) { index ->
+                    recentActivities[index]()
+                }
+            }
         }
 
         // 6. Saved & Quick Links
         SectionHeader("Saved & Quick Links", null)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            SavedLinkCard(modifier = Modifier.weight(1f), "Saved Doctors", "12 Doctors", Icons.Filled.Favorite, SwastikPrimary, Color(0xFFDCFCE7))
-            SavedLinkCard(modifier = Modifier.weight(1f), "Saved Hospitals", "5 Hospitals", Icons.Filled.LocalHospital, Color(0xFF3B82F6), Color(0xFFEFF6FF))
-            SavedLinkCard(modifier = Modifier.weight(1f), "Saved Medicines", "3 Medicines", Icons.Filled.Medication, Color(0xFFF97316), Color(0xFFFFF7ED))
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SavedLinkCard(modifier = Modifier.weight(1f), "Saved Doctors", "$favoriteDoctorsCount Doctors", Icons.Filled.Favorite, SwastikPrimary, Color(0xFFDCFCE7), onClick = onNavigateToFavoriteDoctors)
+                SavedLinkCard(modifier = Modifier.weight(1f), "Saved Hospitals", "$favoriteHospitalsCount Hospitals", Icons.Filled.LocalHospital, Color(0xFF3B82F6), Color(0xFFEFF6FF), onClick = { onNavigateToFavoriteFacilities("HOSPITAL") })
+                SavedLinkCard(modifier = Modifier.weight(1f), "Saved Clinics", "$favoriteClinicsCount Clinics", Icons.Filled.MedicalServices, Color(0xFF8B5CF6), Color(0xFFF3E8FF), onClick = { onNavigateToFavoriteFacilities("CLINIC") })
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SavedLinkCard(modifier = Modifier.weight(1f), "Saved Diagnostics", "$favoriteDiagnosticsCount Centers", Icons.Filled.Science, Color(0xFFF59E0B), Color(0xFFFEF3C7), onClick = { onNavigateToFavoriteFacilities("DIAGNOSTIC_CENTER") })
+                SavedLinkCard(modifier = Modifier.weight(1f), "Saved Pharmacies", "$favoritePharmaciesCount Stores", Icons.Filled.LocalPharmacy, Color(0xFF10B981), Color(0xFFD1FAE5), onClick = { onNavigateToFavoriteFacilities("MEDICAL_STORE") })
+                SavedLinkCard(modifier = Modifier.weight(1f), "Saved Medicines", "Saved", Icons.Filled.Medication, Color(0xFFF97316), Color(0xFFFFF7ED), onClick = onNavigateToFavoriteMedicines)
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -383,9 +518,9 @@ private fun QuickAccessCard(
 }
 
 @Composable
-private fun ActivityCard(title: String, subtitle: String, time: String, icon: androidx.compose.ui.graphics.vector.ImageVector, iconTint: Color, bgColor: Color) {
+private fun ActivityCard(title: String, subtitle: String, time: String, icon: androidx.compose.ui.graphics.vector.ImageVector, iconTint: Color, bgColor: Color, onClick: () -> Unit = {}) {
     Card(
-        modifier = Modifier.width(260.dp),
+        modifier = Modifier.width(260.dp).clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -412,9 +547,9 @@ private fun ActivityCard(title: String, subtitle: String, time: String, icon: an
 }
 
 @Composable
-private fun SavedLinkCard(modifier: Modifier, title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, iconTint: Color, bgColor: Color) {
+private fun SavedLinkCard(modifier: Modifier, title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, iconTint: Color, bgColor: Color, onClick: () -> Unit = {}) {
     Card(
-        modifier = modifier.height(90.dp),
+        modifier = modifier.height(115.dp).clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -435,8 +570,8 @@ private fun SavedLinkCard(modifier: Modifier, title: String, subtitle: String, i
                 Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = Color(0xFF94A3B8), modifier = Modifier.size(16.dp))
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFF1E293B))
-            Text(subtitle, fontSize = 9.sp, color = Color(0xFF64748B))
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, color = Color(0xFF1E293B))
+            Text(subtitle, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color(0xFF64748B))
         }
     }
 }

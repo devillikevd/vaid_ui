@@ -1005,7 +1005,7 @@ fun PremiumActionsRow(
             }
         }
 
-        Button(
+        OutlinedButton(
             onClick = {
                 val geoUri = "geo:${facility.latitude},${facility.longitude}?q=${facility.latitude},${facility.longitude}(${Uri.encode(facility.name)})"
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(geoUri))
@@ -1018,12 +1018,13 @@ fun PremiumActionsRow(
                 }
             },
             modifier = Modifier.weight(1f).height(56.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = if (isDark) Color.White else Color.Black),
+            border = BorderStroke(1.dp, if (isDark) Color.White else Color.Black),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = if (isDark) Color.White else Color.Black),
             shape = RoundedCornerShape(14.dp)
         ) {
             Icon(Icons.Default.LocalTaxi, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Book Ride", fontWeight = FontWeight.Bold, color = if (isDark) Color.Black else Color.White)
+            Text("Book Ride", fontWeight = FontWeight.Bold, color = if (isDark) Color.White else Color.Black)
         }
     }
 }

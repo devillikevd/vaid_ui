@@ -18,6 +18,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import android.content.SharedPreferences
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import javax.inject.Inject
 import javax.inject.Singleton
 import android.util.Log
@@ -32,8 +35,11 @@ class PatientRepository @Inject constructor(
     private val apiService: ApiService,
     private val socketManager: SocketManager,
     private val notificationDao: NotificationDao,
-    private val prescriptionDao: PrescriptionDao
+    private val prescriptionDao: PrescriptionDao,
+    private val prefs: SharedPreferences
 ) {
+    private val gson = Gson()
+
     // Real-time flows
     val orderUpdates = socketManager.orderUpdates
     val realtimeNotifications = socketManager.notifications
@@ -116,7 +122,7 @@ class PatientRepository @Inject constructor(
 
             if (_recommendedDoctors.value.isEmpty()) {
                 try {
-                    when (val recommendedResult = fetchRecommendedDoctors(limit = 8)) {
+                    when (val recommendedResult = fetchRecommendedDoctors(limit = 5)) {
                         is Result.Success -> _recommendedDoctors.value = recommendedResult.data
                         else -> Unit
                     }
@@ -128,7 +134,24 @@ class PatientRepository @Inject constructor(
                 val patientData = profileResponse.body()?.data
                 if (patientData != null) {
                     patient = patientData.toPatient()
-                    _patientProfile.value = patientData.toPatientProfile()
+                    val profileFromApi = patientData.toPatientProfile()
+                    
+                    // Restore saved addresses from local cache as the backend does not persist them currently
+                    val cachedAddressesJson = prefs.getString("saved_addresses", null)
+                    val cachedAddresses: List<SavedAddress> = if (cachedAddressesJson != null) {
+                        try {
+                            val type = object : TypeToken<List<SavedAddress>>() {}.type
+                            gson.fromJson(cachedAddressesJson, type)
+                        } catch (e: Exception) {
+                            emptyList()
+                        }
+                    } else {
+                        emptyList()
+                    }
+                    
+                    _patientProfile.value = profileFromApi.copy(
+                        savedAddresses = if (cachedAddresses.isNotEmpty()) cachedAddresses else profileFromApi.savedAddresses
+                    )
                 }
             }
 
@@ -615,7 +638,9 @@ class PatientRepository @Inject constructor(
                 if (dto != null) {
                     val address = SavedAddress(id = dto.id, label = dto.label, address = dto.address, city = dto.city ?: "", pincode = dto.pincode ?: "")
                     _patientProfile.value = _patientProfile.value?.let {
-                        it.copy(savedAddresses = it.savedAddresses + address)
+                        val updated = it.copy(savedAddresses = it.savedAddresses + address)
+                        prefs.edit().putString("saved_addresses", gson.toJson(updated.savedAddresses)).apply()
+                        updated
                     }
                     Result.Success(address)
                 } else {
@@ -634,8 +659,10 @@ class PatientRepository @Inject constructor(
             val response = apiService.deleteSavedAddress(addressId)
             if (response.isSuccessful && response.body()?.success == true) {
                 _patientProfile.value = _patientProfile.value?.let {
-                    it.copy(savedAddresses = it.savedAddresses.filter { a -> a.id != addressId })
-                }
+                        val updated = it.copy(savedAddresses = it.savedAddresses.filter { a -> a.id != addressId })
+                        prefs.edit().putString("saved_addresses", gson.toJson(updated.savedAddresses)).apply()
+                        updated
+                    }
                 Result.Success(Unit)
             } else {
                 Result.Error("Failed to delete address")
@@ -813,7 +840,7 @@ class PatientRepository @Inject constructor(
         }
     }
 
-    private suspend fun fetchRecommendedDoctors(limit: Int = 8): Result<List<Doctor>> {
+    private suspend fun fetchRecommendedDoctors(limit: Int = 5): Result<List<Doctor>> {
         return try {
             val response = apiService.getRecommendedDoctors(limit)
             if (response.isSuccessful && response.body()?.success == true) {
@@ -951,7 +978,15 @@ class PatientRepository @Inject constructor(
                     pincode = it.pincode ?: "",
                     isDefault = it.isDefault
                 )
-            } ?: emptyList()
+            } ?: emptyList(),
+            recentSearches = listOf(
+                RecentSearch(
+                    id = "rs1",
+                    locationName = "Block E",
+                    address = "Block E, Malviya Nagar, New Delhi, Delhi 110017, India",
+                    timeOrDistance = "2 m"
+                )
+            )
         )
     }
     

@@ -132,6 +132,8 @@ fun FacilityDetailScreen(
         viewModel.loadFacilityDetails(facilityId, facilityType)
     }
 
+    val isFavorite by viewModel.isFavorite.collectAsState()
+
     when {
         uiState.isLoading -> {
             HospitalDetailShimmerSkeleton(isDark = isDark)
@@ -180,7 +182,7 @@ fun FacilityDetailScreen(
                 if (facility.reels.isNotEmpty()) add("Videos")
             }
 
-            val pagerState = rememberPagerState(pageCount = { tabTitles.size })
+            var selectedTabIndex by remember { mutableIntStateOf(0) }
             val coroutineScope = rememberCoroutineScope()
 
             Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
@@ -287,11 +289,11 @@ fun FacilityDetailScreen(
                                         color = Color.Black.copy(alpha = 0.35f),
                                         modifier = Modifier.size(40.dp)
                                     ) {
-                                        IconButton(onClick = { /* TODO: Favorite toggle */ }, modifier = Modifier.size(40.dp)) {
+                                        IconButton(onClick = { viewModel.toggleFavorite() }, modifier = Modifier.size(40.dp)) {
                                             Icon(
-                                                Icons.Outlined.FavoriteBorder,
+                                                if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                                 contentDescription = "Favorite",
-                                                tint = Color.White,
+                                                tint = if (isFavorite) Color.Red else Color.White,
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         }
@@ -472,7 +474,7 @@ fun FacilityDetailScreen(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = facility.address,
+                                        text = facility.address.trimEnd(',', ' '),
                                         fontSize = 13.sp,
                                         color = subtitleColor,
                                         maxLines = 2,
@@ -495,8 +497,8 @@ fun FacilityDetailScreen(
                                     PremiumQuickAction(
                                         icon = Icons.Default.Call,
                                         label = "Call",
-                                        color = Color(0xFF059669),
-                                        bgColor = Color(0xFFD1FAE5),
+                                        color = BrandTeal,
+                                        bgColor = BrandTealLight,
                                         isDark = isDark
                                     ) {
                                         if (facility.phone.isNotBlank()) {
@@ -506,8 +508,8 @@ fun FacilityDetailScreen(
                                     PremiumQuickAction(
                                         icon = Icons.Default.Directions,
                                         label = "Directions",
-                                        color = Color(0xFF2563EB),
-                                        bgColor = Color(0xFFDBEAFE),
+                                        color = BrandTeal,
+                                        bgColor = BrandTealLight,
                                         isDark = isDark
                                     ) {
                                         NavigationHelper.openDirections(
@@ -520,8 +522,8 @@ fun FacilityDetailScreen(
                                     PremiumQuickAction(
                                         icon = Icons.Default.Chat,
                                         label = "WhatsApp",
-                                        color = Color(0xFF25D366),
-                                        bgColor = Color(0xFFDCFCE7),
+                                        color = BrandTeal,
+                                        bgColor = BrandTealLight,
                                         isDark = isDark
                                     ) {
                                         if (facility.phone.isNotBlank()) {
@@ -623,7 +625,7 @@ fun FacilityDetailScreen(
                                         facility.openTime != null && facility.closeTime != null ->
                                             "${facility.openTime} - ${facility.closeTime}"
                                         facility.openingHours != null -> facility.openingHours
-                                        else -> null
+                                        else -> "Timings available on call"
                                     }
                                     timingsText?.let {
                                         Text(
@@ -730,14 +732,14 @@ fun FacilityDetailScreen(
                             shadowElevation = 2.dp
                         ) {
                             ScrollableTabRow(
-                                selectedTabIndex = pagerState.currentPage,
+                                selectedTabIndex = selectedTabIndex,
                                 containerColor = Color.Transparent,
                                 contentColor = tabIndicatorColor,
                                 edgePadding = 16.dp,
                                 indicator = { tabPositions ->
-                                    if (tabPositions.isNotEmpty() && pagerState.currentPage < tabPositions.size) {
+                                    if (tabPositions.isNotEmpty() && selectedTabIndex < tabPositions.size) {
                                         TabRowDefaults.SecondaryIndicator(
-                                            modifier = Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
+                                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
                                             height = 3.dp,
                                             color = tabIndicatorColor
                                         )
@@ -747,18 +749,16 @@ fun FacilityDetailScreen(
                             ) {
                                 tabTitles.forEachIndexed { index, title ->
                                     Tab(
-                                        selected = pagerState.currentPage == index,
+                                        selected = selectedTabIndex == index,
                                         onClick = {
-                                            coroutineScope.launch {
-                                                pagerState.animateScrollToPage(index)
-                                            }
+                                            selectedTabIndex = index
                                         },
                                         text = {
                                             Text(
                                                 text = title,
-                                                fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Medium,
+                                                fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Medium,
                                                 fontSize = 14.sp,
-                                                color = if (pagerState.currentPage == index) tabIndicatorColor else subtitleColor
+                                                color = if (selectedTabIndex == index) tabIndicatorColor else subtitleColor
                                             )
                                         }
                                     )
@@ -770,7 +770,7 @@ fun FacilityDetailScreen(
                     // ═══════════════════════════════════════
                     //  4. TAB CONTENT (Non-pager approach for LazyColumn compat)
                     // ═══════════════════════════════════════
-                    val currentTab = tabTitles.getOrNull(pagerState.currentPage) ?: "Overview"
+                    val currentTab = tabTitles.getOrNull(selectedTabIndex) ?: "Overview"
 
                     when {
                         currentTab == "Overview" -> {
@@ -787,7 +787,7 @@ fun FacilityDetailScreen(
                                 facilityId = facilityId,
                                 context = context,
                                 onOrderMedicineClick = {
-                                    pharmacyBookingIsPrescription = true
+                                    pharmacyBookingIsPrescription = false
                                     showPharmacyBookingDialog = true
                                 },
                                 onBookTestClick = {
@@ -1067,7 +1067,16 @@ private fun LazyListScope.overviewTabContent(
 
     // ── Health Alert ──
     item {
-        HealthAlertCard(isDark = isDark)
+        Column(modifier = Modifier.offset(y = offsetY)) {
+            Text(
+                text = "Local Health Alerts",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = titleColor,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+            )
+            HealthAlertCard(isDark = isDark)
+        }
     }
 
     // ── Bed Availability ──
@@ -1081,16 +1090,60 @@ private fun LazyListScope.overviewTabContent(
         }
     }
 
-    // ── Premium Actions (Virtual Tour, Book Ride) ──
+    // ── Premium Actions & Travel ──
     if (!facility.virtualTourUrl.isNullOrBlank() || (facility.latitude != 0.0 && facility.longitude != 0.0)) {
         item {
-            PremiumActionsRow(
-                facility = facility,
-                isDark = isDark,
-                modifier = Modifier
-                    .padding(vertical = 4.dp)
-                    .offset(y = offsetY)
-            )
+            Column(modifier = Modifier.offset(y = offsetY)) {
+                Text(
+                    text = "Travel & Location",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = titleColor,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    PremiumActionsRow(
+                        facility = facility,
+                        isDark = isDark,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+
+                    if (facility.latitude != 0.0 && facility.longitude != 0.0) {
+                        Surface(
+                            onClick = {
+                                NavigationHelper.openDirections(
+                                    context,
+                                    facility.latitude,
+                                    facility.longitude,
+                                    facility.name
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                                .padding(bottom = 8.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
+                            border = BorderStroke(1.dp, accentColor.copy(alpha = 0.5f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(Icons.Default.LocationOn, contentDescription = "Location", tint = accentColor)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "View on Google Maps",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = accentColor
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1229,43 +1282,6 @@ private fun LazyListScope.overviewTabContent(
         }
     }
 
-    // ── Map Preview ──
-    if (facility.latitude != 0.0 && facility.longitude != 0.0) {
-        item {
-            Surface(
-                onClick = {
-                    NavigationHelper.openDirections(
-                        context,
-                        facility.latitude,
-                        facility.longitude,
-                        facility.name
-                    )
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .offset(y = offsetY),
-                shape = RoundedCornerShape(12.dp),
-                color = if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC),
-                border = BorderStroke(1.dp, accentColor.copy(alpha = 0.5f))
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(Icons.Default.LocationOn, contentDescription = "Location", tint = accentColor)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "View on Google Maps",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = accentColor
-                    )
-                }
-            }
-        }
-    }
 
     // ── Website ──
     if (!facility.websiteUrl.isNullOrBlank()) {

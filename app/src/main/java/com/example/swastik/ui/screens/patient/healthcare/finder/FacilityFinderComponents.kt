@@ -1001,20 +1001,22 @@ internal fun FacilityListCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(Icons.Outlined.Place, contentDescription = null, tint = subtitleColor, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = facility.address,
                     fontSize = 12.sp,
-                    color = subtitleColor,
+                    color = titleColor,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f) // Ensure it truncates without pushing distance out
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = accentColor, modifier = Modifier.size(14.dp))
-                Text(" ${facility.distance}", fontSize = 12.sp, color = subtitleColor)
+                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = titleColor, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(facility.distance, fontSize = 12.sp, color = titleColor)
             }
 
             // Badges
@@ -1084,13 +1086,14 @@ internal fun FacilityListCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, Color(0xFF2563EB).copy(alpha = 0.3f)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2563EB))
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2563EB)),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Call", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Call", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 }
-                Button(
+                OutlinedButton(
                     onClick = {
                         NavigationHelper.openDirections(
                             facilityCardContext,
@@ -1099,21 +1102,27 @@ internal fun FacilityListCard(
                             facility.name
                         )
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1.1f), // slightly more weight for Directions
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+                    border = BorderStroke(1.dp, Color(0xFF059669)), // Green border
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF059669)), // Green text
+                    contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Icon(Icons.Default.Directions, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Directions", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text("Directions", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 }
-                Button(
+                OutlinedButton(
                     onClick = onClick,
                     modifier = Modifier.weight(0.7f),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = accentColor)
+                    border = BorderStroke(1.dp, Color(0xFF0EA5E9)), // Sky blue border
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF0EA5E9) // Sky blue text
+                    ),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
-                    Text("More", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("More", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 }
             }
         }

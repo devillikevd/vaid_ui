@@ -3,6 +3,7 @@ package com.example.swastik.ui.screens.patient.components
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -172,26 +173,30 @@ private fun NetworkCard(title: String, subtitle: String, icon: androidx.compose.
 }
 
 @Composable
-fun HealthAlertCard(isDark: Boolean) {
+fun HealthAlertCard(isDark: Boolean, modifier: Modifier = Modifier) {
     // This is a static UI component representing the Outbreak Intelligence module.
     // In production, this would be wired to the Outbreak API.
-    val gradient = Brush.horizontalGradient(listOf(Color(0xFFEF4444), Color(0xFFF97316)))
+    val bgColor = if (isDark) Color(0xFF450A0A) else Color(0xFFFEF2F2) // Light red
+    val borderColor = if (isDark) Color(0xFF7F1D1D) else Color(0xFFFECACA)
+    val textColorPrimary = if (isDark) Color(0xFFFECACA) else Color(0xFF991B1B)
+    val textColorSecondary = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C)
     
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        colors = CardDefaults.cardColors(containerColor = bgColor),
+        border = BorderStroke(1.dp, borderColor)
     ) {
-        Box(modifier = Modifier.background(gradient).fillMaxWidth().padding(16.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Warning, contentDescription = "Alert", tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Warning, contentDescription = "Alert", tint = textColorPrimary, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("HEALTH INTELLIGENCE ALERT", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, letterSpacing = 1.sp)
+                    Text("HEALTH INTELLIGENCE ALERT", color = textColorPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp, letterSpacing = 1.sp)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("High Severity Dengue Outbreak within 5km", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text("Immediate Action Required. 45 Affected Patients.", color = Color.White.copy(alpha = 0.9f), fontSize = 13.sp)
+                Text("High Severity Dengue Outbreak within 5km", color = textColorPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("Immediate Action Required. 45 Affected Patients.", color = textColorSecondary, fontSize = 13.sp)
             }
         }
     }

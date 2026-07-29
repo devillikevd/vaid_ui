@@ -41,6 +41,8 @@ import com.example.swastik.ui.screens.patient.healthcare.emergency.EmergencyFaci
 import com.example.swastik.ui.screens.patient.healthcare.emergency.EmergencyModeContent
 import com.example.swastik.ui.screens.patient.healthcare.emergency.EmergencyTopBar
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import com.example.swastik.R
 
 private const val DEFAULT_DISCOVERY_RADIUS_KM = 10f
@@ -248,7 +250,14 @@ fun HospitalFinderScreen(
 
     val bgColor = MaterialTheme.colorScheme.background
 
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+
     Scaffold(
+        modifier = Modifier.pointerInput(Unit) {
+            detectTapGestures(onTap = {
+                focusManager.clearFocus()
+            })
+        },
         containerColor = bgColor,
         topBar = {
             if (isEmergencyMode) {

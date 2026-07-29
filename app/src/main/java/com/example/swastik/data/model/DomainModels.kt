@@ -364,7 +364,7 @@ data class Medicine(
     val price: Float?,
     val mrp: Float? = null,
     @SerializedName("requires_prescription") val requiresPrescription: Boolean,
-    val category: MedicineCategory? = MedicineCategory.TABLET,
+    val category: MedicineCategory = MedicineCategory.TABLET,
     @SerializedName("therapeutic_category") val therapeuticCategory: String? = null,
     @SerializedName("dosage_form") val dosageForm: String? = null,
     val description: String? = null,

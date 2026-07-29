@@ -313,6 +313,13 @@ fun AppointmentHistoryScreen(
             }
         }
 
+        // Refresh list when review submission is successful
+        LaunchedEffect(reviewUiState.submitSuccess) {
+            if (reviewUiState.submitSuccess) {
+                pagedAppointments.refresh()
+            }
+        }
+
         if (appointment.isReviewed && reviewUiState.isLoadingExistingReview) {
             // Wait for existing review to load
         } else {

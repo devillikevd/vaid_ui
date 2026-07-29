@@ -130,9 +130,11 @@ object AppModule {
         apiService: ApiService,
         socketManager: SocketManager,
         notificationDao: NotificationDao,
-        prescriptionDao: PrescriptionDao
+        prescriptionDao: PrescriptionDao,
+        @ApplicationContext context: Context
     ): PatientRepository {
-        return PatientRepository(apiService, socketManager, notificationDao, prescriptionDao)
+        val prefs = context.getSharedPreferences("patient_prefs", Context.MODE_PRIVATE)
+        return PatientRepository(apiService, socketManager, notificationDao, prescriptionDao, prefs)
     }
 
     @Provides
