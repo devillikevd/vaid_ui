@@ -301,6 +301,8 @@ const sendApprovalEmail = async (email, name, role, status, notes = '') => {
     clinic_owner: 'clinic',
     pharmacy_owner: 'pharmacy',
     diagnostic_center_owner: 'diagnostic-center',
+    wellness_coach: 'wellness',
+    fitness_center_owner: 'fitness-center',
   };
   const loginPath = roleLoginPathMap[role];
 

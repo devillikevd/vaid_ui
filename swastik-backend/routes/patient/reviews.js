@@ -15,7 +15,7 @@ router.post('/',
   authenticate,
   authorize('patient'),
   [
-    body('reviewableType').isIn(['doctor', 'hospital', 'clinic', 'pharmacy', 'diagnostic_center']).withMessage('Invalid entity type'),
+    body('reviewableType').isIn(['doctor', 'hospital', 'clinic', 'pharmacy', 'diagnostic_center', 'wellness_coach', 'fitness_center']).withMessage('Invalid entity type'),
     body('reviewableId').isUUID().withMessage('Invalid entity ID'),
     body('consultationId').optional().isUUID().withMessage('Invalid consultation ID'),
     body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
@@ -90,7 +90,7 @@ router.get('/consultation/:consultationId',
  */
 router.get('/:type/:id',
   [
-    param('type').isIn(['doctor', 'hospital', 'clinic', 'pharmacy', 'diagnostic_center']).withMessage('Invalid entity type'),
+    param('type').isIn(['doctor', 'hospital', 'clinic', 'pharmacy', 'diagnostic_center', 'wellness_coach', 'fitness_center']).withMessage('Invalid entity type'),
     param('id').isUUID().withMessage('Invalid entity ID'),
     query('page').optional().isInt({ min: 1 }).toInt(),
     query('limit').optional().isInt({ min: 1, max: 50 }).toInt()

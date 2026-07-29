@@ -17,6 +17,7 @@ const ROLE_MAP: Record<string, string> = {
     clinic: 'clinic_owner',
     pharmacy: 'pharmacy_owner',
     'diagnostic-center': 'diagnostic_center_owner',
+    wellness: 'wellness_coach',
     admin: 'admin',
     doctor: 'doctor',
     patient: 'patient'

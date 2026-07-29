@@ -12,6 +12,8 @@ export default function ChoosePath() {
     { id: 'clinic', label: 'Clinic', desc: 'Multi-doctor management', icon: '⚕️', href: '/register/clinic' },
     { id: 'pharmacy', label: 'Pharmacy', desc: 'Prescriptions & inventory', icon: '💊', href: '/register/pharmacy' },
     { id: 'diagnostic', label: 'Diagnostics', desc: 'Tests & lab results', icon: '🔬', href: '/register/diagnostic-center' },
+    { id: 'wellness', label: 'Wellness Coach', desc: 'Gym, yoga & nutrition coaching', icon: '🏋️', href: '/register/wellness' },
+    { id: 'fitness-center', label: 'Gym & Studio', desc: 'Classes, trainers & check-ins', icon: '🏢', href: '/register/fitness-center' },
   ];
 
   return (
@@ -112,12 +114,12 @@ export default function ChoosePath() {
               </div>
               <h3 className="font-heading text-3xl text-vd-forest mb-4">I am a Provider</h3>
               <p className="text-vd-muted mb-10 leading-relaxed font-light">
-                Run a Hospital, Clinic, Pharmacy, or Diagnostics Center? 
-                Manage patients, appointments, and inventory from your dedicated operations dashboard.
+                Run a Hospital, Clinic, Pharmacy, Diagnostics Center, Gym, or Studio?
+                Manage patients, appointments, inventory, trainers, classes, and bookings from your dedicated operations dashboard.
               </p>
               
               <div className="flex flex-wrap gap-2 mb-12">
-                {['Hospital', 'Doctor', 'Clinic', 'Pharmacy', 'Diagnostics'].map((role) => (
+                {['Hospital', 'Doctor', 'Clinic', 'Pharmacy', 'Diagnostics', 'Wellness', 'Gyms'].map((role) => (
                   <span key={role} className="px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide bg-white/50 text-vd-forest border border-white shadow-sm">
                     {role}
                   </span>
@@ -160,7 +162,7 @@ export default function ChoosePath() {
             
             <div className="text-center mb-10">
                <h3 className="font-heading text-4xl text-vd-forest dark:text-white mb-3">Select Provider Role</h3>
-               <p className="text-vd-muted dark:text-white/50 text-base max-w-md mx-auto">Choose your specific healthcare facility type to access the customized registration portal.</p>
+               <p className="text-vd-muted dark:text-white/50 text-base max-w-md mx-auto">Choose your specific healthcare or wellness role to access the customized registration portal.</p>
             </div>
 
             <div className="flex flex-wrap justify-center gap-5">

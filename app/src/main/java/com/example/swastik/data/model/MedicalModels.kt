@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.LocalPharmacy
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.FitnessCenter
 import com.google.gson.annotations.SerializedName
 
 data class MedicalFacility(
@@ -86,6 +87,7 @@ enum class FacilityType {
     CLINIC,
     MEDICAL_STORE,
     DIAGNOSTIC_CENTER,
+    FITNESS_CENTER,
     NURSING_HOME;
 
     fun getDisplayName(): String {
@@ -94,6 +96,7 @@ enum class FacilityType {
             CLINIC -> "Clinic"
             MEDICAL_STORE -> "Medical Store"
             DIAGNOSTIC_CENTER -> "Diagnostic Center"
+            FITNESS_CENTER -> "Gym & Studio"
             NURSING_HOME -> "Nursing Home"
         }
     }
@@ -104,6 +107,7 @@ enum class FacilityType {
             CLINIC -> Icons.Default.MedicalServices
             MEDICAL_STORE -> Icons.Default.LocalPharmacy
             DIAGNOSTIC_CENTER -> Icons.Default.Science
+            FITNESS_CENTER -> Icons.Default.FitnessCenter
             NURSING_HOME -> Icons.Default.LocalHospital
         }
     }
@@ -114,6 +118,7 @@ enum class FacilityType {
             CLINIC -> Color(0xFFD5EDDA)
             MEDICAL_STORE -> Color(0xFFFFFDE7)
             DIAGNOSTIC_CENTER -> Color(0xFFFCE4EC)
+            FITNESS_CENTER -> Color(0xFFE0F7FA)
             NURSING_HOME -> Color(0xFFE3F2FD)
         }
     }

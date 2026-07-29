@@ -64,6 +64,8 @@ const PROVIDER_TYPES = [
     { value: 'clinic', label: 'Clinics' },
     { value: 'pharmacy', label: 'Pharmacies' },
     { value: 'diagnostic_center', label: 'Diagnostic Centers' },
+    { value: 'wellness_coach', label: 'Wellness Coaches' },
+    { value: 'fitness_center', label: 'Fitness Centers' },
     { value: 'ambulance', label: 'Ambulances' },
 ];
 

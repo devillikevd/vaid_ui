@@ -47,6 +47,22 @@
 \i 032_doctor_slots_date_migration.sql
 \i 033_delivery_tracking.sql
 \i 034_pharmacy_inventory_pack_size.sql
+\i 034_requested_role.sql
 \i 035_diagnostic_booking_prescription.sql
+\i 036_phi_encryption.sql
+\i 037_patient_consents.sql
+\i 038_catalog_requests.sql
+\i 038_idempotency_constraints.sql
+\i 039_atomic_addresses.sql
+\i 040_add_doctor_pending_role.sql
 \i 041_token_version.sql
+\i 042_master_catalog.sql
+\i 043_hospital_detail_enhancements.sql
+\i 044_premium_hospital_features.sql
+\i 045_hospital_reels.sql
+\i 046_clinic_enhancements.sql
+\i 047_pharmacy_enhancements.sql
+\i 048_diagnostic_enhancements.sql
+\i 20250727120000_create_medicine_categories.sql
+\i 049_wellness_ecosystem.sql
 SELECT '✅ SWASTIK PRODUCTION SCHEMA v4.1 DEPLOYED!' as status;

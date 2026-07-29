@@ -72,6 +72,56 @@ const tabs: PortalTab[] = [
     ],
   },
   {
+    id: "wellness",
+    icon: "🏋️",
+    label: "Wellness",
+    badge: "FITNESS & COACHING PORTAL",
+    heading: "Manage clients, sessions, plans, and progress in one coaching console.",
+    desc: "A single expert role for gym trainers, yoga instructors, mobility coaches, running coaches, and nutrition-focused wellness guidance.",
+    features: [
+      "Verified coach profile with specialties, languages, fees, and availability",
+      "Video, audio, chat, and in-person coaching sessions",
+      "Workout plans, adherence check-ins, meal-plan support, and progress reviews",
+    ],
+    registerHref: "/register/wellness",
+    registerLabel: "Register Coach",
+    loginHref: "/login?role=wellness",
+    accentColor: "bg-lime-500",
+    dashboardTitle: "Wellness Coaching Console",
+    sidebarItems: ["Dashboard", "Sessions", "Clients", "Plans", "Nutrition", "Communities", "Reviews", "Settings"],
+    stats: [
+      { label: "Active Clients", value: "0" },
+      { label: "Sessions Today", value: "0" },
+      { label: "Plan Adherence", value: "0%" },
+      { label: "Monthly Revenue", value: "₹0" },
+    ],
+  },
+  {
+    id: "fitness-center",
+    icon: "🏢",
+    label: "Gym & Studio",
+    badge: "FITNESS CENTER OWNER PORTAL",
+    heading: "Run gyms, studios, trainers, classes, and check-ins from one console.",
+    desc: "A dedicated owner portal for gyms, yoga studios, fitness centers, dance studios, running clubs, and wellness facilities with trainer invite onboarding.",
+    features: [
+      "Invite approved wellness coaches through secure onboarding links",
+      "Manage memberships, day passes, trial classes, bookings, and QR check-ins",
+      "Publish facilities, equipment, photos, class schedules, offers, and safety information",
+    ],
+    registerHref: "/register/fitness-center",
+    registerLabel: "Register Gym / Studio",
+    loginHref: "/login?role=fitness-center",
+    accentColor: "bg-cyan-500",
+    dashboardTitle: "Gym & Studio Owner Console",
+    sidebarItems: ["Dashboard", "Trainers", "Invites", "Classes", "Bookings", "Check-ins", "Analytics", "Settings"],
+    stats: [
+      { label: "Attached Trainers", value: "0" },
+      { label: "Pending Invites", value: "0" },
+      { label: "Bookings Today", value: "0" },
+      { label: "Check-ins Today", value: "0" },
+    ],
+  },
+  {
     id: "clinic",
     icon: "⚕️",
     label: "Clinic",
@@ -180,6 +230,8 @@ function GlassyImageFrame({ tab }: { tab: PortalTab }) {
             <div className={`p-4 ${
               tab.id === 'hospital' ? 'bg-gradient-to-r from-teal-600 to-teal-800' :
               tab.id === 'doctor' ? 'bg-gradient-to-r from-emerald-600 to-emerald-800' :
+              tab.id === 'wellness' ? 'bg-gradient-to-r from-lime-600 to-lime-800' :
+              tab.id === 'fitness-center' ? 'bg-gradient-to-r from-cyan-600 to-cyan-800' :
               tab.id === 'clinic' ? 'bg-gradient-to-r from-pink-600 to-pink-800' :
               tab.id === 'pharmacy' ? 'bg-gradient-to-r from-orange-600 to-orange-800' :
               'bg-gradient-to-r from-purple-600 to-purple-800'
@@ -201,7 +253,7 @@ function GlassyImageFrame({ tab }: { tab: PortalTab }) {
               <div className="w-[100px] bg-white rounded-lg border border-gray-100 shadow-sm p-2 hidden sm:block">
                 <div className="space-y-1">
                   {tab.sidebarItems.map((item, i) => (
-                    <div key={item} className={`px-2 py-1.5 rounded text-[8px] font-medium ${i === 0 ? `bg-${tab.id === 'hospital' ? 'teal' : tab.id === 'doctor' ? 'emerald' : tab.id === 'clinic' ? 'pink' : tab.id === 'pharmacy' ? 'orange' : 'purple'}-50 text-${tab.id === 'hospital' ? 'teal' : tab.id === 'doctor' ? 'emerald' : tab.id === 'clinic' ? 'pink' : tab.id === 'pharmacy' ? 'orange' : 'purple'}-600` : 'text-gray-500'}`}>
+                    <div key={item} className={`px-2 py-1.5 rounded text-[8px] font-medium ${i === 0 ? `bg-${tab.id === 'hospital' ? 'teal' : tab.id === 'doctor' ? 'emerald' : tab.id === 'wellness' ? 'lime' : tab.id === 'fitness-center' ? 'cyan' : tab.id === 'clinic' ? 'pink' : tab.id === 'pharmacy' ? 'orange' : 'purple'}-50 text-${tab.id === 'hospital' ? 'teal' : tab.id === 'doctor' ? 'emerald' : tab.id === 'wellness' ? 'lime' : tab.id === 'fitness-center' ? 'cyan' : tab.id === 'clinic' ? 'pink' : tab.id === 'pharmacy' ? 'orange' : 'purple'}-600` : 'text-gray-500'}`}>
                       {item}
                     </div>
                   ))}
@@ -221,6 +273,8 @@ function GlassyImageFrame({ tab }: { tab: PortalTab }) {
                       <div className={`w-5 h-5 rounded ${
                         tab.id === 'hospital' ? 'bg-teal-50 text-teal-600' :
                         tab.id === 'doctor' ? 'bg-emerald-50 text-emerald-600' :
+                        tab.id === 'wellness' ? 'bg-lime-50 text-lime-600' :
+                        tab.id === 'fitness-center' ? 'bg-cyan-50 text-cyan-600' :
                         tab.id === 'clinic' ? 'bg-pink-50 text-pink-600' :
                         tab.id === 'pharmacy' ? 'bg-orange-50 text-orange-600' :
                         'bg-purple-50 text-purple-600'
@@ -239,12 +293,15 @@ function GlassyImageFrame({ tab }: { tab: PortalTab }) {
                   <div className="flex justify-between items-center mb-2">
                     <p className="text-gray-800 font-bold text-[10px]">
                       {tab.id === 'pharmacy' ? 'Pending Prescriptions' : 
-                       tab.id === 'diagnostic' ? 'Today\'s Bookings' : 
+                       tab.id === 'diagnostics' ? 'Today\'s Bookings' :
+                       tab.id === 'fitness-center' ? 'Pending Trainer Invites' :
                        'Recent Appointments'}
                     </p>
                     <span className={`text-[8px] ${
                       tab.id === 'hospital' ? 'text-teal-600' :
                       tab.id === 'doctor' ? 'text-emerald-600' :
+                      tab.id === 'wellness' ? 'text-lime-600' :
+                      tab.id === 'fitness-center' ? 'text-cyan-600' :
                       tab.id === 'clinic' ? 'text-pink-600' :
                       tab.id === 'pharmacy' ? 'text-orange-600' :
                       'text-purple-600'
@@ -256,14 +313,14 @@ function GlassyImageFrame({ tab }: { tab: PortalTab }) {
                       <div key={i} className="flex items-center justify-between p-2 rounded-md border border-gray-50 bg-gray-50/50">
                         <div className="flex items-center gap-2">
                           <div className="w-5 h-5 rounded bg-gray-200 flex items-center justify-center text-[8px]">
-                            {tab.id === 'pharmacy' ? 'Rx' : '👤'}
+                            {tab.id === 'pharmacy' ? 'Rx' : tab.id === 'fitness-center' ? '🏋️' : '👤'}
                           </div>
                           <div>
                             <p className="text-gray-900 font-medium text-[9px]">
-                              {tab.id === 'pharmacy' ? `Order #${1024 + i}` : `Patient Name ${i}`}
+                              {tab.id === 'pharmacy' ? `Order #${1024 + i}` : tab.id === 'fitness-center' ? `Trainer Invite ${i}` : `Patient Name ${i}`}
                             </p>
                             <p className="text-gray-500 text-[7px]">
-                              {tab.id === 'pharmacy' ? '3 items pending' : '10:00 AM • Video Consult'}
+                              {tab.id === 'pharmacy' ? '3 items pending' : tab.id === 'fitness-center' ? 'Class slot • QR check-in' : '10:00 AM • Video Consult'}
                             </p>
                           </div>
                         </div>

@@ -1078,6 +1078,7 @@ fun MapPreviewCard(
                     FacilityType.CLINIC -> R.drawable.ic_map_clinic
                     FacilityType.MEDICAL_STORE -> R.drawable.ic_map_pharmacy
                     FacilityType.DIAGNOSTIC_CENTER -> R.drawable.ic_map_diagnostic
+                    FacilityType.FITNESS_CENTER -> R.drawable.ic_map_hospital
                     FacilityType.NURSING_HOME -> R.drawable.ic_map_hospital
                 }
                 val color = when (facility.type) {
@@ -1085,6 +1086,7 @@ fun MapPreviewCard(
                     FacilityType.CLINIC -> android.graphics.Color.parseColor("#4CAF50")
                     FacilityType.MEDICAL_STORE -> android.graphics.Color.parseColor("#2196F3")
                     FacilityType.DIAGNOSTIC_CENTER -> android.graphics.Color.parseColor("#7C3AED")
+                    FacilityType.FITNESS_CENTER -> android.graphics.Color.parseColor("#0891B2")
                     FacilityType.NURSING_HOME -> android.graphics.Color.parseColor("#FF9800")
                 }
 

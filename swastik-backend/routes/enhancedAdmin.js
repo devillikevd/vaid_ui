@@ -95,7 +95,7 @@ router.get('/providers', asyncHandler(async (req, res) => {
  * @desc Get provider details for review
  */
 router.get('/providers/:type/:id', [
-    param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'ambulance']).withMessage('Invalid provider type'),
+    param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'wellness_coach', 'fitness_center', 'ambulance']).withMessage('Invalid provider type'),
     param('id').isUUID('loose').withMessage('Invalid provider ID'),
     validate,
 ], asyncHandler(async (req, res) => {
@@ -109,7 +109,7 @@ router.get('/providers/:type/:id', [
  * @desc Approve a provider
  */
 router.post('/providers/:type/:id/approve', [
-    param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'ambulance']).withMessage('Invalid provider type'),
+    param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'wellness_coach', 'fitness_center', 'ambulance']).withMessage('Invalid provider type'),
     param('id').isUUID('loose').withMessage('Invalid provider ID'),
     body('notes').optional().isString().trim(),
     validate,
@@ -125,7 +125,7 @@ router.post('/providers/:type/:id/approve', [
  * @desc Reject a provider
  */
 router.post('/providers/:type/:id/reject', [
-    param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'ambulance']).withMessage('Invalid provider type'),
+    param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'wellness_coach', 'fitness_center', 'ambulance']).withMessage('Invalid provider type'),
     param('id').isUUID('loose').withMessage('Invalid provider ID'),
     body('reason').notEmpty().withMessage('Rejection reason is required').isString().trim(),
     validate,
@@ -141,7 +141,7 @@ router.post('/providers/:type/:id/reject', [
  * @desc Suspend a provider
  */
 router.post('/providers/:type/:id/suspend', [
-    param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'ambulance']).withMessage('Invalid provider type'),
+    param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'wellness_coach', 'fitness_center', 'ambulance']).withMessage('Invalid provider type'),
     param('id').isUUID('loose').withMessage('Invalid provider ID'),
     body('reason').notEmpty().withMessage('Suspension reason is required').isString().trim(),
     validate,
@@ -157,7 +157,7 @@ router.post('/providers/:type/:id/suspend', [
  * @desc Reactivate a suspended provider
  */
 router.post('/providers/:type/:id/reactivate', [
-    param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'ambulance']).withMessage('Invalid provider type'),
+    param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'wellness_coach', 'fitness_center', 'ambulance']).withMessage('Invalid provider type'),
     param('id').isUUID('loose').withMessage('Invalid provider ID'),
     body('notes').optional().isString().trim(),
     validate,
@@ -173,7 +173,7 @@ router.post('/providers/:type/:id/reactivate', [
  * @desc Add admin note to a provider
  */
 router.post('/providers/:type/:id/notes', [
-    param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'ambulance']).withMessage('Invalid provider type'),
+    param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'wellness_coach', 'fitness_center', 'ambulance']).withMessage('Invalid provider type'),
     param('id').isUUID('loose').withMessage('Invalid provider ID'),
     body('note').notEmpty().withMessage('Note content is required').isString().trim(),
     body('isInternal').optional().isBoolean(),

@@ -128,6 +128,17 @@ fun FacilityDetailScreen(
         }
     }
 
+    LaunchedEffect(uiState.fitnessBookingSuccess, uiState.fitnessBookingError) {
+        if (uiState.fitnessBookingSuccess) {
+            Toast.makeText(context, "Gym/studio visit booked successfully.", Toast.LENGTH_LONG).show()
+            viewModel.clearFitnessBookingState()
+        }
+        if (uiState.fitnessBookingError != null) {
+            Toast.makeText(context, uiState.fitnessBookingError, Toast.LENGTH_LONG).show()
+            viewModel.clearFitnessBookingState()
+        }
+    }
+
     LaunchedEffect(facilityId, facilityType) {
         viewModel.loadFacilityDetails(facilityId, facilityType)
     }
@@ -173,6 +184,9 @@ fun FacilityDetailScreen(
                 } else if (facility.type == FacilityType.DIAGNOSTIC_CENTER) {
                     val testCount = facility.tests.size
                     add(if (testCount > 0) "Tests ($testCount)" else "Tests")
+                } else if (facility.type == FacilityType.FITNESS_CENTER) {
+                    val trainerCount = facility.doctors.size
+                    add(if (trainerCount > 0) "Trainers ($trainerCount)" else "Trainers")
                 } else {
                     val docCount = facility.doctors.size
                     add(if (docCount > 0) "Doctors ($docCount)" else "Doctors")
@@ -548,8 +562,18 @@ fun FacilityDetailScreen(
                                         }
                                     }
                                     PremiumQuickAction(
-                                        icon = if (facility.type == FacilityType.MEDICAL_STORE) Icons.Default.ShoppingCart else if (facility.type == FacilityType.DIAGNOSTIC_CENTER) Icons.Default.Science else Icons.Default.CalendarMonth,
-                                        label = if (facility.type == FacilityType.MEDICAL_STORE) "Order" else if (facility.type == FacilityType.DIAGNOSTIC_CENTER) "Book Test" else "Book",
+                                        icon = when (facility.type) {
+                                            FacilityType.MEDICAL_STORE -> Icons.Default.ShoppingCart
+                                            FacilityType.DIAGNOSTIC_CENTER -> Icons.Default.Science
+                                            FacilityType.FITNESS_CENTER -> Icons.Default.FitnessCenter
+                                            else -> Icons.Default.CalendarMonth
+                                        },
+                                        label = when (facility.type) {
+                                            FacilityType.MEDICAL_STORE -> "Order"
+                                            FacilityType.DIAGNOSTIC_CENTER -> "Book Test"
+                                            FacilityType.FITNESS_CENTER -> "Book Visit"
+                                            else -> "Book"
+                                        },
                                         color = BrandTeal,
                                         bgColor = BrandTealLight,
                                         isDark = isDark
@@ -560,6 +584,9 @@ fun FacilityDetailScreen(
                                             }
                                             FacilityType.DIAGNOSTIC_CENTER -> {
                                                 onNavigateToDiagnosticBooking(facilityId)
+                                            }
+                                            FacilityType.FITNESS_CENTER -> {
+                                                viewModel.bookFitnessCenterVisit(facilityId)
                                             }
                                             else -> {
                                                 val doctor = facility.doctors.firstOrNull()
@@ -637,7 +664,11 @@ fun FacilityDetailScreen(
                                 }
 
                                 // ── Emergency SOS quick badge ──
-                                if (facility.isEmergencyAvailable && facility.type != FacilityType.MEDICAL_STORE) {
+                                if (
+                                    facility.isEmergencyAvailable &&
+                                    facility.type != FacilityType.MEDICAL_STORE &&
+                                    facility.type != FacilityType.FITNESS_CENTER
+                                ) {
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
@@ -792,7 +823,23 @@ fun FacilityDetailScreen(
                                 },
                                 onBookTestClick = {
                                     onNavigateToDiagnosticBooking(facilityId)
-                                }
+                                },
+                                onBookFitnessVisitClick = {
+                                    viewModel.bookFitnessCenterVisit(facilityId)
+                                },
+                                fitnessBookingSubmitting = uiState.fitnessBookingSubmitting
+                            )
+                        }
+
+                        currentTab.startsWith("Trainers") -> {
+                            doctorsTabContent(
+                                facility = facility,
+                                isDark = isDark,
+                                titleColor = titleColor,
+                                subtitleColor = subtitleColor,
+                                accentColor = accentColor,
+                                onDoctorBookClick = { _, _ -> viewModel.bookFitnessCenterVisit(facilityId) },
+                                context = context
                             )
                         }
 
@@ -943,7 +990,9 @@ private fun LazyListScope.overviewTabContent(
     facilityId: String,
     context: android.content.Context,
     onOrderMedicineClick: () -> Unit = {},
-    onBookTestClick: () -> Unit = {}
+    onBookTestClick: () -> Unit = {},
+    onBookFitnessVisitClick: () -> Unit = {},
+    fitnessBookingSubmitting: Boolean = false
 ) {
     val offsetY = (-24).dp
 
@@ -1060,6 +1109,39 @@ private fun LazyListScope.overviewTabContent(
                     Icon(Icons.Default.Science, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Book Lab Test", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+
+    if (facility.type == FacilityType.FITNESS_CENTER) {
+        item {
+            SectionCard(title = "Book Gym Visit", isDark = isDark, modifier = Modifier.offset(y = offsetY)) {
+                Text(
+                    text = "Book a day-pass or trial visit at ${facility.name}. Your booking is created directly in the wellness backend.",
+                    fontSize = 14.sp,
+                    color = subtitleColor,
+                    lineHeight = 20.sp,
+                    modifier = Modifier.padding(bottom = 14.dp)
+                )
+                Button(
+                    onClick = onBookFitnessVisitClick,
+                    enabled = !fitnessBookingSubmitting,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor)
+                ) {
+                    if (fitnessBookingSubmitting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = Color.White
+                        )
+                    } else {
+                        Icon(Icons.Default.FitnessCenter, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (fitnessBookingSubmitting) "Booking..." else "Book Visit", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -1184,6 +1266,7 @@ private fun LazyListScope.overviewTabContent(
         item {
             val sectionTitle = when (facility.type) {
                 FacilityType.DIAGNOSTIC_CENTER -> "Test Categories"
+                FacilityType.FITNESS_CENTER -> "Classes & Programs"
                 else -> stringResource(R.string.departments)
             }
             SectionCard(title = sectionTitle, isDark = isDark, modifier = Modifier.offset(y = offsetY)) {
@@ -1202,7 +1285,12 @@ private fun LazyListScope.overviewTabContent(
     // ── Facilities / Amenities ──
     if (facility.facilities.isNotEmpty()) {
         item {
-            SectionCard(title = stringResource(R.string.facilities), isDark = isDark, modifier = Modifier.offset(y = offsetY)) {
+            val facilitiesTitle = if (facility.type == FacilityType.FITNESS_CENTER) {
+                "Facilities, Equipment & Amenities"
+            } else {
+                stringResource(R.string.facilities)
+            }
+            SectionCard(title = facilitiesTitle, isDark = isDark, modifier = Modifier.offset(y = offsetY)) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -1335,13 +1423,19 @@ private fun LazyListScope.doctorsTabContent(
     context: android.content.Context
 ) {
     val offsetY = (-24).dp
+    val isFitnessCenter = facility.type == FacilityType.FITNESS_CENTER
+    val peopleLabel = if (isFitnessCenter) "Trainers" else "Doctors"
 
     if (facility.doctors.isEmpty()) {
         item {
             EmptyStateView(
                 icon = Icons.Outlined.PersonSearch,
-                title = "No Doctors Listed",
-                subtitle = "This facility hasn't listed any doctors yet",
+                title = "No $peopleLabel Listed",
+                subtitle = if (isFitnessCenter) {
+                    "This gym or studio hasn't listed attached trainers yet"
+                } else {
+                    "This facility hasn't listed any doctors yet"
+                },
                 isDark = isDark,
                 modifier = Modifier.offset(y = offsetY)
             )
@@ -1360,7 +1454,7 @@ private fun LazyListScope.doctorsTabContent(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "Available Doctors",
+                text = "Available $peopleLabel",
                 fontWeight = FontWeight.Bold,
                 fontSize = 17.sp,
                 color = titleColor
@@ -1370,7 +1464,7 @@ private fun LazyListScope.doctorsTabContent(
                 color = if (isDark) Color(0xFF1E3A5F) else Color(0xFFDBEAFE)
             ) {
                 Text(
-                    text = "${facility.doctors.size} Doctors",
+                    text = "${facility.doctors.size} $peopleLabel",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = accentColor,
@@ -1579,6 +1673,7 @@ private fun LazyListScope.reviewsTabContent(
                                     FacilityType.CLINIC -> "clinic"
                                     FacilityType.MEDICAL_STORE -> "pharmacy"
                                     FacilityType.DIAGNOSTIC_CENTER -> "diagnostic_center"
+                                    FacilityType.FITNESS_CENTER -> "fitness_center"
                                     else -> "hospital"
                                 }
                                 viewModel.submitFacilityReview(

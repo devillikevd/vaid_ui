@@ -439,6 +439,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onNavigateToHospitals = { navController.navigateSafe(Screen.HospitalFinder.createRoute(FacilityType.HOSPITAL)) },
                 onNavigateToClinics = { navController.navigateSafe(Screen.HospitalFinder.createRoute(FacilityType.CLINIC)) },
                 onNavigateToPharmacies = { navController.navigateSafe(Screen.HospitalFinder.createRoute(FacilityType.MEDICAL_STORE)) },
+                onNavigateToFitnessCenters = { navController.navigateSafe(Screen.HospitalFinder.createRoute(FacilityType.FITNESS_CENTER)) },
                 onNavigateToPharmacy = { pharmacyId, pharmacyName ->
                     navController.navigateSafe(
                         Screen.HospitalFinder.createRoute(
@@ -827,6 +828,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onDiagnosticDetailClick = { centerId ->
                     navController.navigateSafe(Screen.DiagnosticDetail.createRoute(centerId))
                     },
+                    onFitnessCenterDetailClick = { centerId ->
+                        navController.navigateSafe(Screen.FitnessCenterDetail.createRoute(centerId))
+                    },
                     onMedicineClick = { medicineId ->
                         navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
                     },
@@ -993,6 +997,32 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     },
                     onNavigateToDiagnosticBooking = { centerId ->
                         navController.navigateSafe(Screen.DiagnosticBooking.createRoute(centerId))
+                    }
+                )
+            }
+        }
+
+        composable(
+            Screen.FitnessCenterDetail.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("centerId") {
+                    type = androidx.navigation.NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val centerId = backStackEntry.arguments?.getString("centerId") ?: return@AuthGuard
+                FacilityDetailScreen(
+                    facilityId = centerId,
+                    facilityType = FacilityType.FITNESS_CENTER,
+                    onBackClick = { navController.popBackStack() },
+                    isLoggedIn = tokenManager.isAuthenticated(),
+                    onDoctorBookClick = { _, _ -> },
+                    onNavigateToOrders = {
+                        navController.navigateSafe(Screen.BookingHistory.route)
+                    },
+                    onNavigateToDiagnosticBooking = { diagnosticCenterId ->
+                        navController.navigateSafe(Screen.DiagnosticBooking.createRoute(diagnosticCenterId))
                     }
                 )
             }
@@ -1177,6 +1207,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToGuardianDashboard = { navController.navigateSafe(Screen.GuardianDashboard.route) },
                     onNavigateToHealthConnectDashboard = { navController.navigateSafe(Screen.HealthConnectDashboard.route) },
+                    onNavigateToDietTracker = { navController.navigateSafe(Screen.DietTracker.route) },
+                    onNavigateToWellnessHub = { navController.navigateSafe(Screen.WellnessHub.route) },
                     dashboardViewModel = dashboardViewModel,
                     recordsViewModel = recordsViewModel
                 )
@@ -1199,6 +1231,21 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 com.example.swastik.ui.screens.patient.guardian.GuardianDashboardScreen(
                     onNavigateBack = { navController.popBackStack() },
                     viewModel = dashboardViewModel
+                )
+            }
+        }
+
+        composable(Screen.WellnessHub.route) {
+            AuthGuard(navController, tokenManager) {
+                val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.wellness.WellnessHubScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToDietTracker = { navController.navigateSafe(Screen.DietTracker.route) },
+                    onNavigateToHealthConnectDashboard = { navController.navigateSafe(Screen.HealthConnectDashboard.route) },
+                    onNavigateToEmergency = { navController.navigateSafe(Screen.Emergency.route) },
+                    onNavigateToFitnessCenters = { navController.navigateSafe(Screen.HospitalFinder.createRoute(FacilityType.FITNESS_CENTER)) },
+                    onNavigateToFitnessCenterDetail = { centerId -> navController.navigateSafe(Screen.FitnessCenterDetail.createRoute(centerId)) },
+                    viewModel = wellnessViewModel
                 )
             }
         }

@@ -71,6 +71,47 @@ const parseNonNegativeNumber = (value) => {
 };
 
 const validateRoleRegistrationPayload = (role, data) => {
+  if (role === 'wellness_coach') {
+    const coachTypes = normalizeTextArray(firstProvided(data.coachTypes, data.coach_types, data.specialties, data.specialization));
+    const qualifications = normalizeTextArray(firstProvided(data.qualifications, data.qualification, data.certifications));
+    const experience = parseNonNegativeNumber(firstProvided(data.experienceYears, data.experience_years));
+    const sessionFee = parseNonNegativeNumber(firstProvided(data.sessionFee, data.session_fee, data.consultationFee, data.consultation_fee, 0));
+
+    if (coachTypes.length === 0) {
+      throw new ApiError(400, 'At least one coach type or specialty is required for wellness coach registration.');
+    }
+
+    if (qualifications.length === 0) {
+      throw new ApiError(400, 'Qualification or certification is required for wellness coach registration.');
+    }
+
+    if (experience === null) {
+      throw new ApiError(400, 'Years of experience must be a valid non-negative number.');
+    }
+
+    if (sessionFee === null) {
+      throw new ApiError(400, 'Session fee must be a valid non-negative number.');
+    }
+
+    return;
+  }
+
+  if (role === 'fitness_center_owner') {
+    const facilityName = normalizeText(resolveFacilityName(data));
+    const address = normalizeText(data.address);
+    const city = normalizeText(data.city);
+
+    if (!facilityName) {
+      throw new ApiError(400, 'Gym or studio name is required for fitness center registration.');
+    }
+
+    if (!address || !city) {
+      throw new ApiError(400, 'Address and city are required for fitness center registration.');
+    }
+
+    return;
+  }
+
   if (role !== 'doctor') return;
 
   const specialization = normalizeText(data.specialization);
@@ -541,6 +582,79 @@ const createRoleProfile = async (userId, role, data) => {
         approval_status: 'pending',
       });
       break;
+    case 'fitness_center_owner':
+      await insertProfile('fitness_centers', {
+        owner_user_id: userId,
+        name: resolveFacilityName(data) || 'Unnamed Fitness Center',
+        center_type: data.centerType || data.center_type || data.type || 'gym',
+        description: normalizeText(data.description) || null,
+        address: data.address || '',
+        city: data.city || '',
+        state: data.state || '',
+        pincode: data.pincode || '',
+        phone: data.phone || null,
+        email: data.email || null,
+        latitude: parseOptionalNumber(data.latitude),
+        longitude: parseOptionalNumber(data.longitude),
+        facilities: normalizeTextArray(data.facilities),
+        equipment: normalizeTextArray(data.equipment),
+        amenities: normalizeTextArray(data.amenities),
+        is_women_only: Boolean(data.isWomenOnly || data.is_women_only),
+        is_beginner_friendly: data.isBeginnerFriendly ?? data.is_beginner_friendly ?? true,
+        is_24_hours: Boolean(data.is24Hours || data.is_24_hours),
+        parking_available: Boolean(data.parkingAvailable || data.parking_available),
+        trainer_available: true,
+        is_active: false,
+        is_verified: false,
+        approval_status: 'pending',
+      });
+      break;
+    case 'wellness_coach': {
+      const coachTypes = normalizeTextArray(firstProvided(data.coachTypes, data.coach_types, data.specialties, data.specialization));
+      const specialties = normalizeTextArray(firstProvided(data.specialties, data.specializations, data.specialization));
+      const expertiseTags = normalizeTextArray(firstProvided(data.expertiseTags, data.expertise_tags, data.tags));
+      const qualifications = normalizeTextArray(firstProvided(data.qualifications, data.qualification, data.degree));
+      const certifications = normalizeTextArray(firstProvided(data.certifications, data.certification));
+      const languages = normalizeTextArray(data.languages);
+      const sessionModes = normalizeTextArray(firstProvided(data.sessionModes, data.session_modes, ['video', 'chat', 'in_person']));
+      const experienceYears = parseInt(firstProvided(data.experienceYears, data.experience_years, 0), 10);
+      const sessionFee = parseNonNegativeNumber(firstProvided(data.sessionFee, data.session_fee, data.consultationFee, data.consultation_fee, 0));
+      const videoSessionFee = parseNonNegativeNumber(firstProvided(data.videoSessionFee, data.video_session_fee, data.videoConsultationFee, data.video_consultation_fee));
+      const monthlyPlanFee = parseNonNegativeNumber(firstProvided(data.monthlyPlanFee, data.monthly_plan_fee));
+
+      await insertProfile('wellness_coaches', {
+        user_id: userId,
+        name: data.name,
+        headline: normalizeText(data.headline) || null,
+        coach_types: coachTypes,
+        specialties,
+        expertise_tags: expertiseTags.length > 0 ? expertiseTags : specialties,
+        qualifications,
+        certifications,
+        registration_number: normalizeText(firstProvided(data.registrationNumber, data.registration_number)) || null,
+        license_number: normalizeText(firstProvided(data.licenseNumber, data.license_number)) || null,
+        certification_document_url: firstProvided(data.certificationDocumentUrl, data.certification_document_url, data.licenseDocumentUrl, data.license_document_url) || null,
+        experience_years: Number.isFinite(experienceYears) ? experienceYears : 0,
+        session_modes: sessionModes.length > 0 ? sessionModes : ['video', 'chat', 'in_person'],
+        languages,
+        bio: normalizeText(data.bio) || null,
+        session_fee: sessionFee ?? 0,
+        video_session_fee: videoSessionFee ?? sessionFee ?? 0,
+        monthly_plan_fee: monthlyPlanFee ?? 0,
+        address: data.address || '',
+        city: data.city || '',
+        state: data.state || '',
+        pincode: data.pincode || '',
+        phone: data.phone || null,
+        email: data.email || null,
+        latitude: parseOptionalNumber(data.latitude),
+        longitude: parseOptionalNumber(data.longitude),
+        is_active: false,
+        is_approved: false,
+        approval_status: 'pending',
+      });
+      break;
+    }
     case 'ambulance_operator': {
       const { data: operator, error: opError } = await supabaseAdmin.from('ambulance_operators').insert({
         user_id: userId,
@@ -671,6 +785,30 @@ const assertRoleProfileExists = async (user) => {
         .from('diagnostic_centers')
         .select('id, approval_status')
         .eq('owner_id', user.id)
+        .maybeSingle();
+      if (!existing) throw missingProfileError();
+      if (existing.approval_status === 'rejected') throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+      if (existing.approval_status !== 'approved') throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
+      break;
+    }
+
+    case 'wellness_coach': {
+      const { data: existing } = await supabaseAdmin
+        .from('wellness_coaches')
+        .select('id, approval_status')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!existing) throw missingProfileError();
+      if (existing.approval_status === 'rejected') throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+      if (existing.approval_status !== 'approved') throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
+      break;
+    }
+
+    case 'fitness_center_owner': {
+      const { data: existing } = await supabaseAdmin
+        .from('fitness_centers')
+        .select('id, approval_status')
+        .eq('owner_user_id', user.id)
         .maybeSingle();
       if (!existing) throw missingProfileError();
       if (existing.approval_status === 'rejected') throw new ApiError(403, 'Your account application was rejected. Please contact support.');
@@ -1254,6 +1392,8 @@ const updateProfile = async (userId, role, updates) => {
       clinic_owner: { table: 'clinics', col: 'owner_id' },
       pharmacy_owner: { table: 'pharmacies', col: 'owner_id' },
       diagnostic_center_owner: { table: 'diagnostic_centers', col: 'owner_id' },
+      wellness_coach: { table: 'wellness_coaches', col: 'user_id' },
+      fitness_center_owner: { table: 'fitness_centers', col: 'owner_user_id' },
       ambulance_operator: { table: 'ambulance_operators', col: 'user_id' },
       admin: { table: 'admins', col: 'user_id' },
       super_admin: { table: 'admins', col: 'user_id' },

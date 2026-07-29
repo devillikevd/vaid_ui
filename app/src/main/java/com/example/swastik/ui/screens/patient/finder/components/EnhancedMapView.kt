@@ -40,6 +40,7 @@ fun EnhancedMapView(
             FacilityType.CLINIC -> android.graphics.Color.parseColor("#4CAF50")         // Green (matches model)
             FacilityType.MEDICAL_STORE -> android.graphics.Color.parseColor("#2196F3")  // Blue (matches model)
             FacilityType.DIAGNOSTIC_CENTER -> android.graphics.Color.parseColor("#7C3AED") // Purple
+            FacilityType.FITNESS_CENTER -> android.graphics.Color.parseColor("#0891B2")
             FacilityType.NURSING_HOME -> android.graphics.Color.parseColor("#FF9800")
         }
         MapMarkerData(

@@ -13,6 +13,8 @@ import com.example.swastik.data.local.db.CachedHospital
 import com.example.swastik.data.remote.dto.ClinicDto
 import com.example.swastik.data.remote.dto.ClinicDoctorDto
 import com.example.swastik.data.remote.dto.DiagnosticCenterDto
+import com.example.swastik.data.remote.dto.FitnessBookingRequest
+import com.example.swastik.data.remote.dto.FitnessCenterDto
 import com.example.swastik.data.remote.dto.PharmacyDto
 import com.example.swastik.data.remote.dto.PharmacyInventoryItemDto
 import com.example.swastik.utils.NavigationHelper
@@ -208,6 +210,31 @@ class HospitalRepository @Inject constructor(
         } catch (e: Exception) {
             Log.w(TAG, "Network error for diagnostic centers: ${e.message}")
             return emptyList()
+        }
+    }
+
+    suspend fun getNearbyFitnessCenters(
+        latitude: Double,
+        longitude: Double,
+        radius: Int = 10
+    ): List<MedicalFacility> {
+        return try {
+            val response = apiService.getFitnessCenters(
+                limit = 50,
+                latitude = latitude,
+                longitude = longitude,
+                radius = radius
+            )
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.map { center ->
+                    center.toMedicalFacility(latitude, longitude)
+                } ?: emptyList()
+            } else {
+                throw Exception(parseApiErrorMessage(response.errorBody()) ?: "Failed to load gyms and studios")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Fitness center fetch failed: ${e.message}")
+            throw e
         }
     }
 
@@ -439,6 +466,21 @@ class HospitalRepository @Inject constructor(
         }
     }
 
+    suspend fun getFitnessCenterDetails(centerId: String): MedicalFacility? {
+        return try {
+            val detailResponse = apiService.getFitnessCenterDetails(centerId)
+            if (detailResponse.isSuccessful && detailResponse.body()?.success == true) {
+                val center = detailResponse.body()?.data ?: return null
+                center.toMedicalFacility()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to fetch fitness center details: ${e.message}")
+            null
+        }
+    }
+
     /**
      * Search hospitals by query — network-first with cache fallback.
      */
@@ -533,6 +575,53 @@ class HospitalRepository @Inject constructor(
         } catch (e: Exception) {
             Log.w(TAG, "Diagnostic center search failed: ${e.message}")
             throw e
+        }
+    }
+
+    suspend fun searchFitnessCenters(
+        query: String,
+        latitude: Double? = null,
+        longitude: Double? = null
+    ): List<MedicalFacility> {
+        return try {
+            val response = apiService.getFitnessCenters(
+                limit = 50,
+                query = query,
+                latitude = latitude,
+                longitude = longitude,
+                radius = 25
+            )
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.map { center ->
+                    center.toMedicalFacility(latitude, longitude)
+                } ?: emptyList()
+            } else {
+                throw Exception(parseApiErrorMessage(response.errorBody()) ?: "Failed to search gyms and studios")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Fitness center search failed: ${e.message}")
+            throw e
+        }
+    }
+
+    suspend fun bookFitnessCenterVisit(
+        centerId: String,
+        bookingType: String = "day_pass",
+        amount: Double? = null
+    ): Boolean {
+        return try {
+            val response = apiService.bookFitnessCenter(
+                FitnessBookingRequest(
+                    centerId = centerId,
+                    bookingType = bookingType,
+                    amount = amount,
+                    notes = "Booked from Android patient app"
+                )
+            )
+            response.isSuccessful && response.body()?.success == true
+        } catch (e: Exception) {
+            Log.w(TAG, "Fitness center booking failed: ${e.message}")
+            false
         }
     }
 
@@ -913,6 +1002,116 @@ private fun ClinicDto.toMedicalFacility(
                     reportTime = test.reportTime
                 )
             } ?: emptyList()
+        )
+    }
+
+    private fun FitnessCenterDto.toMedicalFacility(
+        userLatitude: Double? = null,
+        userLongitude: Double? = null
+    ): MedicalFacility {
+        val distKm = resolvedDistanceKm(latitude, longitude, distance?.toFloat(), userLatitude, userLongitude)
+        val photoUrls = buildList {
+            coverImageUrl?.takeIf { it.isNotBlank() }?.let { add(it) }
+            photos.orEmpty().filter { it.isNotBlank() }.forEach { add(it) }
+        }.distinct()
+        val centerFacilities = (
+            facilities.orEmpty() +
+                equipment.orEmpty() +
+                amenities.orEmpty() +
+                accessibilityFeatures.orEmpty() +
+                buildList {
+                    if (isWomenOnly == true) add("Women-only")
+                    if (isBeginnerFriendly == true) add("Beginner-friendly")
+                    if (parkingAvailable == true) add("Parking")
+                    if (trainerAvailable == true) add("Trainer available")
+                }
+            ).map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+        val classLabels = classes.orEmpty()
+            .filter { it.status == null || it.status.equals("scheduled", ignoreCase = true) }
+            .mapNotNull { gymClass ->
+                val label = buildList {
+                    gymClass.title?.takeIf { it.isNotBlank() }?.let { add(it) }
+                    gymClass.classType?.takeIf { it.isNotBlank() }?.let { add(it.replace("_", " ")) }
+                    gymClass.level?.takeIf { it.isNotBlank() }?.let { add(it.replaceFirstChar { char -> char.titlecase(Locale.US) }) }
+                }.distinct().joinToString(" • ")
+                label.takeIf { it.isNotBlank() }
+            }
+            .distinct()
+        val trainerDoctors = trainers.orEmpty()
+            .filter { it.isActive != false }
+            .mapNotNull { trainer ->
+                val coach = trainer.coach ?: return@mapNotNull null
+                val specialty = coach.specialties?.firstOrNull()
+                    ?: coach.coachTypes?.firstOrNull()
+                    ?: trainer.role
+                    ?: "Wellness coach"
+                HospitalDoctor(
+                    id = coach.id.ifBlank { trainer.id.orEmpty() },
+                    name = coach.name,
+                    specialization = specialty.replace("_", " "),
+                    experience = trainer.role?.replace("_", " ") ?: coach.headline ?: "Trainer",
+                    rating = coach.rating?.toFloat() ?: 0f,
+                    consultationFee = coach.sessionFee?.toInt() ?: 0,
+                    profileImageUrl = coach.profileImageUrl
+                )
+            }
+            .distinctBy { it.id }
+        val typeLabel = centerType
+            ?.replace("_", " ")
+            ?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.US) else it.toString() }
+        val safetyLabel = safetyInformation
+            ?.takeUnless { it.isJsonNull }
+            ?.let { element ->
+                if (element.isJsonPrimitive && element.asJsonPrimitive.isString) {
+                    element.asString
+                } else {
+                    element.toString()
+                }
+            }
+            ?.takeIf { it.isNotBlank() && it != "{}" && it != "[]" }
+
+        return MedicalFacility(
+            id = id,
+            name = name,
+            type = FacilityType.FITNESS_CENTER,
+            address = listOfNotNull(address, city, state, pincode)
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .joinToString(", "),
+            distance = formatDistanceLabel(distKm),
+            distanceKm = distKm,
+            rating = rating?.toFloat() ?: 0f,
+            reviewCount = totalReviews ?: 0,
+            latitude = latitude ?: 0.0,
+            longitude = longitude ?: 0.0,
+            phone = phone ?: "",
+            isOpen = is24Hours ?: true,
+            is24Hours = is24Hours ?: false,
+            imageUrl = coverImageUrl ?: photoUrls.firstOrNull(),
+            specializations = buildList {
+                typeLabel?.let { add(it) }
+                addAll(classLabels.take(6))
+                addAll(centerFacilities.take(6))
+            }.distinct(),
+            doctors = trainerDoctors,
+            hospitalSubType = typeLabel,
+            facilities = centerFacilities,
+            departments = buildList {
+                addAll(classLabels)
+                membershipPrice?.takeIf { it > 0.0 }?.let { add("Membership from ₹${it.toInt()}") }
+                dayPassPrice?.takeIf { it > 0.0 }?.let { add("Day pass ₹${it.toInt()}") }
+                trialClassPrice?.takeIf { it > 0.0 }?.let { add("Trial class ₹${it.toInt()}") }
+                safetyLabel?.let { add("Safety: $it") }
+            }.distinct(),
+            accreditations = buildList {
+                if (isVerified == true) add("Verified gym/studio")
+                if (isActive == true) add("Active listing")
+            },
+            images = photoUrls,
+            description = description,
+            openingHours = openingHours?.toString()
         )
     }
 

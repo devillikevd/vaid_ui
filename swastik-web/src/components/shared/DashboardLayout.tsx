@@ -35,7 +35,7 @@ export interface NavItem {
 }
 
 export interface DashboardTheme {
-    /** Tailwind color name: 'blue', 'emerald', 'teal', 'orange', 'pink', 'purple' */
+    /** Tailwind color name: 'blue', 'emerald', 'teal', 'orange', 'pink', 'purple', 'lime' */
     color: string;
     /** data-theme attribute */
     dataTheme: string;
@@ -144,6 +144,16 @@ const COLOR_CLASSES: Record<string, {
         spinner: 'border-purple-600',
         logoBg: 'bg-purple-700',
     },
+    lime: {
+        sidebar: 'bg-lime-950',
+        border: 'border-lime-900',
+        active: 'bg-lime-700 text-white',
+        text: 'text-lime-100',
+        hover: 'hover:bg-lime-900',
+        avatar: 'bg-lime-600',
+        spinner: 'border-lime-600',
+        logoBg: 'bg-lime-700',
+    },
 };
 
 // Subtitle color classes (needs dynamic shade)
@@ -154,6 +164,7 @@ const SUBTITLE_CLASSES: Record<string, string> = {
     orange: 'text-orange-300',
     pink: 'text-pink-300',
     purple: 'text-purple-300',
+    lime: 'text-lime-300',
 };
 
 function stringValue(value: unknown): string | null {
@@ -213,6 +224,10 @@ function resolveNotificationRoute(notification: Notification, role?: string): st
             if (type.includes('result')) return '/diagnostic-center/results';
             if (type.includes('review')) return '/diagnostic-center/reviews';
             return '/diagnostic-center';
+        case 'wellness_coach':
+            if (type.includes('session') || type.includes('booking')) return '/wellness#sessions';
+            if (type.includes('review')) return '/wellness#reviews';
+            return '/wellness';
         case 'admin':
         case 'super_admin':
             if ((providerType && providerId) || providerType || type.includes('approval')) return '/admin/approvals';

@@ -68,6 +68,7 @@ internal fun EnhancedMapView(
             FacilityType.CLINIC -> R.drawable.ic_map_clinic
             FacilityType.MEDICAL_STORE -> R.drawable.ic_map_pharmacy
             FacilityType.DIAGNOSTIC_CENTER -> R.drawable.ic_map_diagnostic
+            FacilityType.FITNESS_CENTER -> R.drawable.ic_map_hospital
             FacilityType.NURSING_HOME -> R.drawable.ic_map_hospital
         }
         val color = when (facility.type) {
@@ -75,6 +76,7 @@ internal fun EnhancedMapView(
             FacilityType.CLINIC -> android.graphics.Color.parseColor("#4CAF50")
             FacilityType.MEDICAL_STORE -> android.graphics.Color.parseColor("#2196F3")
             FacilityType.DIAGNOSTIC_CENTER -> android.graphics.Color.parseColor("#7C3AED")
+            FacilityType.FITNESS_CENTER -> android.graphics.Color.parseColor("#0891B2")
             FacilityType.NURSING_HOME -> android.graphics.Color.parseColor("#FF9800")
         }
         MapMarkerData(
@@ -420,8 +422,9 @@ internal fun SearchBarSection(
         FacilityType.CLINIC -> "Search clinics..."
         FacilityType.MEDICAL_STORE -> "Search medical stores..."
         FacilityType.DIAGNOSTIC_CENTER -> "Search diagnostic centers..."
+        FacilityType.FITNESS_CENTER -> "Search gyms, yoga studios..."
         FacilityType.NURSING_HOME -> "Search nursing homes..."
-        null -> "Search hospitals, clinics, stores..."
+        null -> "Search hospitals, clinics, gyms..."
     }
 
     Row(
@@ -536,6 +539,7 @@ internal fun MapEmptyStateCard(
         FacilityType.CLINIC -> "clinics"
         FacilityType.MEDICAL_STORE -> "medical stores"
         FacilityType.DIAGNOSTIC_CENTER -> "diagnostic centers"
+        FacilityType.FITNESS_CENTER -> "gyms and studios"
         FacilityType.NURSING_HOME -> "nursing homes"
         null -> "facilities"
     }

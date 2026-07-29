@@ -4,6 +4,7 @@ import com.example.swastik.data.model.*
 import com.example.swastik.data.remote.dto.EmergencyRequest
 import com.example.swastik.data.remote.dto.ReviewRequest
 import com.example.swastik.data.remote.dto.*
+import com.google.gson.JsonObject
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
@@ -510,6 +511,101 @@ interface ApiService {
 
     @POST("patients/vitals/sync")
     suspend fun syncHealthConnectData(@Body request: SyncVitalsRequest): Response<ApiResponse<Unit>>
+
+    @GET("wellness/wearables/summaries")
+    suspend fun getWearableSummaries(
+        @Query("days") days: Int = 30
+    ): Response<ApiResponse<List<WearableDailySummaryDto>>>
+
+    @POST("wellness/wearables/summaries")
+    suspend fun syncWearableSummary(
+        @Body request: WearableSummaryRequest
+    ): Response<ApiResponse<WearableDailySummaryDto>>
+
+    @GET("wellness/plans")
+    suspend fun getWellnessWorkoutPlans(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20,
+        @Query("goal") goal: String? = null,
+        @Query("level") level: String? = null
+    ): Response<PaginatedResponse<WellnessWorkoutPlanDto>>
+
+    @GET("wellness/exercises")
+    suspend fun getExerciseLibrary(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 30,
+        @Query("q") query: String? = null,
+        @Query("type") type: String? = null,
+        @Query("level") level: String? = null,
+        @Query("muscle") muscle: String? = null
+    ): Response<PaginatedResponse<ExerciseLibraryDto>>
+
+    @GET("wellness/coaches")
+    suspend fun getWellnessCoaches(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20,
+        @Query("q") query: String? = null,
+        @Query("tag") tag: String? = null,
+        @Query("city") city: String? = null
+    ): Response<PaginatedResponse<WellnessCoachDto>>
+
+    @GET("wellness/facilities")
+    suspend fun getFitnessCenters(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20,
+        @Query("q") query: String? = null,
+        @Query("latitude") latitude: Double? = null,
+        @Query("longitude") longitude: Double? = null,
+        @Query("radius") radius: Int? = null,
+        @Query("type") type: String? = null
+    ): Response<PaginatedResponse<FitnessCenterDto>>
+
+    @GET("wellness/facilities/{id}")
+    suspend fun getFitnessCenterDetails(
+        @Path("id") id: String
+    ): Response<ApiResponse<FitnessCenterDto>>
+
+    @POST("wellness/facilities/bookings")
+    suspend fun bookFitnessCenter(
+        @Body request: FitnessBookingRequest
+    ): Response<ApiResponse<JsonObject>>
+
+    @GET("wellness/workouts/calendar")
+    suspend fun getWellnessWorkoutCalendar(
+        @Query("from") from: String? = null,
+        @Query("to") to: String? = null
+    ): Response<ApiResponse<JsonObject>>
+
+    @GET("wellness/workouts/progress")
+    suspend fun getWellnessWorkoutProgress(): Response<ApiResponse<JsonObject>>
+
+    @GET("wellness/badges")
+    suspend fun getWellnessBadges(): Response<ApiResponse<List<JsonObject>>>
+
+    @GET("wellness/ai/insights")
+    suspend fun getWellnessAiInsights(): Response<ApiResponse<List<JsonObject>>>
+
+    @GET("wellness/reports")
+    suspend fun getWellnessReports(): Response<ApiResponse<JsonObject>>
+
+    @GET("wellness/groups")
+    suspend fun getWellnessGroups(
+        @Query("goal") goal: String? = null,
+        @Query("city") city: String? = null
+    ): Response<ApiResponse<List<WellnessGroupDto>>>
+
+    @GET("wellness/challenges")
+    suspend fun getWellnessChallenges(
+        @Query("type") type: String? = null
+    ): Response<ApiResponse<List<WellnessChallengeDto>>>
+
+    @GET("wellness/supplements")
+    suspend fun getTrustedSupplements(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20,
+        @Query("q") query: String? = null,
+        @Query("category") category: String? = null
+    ): Response<PaginatedResponse<TrustedSupplementDto>>
 
     // ==================== REMINDERS ====================
 

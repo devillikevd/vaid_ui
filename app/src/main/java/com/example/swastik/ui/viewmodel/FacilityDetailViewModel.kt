@@ -36,7 +36,10 @@ data class HospitalDetailUiState(
     val sosError: String? = null,
     val sosCooldownRemaining: Long = 0L, // Cooldown in seconds
     val pharmacyInventory: List<com.example.swastik.data.remote.dto.PharmacyInventoryItemDto> = emptyList(),
-    val isPharmacyInventoryLoading: Boolean = false
+    val isPharmacyInventoryLoading: Boolean = false,
+    val fitnessBookingSubmitting: Boolean = false,
+    val fitnessBookingSuccess: Boolean = false,
+    val fitnessBookingError: String? = null
 )
 
 @HiltViewModel
@@ -85,6 +88,7 @@ class FacilityDetailViewModel @Inject constructor(
                     FacilityType.CLINIC -> hospitalRepository.getClinicDetails(facilityId)
                     FacilityType.MEDICAL_STORE -> hospitalRepository.getPharmacyDetails(facilityId)
                     FacilityType.DIAGNOSTIC_CENTER -> hospitalRepository.getDiagnosticCenterDetails(facilityId)
+                    FacilityType.FITNESS_CENTER -> hospitalRepository.getFitnessCenterDetails(facilityId)
                     else -> hospitalRepository.getHospitalDetails(facilityId)
                 }
                 if (facility != null) {
@@ -96,6 +100,7 @@ class FacilityDetailViewModel @Inject constructor(
                         FacilityType.CLINIC -> "clinic"
                         FacilityType.MEDICAL_STORE -> "pharmacy"
                         FacilityType.DIAGNOSTIC_CENTER -> "diagnostic_center"
+                        FacilityType.FITNESS_CENTER -> "fitness_center"
                         else -> "hospital"
                     }
                     loadReviews(typeStr, facilityId)
@@ -109,6 +114,7 @@ class FacilityDetailViewModel @Inject constructor(
                             FacilityType.CLINIC -> "Clinic not found"
                             FacilityType.MEDICAL_STORE -> "Pharmacy not found"
                             FacilityType.DIAGNOSTIC_CENTER -> "Diagnostic center not found"
+                            FacilityType.FITNESS_CENTER -> "Gym or studio not found"
                             else -> "Hospital not found"
                         }
                     )
@@ -120,6 +126,7 @@ class FacilityDetailViewModel @Inject constructor(
                         FacilityType.CLINIC -> "Failed to load clinic details"
                         FacilityType.MEDICAL_STORE -> "Failed to load pharmacy details"
                         FacilityType.DIAGNOSTIC_CENTER -> "Failed to load diagnostic center details"
+                        FacilityType.FITNESS_CENTER -> "Failed to load gym or studio details"
                         else -> "Failed to load hospital details"
                     }
                 )
@@ -167,7 +174,7 @@ class FacilityDetailViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 reviewSubmitting = false,
                 reviewSuccess = success,
-                reviewError = if (!success) "Failed to submit review. You may have already reviewed this hospital." else null
+                reviewError = if (!success) "Failed to submit review. You may have already reviewed this facility." else null
             )
             // Reload facility to show updated rating + reload reviews list
             if (success) {
@@ -176,11 +183,36 @@ class FacilityDetailViewModel @Inject constructor(
                     "clinic" -> FacilityType.CLINIC
                     "pharmacy" -> FacilityType.MEDICAL_STORE
                     "diagnostic_center" -> FacilityType.DIAGNOSTIC_CENTER
+                    "fitness_center" -> FacilityType.FITNESS_CENTER
                     else -> FacilityType.HOSPITAL
                 }
                 loadFacilityDetails(facilityId, enumType)
             }
         }
+    }
+
+    fun bookFitnessCenterVisit(centerId: String, amount: Double? = null) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                fitnessBookingSubmitting = true,
+                fitnessBookingSuccess = false,
+                fitnessBookingError = null
+            )
+            val success = hospitalRepository.bookFitnessCenterVisit(centerId = centerId, amount = amount)
+            _uiState.value = _uiState.value.copy(
+                fitnessBookingSubmitting = false,
+                fitnessBookingSuccess = success,
+                fitnessBookingError = if (success) null else "Could not book this gym/studio visit right now."
+            )
+        }
+    }
+
+    fun clearFitnessBookingState() {
+        _uiState.value = _uiState.value.copy(
+            fitnessBookingSubmitting = false,
+            fitnessBookingSuccess = false,
+            fitnessBookingError = null
+        )
     }
 
     fun clearReviewState() {

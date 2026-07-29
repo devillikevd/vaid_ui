@@ -59,6 +59,8 @@ export const ROLE_DISPLAY_NAMES: Record<string, string> = {
     hospital_manager: 'Hospital Manager',
     clinic_owner: 'Clinic',
     diagnostic_center_owner: 'Diagnostic Center',
+    wellness_coach: 'Wellness Coach',
+    fitness_center_owner: 'Gym & Studio',
     pharmacy_owner: 'Pharmacy',
     ambulance_operator: 'Ambulance Service',
 };
@@ -80,6 +82,8 @@ export const ROLE_THEME_COLORS: Record<string, { primary: string; bg: string; ho
     hospital_owner: { primary: '#0d9488', bg: 'bg-teal-600', hover: 'hover:bg-teal-700' },
     clinic_owner: { primary: '#db2777', bg: 'bg-pink-600', hover: 'hover:bg-pink-700' },
     diagnostic_center_owner: { primary: '#7c3aed', bg: 'bg-purple-600', hover: 'hover:bg-purple-700' },
+    wellness_coach: { primary: '#65a30d', bg: 'bg-lime-600', hover: 'hover:bg-lime-700' },
+    fitness_center_owner: { primary: '#0891b2', bg: 'bg-cyan-600', hover: 'hover:bg-cyan-700' },
     pharmacy_owner: { primary: '#ea580c', bg: 'bg-orange-600', hover: 'hover:bg-orange-700' },
     ambulance_operator: { primary: '#dc2626', bg: 'bg-red-600', hover: 'hover:bg-red-700' },
 };

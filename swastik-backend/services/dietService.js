@@ -174,7 +174,7 @@ async function getMealHistory(userId, limit = 10) {
     if (!MealLog) return [];
 
     const logs = await MealLog.find({ userId })
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, timestamp: -1 })
       .limit(limit)
       .lean();
 
@@ -184,7 +184,8 @@ async function getMealHistory(userId, limit = 10) {
       totals: log.totals,
       advice: log.advice,
       mealType: log.mealType,
-      createdAt: log.createdAt,
+      medicalConditions: log.medicalConditions || log.medical_conditions || [],
+      createdAt: log.createdAt || log.timestamp,
     }));
   } catch (err) {
     console.error('[DietService] History fetch failed:', err.message);

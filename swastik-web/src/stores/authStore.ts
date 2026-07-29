@@ -36,6 +36,8 @@ export type UserRole =
     | 'hospital_manager'
     | 'clinic_owner'
     | 'diagnostic_center_owner'
+    | 'wellness_coach'
+    | 'fitness_center_owner'
     | 'pharmacy_owner';
 
 export type ApprovalStatus = 'pending' | 'review' | 'under_review' | 'approved' | 'rejected' | 'suspended';
@@ -84,6 +86,8 @@ export const ROLE_HOME_ROUTES: Record<UserRole, string> = {
     hospital_manager: '/hospital',
     clinic_owner: '/clinic',
     diagnostic_center_owner: '/diagnostic-center',
+    wellness_coach: '/wellness',
+    fitness_center_owner: '/fitness-center',
     pharmacy_owner: '/pharmacy',
 };
 
@@ -96,6 +100,8 @@ export const ROLE_LOGIN_ROUTES: Record<UserRole, string> = {
     hospital_manager: '/login/hospital',
     clinic_owner: '/login/clinic',
     diagnostic_center_owner: '/login/diagnostic-center',
+    wellness_coach: '/login/wellness',
+    fitness_center_owner: '/login/fitness-center',
     pharmacy_owner: '/login/pharmacy',
 };
 
@@ -327,6 +333,8 @@ export function canAccessRoute(userRole: UserRole | undefined, path: string): bo
         hospital_manager: ['/hospital'],
         clinic_owner: ['/clinic'],
         diagnostic_center_owner: ['/diagnostic-center'],
+        wellness_coach: ['/wellness'],
+        fitness_center_owner: ['/fitness-center'],
         pharmacy_owner: ['/pharmacy'],
     };
 

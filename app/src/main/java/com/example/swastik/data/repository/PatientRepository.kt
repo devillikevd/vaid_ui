@@ -840,7 +840,21 @@ class PatientRepository @Inject constructor(
         }
     }
 
-    private suspend fun fetchRecommendedDoctors(limit: Int = 5): Result<List<Doctor>> {
+    suspend fun syncWearableSummary(request: WearableSummaryRequest): Result<WearableDailySummaryDto> {
+        return try {
+            val response = apiService.syncWearableSummary(request)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.let { Result.Success(it) }
+                    ?: Result.Error("Failed to sync wearable summary")
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to sync wearable summary")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    private suspend fun fetchRecommendedDoctors(limit: Int = 8): Result<List<Doctor>> {
         return try {
             val response = apiService.getRecommendedDoctors(limit)
             if (response.isSuccessful && response.body()?.success == true) {

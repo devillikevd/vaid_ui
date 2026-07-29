@@ -3,6 +3,7 @@ package com.example.swastik.ui.screens.patient
 import android.graphics.Bitmap
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -56,8 +57,13 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.Smartphone
@@ -75,6 +81,8 @@ fun HealthCardScreen(
     onNavigateBack: () -> Unit,
     onNavigateToGuardianDashboard: () -> Unit,
     onNavigateToHealthConnectDashboard: () -> Unit,
+    onNavigateToDietTracker: () -> Unit,
+    onNavigateToWellnessHub: () -> Unit,
     dashboardViewModel: PatientDashboardViewModel,
     recordsViewModel: RecordsViewModel
 ) {
@@ -362,6 +370,14 @@ fun HealthCardScreen(
             }
 
             item {
+                WellnessHubActions(
+                    onNutritionClick = onNavigateToDietTracker,
+                    onWellnessHubClick = onNavigateToWellnessHub,
+                    onHealthConnectClick = onNavigateToHealthConnectDashboard
+                )
+            }
+
+            item {
                 // Health Connect Sync Section
                 val lastSyncTime = guardianSettings.lastHealthSync
                 
@@ -594,6 +610,131 @@ fun HealthCardScreen(
 
             // Fitness Tracking Fallback Section (Removing duplicates)
         }
+    }
+}
+
+@Composable
+private fun WellnessHubActions(
+    onNutritionClick: () -> Unit,
+    onWellnessHubClick: () -> Unit,
+    onHealthConnectClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    modifier = Modifier.size(42.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFE8F8EF)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.Favorite, null, tint = Color(0xFF047857), modifier = Modifier.size(24.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Wellness Hub", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(
+                        "Assess, plan, act, track and improve",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    WellnessActionButton(
+                        modifier = Modifier.weight(1f),
+                        label = "Log Meal",
+                        icon = Icons.Default.CameraAlt,
+                        tint = Color(0xFFE65100),
+                        bg = Color(0xFFFFF3E0),
+                        onClick = onNutritionClick
+                    )
+                    WellnessActionButton(
+                        modifier = Modifier.weight(1f),
+                        label = "Workouts",
+                        icon = Icons.Default.FitnessCenter,
+                        tint = Color(0xFF047857),
+                        bg = Color(0xFFE8F8EF),
+                        onClick = onWellnessHubClick
+                    )
+                    WellnessActionButton(
+                        modifier = Modifier.weight(1f),
+                        label = "Coaches",
+                        icon = Icons.Default.Groups,
+                        tint = Color(0xFF6A5AE0),
+                        bg = Color(0xFFF0EFFF),
+                        onClick = onWellnessHubClick
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    WellnessActionButton(
+                        modifier = Modifier.weight(1f),
+                        label = "Gyms",
+                        icon = Icons.Default.Store,
+                        tint = Color(0xFF2563EB),
+                        bg = Color(0xFFEFF6FF),
+                        onClick = onWellnessHubClick
+                    )
+                    WellnessActionButton(
+                        modifier = Modifier.weight(1f),
+                        label = "Supplements",
+                        icon = Icons.Default.ShoppingCart,
+                        tint = Color(0xFF9333EA),
+                        bg = Color(0xFFFAF5FF),
+                        onClick = onWellnessHubClick
+                    )
+                    WellnessActionButton(
+                        modifier = Modifier.weight(1f),
+                        label = "Health Data",
+                        icon = Icons.Default.Sync,
+                        tint = Color(0xFF0F766E),
+                        bg = Color(0xFFE6FFFB),
+                        onClick = onHealthConnectClick
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WellnessActionButton(
+    modifier: Modifier = Modifier,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tint: Color,
+    bg: Color,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .height(72.dp)
+            .background(bg, RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
+        Spacer(modifier = Modifier.height(5.dp))
+        Text(
+            label,
+            color = tint,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

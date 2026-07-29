@@ -10,6 +10,7 @@ import {
     Shield,
     Building,
     Microscope,
+    Dumbbell,
     Mail,
     Lock,
     Eye,
@@ -85,6 +86,24 @@ const ROLE_CONFIG: Record<string, {
         color: 'text-purple-600',
         bgColor: 'bg-purple-600',
         hoverColor: 'hover:bg-purple-700',
+    },
+    wellness: {
+        role: 'wellness_coach',
+        title: 'Wellness Coach Portal',
+        subtitle: 'Training, yoga & nutrition coaching',
+        icon: Dumbbell,
+        color: 'text-lime-600',
+        bgColor: 'bg-lime-600',
+        hoverColor: 'hover:bg-lime-700',
+    },
+    'fitness-center': {
+        role: 'fitness_center_owner',
+        title: 'Gym & Studio Portal',
+        subtitle: 'Manage classes, trainers & memberships',
+        icon: Building2,
+        color: 'text-cyan-600',
+        bgColor: 'bg-cyan-600',
+        hoverColor: 'hover:bg-cyan-700',
     },
 };
 

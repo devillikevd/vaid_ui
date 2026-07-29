@@ -53,6 +53,7 @@ fun HomeTabContent(
     onNavigateToHospitals: () -> Unit,
     onNavigateToClinics: () -> Unit,
     onNavigateToPharmacies: () -> Unit,
+    onNavigateToFitnessCenters: () -> Unit = {},
     onNavigateToEmergency: () -> Unit = {},
     onNavigateToChatbot: () -> Unit,
     onNavigateToDiagnostic: () -> Unit = {},
@@ -133,7 +134,8 @@ fun HomeTabContent(
                     onHospitalsClick = onNavigateToHospitals,
                     onClinicsClick = onNavigateToClinics,
                     onPharmacyClick = onNavigateToPharmacies,
-                    onDiagnosticsClick = onNavigateToDiagnostic
+                    onDiagnosticsClick = onNavigateToDiagnostic,
+                    onFitnessClick = onNavigateToFitnessCenters
                 )
             }
         }
@@ -161,6 +163,7 @@ fun HomeTabContent(
                                 "clinics" -> onNavigateToClinics()
                                 "pharmacy" -> onNavigateToPharmacies()
                                 "diagnostics", "lab tests" -> onNavigateToDiagnostic()
+                                "gyms", "gym & studios", "fitness centers", "yoga studios", "wellness" -> onNavigateToFitnessCenters()
                                 "appointments" -> onNavigateToAppointments()
                                 "reports" -> onNavigateToReports()
                                 "prescriptions" -> onNavigateToPrescriptions()
@@ -202,10 +205,12 @@ fun HomeTabContent(
                 }
 
                 // Digital Health ID Card
-                CompactHealthIdCard(onClick = onNavigateToHealthCard)
-
-                // Diet & Nutrition Tracker Card
-                DietTrackerCard(onClick = onNavigateToDietTracker)
+                CompactHealthIdCard(
+                    profile = profile,
+                    fitnessLog = fitnessLog,
+                    onClick = onNavigateToHealthCard,
+                    onNutritionClick = onNavigateToDietTracker
+                )
 
             }
 

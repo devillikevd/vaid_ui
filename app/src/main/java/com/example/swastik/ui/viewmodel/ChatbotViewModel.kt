@@ -354,6 +354,8 @@ class ChatbotViewModel @Inject constructor(
         return when {
             listOf("diagnostic", "diagnostics", "lab", "pathology", "test center", "scan").any { text.contains(it) } ->
                 FacilityType.DIAGNOSTIC_CENTER
+            listOf("gym", "gyms", "fitness center", "fitness studio", "yoga studio", "studio", "workout center").any { text.contains(it) } ->
+                FacilityType.FITNESS_CENTER
             listOf("pharmacy", "medical store", "medicine shop", "chemist").any { text.contains(it) } ->
                 FacilityType.MEDICAL_STORE
             listOf("clinic", "clinics").any { text.contains(it) } ->
@@ -374,6 +376,7 @@ class ChatbotViewModel @Inject constructor(
             FacilityType.CLINIC -> hospitalRepository.getNearbyClinics(latitude, longitude, radius = 25)
             FacilityType.MEDICAL_STORE -> hospitalRepository.getNearbyPharmacies(latitude, longitude, radius = 25)
             FacilityType.DIAGNOSTIC_CENTER -> hospitalRepository.getNearbyDiagnosticCenters(latitude, longitude, radius = 25)
+            FacilityType.FITNESS_CENTER -> hospitalRepository.getNearbyFitnessCenters(latitude, longitude, radius = 25)
         }
     }
 

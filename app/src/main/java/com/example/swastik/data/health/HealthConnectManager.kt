@@ -3,9 +3,14 @@ package com.example.swastik.data.health
 import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BodyTemperatureRecord
+import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Instant
@@ -18,7 +23,12 @@ class HealthConnectManager(private val context: Context) {
     val permissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(HeartRateRecord::class),
-        HealthPermission.getReadPermission(BodyTemperatureRecord::class)
+        HealthPermission.getReadPermission(BodyTemperatureRecord::class),
+        HealthPermission.getReadPermission(DistanceRecord::class),
+        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
+        HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+        HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+        HealthPermission.getReadPermission(SleepSessionRecord::class)
     )
 
     fun checkAvailability(): Int {
@@ -86,10 +96,73 @@ class HealthConnectManager(private val context: Context) {
                 .sortedBy { it.time }
         } catch (e: Exception) { emptyList() }
 
+        val distanceMeters = try {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = DistanceRecord::class,
+                    timeRangeFilter = timeRangeFilter
+                )
+            )
+            response.records.sumOf { it.distance.inMeters }
+        } catch (e: Exception) { 0.0 }
+
+        val activeCalories = try {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = ActiveCaloriesBurnedRecord::class,
+                    timeRangeFilter = timeRangeFilter
+                )
+            )
+            response.records.sumOf { it.energy.inKilocalories }
+        } catch (e: Exception) { 0.0 }
+
+        val totalCalories = try {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = TotalCaloriesBurnedRecord::class,
+                    timeRangeFilter = timeRangeFilter
+                )
+            )
+            response.records.sumOf { it.energy.inKilocalories }
+        } catch (e: Exception) { 0.0 }
+
+        val exerciseSessions = try {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = ExerciseSessionRecord::class,
+                    timeRangeFilter = timeRangeFilter
+                )
+            )
+            response.records
+        } catch (e: Exception) { emptyList() }
+
+        val exerciseMinutes = exerciseSessions.sumOf {
+            ChronoUnit.MINUTES.between(it.startTime, it.endTime).coerceAtLeast(0)
+        }
+
+        val sleepMinutes = try {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = SleepSessionRecord::class,
+                    timeRangeFilter = timeRangeFilter
+                )
+            )
+            response.records.sumOf {
+                ChronoUnit.MINUTES.between(it.startTime, it.endTime).coerceAtLeast(0)
+            }
+        } catch (e: Exception) { 0L }
+
         return VitalsData(
             dailySteps = stepsPoints,
             recentHeartRates = hrPoints,
-            recentTemperatures = tempPoints
+            recentTemperatures = tempPoints,
+            distanceMeters = distanceMeters,
+            activeCalories = activeCalories,
+            totalCalories = totalCalories,
+            activeMinutes = exerciseMinutes,
+            exerciseMinutes = exerciseMinutes,
+            workoutsCount = exerciseSessions.size,
+            sleepMinutes = sleepMinutes
         )
     }
 
@@ -106,5 +179,12 @@ data class VitalsPoint<T>(
 data class VitalsData(
     val dailySteps: List<VitalsPoint<Long>>,
     val recentHeartRates: List<VitalsPoint<Long>>,
-    val recentTemperatures: List<VitalsPoint<Double>>
+    val recentTemperatures: List<VitalsPoint<Double>>,
+    val distanceMeters: Double = 0.0,
+    val activeCalories: Double = 0.0,
+    val totalCalories: Double = 0.0,
+    val activeMinutes: Long = 0,
+    val exerciseMinutes: Long = 0,
+    val workoutsCount: Int = 0,
+    val sleepMinutes: Long = 0
 )

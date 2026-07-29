@@ -96,6 +96,9 @@ sealed class Screen(val route: String) {
     object DiagnosticDetail : Screen("diagnostic_detail/{centerId}") {
         fun createRoute(centerId: String): String = "diagnostic_detail/$centerId"
     }
+    object FitnessCenterDetail : Screen("fitness_center_detail/{centerId}") {
+        fun createRoute(centerId: String): String = "fitness_center_detail/$centerId"
+    }
     object VideoConsultation : Screen("video_consultation/{appointmentId}/{doctorName}") {
         fun createRoute(appointmentId: String, doctorName: String): String {
             return "video_consultation/${appointmentId}/${java.net.URLEncoder.encode(doctorName, "UTF-8")}"
@@ -122,6 +125,7 @@ sealed class Screen(val route: String) {
     object GuardianDashboard : Screen("guardian_dashboard")
     object HealthConnectSetup : Screen("health_connect_setup")
     object HealthConnectDashboard : Screen("health_connect_dashboard")
+    object WellnessHub : Screen("wellness_hub")
     object MedicineCart : Screen("medicine_cart/{type}") {
         fun createRoute(type: String) = "medicine_cart/$type"
     }

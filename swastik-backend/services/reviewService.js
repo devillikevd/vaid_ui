@@ -193,6 +193,8 @@ class ReviewService {
       case 'clinic': tableName = 'clinics'; break;
       case 'pharmacy': tableName = 'pharmacies'; break;
       case 'diagnostic_center': tableName = 'diagnostic_centers'; break;
+      case 'wellness_coach': tableName = 'wellness_coaches'; break;
+      case 'fitness_center': tableName = 'fitness_centers'; break;
       default: return;
     }
 

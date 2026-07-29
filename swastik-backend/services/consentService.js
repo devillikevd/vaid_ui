@@ -18,7 +18,7 @@ class ConsentService {
     return data;
   }
 
-  async grantConsent({ patientId, entityType, entityId, entityName, purpose, durationDays = 365 }) {
+  async grantConsent({ patientId, entityType, entityId, entityName, purpose, durationDays = 365, dataScopes = [], metadata = {} }) {
     const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString();
     
     // Deactivate previous active consents for this exact entity to avoid duplicates
@@ -38,6 +38,8 @@ class ConsentService {
         entity_id: entityId,
         entity_name: entityName,
         purpose: purpose,
+        data_scopes: Array.isArray(dataScopes) ? dataScopes : [],
+        metadata: metadata && typeof metadata === 'object' ? metadata : {},
         status: 'active',
         expires_at: expiresAt,
       })

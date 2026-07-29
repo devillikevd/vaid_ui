@@ -16,6 +16,7 @@ import {
     EyeOff,
     User,
     Ambulance,
+    Dumbbell,
     ArrowLeft
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -31,6 +32,8 @@ const ROLES = [
     { id: 'clinic', role: 'clinic_owner', title: 'Clinic', icon: Building, color: 'text-pink-600', bgColor: 'bg-pink-600', hoverColor: 'hover:bg-pink-700', lightBg: 'bg-pink-50 dark:bg-pink-50', borderLight: 'border-pink-200 dark:border-pink-200', textLight: 'text-pink-700 dark:text-pink-700' },
     { id: 'pharmacy', role: 'pharmacy_owner', title: 'Pharmacy', icon: Pill, color: 'text-orange-600', bgColor: 'bg-orange-600', hoverColor: 'hover:bg-orange-700', lightBg: 'bg-orange-50 dark:bg-orange-50', borderLight: 'border-orange-200 dark:border-orange-200', textLight: 'text-orange-700 dark:text-orange-700' },
     { id: 'diagnostic-center', role: 'diagnostic_center_owner', title: 'Diagnostic Lab', icon: Microscope, color: 'text-purple-600', bgColor: 'bg-purple-600', hoverColor: 'hover:bg-purple-700', lightBg: 'bg-purple-50 dark:bg-purple-50', borderLight: 'border-purple-200 dark:border-purple-200', textLight: 'text-purple-700 dark:text-purple-700' },
+    { id: 'wellness', role: 'wellness_coach', title: 'Wellness Coach', icon: Dumbbell, color: 'text-lime-600', bgColor: 'bg-lime-600', hoverColor: 'hover:bg-lime-700', lightBg: 'bg-lime-50 dark:bg-lime-50', borderLight: 'border-lime-200 dark:border-lime-200', textLight: 'text-lime-700 dark:text-lime-700' },
+    { id: 'fitness-center', role: 'fitness_center_owner', title: 'Gym & Studio', icon: Building2, color: 'text-cyan-600', bgColor: 'bg-cyan-600', hoverColor: 'hover:bg-cyan-700', lightBg: 'bg-cyan-50 dark:bg-cyan-50', borderLight: 'border-cyan-200 dark:border-cyan-200', textLight: 'text-cyan-700 dark:text-cyan-700' },
 ] as const;
 
 export default function UnifiedLoginPage() {

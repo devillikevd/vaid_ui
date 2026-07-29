@@ -60,6 +60,7 @@ fun HospitalFinderScreen(
     onClinicClick: (String) -> Unit = {},
     onPharmacyDetailClick: (String) -> Unit = {},
     onDiagnosticDetailClick: (String) -> Unit = {},
+    onFitnessCenterDetailClick: (String) -> Unit = {},
     onMedicineClick: (String) -> Unit = {},
     onNavigateToCart: () -> Unit = {},
     onNavigateToOrders: () -> Unit = {},
@@ -111,6 +112,7 @@ fun HospitalFinderScreen(
             FacilityType.CLINIC -> onClinicClick(facility.id)
             FacilityType.MEDICAL_STORE -> onPharmacyDetailClick(facility.id)
             FacilityType.DIAGNOSTIC_CENTER -> onDiagnosticDetailClick(facility.id)
+            FacilityType.FITNESS_CENTER -> onFitnessCenterDetailClick(facility.id)
             else -> viewModel.openFacilitySheet(facility, facility.type.name)
         }
     }
@@ -123,6 +125,7 @@ fun HospitalFinderScreen(
         FacilityType.CLINIC -> "Clinics"
         FacilityType.MEDICAL_STORE -> "Medical Stores"
         FacilityType.DIAGNOSTIC_CENTER -> stringResource(R.string.diagnostic_centers)
+        FacilityType.FITNESS_CENTER -> "Gyms & Studios"
         FacilityType.NURSING_HOME -> "Nursing Homes"
         null -> "Nearby Care"
     }
@@ -284,7 +287,11 @@ fun HospitalFinderScreen(
                         }
                     },
                     actions = {
-                        if (selectedFacilityType != FacilityType.MEDICAL_STORE && selectedFacilityType != FacilityType.DIAGNOSTIC_CENTER) {
+                        if (
+                            selectedFacilityType != FacilityType.MEDICAL_STORE &&
+                            selectedFacilityType != FacilityType.DIAGNOSTIC_CENTER &&
+                            selectedFacilityType != FacilityType.FITNESS_CENTER
+                        ) {
                             IconButton(onClick = { isEmergencyMode = true }) {
                                 Icon(
                                     Icons.Default.LocalHospital,

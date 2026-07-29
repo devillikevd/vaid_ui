@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import kotlinx.coroutines.delay
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
@@ -47,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.R
 import com.example.swastik.data.model.Doctor
+import com.example.swastik.data.model.DailyFitnessLog
 import com.example.swastik.data.model.PatientProfile
 import com.example.swastik.ui.theme.*
 import java.util.Locale
@@ -245,67 +248,188 @@ fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
 }
 
 @Composable
-fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? = null, onClick: () -> Unit) {
+fun CompactHealthIdCard(
+    modifier: Modifier = Modifier,
+    profile: PatientProfile? = null,
+    fitnessLog: DailyFitnessLog? = null,
+    onClick: () -> Unit,
+    onNutritionClick: () -> Unit = {}
+) {
+    val steps = fitnessLog?.totalSteps?.takeIf { it > 0 }
+    val calories = fitnessLog?.caloriesBurned?.takeIf { it > 0f }
+    val activeMinutes = fitnessLog?.activeMinutes?.takeIf { it > 0 }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), // Matches My Activity cards
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(Color.White, RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Filled.QrCode2, null, tint = Color(0xFF0284C7), modifier = Modifier.size(24.dp)) // Sky 600
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Smart Health Hub", // Modern title
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color(0xFFE8F8EF), Color(0xFFF8FBFF))
+                    )
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                // Row of Chips
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                .padding(14.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color.White, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(modifier = Modifier.background(Color(0xFFE0F2FE), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 2.dp)) {
-                        Text("🛡️ Guardian", fontSize = 9.sp, color = Color(0xFF075985), fontWeight = FontWeight.Bold) // Sky 800
-                    }
-                    Box(modifier = Modifier.background(Color(0xFFE0F2FE), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 2.dp)) {
-                        Text("🏃 Fitness", fontSize = 9.sp, color = Color(0xFF075985), fontWeight = FontWeight.Bold)
-                    }
-                    Box(modifier = Modifier.background(Color(0xFFE0F2FE), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 2.dp)) {
-                        Text("⌚ Sync", fontSize = 9.sp, color = Color(0xFF075985), fontWeight = FontWeight.Bold)
-                    }
+                    Icon(Icons.Filled.QrCode2, null, tint = Color(0xFF047857), modifier = Modifier.size(26.dp))
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Smart Health Hub",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = profile?.name?.takeIf { it.isNotBlank() }?.let { "Wellness, records and connected health for $it" }
+                            ?: "Wellness, records and connected health",
+                        fontSize = 11.sp,
+                        color = Color(0xFF475569),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Open", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF047857))
+                    Icon(Icons.Filled.ChevronRight, null, tint = Color(0xFF047857), modifier = Modifier.size(16.dp))
                 }
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Open Hub",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0284C7) // Sky 600
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                HubMetricPill(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Filled.DirectionsWalk,
+                    label = "Steps",
+                    value = steps?.let { String.format(Locale.getDefault(), "%,d", it) } ?: "Connect"
                 )
-                Icon(Icons.Filled.ChevronRight, null, tint = Color(0xFF0284C7), modifier = Modifier.size(14.dp))
+                HubMetricPill(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Filled.LocalFireDepartment,
+                    label = "Calories",
+                    value = calories?.let { "${it.toInt()} kcal" } ?: "Track"
+                )
+                HubMetricPill(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Filled.Timer,
+                    label = "Active",
+                    value = activeMinutes?.let { "${it}m" } ?: "Today"
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                HubActionPill(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Filled.CameraAlt,
+                    label = "Log Meal",
+                    tint = Color(0xFFE65100),
+                    bg = Color(0xFFFFF3E0),
+                    onClick = onNutritionClick
+                )
+                HubActionPill(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Filled.FitnessCenter,
+                    label = "Workout",
+                    tint = Color(0xFF2563EB),
+                    bg = Color(0xFFEFF6FF),
+                    onClick = onClick
+                )
+                HubActionPill(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Filled.Sync,
+                    label = "Sync",
+                    tint = Color(0xFF6A5AE0),
+                    bg = Color(0xFFF0EFFF),
+                    onClick = onClick
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun HubMetricPill(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    label: String,
+    value: String
+) {
+    Column(
+        modifier = modifier
+            .heightIn(min = 58.dp)
+            .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = Color(0xFF047857), modifier = Modifier.size(15.dp))
+            Text(label, fontSize = 9.sp, color = Color(0xFF64748B), maxLines = 1)
+        }
+        Text(
+            value,
+            fontSize = 11.sp,
+            color = Color(0xFF0F172A),
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun HubActionPill(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    label: String,
+    tint: Color,
+    bg: Color,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = modifier
+            .height(38.dp)
+            .background(bg, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            label,
+            fontSize = 10.sp,
+            color = tint,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -908,7 +1032,8 @@ fun TopHealthcareServicesRow(
     onHospitalsClick: () -> Unit,
     onClinicsClick: () -> Unit,
     onPharmacyClick: () -> Unit,
-    onDiagnosticsClick: () -> Unit
+    onDiagnosticsClick: () -> Unit,
+    onFitnessClick: () -> Unit = {}
 ) {
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     // Screen width - padding (16dp*2) - spacing (8dp*3) divided by 4

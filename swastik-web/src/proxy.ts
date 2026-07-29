@@ -27,6 +27,8 @@ const ROUTE_ROLES: Record<string, string[]> = {
     '/hospital': ['hospital_owner', 'hospital_manager'],
     '/clinic': ['clinic_owner'],
     '/diagnostic-center': ['diagnostic_center_owner'],
+    '/wellness': ['wellness_coach'],
+    '/fitness-center': ['fitness_center_owner'],
     '/pharmacy': ['pharmacy_owner'],
     '/consultation': ['doctor', 'patient'],
 };
@@ -37,6 +39,8 @@ const ROUTE_TO_LOGIN_SLUG: Record<string, string> = {
     '/hospital': 'hospital',
     '/clinic': 'clinic',
     '/diagnostic-center': 'diagnostic-center',
+    '/wellness': 'wellness',
+    '/fitness-center': 'fitness-center',
     '/pharmacy': 'pharmacy',
     '/consultation': 'doctor',
 };
@@ -104,6 +108,7 @@ export const config = {
         '/hospital/:path*',
         '/clinic/:path*',
         '/diagnostic-center/:path*',
+        '/wellness/:path*',
         '/pharmacy/:path*',
         '/consultation/:path*',
     ],

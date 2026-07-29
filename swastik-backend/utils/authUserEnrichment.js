@@ -4,6 +4,16 @@ const PROVIDER_ROLE_CONFIG = {
   clinic_owner: { table: 'clinics', column: 'owner_id', select: 'id, approval_status, approval_notes' },
   pharmacy_owner: { table: 'pharmacies', column: 'owner_id', select: 'id, approval_status, approval_notes' },
   diagnostic_center_owner: { table: 'diagnostic_centers', column: 'owner_id', select: 'id, approval_status, approval_notes' },
+  wellness_coach: {
+    table: 'wellness_coaches',
+    column: 'user_id',
+    select: 'id, approval_status, approval_notes, registration_number, address, city, state, email',
+  },
+  fitness_center_owner: {
+    table: 'fitness_centers',
+    column: 'owner_user_id',
+    select: 'id, approval_status, approval_notes, name, center_type, address, city, state, email',
+  },
   ambulance_operator: {
     table: 'ambulance_operators',
     column: 'user_id',
@@ -54,6 +64,7 @@ const enrichAuthUser = async (user, supabaseAdmin) => {
       approval_status: provider.approval_status ?? user.approval_status ?? null,
       approval_notes: provider.approval_notes ?? user.approval_notes ?? null,
       company_name: provider.company_name ?? user.company_name ?? null,
+      center_type: provider.center_type ?? user.center_type ?? null,
       registration_number: provider.registration_number ?? user.registration_number ?? null,
       address: provider.address ?? user.address ?? null,
       city: provider.city ?? user.city ?? null,

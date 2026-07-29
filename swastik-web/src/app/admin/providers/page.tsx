@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import {
-    Search, Stethoscope, Building2, Building, Pill, Siren, Microscope,
-    Loader2, RefreshCw
+    Search, Stethoscope, Building2, Building, Pill, Siren, Microscope, Dumbbell,
+    Loader2, RefreshCw, Store
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -13,7 +13,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { useAdminStore } from '@/stores/adminStore';
 import { adminApi } from '@/lib/api';
 
-type ProviderType = 'all' | 'doctors' | 'hospitals' | 'clinics' | 'pharmacies' | 'diagnostic_centers' | 'ambulances';
+type ProviderType = 'all' | 'doctors' | 'hospitals' | 'clinics' | 'pharmacies' | 'diagnostic_centers' | 'wellness_coaches' | 'fitness_centers' | 'ambulances';
 
 interface Provider {
     id: string;
@@ -28,13 +28,13 @@ interface Provider {
 
 const PROVIDER_ICONS: Record<string, React.ElementType> = {
     doctors: Stethoscope, hospitals: Building2, clinics: Building,
-    pharmacies: Pill, diagnostic_centers: Microscope, ambulances: Siren,
+    pharmacies: Pill, diagnostic_centers: Microscope, wellness_coaches: Dumbbell, fitness_centers: Store, ambulances: Siren,
 };
 
 const PROVIDER_COLORS: Record<string, string> = {
     doctors: 'bg-emerald-100 text-emerald-700', hospitals: 'bg-teal-100 text-teal-700',
     clinics: 'bg-pink-100 text-pink-700', pharmacies: 'bg-orange-100 text-orange-700',
-    diagnostic_centers: 'bg-purple-100 text-purple-700', ambulances: 'bg-red-100 text-red-700',
+    diagnostic_centers: 'bg-purple-100 text-purple-700', wellness_coaches: 'bg-lime-100 text-lime-700', fitness_centers: 'bg-cyan-100 text-cyan-700', ambulances: 'bg-red-100 text-red-700',
 };
 
 export default function ProvidersPage() {
@@ -89,6 +89,8 @@ export default function ProvidersPage() {
         { id: 'clinics', label: 'Clinics', count: providerCounts?.clinics?.total ?? 0 },
         { id: 'pharmacies', label: 'Pharmacies', count: providerCounts?.pharmacies?.total ?? 0 },
         { id: 'diagnostic_centers', label: 'Diagnostic Centers', count: providerCounts?.diagnosticCenters?.total ?? 0 },
+        { id: 'wellness_coaches', label: 'Wellness Coaches', count: providerCounts?.wellnessCoaches?.total ?? 0 },
+        { id: 'fitness_centers', label: 'Fitness Centers', count: providerCounts?.fitnessCenters?.total ?? 0 },
         { id: 'ambulances', label: 'Ambulances', count: providerCounts?.ambulances?.total ?? 0 },
     ];
 

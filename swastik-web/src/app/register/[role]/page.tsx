@@ -8,6 +8,7 @@ import {
     Pill,
     Building,
     Microscope,
+    Dumbbell,
     Mail,
     Lock,
     User,
@@ -98,6 +99,24 @@ const ROLE_CONFIG: Record<string, {
         bgColor: 'bg-purple-600',
         hoverColor: 'hover:bg-purple-700',
     },
+    wellness: {
+        role: 'wellness_coach',
+        title: 'Wellness Coach Registration',
+        subtitle: 'Register as gym, yoga, mobility or nutrition coach',
+        icon: Dumbbell,
+        color: 'text-lime-600',
+        bgColor: 'bg-lime-600',
+        hoverColor: 'hover:bg-lime-700',
+    },
+    'fitness-center': {
+        role: 'fitness_center_owner',
+        title: 'Gym & Studio Registration',
+        subtitle: 'Register your gym, studio or fitness center',
+        icon: Building2,
+        color: 'text-cyan-600',
+        bgColor: 'bg-cyan-600',
+        hoverColor: 'hover:bg-cyan-700',
+    },
 };
 
 interface RegisterPageProps {
@@ -136,6 +155,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     const [latitude, setLatitude] = useState<number | null>(null);
     const [longitude, setLongitude] = useState<number | null>(null);
     const [hospitalType, setHospitalType] = useState('Private');
+    const [centerType, setCenterType] = useState('gym');
 
     const [error, setError] = useState('');
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -172,14 +192,24 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     }
 
     const Icon = config.icon;
-    const isFacilityRole = ['hospital_owner', 'clinic_owner', 'pharmacy_owner', 'diagnostic_center_owner'].includes(config.role);
+    const isFacilityRole = ['hospital_owner', 'clinic_owner', 'pharmacy_owner', 'diagnostic_center_owner', 'fitness_center_owner'].includes(config.role);
+    const isWellnessRole = config.role === 'wellness_coach';
+    const isFitnessCenterRole = config.role === 'fitness_center_owner';
     const nameLabel = isFacilityRole ? 'Contact Person Name' : 'Full Name';
     const namePlaceholder = isFacilityRole ? 'Enter admin or contact person name' : 'Enter full name';
-    const facilityLabel = config.role === 'diagnostic_center_owner' ? 'Diagnostic Center Name' : config.title.replace(' Registration', ' Name');
+    const facilityLabel = config.role === 'diagnostic_center_owner'
+        ? 'Diagnostic Center Name'
+        : isFitnessCenterRole
+            ? 'Gym / Studio Name'
+            : config.title.replace(' Registration', ' Name');
     const withRequiredMark = (label: string, required = false) => (required ? `${label} *` : label);
-    const approvalHint = isFacilityRole
-        ? 'Fields marked * are required to complete registration and qualify for admin approval. Facility roles must provide a reachable phone number, full address, and map location so patients can discover them.'
-        : 'Fields marked * are required to complete registration and qualify for admin approval. Doctor approval requires a reachable phone number and valid professional credentials.';
+    const approvalHint = isWellnessRole
+        ? 'Fields marked * are required for admin approval. Wellness coaches can cover gym training, yoga, mobility, running, and nutrition coaching under one profile.'
+            : isFitnessCenterRole
+                ? 'Fields marked * are required to complete registration and qualify for admin approval. Gym and studio owners can invite approved trainers after approval.'
+                : isFacilityRole
+            ? 'Fields marked * are required to complete registration and qualify for admin approval. Facility roles must provide a reachable phone number, full address, and map location so patients can discover them.'
+            : 'Fields marked * are required to complete registration and qualify for admin approval. Doctor approval requires a reachable phone number and valid professional credentials.';
 
     // ── Form Validation ────────────────────────────────────────────
     const validate = (): boolean => {
@@ -216,9 +246,16 @@ export default function RegisterPage({ params }: RegisterPageProps) {
             else if (!Number.isFinite(Number(experience)) || Number(experience) < 0) errors.experience = 'Experience must be a non-negative number';
             if (!consultationFee.trim()) errors.consultationFee = 'Consultation fee is required';
             else if (!Number.isFinite(Number(consultationFee)) || Number(consultationFee) < 0) errors.consultationFee = 'Consultation fee must be a non-negative number';
+        } else if (isWellnessRole) {
+            if (!specialization.trim()) errors.specialization = 'Coach type or specialty is required';
+            if (!qualification.trim()) errors.qualification = 'Qualification or certification is required';
+            if (!experience.trim()) errors.experience = 'Years of experience is required';
+            else if (!Number.isFinite(Number(experience)) || Number(experience) < 0) errors.experience = 'Experience must be a non-negative number';
+            if (!consultationFee.trim()) errors.consultationFee = 'Session fee is required';
+            else if (!Number.isFinite(Number(consultationFee)) || Number(consultationFee) < 0) errors.consultationFee = 'Session fee must be a non-negative number';
         } else {
             if (!facilityName.trim()) errors.facilityName = 'Facility name is required';
-            if (!licenseNumber.trim()) errors.licenseNumber = 'License/Registration number is required';
+            if (!isFitnessCenterRole && !licenseNumber.trim()) errors.licenseNumber = 'License/Registration number is required';
             if (!address.trim()) errors.address = 'Address is required';
             if (!city.trim()) errors.city = 'City is required';
             if (latitude == null || longitude == null) errors.location = 'Map location is required for approval';
@@ -260,19 +297,43 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                         bio: bio.trim() || undefined,
                     };
                     break;
+                case 'wellness_coach':
+                    roleData = {
+                        headline: bio.trim() ? bio.trim().split('\n')[0] : specialization.trim(),
+                        coach_types: specialization.split(',').map((item) => item.trim()).filter(Boolean),
+                        specialties: specialization.split(',').map((item) => item.trim()).filter(Boolean),
+                        expertise_tags: specialization.split(',').map((item) => item.trim()).filter(Boolean),
+                        qualifications: [qualification.trim()],
+                        certifications: licenseNumber.trim() ? [licenseNumber.trim()] : [],
+                        license_number: licenseNumber.trim() || undefined,
+                        registration_number: registrationNumber.trim() || undefined,
+                        experience_years: Number.parseInt(experience, 10),
+                        session_fee: Number.parseFloat(consultationFee),
+                        video_session_fee: Number.parseFloat(consultationFee),
+                        languages: languages.split(',').map((item) => item.trim()).filter(Boolean),
+                        bio: bio.trim() || undefined,
+                        ...(address.trim() ? { address: address.trim() } : {}),
+                        ...(city.trim() ? { city: city.trim() } : {}),
+                        ...(state.trim() ? { state: state.trim() } : {}),
+                        ...(pincode.trim() ? { pincode: pincode.trim() } : {}),
+                        ...(latitude != null && longitude != null && !(latitude === 0 && longitude === 0) ? { latitude, longitude } : {}),
+                    };
+                    break;
                 case 'pharmacy_owner':
                 case 'hospital_owner':
                 case 'clinic_owner':
                 case 'diagnostic_center_owner':
+                case 'fitness_center_owner':
                     roleData = {
                         facility_name: facilityName.trim(),
-                        license_number: licenseNumber,
+                        ...(licenseNumber.trim() ? { license_number: licenseNumber.trim() } : {}),
                         address: address.trim(),
                         city: city.trim(),
                         ...(state.trim() ? { state: state.trim() } : {}),
                         ...(pincode.trim() ? { pincode: pincode.trim() } : {}),
                         ...(latitude != null && longitude != null && !(latitude === 0 && longitude === 0) ? { latitude, longitude } : {}),
                         ...(config.role === 'hospital_owner' ? { is_emergency_available: isEmergencyAvailable, type: hospitalType } : {}),
+                        ...(config.role === 'fitness_center_owner' ? { center_type: centerType } : {}),
                     };
                     break;
             }
@@ -587,16 +648,110 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                 </>
                             )}
 
-                            {(config.role === 'pharmacy_owner' || config.role === 'hospital_owner' || config.role === 'clinic_owner' || config.role === 'diagnostic_center_owner') && (
+                            {isWellnessRole && (
                                 <>
                                     <Input
-                                        label={withRequiredMark('License / Registration Number', true)}
+                                        label={withRequiredMark('Coach Type / Specialty', true)}
+                                        value={specialization}
+                                        onChange={(e) => { setSpecialization(e.target.value); setFieldErrors(p => { const { specialization, ...rest } = p; return rest; }); }}
+                                        placeholder="Example: Gym trainer, yoga, mobility, fat loss"
+                                        leftIcon={<Dumbbell className="h-5 w-5" />}
+                                        error={fieldErrors.specialization}
+                                        required
+                                    />
+                                    <Input
+                                        label={withRequiredMark('Qualification / Certification', true)}
+                                        value={qualification}
+                                        onChange={(e) => { setQualification(e.target.value); setFieldErrors(p => { const { qualification, ...rest } = p; return rest; }); }}
+                                        placeholder="Example: ACE CPT, Yoga TTC 200, Sports Nutrition"
+                                        leftIcon={<GraduationCap className="h-5 w-5" />}
+                                        error={fieldErrors.qualification}
+                                        required
+                                    />
+                                    <Input
+                                        label="Certification / Registration Number"
+                                        value={licenseNumber}
+                                        onChange={(e) => setLicenseNumber(e.target.value)}
+                                        placeholder="Optional certification or license number"
+                                        leftIcon={<FileText className="h-5 w-5" />}
+                                    />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <Input
+                                            label={withRequiredMark('Years of Experience', true)}
+                                            type="number"
+                                            value={experience}
+                                            onChange={(e) => { setExperience(e.target.value); setFieldErrors(p => { const { experience, ...rest } = p; return rest; }); }}
+                                            placeholder="Enter years of coaching experience"
+                                            leftIcon={<Briefcase className="h-5 w-5" />}
+                                            error={fieldErrors.experience}
+                                            min="0"
+                                            required
+                                        />
+                                        <Input
+                                            label={withRequiredMark('Session Fee', true)}
+                                            type="number"
+                                            value={consultationFee}
+                                            onChange={(e) => { setConsultationFee(e.target.value); setFieldErrors(p => { const { consultationFee, ...rest } = p; return rest; }); }}
+                                            placeholder="Enter fee in INR"
+                                            leftIcon={<IndianRupee className="h-5 w-5" />}
+                                            error={fieldErrors.consultationFee}
+                                            min="0"
+                                            required
+                                        />
+                                    </div>
+                                    <Input
+                                        label="Languages"
+                                        value={languages}
+                                        onChange={(e) => setLanguages(e.target.value)}
+                                        placeholder="Example: Hindi, English, Kannada"
+                                        leftIcon={<Languages className="h-5 w-5" />}
+                                    />
+                                    <div>
+                                        <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
+                                            Coach Bio
+                                        </label>
+                                        <textarea
+                                            value={bio}
+                                            onChange={(e) => setBio(e.target.value)}
+                                            placeholder="Training style, client goals you handle, safety boundaries, and availability"
+                                            rows={3}
+                                            className="w-full px-4 py-3.5 border border-white/10 rounded-xl text-white bg-white/[0.03] placeholder:text-white/30 focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <Input
+                                            label="Service Area"
+                                            value={address}
+                                            onChange={(e) => setAddress(e.target.value)}
+                                            placeholder="Online, home visits, or studio address"
+                                            leftIcon={<MapPin className="h-5 w-5" />}
+                                        />
+                                        <Input
+                                            label="City"
+                                            value={city}
+                                            onChange={(e) => setCity(e.target.value)}
+                                            placeholder="e.g. Bengaluru"
+                                        />
+                                        <Input
+                                            label="State"
+                                            value={state}
+                                            onChange={(e) => setState(e.target.value)}
+                                            placeholder="e.g. Karnataka"
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            {(config.role === 'pharmacy_owner' || config.role === 'hospital_owner' || config.role === 'clinic_owner' || config.role === 'diagnostic_center_owner' || config.role === 'fitness_center_owner') && (
+                                <>
+                                    <Input
+                                        label={withRequiredMark('License / Registration Number', !isFitnessCenterRole)}
                                         value={licenseNumber}
                                         onChange={(e) => { setLicenseNumber(e.target.value); setFieldErrors(p => { const { licenseNumber, ...rest } = p; return rest; }); }}
-                                        placeholder="Enter facility license or registration number"
+                                        placeholder={isFitnessCenterRole ? 'Optional business, studio, or GST registration number' : 'Enter facility license or registration number'}
                                         leftIcon={<FileText className="h-5 w-5" />}
                                         error={fieldErrors.licenseNumber}
-                                        required
+                                        required={!isFitnessCenterRole}
                                     />
                                     {config.role === 'hospital_owner' && (
                                         <div className="mb-4">
@@ -611,6 +766,26 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                             >
                                                 <option value="Private" className="text-black">Private</option>
                                                 <option value="Government" className="text-black">Government</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                    {config.role === 'fitness_center_owner' && (
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
+                                                {withRequiredMark('Center Type', true)}
+                                            </label>
+                                            <select
+                                                value={centerType}
+                                                onChange={(e) => setCenterType(e.target.value)}
+                                                className="w-full px-4 py-3.5 border rounded-xl text-white border-white/10 bg-white/[0.03] focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all appearance-none"
+                                                required
+                                            >
+                                                <option value="gym" className="text-black">Gym</option>
+                                                <option value="yoga_studio" className="text-black">Yoga Studio</option>
+                                                <option value="fitness_center" className="text-black">Fitness Center</option>
+                                                <option value="dance_studio" className="text-black">Dance Studio</option>
+                                                <option value="running_club" className="text-black">Running Club</option>
+                                                <option value="physiotherapy_center" className="text-black">Physiotherapy Center</option>
                                             </select>
                                         </div>
                                     )}

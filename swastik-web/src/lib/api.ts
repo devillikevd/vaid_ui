@@ -378,25 +378,25 @@ export const adminApi = {
     getProviderDetails: (type: string, id: string) =>
         fetchWithAuth(`/admin/providers/${type}/${id}`),
 
-    approveProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic' | 'ambulance', id: string, notes?: string) =>
+    approveProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic' | 'wellness_coach' | 'fitness_center' | 'ambulance', id: string, notes?: string) =>
         fetchWithAuth(`/admin/providers/${type}/${id}/approve`, {
             method: 'POST',
             body: JSON.stringify({ notes }),
         }),
 
-    rejectProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic' | 'ambulance', id: string, reason: string) =>
+    rejectProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic' | 'wellness_coach' | 'fitness_center' | 'ambulance', id: string, reason: string) =>
         fetchWithAuth(`/admin/providers/${type}/${id}/reject`, {
             method: 'POST',
             body: JSON.stringify({ reason }),
         }),
 
-    suspendProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic' | 'ambulance', id: string, reason: string) =>
+    suspendProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic' | 'wellness_coach' | 'fitness_center' | 'ambulance', id: string, reason: string) =>
         fetchWithAuth(`/admin/providers/${type}/${id}/suspend`, {
             method: 'POST',
             body: JSON.stringify({ reason }),
         }),
 
-    reactivateProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic' | 'ambulance', id: string, notes?: string) =>
+    reactivateProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic' | 'wellness_coach' | 'fitness_center' | 'ambulance', id: string, notes?: string) =>
         fetchWithAuth(`/admin/providers/${type}/${id}/reactivate`, {
             method: 'POST',
             body: JSON.stringify({ notes }),
@@ -1440,6 +1440,84 @@ export const communityApi = {
     })
 };
 
+// ==================== WELLNESS API ====================
+
+const wellnessQuery = (params?: Record<string, unknown>) => {
+    const search = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+            search.set(key, String(value));
+        }
+    });
+    const queryString = search.toString();
+    return queryString ? `?${queryString}` : '';
+};
+
+export const wellnessApi = {
+    getCoachProfile: () => fetchWithAuth('/wellness/coaches/me'),
+    updateCoachProfile: (data: Record<string, unknown>) =>
+        fetchWithAuth('/wellness/coaches/me', {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+    getSessions: (status?: string) =>
+        fetchWithAuth(`/wellness/sessions${wellnessQuery({ status })}`),
+    getOwnerCenter: () => fetchWithAuth('/wellness/owner/center'),
+    getOwnerTrainers: () => fetchWithAuth('/wellness/owner/trainers'),
+    getOwnerTrainerInvites: (status?: string) =>
+        fetchWithAuth(`/wellness/owner/trainer-invites${wellnessQuery({ status })}`),
+    createTrainerInvite: (data: Record<string, unknown>) =>
+        fetchWithAuth('/wellness/owner/trainer-invites', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    cancelTrainerInvite: (inviteId: string) =>
+        fetchWithAuth(`/wellness/owner/trainer-invites/${inviteId}/cancel`, { method: 'POST' }),
+    getTrainerInvite: (token: string) =>
+        fetchWithAuth(`/wellness/trainer-invites/${encodeURIComponent(token)}`),
+    getCoachCenterInvites: (status?: string) =>
+        fetchWithAuth(`/wellness/coaches/me/center-invites${wellnessQuery({ status })}`),
+    respondCoachCenterInvite: (inviteIdOrToken: string, decision: 'accept' | 'reject') =>
+        fetchWithAuth(`/wellness/coaches/me/center-invites/${encodeURIComponent(inviteIdOrToken)}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ decision }),
+        }),
+    respondTrainerInviteToken: (token: string, decision: 'accept' | 'reject') =>
+        fetchWithAuth(`/wellness/trainer-invites/${encodeURIComponent(token)}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ decision }),
+        }),
+    getWorkoutPlans: (filters?: Record<string, unknown>, page: number = 1, limit: number = 12) =>
+        fetchWithAuth(`/wellness/plans${wellnessQuery({ ...filters, page, limit })}`),
+    getExercises: (filters?: Record<string, unknown>, page: number = 1, limit: number = 30) =>
+        fetchWithAuth(`/wellness/exercises${wellnessQuery({ ...filters, page, limit })}`),
+    getExercise: (id: string) =>
+        fetchWithAuth(`/wellness/exercises/${id}`),
+    getExerciseStats: () =>
+        fetchWithAuth('/wellness/exercises/stats'),
+    getWorkoutCalendar: (filters?: Record<string, unknown>) =>
+        fetchWithAuth(`/wellness/workouts/calendar${wellnessQuery(filters)}`),
+    getWorkoutProgress: (days: number = 30) =>
+        fetchWithAuth(`/wellness/workouts/progress${wellnessQuery({ days })}`),
+    getBadges: () => fetchWithAuth('/wellness/badges'),
+    getAiInsights: (filters?: Record<string, unknown>) =>
+        fetchWithAuth(`/wellness/ai/insights${wellnessQuery(filters)}`),
+    acknowledgeAiInsight: (id: string) =>
+        fetchWithAuth(`/wellness/ai/insights/${id}/acknowledge`, { method: 'POST' }),
+    getReports: (days: number = 30) =>
+        fetchWithAuth(`/wellness/reports${wellnessQuery({ days })}`),
+    getCoaches: (filters?: Record<string, unknown>, page: number = 1, limit: number = 12) =>
+        fetchWithAuth(`/wellness/coaches${wellnessQuery({ ...filters, page, limit })}`),
+    getFacilities: (filters?: Record<string, unknown>, page: number = 1, limit: number = 12) =>
+        fetchWithAuth(`/wellness/facilities${wellnessQuery({ ...filters, page, limit })}`),
+    getGroups: (filters?: Record<string, unknown>) =>
+        fetchWithAuth(`/wellness/groups${wellnessQuery(filters)}`),
+    getChallenges: (filters?: Record<string, unknown>) =>
+        fetchWithAuth(`/wellness/challenges${wellnessQuery(filters)}`),
+    getSupplements: (filters?: Record<string, unknown>, page: number = 1, limit: number = 12) =>
+        fetchWithAuth(`/wellness/supplements${wellnessQuery({ ...filters, page, limit })}`),
+};
+
 // ==================== Unified Export ====================
 
 export const api = {
@@ -1458,6 +1536,7 @@ export const api = {
     featureToggles: featureTogglesApi,
     medicine: medicineApi,
     community: communityApi,
+    wellness: wellnessApi,
 };
 
 export default api;

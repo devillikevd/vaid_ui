@@ -14,6 +14,8 @@ const ROLES = {
   PHARMACY_OWNER: 'pharmacy_owner',
   CLINIC_OWNER: 'clinic_owner',
   DIAGNOSTIC_CENTER_OWNER: 'diagnostic_center_owner',
+  WELLNESS_COACH: 'wellness_coach',
+  FITNESS_CENTER_OWNER: 'fitness_center_owner',
   AMBULANCE_OPERATOR: 'ambulance_operator',
   AMBULANCE_DRIVER: 'ambulance_driver',
 };
@@ -55,6 +57,8 @@ const ROLE_HIERARCHY = [
   ROLES.HOSPITAL_OWNER,
   ROLES.CLINIC_OWNER,
   ROLES.DIAGNOSTIC_CENTER_OWNER,
+  ROLES.WELLNESS_COACH,
+  ROLES.FITNESS_CENTER_OWNER,
   ROLES.PHARMACY_OWNER,
   ROLES.AMBULANCE_OPERATOR,
   ROLES.ADMIN,
@@ -98,6 +102,8 @@ const ROLE_TO_TABLE = {
   [ROLES.PHARMACY_OWNER]: 'pharmacies',
   [ROLES.CLINIC_OWNER]: 'clinics',
   [ROLES.DIAGNOSTIC_CENTER_OWNER]: 'diagnostic_centers',
+  [ROLES.WELLNESS_COACH]: 'wellness_coaches',
+  [ROLES.FITNESS_CENTER_OWNER]: 'fitness_centers',
   [ROLES.AMBULANCE_OPERATOR]: 'ambulance_operators',
 };
 
@@ -108,6 +114,8 @@ const ROLE_TO_USER_FIELD = {
   [ROLES.PHARMACY_OWNER]: 'owner_id',
   [ROLES.CLINIC_OWNER]: 'owner_id',
   [ROLES.DIAGNOSTIC_CENTER_OWNER]: 'owner_id',
+  [ROLES.WELLNESS_COACH]: 'user_id',
+  [ROLES.FITNESS_CENTER_OWNER]: 'owner_user_id',
   [ROLES.AMBULANCE_OPERATOR]: 'user_id',
 };
 

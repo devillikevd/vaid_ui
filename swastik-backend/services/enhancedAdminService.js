@@ -40,6 +40,8 @@ const PROVIDER_TABLES = {
   pharmacy: 'pharmacies',
   clinic: 'clinics',
   diagnostic_center: 'diagnostic_centers',
+  wellness_coach: 'wellness_coaches',
+  fitness_center: 'fitness_centers',
   ambulance: 'ambulance_operators',
 };
 
@@ -49,6 +51,8 @@ const PROVIDER_USER_FIELDS = {
   pharmacy: 'owner_id',
   clinic: 'owner_id',
   diagnostic_center: 'owner_id',
+  wellness_coach: 'user_id',
+  fitness_center: 'owner_user_id',
   ambulance: 'user_id',
 };
 
@@ -58,6 +62,8 @@ const PROVIDER_LABELS = {
   pharmacy: 'Pharmacy',
   clinic: 'Clinic',
   diagnostic_center: 'Diagnostic Center',
+  wellness_coach: 'Wellness Coach',
+  fitness_center: 'Fitness Center',
   ambulance: 'Ambulance Operator',
 };
 
@@ -116,6 +122,27 @@ const PROVIDER_COMPLIANCE_DOCS = {
       ],
     },
   ],
+  wellness_coach: [
+    {
+      key: 'certification_document_url',
+      label: 'Fitness / Yoga Certification',
+      requiredFields: [
+        { key: 'qualifications', label: 'Qualification or certification' },
+        { key: 'experience_years', label: 'Years of experience' },
+      ],
+    },
+  ],
+  fitness_center: [
+    {
+      key: 'approval_notes',
+      label: 'Gym / Studio Verification',
+      requiredFields: [
+        { key: 'name', label: 'Center name' },
+        { key: 'address', label: 'Address' },
+        { key: 'city', label: 'City' },
+      ],
+    },
+  ],
   ambulance: [
     {
       key: 'license_document_url',
@@ -128,14 +155,16 @@ const PROVIDER_COMPLIANCE_DOCS = {
   ],
 };
 
-const getProviderUserId = (provider) => provider?.user_id || provider?.owner_id || null;
-const LOCATION_PROVIDER_TYPES = new Set(['hospital', 'pharmacy', 'clinic', 'diagnostic_center']);
+const getProviderUserId = (provider) => provider?.user_id || provider?.owner_id || provider?.owner_user_id || null;
+const LOCATION_PROVIDER_TYPES = new Set(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'fitness_center']);
 const PROVIDER_UI_TYPES = {
   doctor: 'doctors',
   hospital: 'hospitals',
   pharmacy: 'pharmacies',
   clinic: 'clinics',
   diagnostic_center: 'diagnostic_centers',
+  wellness_coach: 'wellness_coaches',
+  fitness_center: 'fitness_centers',
   ambulance: 'ambulances',
 };
 const ADMIN_SETTINGS_CACHE_KEY = 'admin:settings';
@@ -171,6 +200,19 @@ const normalizeAdminProviderType = (rawType = 'all') => {
     diagnostic_centers: 'diagnostic_center',
     diagnosticcenter: 'diagnostic_center',
     diagnosticcenters: 'diagnostic_center',
+    wellness: 'wellness_coach',
+    wellness_coach: 'wellness_coach',
+    wellness_coaches: 'wellness_coach',
+    coach: 'wellness_coach',
+    coaches: 'wellness_coach',
+    fitness_center: 'fitness_center',
+    fitness_centers: 'fitness_center',
+    fitnesscenter: 'fitness_center',
+    fitnesscenters: 'fitness_center',
+    gym: 'fitness_center',
+    gyms: 'fitness_center',
+    studio: 'fitness_center',
+    studios: 'fitness_center',
     ambulance: 'ambulance',
     ambulances: 'ambulance',
   };
@@ -251,6 +293,43 @@ const getProviderListSelectFields = (type) => {
         'registration_number',
         'license_number',
       ].join(', ');
+    case 'wellness_coach':
+      return [
+        ...shared,
+        'user_id',
+        'is_active',
+        'email',
+        'phone',
+        'address',
+        'city',
+        'registration_number',
+        'license_number',
+        'coach_types',
+        'specialties',
+        'expertise_tags',
+        'qualifications',
+        'experience_years',
+        'session_fee',
+        'languages',
+      ].join(', ');
+    case 'fitness_center':
+      return [
+        ...shared,
+        'owner_user_id',
+        'is_active',
+        'email',
+        'phone',
+        'address',
+        'city',
+        'state',
+        'center_type',
+        'facilities',
+        'equipment',
+        'amenities',
+        'latitude',
+        'longitude',
+        'trainer_available',
+      ].join(', ');
     case 'ambulance':
       return [
         ...shared,
@@ -267,6 +346,7 @@ const getProviderListSelectFields = (type) => {
         ...shared,
         'user_id',
         'owner_id',
+        'owner_user_id',
         'is_active',
         'email',
         'phone',
@@ -457,7 +537,7 @@ const buildEnrichedProviderForAdmin = (type, provider, user, options = {}) => {
     phone,
     contact_name: user?.name || null,
     user_role: user?.role || null,
-    user_id: provider?.user_id || provider?.owner_id || null,
+    user_id: getProviderUserId(provider),
     status: normalizeProviderLifecycleStatus(provider),
     approval_block_reason: approvalBlockReason,
     can_approve: !approvalBlockReason,
@@ -722,6 +802,8 @@ const getDashboard = async () => {
     countRows('pharmacies'),
     countRows('clinics'),
     countRows('diagnostic_centers'),
+    countRows('wellness_coaches'),
+    countRows('fitness_centers'),
     countRows('ambulance_operators'),
     countRows('appointments'),
     countRows('doctors', (query) => query.eq('approval_status', 'pending')),
@@ -729,12 +811,16 @@ const getDashboard = async () => {
     countRows('pharmacies', (query) => query.eq('approval_status', 'pending')),
     countRows('clinics', (query) => query.eq('approval_status', 'pending')),
     countRows('diagnostic_centers', (query) => query.eq('approval_status', 'pending')),
+    countRows('wellness_coaches', (query) => query.eq('approval_status', 'pending')),
+    countRows('fitness_centers', (query) => query.eq('approval_status', 'pending')),
     countRows('ambulance_operators', (query) => query.eq('approval_status', 'pending')),
     countRows('doctors', (query) => query.eq('approval_status', 'approved')),
     countRows('hospitals', (query) => query.eq('approval_status', 'approved').eq('is_active', true)),
     countRows('pharmacies', (query) => query.eq('approval_status', 'approved').eq('is_active', true)),
     countRows('clinics', (query) => query.eq('approval_status', 'approved').eq('is_active', true)),
     countRows('diagnostic_centers', (query) => query.eq('approval_status', 'approved').eq('is_active', true)),
+    countRows('wellness_coaches', (query) => query.eq('approval_status', 'approved').eq('is_active', true)),
+    countRows('fitness_centers', (query) => query.eq('approval_status', 'approved').eq('is_active', true)),
     countRows('ambulance_operators', (query) => query.eq('approval_status', 'approved').eq('is_active', true)),
     countRows('emergency_requests', (query) => query.in('status', ACTIVE_EMERGENCY_STATUSES)),
     countRows('users', (query) => query.gte('last_login', dayStartIso)),
@@ -743,19 +829,21 @@ const getDashboard = async () => {
 
   const [
     totalUsers, totalDoctors, totalPatients, totalHospitals,
-    totalPharmacies, totalClinics, totalDiagnosticCenters, totalAmbulances,
+    totalPharmacies, totalClinics, totalDiagnosticCenters, totalWellnessCoaches, totalFitnessCenters, totalAmbulances,
     totalAppointments, pendingDoctors, pendingHospitals, pendingPharmacies,
-    pendingClinics, pendingDiagnosticCenters, pendingAmbulances,
+    pendingClinics, pendingDiagnosticCenters, pendingWellnessCoaches, pendingFitnessCenters, pendingAmbulances,
     approvedDoctors, approvedHospitals, approvedPharmacies,
-    approvedClinics, approvedDiagnosticCenters, approvedAmbulances,
+    approvedClinics, approvedDiagnosticCenters, approvedWellnessCoaches, approvedFitnessCenters, approvedAmbulances,
     activeEmergencies, activeTodayUsers, todaysAppointments,
   ] = results.map(safeCount);
 
   const pendingTotal = (pendingDoctors || 0) + (pendingHospitals || 0) + (pendingPharmacies || 0)
-    + (pendingClinics || 0) + (pendingDiagnosticCenters || 0) + (pendingAmbulances || 0);
+    + (pendingClinics || 0) + (pendingDiagnosticCenters || 0) + (pendingWellnessCoaches || 0)
+    + (pendingFitnessCenters || 0) + (pendingAmbulances || 0);
 
   const totalProviders = (totalDoctors || 0) + (totalHospitals || 0) + (totalPharmacies || 0)
-    + (totalClinics || 0) + (totalDiagnosticCenters || 0) + (totalAmbulances || 0);
+    + (totalClinics || 0) + (totalDiagnosticCenters || 0) + (totalWellnessCoaches || 0)
+    + (totalFitnessCenters || 0) + (totalAmbulances || 0);
 
   const dashboard = {
     // Flat stats for backward-compat
@@ -766,6 +854,8 @@ const getDashboard = async () => {
     totalPharmacies: totalPharmacies || 0,
     totalClinics: totalClinics || 0,
     totalDiagnosticCenters: totalDiagnosticCenters || 0,
+    totalWellnessCoaches: totalWellnessCoaches || 0,
+    totalFitnessCenters: totalFitnessCenters || 0,
     totalAmbulances: totalAmbulances || 0,
     totalAppointments: totalAppointments || 0,
     activeEmergencies: activeEmergencies || 0,
@@ -785,6 +875,8 @@ const getDashboard = async () => {
       clinics:    { total: totalClinics || 0, pending: pendingClinics || 0 },
       pharmacies: { total: totalPharmacies || 0, pending: pendingPharmacies || 0 },
       diagnosticCenters: { total: totalDiagnosticCenters || 0, pending: pendingDiagnosticCenters || 0 },
+      wellnessCoaches: { total: totalWellnessCoaches || 0, pending: pendingWellnessCoaches || 0 },
+      fitnessCenters: { total: totalFitnessCenters || 0, pending: pendingFitnessCenters || 0 },
       ambulances: { total: totalAmbulances || 0, pending: pendingAmbulances || 0 },
     },
     providerCategories: [
@@ -793,6 +885,8 @@ const getDashboard = async () => {
       { name: 'Clinics',    type: 'clinics',    pending: pendingClinics || 0,    approved: approvedClinics || 0 },
       { name: 'Pharmacies', type: 'pharmacies', pending: pendingPharmacies || 0, approved: approvedPharmacies || 0 },
       { name: 'Diagnostic Centers', type: 'diagnostic_centers', pending: pendingDiagnosticCenters || 0, approved: approvedDiagnosticCenters || 0 },
+      { name: 'Wellness Coaches', type: 'wellness_coaches', pending: pendingWellnessCoaches || 0, approved: approvedWellnessCoaches || 0 },
+      { name: 'Fitness Centers', type: 'fitness_centers', pending: pendingFitnessCenters || 0, approved: approvedFitnessCenters || 0 },
       { name: 'Ambulances', type: 'ambulances', pending: pendingAmbulances || 0, approved: approvedAmbulances || 0 },
     ],
     pendingApprovals: {
@@ -801,6 +895,8 @@ const getDashboard = async () => {
       pharmacies: pendingPharmacies || 0,
       clinics: pendingClinics || 0,
       diagnosticCenters: pendingDiagnosticCenters || 0,
+      wellnessCoaches: pendingWellnessCoaches || 0,
+      fitnessCenters: pendingFitnessCenters || 0,
       ambulances: pendingAmbulances || 0,
     },
   };
@@ -846,6 +942,12 @@ const getPendingApprovals = async (type = 'all', page = 1, limit = 20) => {
   }
   if (normalizedType === 'all' || normalizedType === 'diagnostic_center') {
     results[PROVIDER_UI_TYPES.diagnostic_center] = await fetchPending('diagnostic_center');
+  }
+  if (normalizedType === 'all' || normalizedType === 'wellness_coach') {
+    results[PROVIDER_UI_TYPES.wellness_coach] = await fetchPending('wellness_coach');
+  }
+  if (normalizedType === 'all' || normalizedType === 'fitness_center') {
+    results[PROVIDER_UI_TYPES.fitness_center] = await fetchPending('fitness_center');
   }
   if (normalizedType === 'all' || normalizedType === 'ambulance') {
     results[PROVIDER_UI_TYPES.ambulance] = await fetchPending('ambulance');
@@ -994,8 +1096,8 @@ const approveProvider = async (type, id, adminId, notes) => {
   const approvedProvider = await backfillProviderCoordinates(type, data);
 
   // Update user verification if applicable
-  if (approvedProvider?.user_id || approvedProvider?.owner_id) {
-    const userId = approvedProvider.user_id || approvedProvider.owner_id;
+  if (getProviderUserId(approvedProvider)) {
+    const userId = getProviderUserId(approvedProvider);
     
     // Fetch requested role to update if needed
     const { data: userRecord } = await supabaseAdmin
@@ -1163,8 +1265,8 @@ const reactivateProvider = async (type, id, adminId, notes) => {
 
   if (error) throw error;
 
-  if (data?.user_id || data?.owner_id) {
-    const userId = data.user_id || data.owner_id;
+  if (getProviderUserId(data)) {
+    const userId = getProviderUserId(data);
     await supabaseAdmin.from('users').update({ is_verified: true }).eq('id', userId);
     await revokeProviderAuthSessions(userId);
   }

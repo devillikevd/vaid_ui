@@ -4,6 +4,8 @@ const PROVIDER_APPROVAL_CONFIG = {
   clinic_owner: { table: 'clinics', userColumn: 'owner_id', hasIsActive: true },
   pharmacy_owner: { table: 'pharmacies', userColumn: 'owner_id', hasIsActive: true },
   diagnostic_center_owner: { table: 'diagnostic_centers', userColumn: 'owner_id', hasIsActive: true },
+  wellness_coach: { table: 'wellness_coaches', userColumn: 'user_id', hasIsActive: true },
+  fitness_center_owner: { table: 'fitness_centers', userColumn: 'owner_user_id', hasIsActive: true },
   ambulance_operator: { table: 'ambulance_operators', userColumn: 'user_id', hasIsActive: true },
 };
 

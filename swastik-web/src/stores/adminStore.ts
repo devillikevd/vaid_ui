@@ -19,12 +19,14 @@ export interface ProviderCounts {
     clinics: { total: number; pending: number };
     pharmacies: { total: number; pending: number };
     diagnosticCenters: { total: number; pending: number };
+    wellnessCoaches: { total: number; pending: number };
+    fitnessCenters: { total: number; pending: number };
     ambulances: { total: number; pending: number };
 }
 
 export interface ProviderCategory {
     name: string;
-    type: 'doctors' | 'hospitals' | 'clinics' | 'pharmacies' | 'diagnostic_centers' | 'ambulances';
+    type: 'doctors' | 'hospitals' | 'clinics' | 'pharmacies' | 'diagnostic_centers' | 'wellness_coaches' | 'fitness_centers' | 'ambulances';
     pending: number;
     approved: number;
 }
@@ -65,6 +67,16 @@ export interface PendingProvider {
     specialization?: string;
     experience_years?: number;
     qualifications?: string[];
+    coach_types?: string[];
+    specialties?: string[];
+    expertise_tags?: string[];
+    session_fee?: number | string;
+    monthly_plan_fee?: number | string;
+    center_type?: string;
+    city?: string;
+    facilities?: string[];
+    equipment?: string[];
+    amenities?: string[];
     consultation_fee?: number | string;
     languages?: string[];
     compliance_documents?: Array<{
@@ -92,6 +104,21 @@ const normalizeProviderTypeForApi = (rawType: string): string => {
         diagnosticcenters: 'diagnostic_center',
         diagnostic_centers: 'diagnostic_center',
         diagnostic_center: 'diagnostic_center',
+        wellness: 'wellness_coach',
+        wellnesscoach: 'wellness_coach',
+        wellnesscoaches: 'wellness_coach',
+        wellness_coach: 'wellness_coach',
+        wellness_coaches: 'wellness_coach',
+        coach: 'wellness_coach',
+        coaches: 'wellness_coach',
+        fitness_center: 'fitness_center',
+        fitness_centers: 'fitness_center',
+        fitnesscenter: 'fitness_center',
+        fitnesscenters: 'fitness_center',
+        gym: 'fitness_center',
+        gyms: 'fitness_center',
+        studio: 'fitness_center',
+        studios: 'fitness_center',
         ambulances: 'ambulance',
         ambulance: 'ambulance',
     };

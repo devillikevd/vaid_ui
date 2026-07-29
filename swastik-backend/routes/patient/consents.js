@@ -29,15 +29,27 @@ router.get('/', asyncHandler(async (req, res) => {
  * @desc    Grant consent to a third-party entity
  * @access  Private (Patient)
  */
-router.post('/', validate([
-  body('entityType').isIn(['hospital', 'pharmacy', 'diagnostic_center', 'doctor', 'research', 'family', 'other']).withMessage('Invalid entity type'),
+router.post('/', [
+  body('entityType').isIn([
+    'hospital',
+    'pharmacy',
+    'diagnostic_center',
+    'doctor',
+    'research',
+    'family',
+    'wellness_coach',
+    'fitness_center',
+    'health_card_public',
+    'other',
+  ]).withMessage('Invalid entity type'),
   body('entityId').isUUID().withMessage('Valid entity ID is required'),
   body('entityName').notEmpty().withMessage('Entity name is required'),
   body('purpose').notEmpty().withMessage('Purpose is required'),
-  body('durationDays').optional().isInt({ min: 1, max: 3650 }).withMessage('Duration must be between 1 and 3650 days')
-]), asyncHandler(async (req, res) => {
+  body('dataScopes').optional().isArray().withMessage('dataScopes must be an array'),
+  body('durationDays').optional().isInt({ min: 1, max: 3650 }).withMessage('Duration must be between 1 and 3650 days'),
+], validate, asyncHandler(async (req, res) => {
   const patient = await patientService._getPatientByUserId(req.user.id);
-  const { entityType, entityId, entityName, purpose, durationDays } = req.body;
+  const { entityType, entityId, entityName, purpose, durationDays, dataScopes, metadata } = req.body;
 
   const consent = await consentService.grantConsent({
     patientId: patient.id,
@@ -45,7 +57,9 @@ router.post('/', validate([
     entityId,
     entityName,
     purpose,
-    durationDays
+    durationDays,
+    dataScopes,
+    metadata
   });
 
   res.status(201).json({ success: true, data: consent });
@@ -56,9 +70,9 @@ router.post('/', validate([
  * @desc    Revoke an active consent
  * @access  Private (Patient)
  */
-router.post('/:id/revoke', validate([
+router.post('/:id/revoke', [
   body('reason').optional().isString()
-]), asyncHandler(async (req, res) => {
+], validate, asyncHandler(async (req, res) => {
   const patient = await patientService._getPatientByUserId(req.user.id);
   const { reason } = req.body;
 

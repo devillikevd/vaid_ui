@@ -48,6 +48,8 @@ const mapsRoutes = require('./routes/maps');
 const deliveryAgentRoutes = require('./routes/deliveryAgentRoutes');
 const dietRoutes = require('./routes/diet');
 const diseasesRoutes = require('./routes/diseases');
+const wellnessRoutes = require('./routes/wellness');
+const patientConsentRoutes = require('./routes/patient/consents');
 
 const { startOutbreakCron } = require('./services/outbreakService');
 
@@ -447,6 +449,8 @@ app.use('/api/maps', mapsRoutes);
 app.use('/api/delivery-agents', deliveryAgentRoutes);
 app.use('/api/diet', dietRoutes);
 app.use('/api/diseases', diseasesRoutes);
+app.use('/api/wellness', wellnessRoutes);
+app.use('/api/patients/consents', patientConsentRoutes);
 
 
 // Error handling

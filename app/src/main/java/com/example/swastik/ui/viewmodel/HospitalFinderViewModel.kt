@@ -245,6 +245,15 @@ class HospitalFinderViewModel @Inject constructor(
                         )
                 })
             }
+            if (facilityType == null || facilityType == FacilityType.FITNESS_CENTER) {
+                add(async {
+                    runCatching { hospitalRepository.getNearbyFitnessCenters(latitude, longitude, radius) }
+                        .fold(
+                            onSuccess = { FacilityLoadResult(facilities = it) },
+                            onFailure = { FacilityLoadResult(errorMessage = it.message ?: "Failed to load nearby gyms and studios") }
+                        )
+                })
+            }
         }
 
         val results = requests.awaitAll()
@@ -304,6 +313,15 @@ class HospitalFinderViewModel @Inject constructor(
                                 .fold(
                                     onSuccess = { FacilityLoadResult(facilities = it) },
                                     onFailure = { FacilityLoadResult(errorMessage = it.message ?: "Diagnostic center search failed") }
+                                )
+                        })
+                    }
+                    if (facilityType == null || facilityType == FacilityType.FITNESS_CENTER) {
+                        add(async {
+                            runCatching { hospitalRepository.searchFitnessCenters(query, lat, lng) }
+                                .fold(
+                                    onSuccess = { FacilityLoadResult(facilities = it) },
+                                    onFailure = { FacilityLoadResult(errorMessage = it.message ?: "Gym/studio search failed") }
                                 )
                         })
                     }

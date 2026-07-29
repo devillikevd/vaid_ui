@@ -78,6 +78,11 @@ fun GlobalSearchBar(
         stringResource(R.string.search_term_pharmacy),
         stringResource(R.string.search_term_diagnostics),
         stringResource(R.string.search_term_lab_tests),
+        "Gyms",
+        "Gym & Studios",
+        "Fitness Centers",
+        "Yoga Studios",
+        "Wellness",
         stringResource(R.string.search_term_appointments),
         stringResource(R.string.search_term_reports),
         stringResource(R.string.search_term_prescriptions),
@@ -97,6 +102,7 @@ fun GlobalSearchBar(
         stringResource(R.string.category_dermatologist),
         stringResource(R.string.category_gynecologist),
         stringResource(R.string.search_term_ambulance),
+        "Fitness Centers",
         stringResource(R.string.category_dentist)
     )
     val suggestions = searchSuggestions.ifEmpty { fallbackSuggestions }

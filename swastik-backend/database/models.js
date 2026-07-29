@@ -97,9 +97,12 @@ const mealLogSchema = new mongoose.Schema({
     },
     advice: mongoose.Schema.Types.Mixed,
     mealType: { type: String, enum: ['breakfast', 'lunch', 'dinner', 'snack', 'unknown'], default: 'unknown' },
+    medical_conditions: [String],
     medicalConditions: [String],
+    latencyMs: Number,
+    timestamp: { type: Date, index: true },
     createdAt: { type: Date, default: Date.now, index: true },
-});
+}, { collection: 'meal_logs' });
 
 
 // Disease Schema - Health Library

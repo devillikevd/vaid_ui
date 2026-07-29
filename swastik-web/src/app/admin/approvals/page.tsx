@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
-    Search, Filter, Stethoscope, Building2, Building, Pill, Siren, Microscope,
+    Search, Filter, Stethoscope, Building2, Building, Pill, Siren, Microscope, Dumbbell,
     CheckCircle, XCircle, FileText, Download, ChevronRight, Loader2, RefreshCw,
-    ChevronDown, MapPin, Phone, Mail
+    ChevronDown, MapPin, Phone, Mail, Store
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -18,17 +18,21 @@ import Link from 'next/link';
 import { Pagination, usePagination } from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 
-type ProviderType = 'all' | 'doctors' | 'hospitals' | 'clinics' | 'pharmacies' | 'diagnostic_centers' | 'ambulances';
+type ProviderType = 'all' | 'doctors' | 'hospitals' | 'clinics' | 'pharmacies' | 'diagnostic_centers' | 'wellness_coaches' | 'fitness_centers' | 'ambulances';
 
 const PROVIDER_ICONS: Record<string, React.ElementType> = {
     doctors: Stethoscope, hospitals: Building2, clinics: Building,
     pharmacies: Pill, diagnosticCenters: Microscope, diagnostic_centers: Microscope, ambulances: Siren,
+    wellnessCoaches: Dumbbell, wellness_coaches: Dumbbell,
+    fitnessCenters: Store, fitness_centers: Store,
 };
 
 const PROVIDER_COLORS: Record<string, string> = {
     doctors: 'bg-emerald-100 text-emerald-700', hospitals: 'bg-teal-100 text-teal-700',
     clinics: 'bg-pink-100 text-pink-700', pharmacies: 'bg-orange-100 text-orange-700',
     diagnosticCenters: 'bg-purple-100 text-purple-700', diagnostic_centers: 'bg-purple-100 text-purple-700',
+    wellnessCoaches: 'bg-lime-100 text-lime-700', wellness_coaches: 'bg-lime-100 text-lime-700',
+    fitnessCenters: 'bg-cyan-100 text-cyan-700', fitness_centers: 'bg-cyan-100 text-cyan-700',
     ambulances: 'bg-red-100 text-red-700',
 };
 
@@ -45,7 +49,7 @@ export default function ApprovalsPage() {
         if (!requestedType) return;
 
         const normalized = requestedType.trim().toLowerCase() as ProviderType;
-        const validTypes: ProviderType[] = ['all', 'doctors', 'hospitals', 'clinics', 'pharmacies', 'diagnostic_centers', 'ambulances'];
+        const validTypes: ProviderType[] = ['all', 'doctors', 'hospitals', 'clinics', 'pharmacies', 'diagnostic_centers', 'wellness_coaches', 'fitness_centers', 'ambulances'];
         if (validTypes.includes(normalized)) {
             setActiveFilter(normalized);
         }
@@ -76,6 +80,8 @@ export default function ApprovalsPage() {
         { id: 'clinics', label: 'Clinics', count: providerCounts?.clinics?.pending ?? 0 },
         { id: 'pharmacies', label: 'Pharmacies', count: providerCounts?.pharmacies?.pending ?? 0 },
         { id: 'diagnostic_centers', label: 'Diagnostic Centers', count: providerCounts?.diagnosticCenters?.pending ?? 0 },
+        { id: 'wellness_coaches', label: 'Wellness Coaches', count: providerCounts?.wellnessCoaches?.pending ?? 0 },
+        { id: 'fitness_centers', label: 'Fitness Centers', count: providerCounts?.fitnessCenters?.pending ?? 0 },
         { id: 'ambulances', label: 'Ambulances', count: providerCounts?.ambulances?.pending ?? 0 },
     ];
 
@@ -139,7 +145,7 @@ export default function ApprovalsPage() {
                                 const provType = approval.provider_type || 'doctors';
                                 const Icon = PROVIDER_ICONS[provType] || Stethoscope;
                                 const colorClass = PROVIDER_COLORS[provType] || 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
-                                const hasExpandableDetails = ['doctors', 'hospitals', 'clinics', 'pharmacies', 'diagnostic_centers'].includes(provType);
+                                const hasExpandableDetails = ['doctors', 'hospitals', 'clinics', 'pharmacies', 'diagnostic_centers', 'wellness_coaches', 'fitness_centers'].includes(provType);
                                 const approvalBlockReason = approval.approval_block_reason || null;
                                 const canApprove = approval.can_approve ?? !approvalBlockReason;
                                 const isExpanded = expandedId === approval.id;
@@ -312,16 +318,29 @@ function ApprovalActions({
 function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
     const hasLocation = approval.latitude != null && approval.longitude != null;
     const isDoctor = approval.provider_type === 'doctors' || approval.provider_type_key === 'doctor';
+    const isCoach = approval.provider_type === 'wellness_coaches' || approval.provider_type_key === 'wellness_coach';
+    const isFitnessCenter = approval.provider_type === 'fitness_centers' || approval.provider_type_key === 'fitness_center';
+    const needsLocationPreview = !isDoctor && !isCoach;
     const qualifications = Array.isArray(approval.qualifications)
         ? approval.qualifications.filter(Boolean).join(', ')
         : '';
     const languages = Array.isArray(approval.languages)
         ? approval.languages.filter(Boolean).join(', ')
         : '';
+    const coachTags = [
+        ...(Array.isArray(approval.coach_types) ? approval.coach_types : []),
+        ...(Array.isArray(approval.specialties) ? approval.specialties : []),
+        ...(Array.isArray(approval.expertise_tags) ? approval.expertise_tags : []),
+    ].filter(Boolean);
+    const centerTags = [
+        ...(Array.isArray(approval.facilities) ? approval.facilities : []),
+        ...(Array.isArray(approval.equipment) ? approval.equipment : []),
+        ...(Array.isArray(approval.amenities) ? approval.amenities : []),
+    ].filter(Boolean);
 
     return (
         <div className="px-6 pb-4 pt-0 bg-gray-50/50 dark:bg-gray-800/30 border-t border-gray-100 dark:border-gray-800">
-            <div className={`grid grid-cols-1 ${isDoctor ? '' : 'lg:grid-cols-2'} gap-4 pt-3`}>
+            <div className={`grid grid-cols-1 ${needsLocationPreview ? 'lg:grid-cols-2' : ''} gap-4 pt-3`}>
                 {/* Provider details */}
                 <div className="space-y-3">
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Provider Details</h4>
@@ -364,6 +383,39 @@ function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
                             {languages && <div className="sm:col-span-2">Languages: {languages}</div>}
                         </div>
                     )}
+                    {isCoach && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            {approval.experience_years != null && <div>Experience: {approval.experience_years} years</div>}
+                            {approval.session_fee != null && <div>Session Fee: ₹{approval.session_fee}</div>}
+                            {approval.monthly_plan_fee != null && <div>Monthly Plan: ₹{approval.monthly_plan_fee}</div>}
+                            {qualifications && <div className="sm:col-span-2">Qualification: {qualifications}</div>}
+                            {languages && <div className="sm:col-span-2">Languages: {languages}</div>}
+                            {coachTags.length > 0 && (
+                                <div className="sm:col-span-2 flex flex-wrap gap-1.5">
+                                    {Array.from(new Set(coachTags)).slice(0, 10).map((tag) => (
+                                        <span key={tag} className="rounded-full bg-lime-100 px-2 py-0.5 text-xs font-medium text-lime-700">
+                                            {tag}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    {isFitnessCenter && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            {approval.center_type && <div>Center Type: {approval.center_type.replace(/_/g, ' ')}</div>}
+                            {approval.city && <div>City: {approval.city}</div>}
+                            {centerTags.length > 0 && (
+                                <div className="sm:col-span-2 flex flex-wrap gap-1.5">
+                                    {Array.from(new Set(centerTags)).slice(0, 14).map((tag) => (
+                                        <span key={tag} className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-medium text-cyan-700">
+                                            {tag}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                     {approval.compliance_documents && approval.compliance_documents.length > 0 && (
                         <div className="space-y-2 pt-2">
                             <h5 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -403,7 +455,7 @@ function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
                             ))}
                         </div>
                     )}
-                    {!isDoctor && !hasLocation && (
+                    {needsLocationPreview && !hasLocation && (
                         <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
                             <MapPin className="h-3.5 w-3.5" />
                             No GPS coordinates provided — location cannot be verified on map.
@@ -412,7 +464,7 @@ function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
                 </div>
 
                 {/* Map preview */}
-                {!isDoctor && <div>
+                {needsLocationPreview && <div>
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                         Location Preview
                     </h4>

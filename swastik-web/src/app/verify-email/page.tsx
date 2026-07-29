@@ -60,6 +60,7 @@ function VerifyEmailContent() {
             hospital_manager: 'hospital',
             clinic_owner: 'clinic',
             diagnostic_center_owner: 'diagnostic-center',
+            wellness_coach: 'wellness',
             pharmacy_owner: 'pharmacy',
         };
         return `/login/${roleMap[role] || 'doctor'}`;

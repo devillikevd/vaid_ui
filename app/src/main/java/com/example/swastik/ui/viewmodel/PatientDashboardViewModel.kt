@@ -8,6 +8,7 @@ import com.example.swastik.data.remote.SocketManager
 import com.example.swastik.data.remote.dto.UpdateProfileRequest
 import com.example.swastik.data.remote.dto.AddEmergencyContactRequest
 import com.example.swastik.data.remote.dto.AddFamilyMemberRequest
+import com.example.swastik.data.remote.dto.WearableSummaryRequest
 import com.example.swastik.data.repository.Result
 import com.example.swastik.data.repository.PatientRepository
 import com.example.swastik.data.repository.EmergencyRepository
@@ -817,8 +818,50 @@ class PatientDashboardViewModel @Inject constructor(
                     payload.add(mapOf("type" to "temperature", "value" to temp.value.toString(), "recorded_at" to temp.time.toString()))
                 }
 
+                val steps = vitals.dailySteps.sumOf { it.value }.coerceAtMost(com.example.swastik.data.health.HealthConnectManager.MAX_DAILY_HEALTH_CONNECT_STEPS)
+                val heartRates = vitals.recentHeartRates.map { it.value }
+                val hasWearableSummary = steps > 0 ||
+                    vitals.distanceMeters > 0.0 ||
+                    vitals.activeCalories > 0.0 ||
+                    vitals.totalCalories > 0.0 ||
+                    vitals.activeMinutes > 0 ||
+                    vitals.exerciseMinutes > 0 ||
+                    vitals.workoutsCount > 0 ||
+                    vitals.sleepMinutes > 0 ||
+                    heartRates.isNotEmpty()
+
+                val wellnessSummary = if (hasWearableSummary) {
+                    WearableSummaryRequest(
+                        summaryDate = java.time.LocalDate.now().toString(),
+                        steps = steps,
+                        distanceMeters = vitals.distanceMeters,
+                        activeCalories = vitals.activeCalories,
+                        totalCalories = vitals.totalCalories,
+                        activeMinutes = vitals.activeMinutes,
+                        exerciseMinutes = vitals.exerciseMinutes,
+                        workoutsCount = vitals.workoutsCount,
+                        heartRateAvg = heartRates.takeIf { it.isNotEmpty() }?.average(),
+                        heartRateMin = heartRates.minOrNull(),
+                        heartRateMax = heartRates.maxOrNull(),
+                        sleepMinutes = vitals.sleepMinutes.takeIf { it > 0 },
+                        metadata = mapOf("source_app" to "android")
+                    )
+                } else {
+                    null
+                }
+
                 if (payload.isNotEmpty()) {
                     when (val result = patientRepository.syncHealthConnectData(payload)) {
+                        is Result.Error -> {
+                            _healthConnectSyncState.value = ProfileUpdateState.Error(result.message)
+                            return@launch
+                        }
+                        is Result.Success, is Result.Loading -> {}
+                    }
+                }
+
+                if (wellnessSummary != null) {
+                    when (val result = patientRepository.syncWearableSummary(wellnessSummary)) {
                         is Result.Success -> {
                             _healthConnectSyncState.value = ProfileUpdateState.Success("Health Connect data synced!")
                             com.example.swastik.data.local.AppSettingsStore.updateLastHealthSync(java.time.Instant.now().toString())
@@ -827,6 +870,10 @@ class PatientDashboardViewModel @Inject constructor(
                         is Result.Error -> _healthConnectSyncState.value = ProfileUpdateState.Error(result.message)
                         is Result.Loading -> {}
                     }
+                } else if (payload.isNotEmpty()) {
+                    _healthConnectSyncState.value = ProfileUpdateState.Success("Health Connect data synced!")
+                    com.example.swastik.data.local.AppSettingsStore.updateLastHealthSync(java.time.Instant.now().toString())
+                    refresh()
                 } else {
                     _healthConnectSyncState.value = ProfileUpdateState.Success("No new health data found.")
                 }
