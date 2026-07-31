@@ -702,6 +702,8 @@ async function notifyPatientsInArea(disease, severity, city, count) {
 let cronInterval = null;
 
 async function runOutbreakAnalysisWithLock(intervalHours) {
+  const startedAt = Date.now();
+  let result;
   try {
     const { cacheSetIfNotExists } = require('../config/redis');
     const lockTtlSec = Math.max(60, Math.floor(intervalHours * 60 * 60) - 60);
@@ -711,7 +713,26 @@ async function runOutbreakAnalysisWithLock(intervalHours) {
     console.warn('[OutbreakService] Cron lock unavailable; running analysis without lock:', err.message);
   }
 
-  await runOutbreakAnalysis();
+  result = await runOutbreakAnalysis();
+
+  const { notifyCronAlert } = require('./cronAlert');
+  if (result && result.error) {
+    await notifyCronAlert({
+      job: 'outbreak-analysis',
+      ok: false,
+      message: result.error,
+      durationMs: Date.now() - startedAt,
+      context: { alertsCreated: result.alertsCreated, areasAnalyzed: result.areasAnalyzed },
+    });
+  } else if (String(process.env.CRON_ALERT_ON_SUCCESS || 'false').toLowerCase() === 'true') {
+    await notifyCronAlert({
+      job: 'outbreak-analysis',
+      ok: true,
+      message: 'Outbreak analysis completed',
+      durationMs: Date.now() - startedAt,
+      context: result || {},
+    });
+  }
 }
 
 function startOutbreakCron(intervalHours = 6) {

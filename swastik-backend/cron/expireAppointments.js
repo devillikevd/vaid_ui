@@ -33,7 +33,9 @@ const expirePastAppointments = async () => {
 
     if (fetchError) throw fetchError;
 
-    if (!pastAppointments || pastAppointments.length === 0) return;
+    if (!pastAppointments || pastAppointments.length === 0) {
+      return { checked: 0, expired: 0 };
+    }
 
     const toExpireIds = pastAppointments.filter(appt => {
       if (appt.appointment_date < todayStr) return true;
@@ -50,8 +52,11 @@ const expirePastAppointments = async () => {
       if (updateError) throw updateError;
       logger.info(`Auto-expired ${toExpireIds.length} past appointments.`);
     }
+
+    return { checked: pastAppointments.length, expired: toExpireIds.length };
   } catch (error) {
     logger.error('Error in expirePastAppointments cron:', error);
+    return { error: error.message };
   }
 };
 

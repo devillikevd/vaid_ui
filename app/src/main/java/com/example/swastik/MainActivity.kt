@@ -453,6 +453,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onNavigateToPrescriptions = { navController.navigateSafe(Screen.Prescriptions.createRoute()) },
                 onNavigateToChatbot = { navController.navigateSafe(Screen.Chatbot.route) },
                 onNavigateToBookingHistory = { navController.navigateSafe(Screen.BookingHistory.route) },
+                onNavigateToWellnessSessions = { navController.navigateSafe(Screen.WellnessSessions.route) },
                 onNavigateToBooking = { doctorId ->
                     if (doctorId != null) {
                         navController.navigateSafe(Screen.AppointmentBooking.createRoute(doctorId = doctorId))
@@ -469,6 +470,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onNavigateToHealthCard = { navController.navigateSafe(Screen.HealthCard.route) },
                 onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.createRoute(0)) },
                 onNavigateToDietTracker = { navController.navigateSafe(Screen.DietTracker.route) },
+                onNavigateToWellnessHub = { navController.navigateSafe(Screen.WellnessHub.createRoute()) },
+                onNavigateToHealthConnectDashboard = { navController.navigateSafe(Screen.HealthConnectDashboard.route) },
                 onNavigateToMedicineDetail = { medicineId ->
                     navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
                 },
@@ -1235,9 +1238,19 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             }
         }
 
-        composable(Screen.WellnessHub.route) {
+        composable(
+            route = Screen.WellnessHub.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("section") {
+                    type = androidx.navigation.NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
             AuthGuard(navController, tokenManager) {
                 val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                val section = backStackEntry.arguments?.getString("section")
                 com.example.swastik.ui.screens.patient.wellness.WellnessHubScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToDietTracker = { navController.navigateSafe(Screen.DietTracker.route) },
@@ -1245,10 +1258,304 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onNavigateToEmergency = { navController.navigateSafe(Screen.Emergency.route) },
                     onNavigateToFitnessCenters = { navController.navigateSafe(Screen.HospitalFinder.createRoute(FacilityType.FITNESS_CENTER)) },
                     onNavigateToFitnessCenterDetail = { centerId -> navController.navigateSafe(Screen.FitnessCenterDetail.createRoute(centerId)) },
+                    onNavigateToWorkouts = { navController.navigateSafe(Screen.WellnessWorkouts.route) },
+                    onNavigateToExperts = { navController.navigateSafe(Screen.WellnessExperts.route) },
+                    onNavigateToCommunity = { navController.navigateSafe(Screen.WellnessCommunity.route) },
+                    onNavigateToSupplements = { navController.navigateSafe(Screen.WellnessSupplements.route) },
+                    onNavigateToReports = { navController.navigateSafe(Screen.WellnessReports.route) },
+                    onNavigateToAICoach = { navController.navigateSafe(Screen.WellnessAICoach.route) },
+                    onNavigateToAssessment = { navController.navigateSafe(Screen.WellnessAssessment.route) },
+                    onNavigateToWorkoutPlayer = { planId -> navController.navigateSafe(Screen.WorkoutPlayer.createRoute(planId)) },
+                    onNavigateToWorkoutCalendar = { navController.navigateSafe(Screen.WorkoutCalendar.route) },
+                    onNavigateToQrCheckIn = { navController.navigateSafe(Screen.QrGymCheckIn.route) },
+                    onNavigateToTypedReports = { navController.navigateSafe(Screen.WellnessTypedReports.route) },
+                    onNavigateToCoachDashboard = { navController.navigateSafe(Screen.CoachDashboard.route) },
+                    onNavigateToReminders = { navController.navigateSafe(Screen.WellnessReminders.route) },
+                    onNavigateToBadges = { navController.navigateSafe(Screen.WellnessBadges.route) },
+                    onNavigateToReels = { navController.navigateSafe(Screen.WellnessReels.route) },
+                    initialSection = section,
                     viewModel = wellnessViewModel
                 )
             }
         }
+
+        // ==================== Wellness Sub-Screens (Separate Pages) ====================
+
+        composable(Screen.WellnessWorkouts.route) {
+            AuthGuard(navController, tokenManager) {
+                val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.wellness.WellnessWorkoutScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToWorkoutPlayer = { planId -> navController.navigateSafe(Screen.WorkoutPlayer.createRoute(planId)) },
+                    viewModel = wellnessViewModel
+                )
+            }
+        }
+
+        composable(
+            route = Screen.WorkoutPlayer.route,
+            arguments = listOf(navArgument("planId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val planId = backStackEntry.arguments?.getString("planId") ?: return@AuthGuard
+                com.example.swastik.ui.screens.patient.wellness.WorkoutPlayerScreen(
+                    planId = planId,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(Screen.WellnessExperts.route) {
+            AuthGuard(navController, tokenManager) {
+                val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.wellness.WellnessExpertsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onCoachClick = { coachId -> navController.navigateSafe(Screen.WellnessCoachDetail.createRoute(coachId)) },
+                    viewModel = wellnessViewModel
+                )
+            }
+        }
+
+        composable(Screen.WellnessCommunity.route) {
+            AuthGuard(navController, tokenManager) {
+                val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.wellness.WellnessCommunityScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    viewModel = wellnessViewModel
+                )
+            }
+        }
+
+        composable(Screen.WellnessSupplements.route) {
+            AuthGuard(navController, tokenManager) {
+                val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.wellness.WellnessSupplementsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    viewModel = wellnessViewModel
+                )
+            }
+        }
+
+        composable(Screen.WellnessReports.route) {
+            AuthGuard(navController, tokenManager) {
+                val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.wellness.WellnessReportsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    viewModel = wellnessViewModel
+                )
+            }
+        }
+
+        composable(Screen.WellnessAICoach.route) {
+            AuthGuard(navController, tokenManager) {
+                val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.wellness.WellnessAICoachScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    viewModel = wellnessViewModel
+                )
+            }
+        }
+
+        composable(Screen.WellnessAssessment.route) {
+            AuthGuard(navController, tokenManager) {
+                val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.wellness.WellnessAssessmentScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    viewModel = wellnessViewModel
+                )
+            }
+        }
+
+        // ==================== Wellness Coach Detail & Sessions ====================
+
+        composable(
+            route = Screen.WellnessCoachDetail.route,
+            arguments = listOf(navArgument("coachId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val coachId = backStackEntry.arguments?.getString("coachId") ?: return@AuthGuard
+                com.example.swastik.ui.screens.patient.wellness.WellnessCoachDetailScreen(
+                    coachId = coachId,
+                    onBackClick = { navController.popBackStack() },
+                    onBookSession = { id -> navController.navigateSafe(Screen.WellnessSessionBooking.createRoute(id)) }
+                )
+            }
+        }
+
+        composable(
+            route = Screen.WellnessSessionBooking.route,
+            arguments = listOf(navArgument("coachId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val coachId = backStackEntry.arguments?.getString("coachId") ?: return@AuthGuard
+                com.example.swastik.ui.screens.patient.wellness.WellnessSessionBookingScreen(
+                    coachId = coachId,
+                    onBackClick = { navController.popBackStack() },
+                    onSessionBooked = { navController.navigateSafe(Screen.WellnessSessions.route) {
+                        popUpTo(Screen.WellnessHub.route) { inclusive = false }
+                    }}
+                )
+            }
+        }
+
+        composable(Screen.WellnessSessions.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.wellness.WellnessSessionsScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onJoinVideoCall = { sessionId, coachName ->
+                        navController.navigateSafe(Screen.WellnessVideoCall.createRoute(sessionId, coachName))
+                    }
+                )
+            }
+        }
+
+        composable(
+            route = Screen.WellnessVideoCall.route,
+            arguments = listOf(
+                navArgument("sessionId") { type = NavType.StringType },
+                navArgument("coachName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val sessionId = backStackEntry.arguments?.getString("sessionId") ?: return@AuthGuard
+                val coachName = java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("coachName") ?: "Coach", "UTF-8"
+                )
+                // Reuse existing VideoConsultationFlow with wellness session room
+                com.example.swastik.ui.screens.consultation.VideoConsultationFlow(
+                    appointmentId = sessionId,
+                    doctorName = coachName,
+                    onBackClick = { navController.popBackStack() },
+                    onConsultationComplete = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(Screen.CoachDashboard.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.wellness.CoachDashboardScreen(
+                    onSwitchToPatient = { navController.popBackStack() },
+                    onStartSession = { sessionId, patientName -> 
+                        navController.navigateSafe(Screen.WellnessVideoCall.createRoute(sessionId, patientName))
+                    },
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+
+        // ==================== Phase 2 — High Value Screens ====================
+
+        composable(Screen.WorkoutCalendar.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.wellness.WorkoutCalendarScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(
+            route = Screen.GymClassSchedule.route,
+            arguments = listOf(
+                navArgument("centerId") { type = NavType.StringType },
+                navArgument("centerName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val centerId = backStackEntry.arguments?.getString("centerId") ?: return@AuthGuard
+                val centerName = java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("centerName") ?: "Gym", "UTF-8"
+                )
+                com.example.swastik.ui.screens.patient.wellness.GymClassScheduleScreen(
+                    centerId = centerId,
+                    centerName = centerName,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(Screen.WellnessTypedReports.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.wellness.WellnessTypedReportsScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(
+            route = Screen.ChallengeLeaderboard.route,
+            arguments = listOf(
+                navArgument("challengeId") { type = NavType.StringType },
+                navArgument("challengeTitle") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val challengeId = backStackEntry.arguments?.getString("challengeId") ?: return@AuthGuard
+                val challengeTitle = java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("challengeTitle") ?: "Challenge", "UTF-8"
+                )
+                com.example.swastik.ui.screens.patient.wellness.ChallengeLeaderboardScreen(
+                    challengeId = challengeId,
+                    challengeTitle = challengeTitle,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+
+        // ==================== Phase 3 — Differentiator Screens ====================
+
+        composable(Screen.QrGymCheckIn.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.wellness.QrGymCheckInScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(
+            route = Screen.WellnessChat.route,
+            arguments = listOf(
+                navArgument("sessionId") { type = NavType.StringType },
+                navArgument("coachName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val sessionId = backStackEntry.arguments?.getString("sessionId") ?: return@AuthGuard
+                val coachName = java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("coachName") ?: "Coach", "UTF-8"
+                )
+                com.example.swastik.ui.screens.patient.wellness.WellnessChatScreen(
+                    sessionId = sessionId,
+                    coachName = coachName,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(Screen.WellnessReminders.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.wellness.WellnessRemindersScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(Screen.WellnessBadges.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.wellness.WellnessBadgesScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(Screen.WellnessReels.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.wellness.WellnessReelsScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToCoach = { coachId -> navController.navigateSafe(Screen.WellnessCoachDetail.createRoute(coachId)) }
+                )
+            }
+        }
+
 
         composable(Screen.DietTracker.route) {
             AuthGuard(navController, tokenManager) {

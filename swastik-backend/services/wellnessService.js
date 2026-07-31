@@ -24,6 +24,55 @@ const todayIsoDate = () => new Date().toISOString().slice(0, 10);
 const normalizeEmailValue = (value) => String(value || '').trim().toLowerCase();
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 
+// ── Redis list-cache (generation-bumped) ──────────────────────────────
+// Public/marketplace lists are cached by generation counter so a single
+// INCR invalidates every page/filter variant. Best-effort: when Redis is
+// unavailable the loader runs as before.
+const listCacheVersionKey = (prefix) => `wellness:gen:${prefix}`;
+
+const listCacheKey = (prefix, filters, page, limit, version) => {
+  const serialized = JSON.stringify(filters || {});
+  const raw = `wellness:list:${prefix}:v${version}:${page}:${limit}:${serialized}`;
+  if (raw.length <= 240) return raw;
+  return `wellness:list:${prefix}:v${version}:${page}:${limit}:${crypto.createHash('sha1').update(raw).digest('hex').slice(0, 16)}`;
+};
+
+const currentListVersion = async (prefix) => {
+  const { cacheGet, cacheSetIfNotExists } = require('../config/redis');
+  let version = await cacheGet(listCacheVersionKey(prefix));
+  if (version === null) {
+    await cacheSetIfNotExists(listCacheVersionKey(prefix), '1', 30 * 86400);
+    version = await cacheGet(listCacheVersionKey(prefix)) || '1';
+  }
+  return version;
+};
+
+const cachedList = async (prefix, filters, page, limit, ttlSeconds, loader) => {
+  const { cacheGet, cacheSet } = require('../config/redis');
+  const version = await currentListVersion(prefix);
+  const key = listCacheKey(prefix, filters, page, limit, version);
+  const cached = await cacheGet(key);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      // fall through to loader on corrupt payload
+    }
+  }
+  const result = await loader();
+  await cacheSet(key, JSON.stringify(result), ttlSeconds);
+  return result;
+};
+
+const bumpListVersion = async (prefix) => {
+  const { cacheIncr } = require('../config/redis');
+  try {
+    await cacheIncr(listCacheVersionKey(prefix));
+  } catch (err) {
+    // best-effort; short TTLs still bound staleness
+  }
+};
+
 const buildTrainerInviteLinks = (token) => {
   const encoded = encodeURIComponent(token);
   return {
@@ -184,6 +233,8 @@ const upsertFitnessProfile = async (userId, payload = {}) => {
   return data;
 };
 
+const countHead = (result) => (result && result.status === 'fulfilled' ? result.value?.count || 0 : 0);
+
 const getHubSummary = async (userId) => {
   const patient = await resolvePatient(userId);
   const today = todayIsoDate();
@@ -194,6 +245,13 @@ const getHubSummary = async (userId) => {
     workoutCountResult,
     sessionResult,
     badgeResult,
+    plansCountResult,
+    exercisesCountResult,
+    coachesCountResult,
+    facilitiesCountResult,
+    groupsCountResult,
+    challengesCountResult,
+    supplementsCountResult,
   ] = await Promise.allSettled([
     supabaseAdmin.from('fitness_profiles').select('*').eq('patient_id', patient.id).maybeSingle(),
     supabaseAdmin.from('wearable_daily_summaries').select('*').eq('patient_id', patient.id).order('summary_date', { ascending: false }).limit(7),
@@ -201,19 +259,52 @@ const getHubSummary = async (userId) => {
     supabaseAdmin.from('workout_logs').select('id', { count: 'exact', head: true }).eq('patient_id', patient.id).gte('completed_at', `${today}T00:00:00.000Z`),
     supabaseAdmin.from('wellness_sessions').select('*, coach:wellness_coaches(id, name, profile_image_url)').eq('patient_id', patient.id).gte('scheduled_at', new Date().toISOString()).order('scheduled_at').limit(3),
     supabaseAdmin.from('patient_wellness_badges').select('*, badge:wellness_badges(*)').eq('patient_id', patient.id).order('earned_at', { ascending: false }).limit(5),
+    supabaseAdmin.from('workout_plans').select('id', { count: 'exact', head: true }).eq('is_active', true),
+    supabaseAdmin.from('exercise_library').select('id', { count: 'exact', head: true }).eq('is_active', true),
+    supabaseAdmin.from('wellness_coaches').select('id', { count: 'exact', head: true }).match(ACTIVE_APPROVED),
+    supabaseAdmin.from('fitness_centers').select('id', { count: 'exact', head: true }).eq('approval_status', 'approved').eq('is_active', true),
+    supabaseAdmin.from('wellness_groups').select('id', { count: 'exact', head: true }).eq('is_public', true).eq('moderation_status', 'active'),
+    supabaseAdmin.from('wellness_challenges').select('id', { count: 'exact', head: true }).eq('is_active', true),
+    supabaseAdmin.from('trusted_supplement_products').select('id', { count: 'exact', head: true }).eq('is_active', true),
   ]);
 
   const wearables = wearableResult.status === 'fulfilled' ? wearableResult.value.data || [] : [];
   const latest = wearables[0] || null;
+
+  let reels = [];
+  try {
+    const reelsResult = await listReels({}, 1, 6);
+    reels = reelsResult.data || [];
+  } catch {
+    // Reels are optional for the hub; fail silently.
+  }
+
   return {
     patient: { id: patient.id, name: patient.name, city: patient.city },
+    counts: {
+      workoutPlans: countHead(plansCountResult),
+      exercises: countHead(exercisesCountResult),
+      coaches: countHead(coachesCountResult),
+      fitnessCenters: countHead(facilitiesCountResult),
+      groups: countHead(groupsCountResult),
+      challenges: countHead(challengesCountResult),
+      supplements: countHead(supplementsCountResult),
+    },
     fitnessProfile: profileResult.status === 'fulfilled' ? profileResult.value.data || null : null,
     wearableToday: latest?.summary_date === today ? latest : null,
     wearableTrend: wearables,
+    todayStats: latest?.summary_date === today
+      ? {
+          steps: latest.steps || 0,
+          activeCalories: latest.active_calories || 0,
+          activeMinutes: latest.active_minutes || 0,
+        }
+      : null,
     activeWorkoutPlan: activePlanResult.status === 'fulfilled' ? activePlanResult.value.data || null : null,
     workoutsCompletedToday: workoutCountResult.status === 'fulfilled' ? workoutCountResult.value.count || 0 : 0,
     upcomingSessions: sessionResult.status === 'fulfilled' ? sessionResult.value.data || [] : [],
     badges: badgeResult.status === 'fulfilled' ? badgeResult.value.data || [] : [],
+    reels,
   };
 };
 
@@ -266,21 +357,23 @@ const upsertWearableSummary = async (userId, payload = {}) => {
 };
 
 const listWorkoutPlans = async (filters = {}, page = 1, limit = 20) => {
-  const offset = (page - 1) * limit;
-  let query = supabaseAdmin
-    .from('workout_plans')
-    .select('*', { count: 'exact' })
-    .eq('is_active', true);
+  return cachedList('plans', filters, page, limit, 600, async () => {
+    const offset = (page - 1) * limit;
+    let query = supabaseAdmin
+      .from('workout_plans')
+      .select('*', { count: 'exact' })
+      .eq('is_active', true);
 
-  if (filters.goal) query = query.eq('goal', filters.goal);
-  if (filters.level) query = query.eq('level', filters.level);
-  if (filters.planType || filters.plan_type) query = query.eq('plan_type', filters.planType || filters.plan_type);
-  if (filters.locationType || filters.location_type) query = query.eq('location_type', filters.locationType || filters.location_type);
-  if (filters.maxMinutes) query = query.lte('minutes_per_session', Number(filters.maxMinutes));
+    if (filters.goal) query = query.eq('goal', filters.goal);
+    if (filters.level) query = query.eq('level', filters.level);
+    if (filters.planType || filters.plan_type) query = query.eq('plan_type', filters.planType || filters.plan_type);
+    if (filters.locationType || filters.location_type) query = query.eq('location_type', filters.locationType || filters.location_type);
+    if (filters.maxMinutes) query = query.lte('minutes_per_session', Number(filters.maxMinutes));
 
-  const { data, count, error } = await query.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
-  if (error) throw error;
-  return { data: data || [], pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) } };
+    const { data, count, error } = await query.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+    if (error) throw error;
+    return { data: data || [], pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) } };
+  });
 };
 
 const getWorkoutPlan = async (idOrSlug) => {
@@ -297,26 +390,28 @@ const getWorkoutPlan = async (idOrSlug) => {
 };
 
 const listExercises = async (filters = {}, page = 1, limit = 30) => {
-  const offset = (page - 1) * limit;
-  let query = supabaseAdmin
-    .from('exercise_library')
-    .select('*', { count: 'exact' })
-    .eq('is_active', true);
+  return cachedList('exercises', filters, page, limit, 600, async () => {
+    const offset = (page - 1) * limit;
+    let query = supabaseAdmin
+      .from('exercise_library')
+      .select('*', { count: 'exact' })
+      .eq('is_active', true);
 
-  const q = sanitizeSearch(filters.q || filters.search || '');
-  if (q) query = query.or(`name.ilike.%${q}%,primary_muscle_group.ilike.%${q}%,workout_type.ilike.%${q}%,target_muscle.ilike.%${q}%,body_part.ilike.%${q}%`);
-  if (filters.type || filters.workoutType || filters.workout_type) query = query.eq('workout_type', filters.type || filters.workoutType || filters.workout_type);
-  if (filters.level) query = query.eq('level', filters.level);
-  if (filters.muscle || filters.muscleGroup || filters.primary_muscle_group) query = query.eq('primary_muscle_group', filters.muscle || filters.muscleGroup || filters.primary_muscle_group);
-  if (filters.body_part || filters.bodyPart) query = query.eq('body_part', filters.body_part || filters.bodyPart);
-  if (filters.target || filters.target_muscle || filters.targetMuscle) query = query.eq('target_muscle', filters.target || filters.target_muscle || filters.targetMuscle);
-  if (filters.category) query = query.eq('category', filters.category);
-  if (filters.equipment) query = query.contains('equipment', [filters.equipment]);
-  if (filters.hasAnimation === 'true' || filters.hasAnimation === true) query = query.not('animation_url', 'is', null);
+    const q = sanitizeSearch(filters.q || filters.search || '');
+    if (q) query = query.or(`name.ilike.%${q}%,primary_muscle_group.ilike.%${q}%,workout_type.ilike.%${q}%,target_muscle.ilike.%${q}%,body_part.ilike.%${q}%`);
+    if (filters.type || filters.workoutType || filters.workout_type) query = query.eq('workout_type', filters.type || filters.workoutType || filters.workout_type);
+    if (filters.level) query = query.eq('level', filters.level);
+    if (filters.muscle || filters.muscleGroup || filters.primary_muscle_group) query = query.eq('primary_muscle_group', filters.muscle || filters.muscleGroup || filters.primary_muscle_group);
+    if (filters.body_part || filters.bodyPart) query = query.eq('body_part', filters.body_part || filters.bodyPart);
+    if (filters.target || filters.target_muscle || filters.targetMuscle) query = query.eq('target_muscle', filters.target || filters.target_muscle || filters.targetMuscle);
+    if (filters.category) query = query.eq('category', filters.category);
+    if (filters.equipment) query = query.contains('equipment', [filters.equipment]);
+    if (filters.hasAnimation === 'true' || filters.hasAnimation === true) query = query.not('animation_url', 'is', null);
 
-  const { data, count, error } = await query.order('name').range(offset, offset + limit - 1);
-  if (error) throw error;
-  return { data: data || [], pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) } };
+    const { data, count, error } = await query.order('name').range(offset, offset + limit - 1);
+    if (error) throw error;
+    return { data: data || [], pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) } };
+  });
 };
 
 const getExercise = async (idOrSlug) => {
@@ -502,32 +597,34 @@ const listMyBadges = async (userId) => {
 };
 
 const listCoaches = async (filters = {}, page = 1, limit = 20) => {
-  const offset = (page - 1) * limit;
-  let query = supabaseAdmin
-    .from('wellness_coaches')
-    .select('*', { count: 'exact' })
-    .match(ACTIVE_APPROVED);
+  return cachedList('coaches', filters, page, limit, 300, async () => {
+    const offset = (page - 1) * limit;
+    let query = supabaseAdmin
+      .from('wellness_coaches')
+      .select('*', { count: 'exact' })
+      .match(ACTIVE_APPROVED);
 
-  const q = sanitizeSearch(filters.q || filters.search || '');
-  if (q) query = query.or(`name.ilike.%${q}%,headline.ilike.%${q}%,bio.ilike.%${q}%`);
-  if (filters.city) query = query.ilike('city', filters.city);
-  if (filters.maxFee) query = query.lte('session_fee', Number(filters.maxFee));
+    const q = sanitizeSearch(filters.q || filters.search || '');
+    if (q) query = query.or(`name.ilike.%${q}%,headline.ilike.%${q}%,bio.ilike.%${q}%`);
+    if (filters.city) query = query.ilike('city', filters.city);
+    if (filters.maxFee) query = query.lte('session_fee', Number(filters.maxFee));
 
-  const { data, count, error } = await query.order('rating', { ascending: false }).range(offset, offset + limit - 1);
-  if (error) throw error;
+    const { data, count, error } = await query.order('rating', { ascending: false }).range(offset, offset + limit - 1);
+    if (error) throw error;
 
-  let coaches = data || [];
-  const tagFilter = asArray(filters.tag || filters.tags || filters.specialty);
-  if (tagFilter.length > 0) {
-    const lowered = tagFilter.map((tag) => tag.toLowerCase());
-    coaches = coaches.filter((coach) => [
-      ...(coach.coach_types || []),
-      ...(coach.specialties || []),
-      ...(coach.expertise_tags || []),
-    ].some((tag) => lowered.includes(String(tag).toLowerCase())));
-  }
+    let coaches = data || [];
+    const tagFilter = asArray(filters.tag || filters.tags || filters.specialty);
+    if (tagFilter.length > 0) {
+      const lowered = tagFilter.map((tag) => tag.toLowerCase());
+      coaches = coaches.filter((coach) => [
+        ...(coach.coach_types || []),
+        ...(coach.specialties || []),
+        ...(coach.expertise_tags || []),
+      ].some((tag) => lowered.includes(String(tag).toLowerCase())));
+    }
 
-  return { data: coaches, pagination: { page, limit, total: count || coaches.length, totalPages: Math.ceil((count || coaches.length) / limit) } };
+    return { data: coaches, pagination: { page, limit, total: count || coaches.length, totalPages: Math.ceil((count || coaches.length) / limit) } };
+  });
 };
 
 const getCoach = async (coachId) => {
@@ -548,6 +645,7 @@ const updateMyCoachProfile = async (userId, payload = {}) => {
   const coach = await resolveCoach(userId);
   const updates = {
     headline: payload.headline,
+    sub_role: payload.subRole || payload.sub_role,
     coach_types: payload.coachTypes || payload.coach_types,
     specialties: payload.specialties,
     expertise_tags: payload.expertiseTags || payload.expertise_tags,
@@ -579,6 +677,13 @@ const updateMyCoachProfile = async (userId, payload = {}) => {
     if (updates[key] !== undefined) updates[key] = asArray(updates[key]);
   });
 
+  if (updates.sub_role !== undefined) {
+    const allowedSubRoles = ['fitness_trainer', 'yoga_coach', 'nutritionist'];
+    if (!allowedSubRoles.includes(updates.sub_role)) {
+      throw new ApiError(400, 'Invalid wellness coach sub-role. Use fitness_trainer, yoga_coach, or nutritionist.');
+    }
+  }
+
   ['session_fee', 'video_session_fee', 'monthly_plan_fee', 'latitude', 'longitude'].forEach((key) => {
     if (updates[key] !== undefined) updates[key] = asNumber(updates[key], null);
   });
@@ -590,6 +695,7 @@ const updateMyCoachProfile = async (userId, payload = {}) => {
     .select('*')
     .single();
   if (error) throw error;
+  await bumpListVersion('coaches');
   return data;
 };
 
@@ -638,52 +744,54 @@ const listMySessions = async (userId, role, status) => {
 };
 
 const listFacilities = async (filters = {}, page = 1, limit = 20) => {
-  const offset = (page - 1) * limit;
-  let query = supabaseAdmin
-    .from('fitness_centers')
-    .select('*', { count: 'exact' })
-    .eq('approval_status', 'approved')
-    .eq('is_active', true);
+  return cachedList('facilities', filters, page, limit, 60, async () => {
+    const offset = (page - 1) * limit;
+    let query = supabaseAdmin
+      .from('fitness_centers')
+      .select('*', { count: 'exact' })
+      .eq('approval_status', 'approved')
+      .eq('is_active', true);
 
-  const lat = asNumber(filters.latitude);
-  const lng = asNumber(filters.longitude);
-  const radius = Math.min(asNumber(filters.radius, 25), 100);
-  if (Number.isFinite(lat) && Number.isFinite(lng)) {
-    const bounds = getBoundingBox({ latitude: lat, longitude: lng }, radius);
-    query = query.gte('latitude', bounds.minLat).lte('latitude', bounds.maxLat).gte('longitude', bounds.minLng).lte('longitude', bounds.maxLng);
-  }
-  if (filters.city) query = query.ilike('city', filters.city);
-  if (filters.type || filters.centerType) query = query.eq('center_type', filters.type || filters.centerType);
-  const searchTerm = sanitizeSearch(filters.q || filters.search || filters.query || '');
-  if (searchTerm) {
-    query = query.or(`name.ilike.%${searchTerm}%,city.ilike.%${searchTerm}%,center_type.ilike.%${searchTerm}%`);
-  }
-  if (filters.womenOnly === 'true' || filters.womenOnly === true) query = query.eq('is_women_only', true);
-  if (filters.beginnerFriendly === 'true' || filters.beginnerFriendly === true) query = query.eq('is_beginner_friendly', true);
+    const lat = asNumber(filters.latitude);
+    const lng = asNumber(filters.longitude);
+    const radius = Math.min(asNumber(filters.radius, 25), 100);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      const bounds = getBoundingBox({ latitude: lat, longitude: lng }, radius);
+      query = query.gte('latitude', bounds.minLat).lte('latitude', bounds.maxLat).gte('longitude', bounds.minLng).lte('longitude', bounds.maxLng);
+    }
+    if (filters.city) query = query.ilike('city', filters.city);
+    if (filters.type || filters.centerType) query = query.eq('center_type', filters.type || filters.centerType);
+    const searchTerm = sanitizeSearch(filters.q || filters.search || filters.query || '');
+    if (searchTerm) {
+      query = query.or(`name.ilike.%${searchTerm}%,city.ilike.%${searchTerm}%,center_type.ilike.%${searchTerm}%`);
+    }
+    if (filters.womenOnly === 'true' || filters.womenOnly === true) query = query.eq('is_women_only', true);
+    if (filters.beginnerFriendly === 'true' || filters.beginnerFriendly === true) query = query.eq('is_beginner_friendly', true);
 
-  const { data, count, error } = await query.order('rating', { ascending: false }).range(offset, offset + limit - 1);
-  if (error) throw error;
+    const { data, count, error } = await query.order('rating', { ascending: false }).range(offset, offset + limit - 1);
+    if (error) throw error;
 
-  let centers = data || [];
-  if (Number.isFinite(lat) && Number.isFinite(lng)) {
-    centers = centers
-      .map((center) => ({
-        ...center,
-        distance: center.latitude && center.longitude
-          ? calculateDistance({ latitude: lat, longitude: lng }, { latitude: center.latitude, longitude: center.longitude })
-          : null,
-      }))
-      .filter((center) => center.distance === null || center.distance <= radius)
-      .sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999));
-  }
+    let centers = data || [];
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      centers = centers
+        .map((center) => ({
+          ...center,
+          distance: center.latitude && center.longitude
+            ? calculateDistance({ latitude: lat, longitude: lng }, { latitude: center.latitude, longitude: center.longitude })
+            : null,
+        }))
+        .filter((center) => center.distance === null || center.distance <= radius)
+        .sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999));
+    }
 
-  return { data: centers, pagination: { page, limit, total: count || centers.length, totalPages: Math.ceil((count || centers.length) / limit) } };
+    return { data: centers, pagination: { page, limit, total: count || centers.length, totalPages: Math.ceil((count || centers.length) / limit) } };
+  });
 };
 
 const getFacility = async (centerId) => {
   const { data, error } = await supabaseAdmin
     .from('fitness_centers')
-    .select('*, classes:fitness_classes(*), trainers:fitness_center_trainers(*, coach:wellness_coaches(id, name, profile_image_url, specialties, coach_types, rating))')
+    .select('*, classes:fitness_classes(*), trainers:fitness_center_trainers(*, coach:wellness_coaches(id, name, profile_image_url, specialties, coach_types, rating)), reels:fitness_center_reels(*)')
     .eq('id', centerId)
     .eq('approval_status', 'approved')
     .eq('is_active', true)
@@ -692,6 +800,29 @@ const getFacility = async (centerId) => {
   if (!data) throw new ApiError(404, 'Fitness center not found');
   data.classes = (data.classes || []).filter((item) => item.status === 'scheduled');
   return data;
+};
+
+const addFitnessReel = async (userId, data = {}) => {
+  const center = await resolveFitnessCenterOwner(userId);
+  const { video_url, thumbnail_url, title } = data;
+  const { data: reel, error } = await supabaseAdmin
+    .from('fitness_center_reels')
+    .insert({ fitness_center_id: center.id, video_url, thumbnail_url, title })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return reel;
+};
+
+const deleteFitnessReel = async (userId, reelId) => {
+  const center = await resolveFitnessCenterOwner(userId);
+  const { error } = await supabaseAdmin
+    .from('fitness_center_reels')
+    .delete()
+    .eq('id', reelId)
+    .eq('fitness_center_id', center.id);
+  if (error) throw error;
+  return true;
 };
 
 const bookFacility = async (userId, payload = {}) => {
@@ -714,6 +845,7 @@ const bookFacility = async (userId, payload = {}) => {
     .select('*, center:fitness_centers(id, name, address, city), class:fitness_classes(id, title, starts_at)')
     .single();
   if (error) throw error;
+  await bumpListVersion('facilities');
   return data;
 };
 
@@ -735,6 +867,7 @@ const checkInFacility = async (userId, payload = {}) => {
     .select('*')
     .single();
   if (error) throw error;
+  await bumpListVersion('facilities');
   return data;
 };
 
@@ -748,6 +881,7 @@ const getOwnedFitnessCenterDashboard = async (userId) => {
     classesResult,
     bookingsResult,
     checkinsResult,
+    reelsResult,
   ] = await Promise.allSettled([
     supabaseAdmin
       .from('fitness_center_trainers')
@@ -777,6 +911,11 @@ const getOwnedFitnessCenterDashboard = async (userId) => {
       .select('id', { count: 'exact', head: true })
       .eq('center_id', center.id)
       .gte('checked_in_at', `${todayIsoDate()}T00:00:00.000Z`),
+    supabaseAdmin
+      .from('fitness_center_reels')
+      .select('*')
+      .eq('fitness_center_id', center.id)
+      .order('created_at', { ascending: false }),
   ]);
 
   const invites = invitesResult.status === 'fulfilled'
@@ -785,6 +924,7 @@ const getOwnedFitnessCenterDashboard = async (userId) => {
 
   return {
     center,
+    reels: reelsResult.status === 'fulfilled' ? reelsResult.value.data || [] : [],
     trainers: trainersResult.status === 'fulfilled' ? trainersResult.value.data || [] : [],
     trainerInvites: invites,
     upcomingClasses: classesResult.status === 'fulfilled' ? classesResult.value.data || [] : [],
@@ -1089,33 +1229,35 @@ const joinChallenge = async (userId, challengeId) => {
 };
 
 const listSupplements = async (filters = {}, page = 1, limit = 20) => {
-  const offset = (page - 1) * limit;
-  let query = supabaseAdmin
-    .from('trusted_supplement_products')
-    .select('*', { count: 'exact' })
-    .eq('is_active', true);
-  const q = sanitizeSearch(filters.q || filters.search || '');
-  if (q) query = query.or(`name.ilike.%${q}%,brand.ilike.%${q}%,description.ilike.%${q}%`);
-  if (filters.category) query = query.eq('category', filters.category);
-  const { data, count, error } = await query.order('is_verified', { ascending: false }).range(offset, offset + limit - 1);
-  if (error) throw error;
+  return cachedList('supplements', filters, page, limit, 600, async () => {
+    const offset = (page - 1) * limit;
+    let query = supabaseAdmin
+      .from('trusted_supplement_products')
+      .select('*', { count: 'exact' })
+      .eq('is_active', true);
+    const q = sanitizeSearch(filters.q || filters.search || '');
+    if (q) query = query.or(`name.ilike.%${q}%,brand.ilike.%${q}%,description.ilike.%${q}%`);
+    if (filters.category) query = query.eq('category', filters.category);
+    const { data, count, error } = await query.order('is_verified', { ascending: false }).range(offset, offset + limit - 1);
+    if (error) throw error;
 
-  if (data && data.length > 0) {
-    return { data, pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) } };
-  }
+    if (data && data.length > 0) {
+      return { data, pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) } };
+    }
 
-  let fallback = supabaseAdmin
-    .from('medicines')
-    .select('*', { count: 'exact' })
-    .eq('is_active', true)
-    .in('category', ['vitamin', 'supplement']);
-  if (q) fallback = fallback.or(`name.ilike.%${q}%,generic_name.ilike.%${q}%,manufacturer.ilike.%${q}%`);
-  const { data: medicines, count: medicineCount, error: medicineError } = await fallback.order('name').range(offset, offset + limit - 1);
-  if (medicineError) throw medicineError;
-  return {
-    data: (medicines || []).map((medicine) => ({ ...medicine, source: 'medicines', is_verified: false })),
-    pagination: { page, limit, total: medicineCount || 0, totalPages: Math.ceil((medicineCount || 0) / limit) },
-  };
+    let fallback = supabaseAdmin
+      .from('medicines')
+      .select('*', { count: 'exact' })
+      .eq('is_active', true)
+      .in('category', ['vitamin', 'supplement']);
+    if (q) fallback = fallback.or(`name.ilike.%${q}%,generic_name.ilike.%${q}%,manufacturer.ilike.%${q}%`);
+    const { data: medicines, count: medicineCount, error: medicineError } = await fallback.order('name').range(offset, offset + limit - 1);
+    if (medicineError) throw medicineError;
+    return {
+      data: (medicines || []).map((medicine) => ({ ...medicine, source: 'medicines', is_verified: false })),
+      pagination: { page, limit, total: medicineCount || 0, totalPages: Math.ceil((medicineCount || 0) / limit) },
+    };
+  });
 };
 
 const checkSupplementSuitability = async (userId, productId) => {
@@ -1280,6 +1422,855 @@ const getWellnessReports = async (userId, filters = {}) => {
   };
 };
 
+const notify = async (userId, title, message, type = 'wellness', data = {}) => {
+  try {
+    const { sendNotification } = require('./notificationService');
+    await sendNotification(userId, { title, message, type, data });
+  } catch (err) {
+    console.warn(`[wellness] notification failed for user ${userId}: ${err.message}`);
+  }
+};
+
+const toDateOnly = (isoValue) => String(isoValue || '').slice(0, 10);
+
+const getWorkoutStreaks = async (userId) => {
+  const patient = await resolvePatient(userId);
+  const since = new Date();
+  since.setDate(since.getDate() - 180);
+  const { data, error } = await supabaseAdmin
+    .from('workout_logs')
+    .select('completed_at')
+    .eq('patient_id', patient.id)
+    .gte('completed_at', since.toISOString())
+    .order('completed_at', { ascending: false });
+  if (error) throw error;
+
+  const activeDays = new Set((data || []).map((item) => toDateOnly(item.completed_at)).filter(Boolean));
+  const today = todayIsoDate();
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = yesterdayDate.toISOString().slice(0, 10);
+
+  let cursor = activeDays.has(today) ? new Date() : yesterdayDate;
+  let currentStreak = 0;
+  while (activeDays.has(cursor.toISOString().slice(0, 10))) {
+    currentStreak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  if (!activeDays.has(today) && !activeDays.has(yesterday)) currentStreak = 0;
+
+  const sortedDays = Array.from(activeDays).sort();
+  let longestStreak = 0;
+  let run = 0;
+  let prev = null;
+  for (const day of sortedDays) {
+    const current = new Date(day);
+    if (prev) {
+      const diff = Math.round((current.getTime() - prev.getTime()) / 86400000);
+      run = diff === 1 ? run + 1 : 1;
+    } else {
+      run = 1;
+    }
+    longestStreak = Math.max(longestStreak, run);
+    prev = current;
+  }
+
+  const last7Days = [];
+  const last30Days = [];
+  for (let i = 0; i < 30; i += 1) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    const hit = activeDays.has(key);
+    if (i < 7) last7Days.push({ date: key, active: hit });
+    last30Days.push({ date: key, active: hit });
+  }
+
+  const lastWorkout = (data || [])[0] || null;
+  return {
+    currentStreak,
+    longestStreak,
+    activeDaysTotal: activeDays.size,
+    activeDaysLast7: last7Days.filter((day) => day.active).length,
+    activeDaysLast30: last30Days.filter((day) => day.active).length,
+    lastWorkoutAt: lastWorkout?.completed_at || null,
+  };
+};
+
+const listOwnerClasses = async (userId, filters = {}) => {
+  const center = await resolveFitnessCenterOwner(userId);
+  let query = supabaseAdmin
+    .from('fitness_classes')
+    .select('*, coach:wellness_coaches(id, name, profile_image_url, coach_types, specialties)')
+    .eq('center_id', center.id);
+  if (filters.status) query = query.eq('status', filters.status);
+  if (filters.from) query = query.gte('starts_at', filters.from);
+  if (filters.to) query = query.lte('starts_at', filters.to);
+  const { data, error } = await query.order('starts_at', { ascending: false }).limit(200);
+  if (error) throw error;
+  return data || [];
+};
+
+const createOwnerClass = async (userId, payload = {}) => {
+  const center = await resolveFitnessCenterOwner(userId);
+  if (!payload.title || !String(payload.title).trim()) throw new ApiError(400, 'Class title is required');
+  if (!payload.startsAt && !payload.starts_at) throw new ApiError(400, 'Class start time is required');
+
+  const classData = {
+    center_id: center.id,
+    coach_id: payload.coachId || payload.coach_id || null,
+    title: String(payload.title).trim(),
+    class_type: payload.classType || payload.class_type || 'strength',
+    level: payload.level || 'beginner',
+    description: payload.description || null,
+    starts_at: payload.startsAt || payload.starts_at,
+    ends_at: payload.endsAt || payload.ends_at || null,
+    capacity: Math.max(1, Math.min(asNumber(payload.capacity, 10) || 10, 500)),
+    price: Math.max(0, asNumber(payload.price, 0) || 0),
+    waitlist_enabled: payload.waitlistEnabled ?? payload.waitlist_enabled ?? true,
+    recurring: payload.recurring || payload.recurrence || {},
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from('fitness_classes')
+    .insert(classData)
+    .select('*, coach:wellness_coaches(id, name, profile_image_url)')
+    .single();
+  if (error) throw error;
+  await bumpListVersion('facilities');
+  return data;
+};
+
+const updateOwnerClass = async (userId, classId, payload = {}) => {
+  const center = await resolveFitnessCenterOwner(userId);
+  const updates = {
+    title: payload.title,
+    class_type: payload.classType || payload.class_type,
+    level: payload.level,
+    description: payload.description,
+    starts_at: payload.startsAt || payload.starts_at,
+    ends_at: payload.endsAt || payload.ends_at,
+    capacity: payload.capacity != null ? Math.max(1, Math.min(asNumber(payload.capacity, 10) || 10, 500)) : undefined,
+    price: payload.price != null ? Math.max(0, asNumber(payload.price, 0) || 0) : undefined,
+    coach_id: payload.coachId || payload.coach_id,
+    waitlist_enabled: payload.waitlistEnabled ?? payload.waitlist_enabled,
+  };
+  Object.keys(updates).forEach((key) => {
+    if (updates[key] === undefined) delete updates[key];
+  });
+  if (Object.keys(updates).length === 0) throw new ApiError(400, 'No update fields provided');
+
+  const { data, error } = await supabaseAdmin
+    .from('fitness_classes')
+    .update(updates)
+    .eq('id', classId)
+    .eq('center_id', center.id)
+    .select('*')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new ApiError(404, 'Class not found');
+  await bumpListVersion('facilities');
+  return data;
+};
+
+const cancelOwnerClass = async (userId, classId) => {
+  const center = await resolveFitnessCenterOwner(userId);
+  const { data, error } = await supabaseAdmin
+    .from('fitness_classes')
+    .update({ status: 'cancelled' })
+    .eq('id', classId)
+    .eq('center_id', center.id)
+    .select('*')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new ApiError(404, 'Class not found');
+
+  const { data: bookings } = await supabaseAdmin
+    .from('fitness_bookings')
+    .select('patient_id')
+    .eq('class_id', classId)
+    .in('status', ['booked', 'waitlisted']);
+  await supabaseAdmin
+    .from('fitness_bookings')
+    .update({ status: 'cancelled' })
+    .eq('class_id', classId)
+    .in('status', ['booked', 'waitlisted']);
+
+  const { data: canceledPatients } = await supabaseAdmin
+    .from('fitness_bookings')
+    .select('patient:patients(user_id)')
+    .eq('class_id', classId)
+    .eq('status', 'cancelled');
+  const notified = new Set();
+  for (const booking of canceledPatients || []) {
+    const patientUserId = booking.patient?.user_id;
+    if (patientUserId && !notified.has(patientUserId)) {
+      notified.add(patientUserId);
+      await notify(patientUserId, 'Class cancelled', `"${data.title}" on ${toDateOnly(data.starts_at)} has been cancelled. Your booking was refunded to status cancelled.`, 'gym', { classId, centerId: center.id });
+    }
+  }
+  await bumpListVersion('facilities');
+  return data;
+};
+
+const listOwnerBookings = async (userId, filters = {}) => {
+  const center = await resolveFitnessCenterOwner(userId);
+  let query = supabaseAdmin
+    .from('fitness_bookings')
+    .select('*, patient:patients(id, name, phone, profile_image_url, city), class:fitness_classes(id, title, starts_at, capacity), coach:wellness_coaches(id, name)')
+    .eq('center_id', center.id);
+  if (filters.status) query = query.eq('status', filters.status);
+  if (filters.from) query = query.gte('booking_date', filters.from);
+  if (filters.classId) query = query.eq('class_id', filters.classId);
+  const { data, error } = await query.order('booking_date', { ascending: false }).limit(200);
+  if (error) throw error;
+  return data || [];
+};
+
+const listOwnerCheckins = async (userId, filters = {}) => {
+  const center = await resolveFitnessCenterOwner(userId);
+  let query = supabaseAdmin
+    .from('fitness_checkins')
+    .select('*, patient:patients(id, name, profile_image_url, phone), booking:fitness_bookings(id, booking_type, class:fitness_classes(title))')
+    .eq('center_id', center.id);
+  if (filters.from) query = query.gte('checked_in_at', filters.from);
+  const { data, error } = await query.order('checked_in_at', { ascending: false }).limit(100);
+  if (error) throw error;
+  return data || [];
+};
+
+const refreshChallengeProgress = async (challenge) => {
+  const { data: entries } = await supabaseAdmin
+    .from('wellness_challenge_entries')
+    .select('id, patient_id')
+    .eq('challenge_id', challenge.id);
+  if (!entries || entries.length === 0) return;
+
+  const metric = challenge.metric || 'steps';
+  const startDate = challenge.starts_at ? toDateOnly(challenge.starts_at) : null;
+  const endDate = toDateOnly(challenge.ends_at || new Date().toISOString());
+  const nowIso = new Date().toISOString();
+
+  for (const entry of entries) {
+    let progressValue = 0;
+    if (metric === 'steps') {
+      const { data: rows } = await supabaseAdmin
+        .from('wearable_daily_summaries')
+        .select('steps')
+        .eq('patient_id', entry.patient_id)
+        .gte('summary_date', startDate || '2000-01-01')
+        .lte('summary_date', endDate);
+      progressValue = (rows || []).reduce((sum, row) => sum + Number(row.steps || 0), 0);
+    } else if (metric === 'workouts' || metric === 'workout') {
+      let query = supabaseAdmin
+        .from('workout_logs')
+        .select('id', { count: 'exact', head: true })
+        .eq('patient_id', entry.patient_id)
+        .lte('completed_at', `${endDate}T23:59:59.999Z`);
+      if (startDate) query = query.gte('completed_at', `${startDate}T00:00:00.000Z`);
+      const { count } = await query;
+      progressValue = count || 0;
+    } else if (metric === 'active_minutes') {
+      const { data: rows } = await supabaseAdmin
+        .from('wearable_daily_summaries')
+        .select('active_minutes')
+        .eq('patient_id', entry.patient_id)
+        .gte('summary_date', startDate || '2000-01-01')
+        .lte('summary_date', endDate);
+      progressValue = (rows || []).reduce((sum, row) => sum + Number(row.active_minutes || 0), 0);
+    } else {
+      continue;
+    }
+
+    const completedAt = challenge.target_value != null && progressValue >= Number(challenge.target_value) ? nowIso : null;
+    await supabaseAdmin
+      .from('wellness_challenge_entries')
+      .update({ progress_value: progressValue, completed_at: completedAt, last_updated_at: nowIso })
+      .eq('id', entry.id);
+  }
+};
+
+const getChallengeLeaderboard = async (userId, challengeId) => {
+  const { data: challenge, error } = await supabaseAdmin
+    .from('wellness_challenges')
+    .select('*')
+    .eq('id', challengeId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!challenge) throw new ApiError(404, 'Challenge not found');
+
+  await refreshChallengeProgress(challenge);
+
+  const { data, error: entriesError } = await supabaseAdmin
+    .from('wellness_challenge_entries')
+    .select('*, patient:patients(id, name, profile_image_url, city)')
+    .eq('challenge_id', challengeId)
+    .order('progress_value', { ascending: false })
+    .order('last_updated_at', { ascending: true })
+    .limit(100);
+  if (entriesError) throw entriesError;
+
+  const entries = (data || []).map((entry, index) => ({ ...entry, rank: index + 1 }));
+  let viewerPatientId = null;
+  if (userId) {
+    try {
+      const viewer = await resolvePatient(userId);
+      viewerPatientId = viewer.id;
+    } catch { /* optional viewer */ }
+  }
+  return {
+    challenge,
+    entries: entries.map((entry) => ({ ...entry, is_self: Boolean(viewerPatientId && entry.patient_id === viewerPatientId) })),
+    totalEntries: entries.length,
+  };
+};
+
+const updateChallengeProgress = async (userId, challengeId, payload = {}) => {
+  const patient = await resolvePatient(userId);
+  const { data: challenge, error } = await supabaseAdmin
+    .from('wellness_challenges')
+    .select('*')
+    .eq('id', challengeId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!challenge) throw new ApiError(404, 'Challenge not found');
+
+  const { data, error: joinError } = await supabaseAdmin
+    .from('wellness_challenge_entries')
+    .upsert({ challenge_id: challengeId, patient_id: patient.id }, { onConflict: 'challenge_id,patient_id' })
+    .select('*')
+    .single();
+  if (joinError) throw joinError;
+
+  await refreshChallengeProgress(challenge);
+  const { data: refreshed } = await supabaseAdmin
+    .from('wellness_challenge_entries')
+    .select('*, challenge:wellness_challenges(*)')
+    .eq('challenge_id', challengeId)
+    .eq('patient_id', patient.id)
+    .single();
+  return refreshed;
+};
+
+const listCoachPatients = async (userId) => {
+  const coach = await resolveCoach(userId);
+  const [relResult, sessionResult, planResult] = await Promise.allSettled([
+    supabaseAdmin
+      .from('coach_patient_relationships')
+      .select('*, patient:patients(id, user_id, name, email, phone, profile_image_url, city)')
+      .eq('coach_id', coach.id)
+      .eq('status', 'active')
+      .order('assigned_at', { ascending: false }),
+    supabaseAdmin
+      .from('wellness_sessions')
+      .select('patient_id, scheduled_at, status')
+      .eq('coach_id', coach.id)
+      .neq('status', 'cancelled')
+      .limit(500),
+    supabaseAdmin
+      .from('patient_workout_plans')
+      .select('patient_id, status, started_at')
+      .eq('coach_id', coach.id)
+      .in('status', ['active', 'paused', 'completed'])
+      .limit(500),
+  ]);
+
+  const relationships = relResult.status === 'fulfilled' ? relResult.value.data || [] : [];
+  const sessions = sessionResult.status === 'fulfilled' ? sessionResult.value.data || [] : [];
+  const plans = planResult.status === 'fulfilled' ? planResult.value.data || [] : [];
+
+  const explicit = new Map();
+  relationships.forEach((rel) => {
+    if (rel.patient) explicit.set(rel.patient.id, rel.patient);
+  });
+
+  const sessionPatientIds = new Set(sessions.map((session) => session.patient_id).filter(Boolean));
+  const planPatientIds = new Set(plans.map((plan) => plan.patient_id).filter(Boolean));
+  const implicitIds = Array.from(new Set([...sessionPatientIds, ...planPatientIds]))
+    .filter((id) => !explicit.has(id));
+
+  let implicitPatients = [];
+  if (implicitIds.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from('patients')
+      .select('id, user_id, name, email, phone, profile_image_url, city')
+      .in('id', implicitIds);
+    if (error) throw error;
+    implicitPatients = data || [];
+  }
+
+  const merged = new Map();
+  explicit.forEach((patient, id) => merged.set(id, { ...patient, source: 'assigned' }));
+  implicitPatients.forEach((patient) => merged.set(patient.id, { ...patient, source: 'session_or_plan' }));
+
+  const sessionCounts = new Map();
+  sessions.forEach((session) => {
+    sessionCounts.set(session.patient_id, (sessionCounts.get(session.patient_id) || 0) + 1);
+  });
+  const lastSessionByPatient = new Map();
+  sessions.forEach((session) => {
+    const existing = lastSessionByPatient.get(session.patient_id);
+    if (!existing || new Date(session.scheduled_at) > new Date(existing)) {
+      lastSessionByPatient.set(session.patient_id, session.scheduled_at);
+    }
+  });
+  const planCounts = new Map();
+  plans.forEach((plan) => {
+    if (plan.status === 'active') planCounts.set(plan.patient_id, (planCounts.get(plan.patient_id) || 0) + 1);
+  });
+
+  const patients = Array.from(merged.values()).map((patient) => ({
+    ...patient,
+    totalSessions: sessionCounts.get(patient.id) || 0,
+    lastSessionAt: lastSessionByPatient.get(patient.id) || null,
+    activePlans: planCounts.get(patient.id) || 0,
+  }));
+
+  const sorted = relationships.length > 0
+    ? patients
+    : patients.sort((a, b) => (b.totalSessions - a.totalSessions) || String(b.lastSessionAt || '').localeCompare(String(a.lastSessionAt || '')));
+  return sorted;
+};
+
+const getPatientAnalytics = async (coachUserId, patientId) => {
+  const coach = await resolveCoach(coachUserId);
+  const { data: rel, error: relError } = await supabaseAdmin
+    .from('coach_patient_relationships')
+    .select('id')
+    .eq('coach_id', coach.id)
+    .eq('patient_id', patientId)
+    .maybeSingle();
+  if (relError) throw relError;
+
+  const { data: sessionCheck } = await supabaseAdmin
+    .from('wellness_sessions')
+    .select('id')
+    .eq('coach_id', coach.id)
+    .eq('patient_id', patientId)
+    .limit(1);
+  if (!rel && (!sessionCheck || sessionCheck.length === 0)) {
+    throw new ApiError(403, 'This patient is not assigned to your coaching roster');
+  }
+
+  const { data: patient, error: patientError } = await supabaseAdmin
+    .from('patients')
+    .select('id, name, email, phone, profile_image_url, city, medical_conditions, chronic_conditions')
+    .eq('id', patientId)
+    .maybeSingle();
+  if (patientError) throw patientError;
+  if (!patient) throw new ApiError(404, 'Patient not found');
+
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
+  const sinceIso = since.toISOString();
+  const sinceDate = sinceIso.slice(0, 10);
+
+  const [workoutResult, wearableResult, badgeResult, sessionResult, planResult, dietResult] = await Promise.allSettled([
+    supabaseAdmin.from('workout_logs').select('id, completed_at, duration_minutes, calories_burned, perceived_intensity, pain_reported').eq('patient_id', patientId).gte('completed_at', sinceIso).order('completed_at', { ascending: false }),
+    supabaseAdmin.from('wearable_daily_summaries').select('*').eq('patient_id', patientId).gte('summary_date', sinceDate).order('summary_date', { ascending: false }),
+    supabaseAdmin.from('patient_wellness_badges').select('*, badge:wellness_badges(*)').eq('patient_id', patientId).order('earned_at', { ascending: false }).limit(20),
+    supabaseAdmin.from('wellness_sessions').select('id, scheduled_at, status, session_type').eq('patient_id', patientId).eq('coach_id', coach.id).gte('scheduled_at', sinceIso).order('scheduled_at', { ascending: false }),
+    supabaseAdmin.from('patient_workout_plans').select('*, plan:workout_plans(id, title, plan_type)').eq('patient_id', patientId).in('status', ['active', 'paused']).order('started_at', { ascending: false }).limit(5),
+    supabaseAdmin.from('wellness_diet_plans').select('*').eq('patient_id', patientId).eq('status', 'active').order('assigned_at', { ascending: false }).limit(3),
+  ]);
+
+  const workouts = workoutResult.status === 'fulfilled' ? workoutResult.value.data || [] : [];
+  const wearables = wearableResult.status === 'fulfilled' ? wearableResult.value.data || [] : [];
+  const activeDays = new Set(workouts.map((item) => toDateOnly(item.completed_at))).size;
+  const totalMinutes = workouts.reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0);
+  const totalCalories = workouts.reduce((sum, item) => sum + Number(item.calories_burned || 0), 0);
+  const avgSteps = wearables.length > 0
+    ? Math.round(wearables.reduce((sum, item) => sum + Number(item.steps || 0), 0) / wearables.length)
+    : 0;
+  const avgSleep = (() => {
+    const sleepDays = wearables.filter((item) => item.sleep_minutes != null);
+    return sleepDays.length > 0
+      ? Math.round(sleepDays.reduce((sum, item) => sum + Number(item.sleep_minutes || 0), 0) / sleepDays.length)
+      : null;
+  })();
+  const streaks = await getWorkoutStreaks(patient.user_id);
+
+  return {
+    patient,
+    period: { days: 30, from: sinceDate, to: todayIsoDate() },
+    metrics: {
+      workoutsCompleted: workouts.length,
+      activeDays,
+      totalMinutes,
+      totalCalories,
+      painReports: workouts.filter((item) => item.pain_reported).length,
+      avgDailySteps: avgSteps,
+      avgSleepMinutes: avgSleep,
+      currentStreak: streaks.currentStreak,
+      longestStreak: streaks.longestStreak,
+    },
+    trend: wearables.map((item) => ({ date: toDateOnly(item.summary_date), steps: item.steps, activeCalories: item.active_calories, sleepMinutes: item.sleep_minutes })),
+    recentWorkouts: workouts.slice(0, 10),
+    badges: badgeResult.status === 'fulfilled' ? badgeResult.value.data || [] : [],
+    sessions: sessionResult.status === 'fulfilled' ? sessionResult.value.data || [] : [],
+    activePlans: planResult.status === 'fulfilled' ? planResult.value.data || [] : [],
+    dietPlans: dietResult.status === 'fulfilled' ? dietResult.value.data || [] : [],
+  };
+};
+
+const slugify = (value) => String(value || '')
+  .toLowerCase()
+  .trim()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '')
+  .slice(0, 80);
+
+const createCoachWorkoutPlan = async (userId, payload = {}) => {
+  const coach = await resolveCoach(userId);
+  if (!payload.title || !String(payload.title).trim()) throw new ApiError(400, 'Plan title is required');
+
+  const baseSlug = slugify(payload.title) || `plan-${Date.now().toString(36)}`;
+  let slug = baseSlug;
+  let suffix = 2;
+  while (true) {
+    const { data: existing } = await supabaseAdmin.from('workout_plans').select('id').eq('slug', slug).maybeSingle();
+    if (!existing) break;
+    slug = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  const planData = {
+    slug,
+    created_by_coach_id: coach.id,
+    title: String(payload.title).trim(),
+    description: payload.description || null,
+    plan_type: payload.planType || payload.plan_type || 'strength',
+    goal: payload.goal || 'general_fitness',
+    level: payload.level || 'beginner',
+    location_type: payload.locationType || payload.location_type || 'home',
+    duration_weeks: Math.max(1, Math.min(asNumber(payload.durationWeeks || payload.duration_weeks, 4) || 4, 52)),
+    days_per_week: Math.max(1, Math.min(asNumber(payload.daysPerWeek || payload.days_per_week, 3) || 3, 7)),
+    minutes_per_session: Math.max(5, Math.min(asNumber(payload.minutesPerSession || payload.minutes_per_session, 30) || 30, 240)),
+    intensity: payload.intensity || 'moderate',
+    equipment: asArray(payload.equipment),
+    body_parts: asArray(payload.bodyParts || payload.body_parts),
+    language: payload.language || 'en',
+    safety_notes: asArray(payload.safetyNotes || payload.safety_notes),
+    is_public: payload.isPublic ?? payload.is_public ?? false,
+    is_active: true,
+  };
+
+  const { data, error } = await supabaseAdmin.from('workout_plans').insert(planData).select('*').single();
+  if (error) throw error;
+
+  const sessionsPayload = Array.isArray(payload.sessions) ? payload.sessions : [];
+  const sessions = [];
+  for (const session of sessionsPayload) {
+    if (!session.title || !String(session.title).trim()) continue;
+    const { data: inserted, error: sessionError } = await supabaseAdmin
+      .from('workout_sessions')
+      .insert({
+        plan_id: data.id,
+        day_index: asNumber(session.dayIndex || session.day_index, 1),
+        week_index: asNumber(session.weekIndex || session.week_index, 1),
+        title: String(session.title).trim(),
+        category: session.category || 'workout',
+        duration_minutes: asNumber(session.durationMinutes || session.duration_minutes, 30),
+        intensity: session.intensity || 'moderate',
+        body_parts: asArray(session.bodyParts || session.body_parts),
+        warmup: session.warmup || [],
+        exercises: session.exercises || [],
+        cooldown: session.cooldown || [],
+        instructions: session.instructions || null,
+        media_url: session.mediaUrl || session.media_url || null,
+        sort_order: asNumber(session.sortOrder || session.sort_order, 0),
+      })
+      .select('*')
+      .single();
+    if (sessionError) throw sessionError;
+    sessions.push(inserted);
+  }
+
+  const patientId = payload.patientId || payload.patient_id;
+  if (patientId) {
+    await supabaseAdmin
+      .from('coach_patient_relationships')
+      .upsert(
+        { coach_id: coach.id, patient_id: patientId, source: 'workout_plan', status: 'active' },
+        { onConflict: 'coach_id,patient_id' }
+      );
+    if (payload.assign === true || payload.assign) {
+      await supabaseAdmin
+        .from('patient_workout_plans')
+        .insert({ patient_id: patientId, plan_id: data.id, coach_id: coach.id, status: 'active' })
+        .select('*')
+        .single();
+    }
+  }
+
+  return { ...data, sessions };
+};
+
+const listCoachWorkoutPlans = async (userId) => {
+  const coach = await resolveCoach(userId);
+  const { data, error } = await supabaseAdmin
+    .from('workout_plans')
+    .select('*, sessions:workout_sessions(*)')
+    .eq('created_by_coach_id', coach.id)
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data || []).map((plan) => ({
+    ...plan,
+    sessions: (plan.sessions || []).sort((a, b) => (a.week_index - b.week_index) || (a.day_index - b.day_index) || (a.sort_order - b.sort_order)),
+  }));
+};
+
+const createDietPlan = async (userId, payload = {}) => {
+  const coach = await resolveCoach(userId);
+  if (!payload.title || !String(payload.title).trim()) throw new ApiError(400, 'Diet plan title is required');
+
+  const patientId = payload.patientId || payload.patient_id;
+  if (patientId) {
+    await supabaseAdmin
+      .from('coach_patient_relationships')
+      .upsert(
+        { coach_id: coach.id, patient_id: patientId, source: 'diet_plan', status: 'active' },
+        { onConflict: 'coach_id,patient_id' }
+      );
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('wellness_diet_plans')
+    .insert({
+      coach_id: coach.id,
+      patient_id: patientId || null,
+      title: String(payload.title).trim(),
+      description: payload.description || null,
+      diet_type: payload.dietType || payload.diet_type || 'balanced',
+      daily_calories: asNumber(payload.dailyCalories || payload.daily_calories),
+      macro_goals: payload.macroGoals || payload.macro_goals || {},
+      restricted_foods: asArray(payload.restrictedFoods || payload.restricted_foods),
+      meal_plan: Array.isArray(payload.mealPlan) ? payload.mealPlan : (payload.meals || []),
+      status: 'active',
+    })
+    .select('*, coach:wellness_coaches(id, name, profile_image_url)')
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+const listMyDietPlans = async (userId) => {
+  const patient = await resolvePatient(userId);
+  const { data, error } = await supabaseAdmin
+    .from('wellness_diet_plans')
+    .select('*, coach:wellness_coaches(id, name, profile_image_url, headline)')
+    .eq('patient_id', patient.id)
+    .in('status', ['active', 'completed'])
+    .order('assigned_at', { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  return data || [];
+};
+
+const listCoachDietPlans = async (userId) => {
+  const coach = await resolveCoach(userId);
+  const { data, error } = await supabaseAdmin
+    .from('wellness_diet_plans')
+    .select('*, patient:patients(id, name, profile_image_url)')
+    .eq('coach_id', coach.id)
+    .order('assigned_at', { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return data || [];
+};
+
+const archiveDietPlan = async (userId, planId) => {
+  const coach = await resolveCoach(userId);
+  const { data, error } = await supabaseAdmin
+    .from('wellness_diet_plans')
+    .update({ status: 'archived' })
+    .eq('id', planId)
+    .eq('coach_id', coach.id)
+    .select('*')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new ApiError(404, 'Diet plan not found');
+  return data;
+};
+
+const createReel = async (userId, payload = {}) => {
+  const coach = await resolveCoach(userId);
+  if (!payload.videoUrl && !payload.video_url) throw new ApiError(400, 'videoUrl is required');
+
+  const { data, error } = await supabaseAdmin
+    .from('wellness_reels')
+    .insert({
+      coach_id: coach.id,
+      title: String(payload.title || 'Fitness tip').trim(),
+      description: payload.description || null,
+      video_url: payload.videoUrl || payload.video_url,
+      thumbnail_url: payload.thumbnailUrl || payload.thumbnail_url || null,
+      category: payload.category || 'fitness',
+      tags: asArray(payload.tags),
+      duration_seconds: Math.max(0, asNumber(payload.durationSeconds || payload.duration_seconds, 0) || 0),
+      status: payload.status || 'published',
+      is_active: payload.isActive ?? payload.is_active ?? true,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  await bumpListVersion('reels');
+  return data;
+};
+
+const listReels = async (filters = {}, page = 1, limit = 20) => {
+  return cachedList('reels', filters, page, limit, 60, async () => {
+    const offset = (page - 1) * limit;
+    let query = supabaseAdmin
+      .from('wellness_reels')
+      .select('*, coach:wellness_coaches(id, name, profile_image_url, headline, coach_types, sub_role)', { count: 'exact' })
+      .eq('status', 'published')
+      .eq('is_active', true);
+    const q = sanitizeSearch(filters.q || filters.search || '');
+    if (q) query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
+    if (filters.category) query = query.eq('category', filters.category);
+    const { data, count, error } = await query.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+    if (error) throw error;
+    return { data: data || [], pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) } };
+  });
+};
+
+const listCoachReels = async (userId) => {
+  const coach = await resolveCoach(userId);
+  const { data, error } = await supabaseAdmin
+    .from('wellness_reels')
+    .select('*')
+    .eq('coach_id', coach.id)
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return data || [];
+};
+
+const likeReel = async (reelId) => {
+  const { data: reel } = await supabaseAdmin.from('wellness_reels').select('likes_count').eq('id', reelId).maybeSingle();
+  if (!reel) throw new ApiError(404, 'Reel not found');
+  const next = (Number(reel.likes_count) || 0) + 1;
+  const { data: updated, error: updateError } = await supabaseAdmin
+    .from('wellness_reels')
+    .update({ likes_count: next })
+    .eq('id', reelId)
+    .select('id, likes_count')
+    .single();
+  if (updateError) throw updateError;
+  return updated;
+};
+
+const incrementReelViews = async (reelId) => {
+  const { data: reel } = await supabaseAdmin.from('wellness_reels').select('views_count').eq('id', reelId).maybeSingle();
+  if (!reel) return null;
+  const { data: updated } = await supabaseAdmin
+    .from('wellness_reels')
+    .update({ views_count: (Number(reel.views_count) || 0) + 1 })
+    .eq('id', reelId)
+    .select('id, views_count')
+    .single();
+  return updated;
+};
+
+const getSessionMessages = async (userId, role, sessionId, options = {}) => {
+  const isCoach = role === 'wellness_coach';
+  if (!isCoach && role !== 'patient') throw new ApiError(403, 'Wellness chat access denied');
+
+  const { data: session, error } = await supabaseAdmin
+    .from('wellness_sessions')
+    .select('id, coach_id, patient_id')
+    .eq('id', sessionId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!session) throw new ApiError(404, 'Wellness session not found');
+
+  const table = isCoach ? 'wellness_coaches' : 'patients';
+  const { data: record, error: recordError } = await supabaseAdmin
+    .from(table)
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (recordError) throw recordError;
+
+  const participantId = record?.id;
+  const isParticipant = isCoach
+    ? participantId === session.coach_id
+    : participantId === session.patient_id;
+  if (!isParticipant) {
+    throw new ApiError(403, 'You are not a participant of this wellness session');
+  }
+
+  const limit = Math.min(Math.max(parseInt(options.limit, 10) || 100, 1), 100);
+  const before = options.before && !Number.isNaN(Date.parse(options.before)) ? new Date(options.before) : null;
+
+  const { ChatMessage } = require('../database/models');
+  if (!ChatMessage) return { data: [], pagination: { hasMore: false, nextBefore: null } };
+
+  let query = ChatMessage.find({ sessionId })
+    .where('metadata.wellnessSessionId').equals(sessionId)
+    .sort({ createdAt: -1 });
+  if (before) query = query.where('createdAt').lt(before);
+
+  const raw = await query.limit(limit + 1);
+  const hasMore = raw.length > limit;
+  const pageMessages = raw.slice(0, limit);
+
+  const messages = pageMessages.reverse().map((message) => ({
+    id: String(message._id),
+    userId: message.userId,
+    role: message.role,
+    message: message.content,
+    timestamp: message.createdAt ? message.createdAt.toISOString() : null,
+  }));
+
+  const oldest = pageMessages.length > 0 ? pageMessages[pageMessages.length - 1].createdAt : null;
+  return {
+    data: messages,
+    pagination: {
+      hasMore,
+      nextBefore: oldest ? oldest.toISOString() : null,
+    },
+  };
+};
+
+const updateCoachAvailability = async (userId, payload = {}) => {
+  const coach = await resolveCoach(userId);
+  const updates = {
+    is_available: payload.isAvailable ?? payload.is_available,
+    is_accepting_clients: payload.isAcceptingClients ?? payload.is_accepting_clients,
+    available_days: payload.availableDays || payload.available_days,
+    available_hours: payload.availableHours || payload.available_hours,
+    updated_at: new Date().toISOString(),
+  };
+  Object.keys(updates).forEach((key) => {
+    if (updates[key] === undefined) delete updates[key];
+  });
+  if (updates.available_days !== undefined) updates.available_days = asArray(updates.available_days);
+  const { data, error } = await supabaseAdmin
+    .from('wellness_coaches')
+    .update(updates)
+    .eq('id', coach.id)
+    .select('*')
+    .single();
+  if (error) throw error;
+  await bumpListVersion('coaches');
+  return data;
+};
+
+const runWellnessBadgeEvaluation = async () => {
+  const { cacheSetIfNotExists } = require('../config/redis');
+  const lockAcquired = await cacheSetIfNotExists('cron:wellness-badges:lock', process.pid, 60);
+  if (!lockAcquired) {
+    return { status: 'busy', message: 'A badge evaluation is already running' };
+  }
+  const started = Date.now();
+  const evaluateWellnessBadges = require('../cron/badges');
+  const result = await evaluateWellnessBadges();
+  return { status: 'ok', ...result, durationMs: Date.now() - started };
+};
+
 module.exports = {
   getHubSummary,
   getFitnessProfile,
@@ -1304,6 +2295,8 @@ module.exports = {
   listMySessions,
   listFacilities,
   getFacility,
+  addFitnessReel,
+  deleteFitnessReel,
   bookFacility,
   checkInFacility,
   getOwnedFitnessCenterDashboard,
@@ -1323,4 +2316,30 @@ module.exports = {
   listAiInsights,
   acknowledgeAiInsight,
   getWellnessReports,
+  getWorkoutStreaks,
+  listOwnerClasses,
+  createOwnerClass,
+  updateOwnerClass,
+  cancelOwnerClass,
+  listOwnerBookings,
+  listOwnerCheckins,
+  refreshChallengeProgress,
+  getChallengeLeaderboard,
+  updateChallengeProgress,
+  listCoachPatients,
+  getPatientAnalytics,
+  createCoachWorkoutPlan,
+  listCoachWorkoutPlans,
+  createDietPlan,
+  listMyDietPlans,
+  listCoachDietPlans,
+  archiveDietPlan,
+  createReel,
+  listReels,
+  listCoachReels,
+  likeReel,
+  incrementReelViews,
+  updateCoachAvailability,
+  getSessionMessages,
+  runWellnessBadgeEvaluation,
 };

@@ -21,8 +21,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.ui.res.painterResource
+import com.example.swastik.ui.screens.patient.WellnessHubActions
 import androidx.compose.runtime.getValue
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -338,37 +338,7 @@ fun CompactHealthIdCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                HubActionPill(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Filled.CameraAlt,
-                    label = "Log Meal",
-                    tint = Color(0xFFE65100),
-                    bg = Color(0xFFFFF3E0),
-                    onClick = onNutritionClick
-                )
-                HubActionPill(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Filled.FitnessCenter,
-                    label = "Workout",
-                    tint = Color(0xFF2563EB),
-                    bg = Color(0xFFEFF6FF),
-                    onClick = onClick
-                )
-                HubActionPill(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Filled.Sync,
-                    label = "Sync",
-                    tint = Color(0xFF6A5AE0),
-                    bg = Color(0xFFF0EFFF),
-                    onClick = onClick
-                )
-            }
         }
     }
 }
@@ -1036,8 +1006,8 @@ fun TopHealthcareServicesRow(
     onFitnessClick: () -> Unit = {}
 ) {
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-    // Screen width - padding (16dp*2) - spacing (8dp*3) divided by 4
-    val itemWidth = (configuration.screenWidthDp.dp - 32.dp - 24.dp) / 4
+    // Screen width - padding (16dp*2) - spacing (8dp*4) divided by 5
+    val itemWidth = (configuration.screenWidthDp.dp - 32.dp - 32.dp) / 5
 
     androidx.compose.foundation.lazy.LazyRow(
         modifier = Modifier
@@ -1082,8 +1052,16 @@ fun TopHealthcareServicesRow(
                 onClick = onDiagnosticsClick
             )
         }
+        // 5th card: Gym & Studios (Material icon until drawable provided)
+        item {
+            GymStudioIconCard(
+                modifier = Modifier.width(itemWidth),
+                onClick = onFitnessClick
+            )
+        }
     }
 }
+
 
 @Composable
 fun TopServiceIconCard(
@@ -1113,6 +1091,32 @@ fun TopServiceIconCard(
                 blendMode = androidx.compose.ui.graphics.BlendMode.Multiply
             )
         )
+    }
+}
+
+@Composable
+fun GymStudioIconCard(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val gymBgColor = Color(0xFFE8F8EF) // Wellness Hub green theme
+    Card(
+        modifier = modifier
+            .aspectRatio(1.25f)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = gymBgColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = Icons.Default.FitnessCenter,
+                contentDescription = "Gym & Studios",
+                tint = Color(0xFF047857),
+                modifier = Modifier.size(32.dp)
+            )
+        }
     }
 }
 

@@ -50,6 +50,7 @@ fun MyCareTabContent(
     onNavigateToAppointments: () -> Unit = {},
     onNavigateToOrderHistory: () -> Unit = {},
     onNavigateToBookingHistory: () -> Unit = {},
+    onNavigateToWellnessSessions: () -> Unit = {},
     favoriteDoctorsCount: Int = 0,
     favoriteHospitalsCount: Int = 0,
     favoriteClinicsCount: Int = 0,
@@ -76,6 +77,7 @@ fun MyCareTabContent(
             onNavigateToAppointments = onNavigateToAppointments,
             onNavigateToOrderHistory = onNavigateToOrderHistory,
             onNavigateToBookingHistory = onNavigateToBookingHistory,
+            onNavigateToWellnessSessions = onNavigateToWellnessSessions,
             onNavigateToMedicalRecords = { filter ->
                 initialRecordsFilter = filter
                 currentView = "RECORDS" 
@@ -134,6 +136,7 @@ fun MyCareCardsView(
     onNavigateToAppointments: () -> Unit,
     onNavigateToOrderHistory: () -> Unit,
     onNavigateToBookingHistory: () -> Unit,
+    onNavigateToWellnessSessions: () -> Unit = {},
     onNavigateToMedicalRecords: (com.example.swastik.ui.screens.patient.tabs.RecordFilter) -> Unit,
     favoriteDoctorsCount: Int = 0,
     favoriteHospitalsCount: Int = 0,
@@ -308,6 +311,20 @@ fun MyCareCardsView(
                 bgColor = Color(0xFFFFF7ED),
                 onClick = onNavigateToOrderHistory
             )
+            QuickAccessCard(
+                modifier = Modifier.weight(1f),
+                title = "Wellness Sessions",
+                subtitle = "Coach consultations",
+                icon = Icons.Outlined.SelfImprovement,
+                iconTint = Color(0xFF2E7D32),
+                bgColor = Color(0xFFE8F5E9),
+                onClick = onNavigateToWellnessSessions
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             QuickAccessCard(
                 modifier = Modifier.weight(1f),
                 title = "Reports",

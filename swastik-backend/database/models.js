@@ -23,11 +23,14 @@ const auditLogSchema = new mongoose.Schema({
 const chatMessageSchema = new mongoose.Schema({
     sessionId: { type: String, required: true, index: true },
     userId: { type: String, required: true, index: true },
-    role: { type: String, enum: ['user', 'assistant', 'system', 'doctor', 'patient'], required: true },
+    role: { type: String, enum: ['user', 'assistant', 'system', 'doctor', 'patient', 'wellness_coach'], required: true },
     content: { type: String, required: true },
     metadata: mongoose.Schema.Types.Mixed,
     createdAt: { type: Date, default: Date.now, index: true },
 });
+
+// Compound index so wellness-chat history pages resolve on (session, createdAt) only
+chatMessageSchema.index({ sessionId: 1, createdAt: -1 });
 
 // Analytics Event Schema - for tracking user behavior
 const analyticsEventSchema = new mongoose.Schema({

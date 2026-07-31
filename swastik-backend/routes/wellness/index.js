@@ -273,6 +273,24 @@ router.get('/sessions',
   })
 );
 
+router.get('/sessions/:id/messages',
+  authenticate,
+  requireRole(ROLES.PATIENT, ROLES.WELLNESS_COACH),
+  [
+    param('id').isUUID('loose'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('limit must be 1-100'),
+    query('before').optional().isISO8601().withMessage('before must be an ISO timestamp'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.getSessionMessages(req.user.id, req.user.role, req.params.id, {
+      limit: parseInt(req.query.limit || '100', 10),
+      before: req.query.before,
+    });
+    res.json({ success: true, ...data });
+  })
+);
+
 router.post('/sessions',
   authenticate,
   requireRole(ROLES.PATIENT),
@@ -352,6 +370,18 @@ router.post('/facilities/checkins',
   asyncHandler(async (req, res) => {
     const data = await wellnessService.checkInFacility(req.user.id, req.body);
     res.status(201).json({ success: true, data });
+  })
+);
+
+router.post('/admin/badges/re-evaluate',
+  authenticate,
+  requireRole(ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.runWellnessBadgeEvaluation();
+    if (data.status === 'busy') {
+      return res.status(409).json({ success: false, ...data });
+    }
+    res.json({ success: true, data });
   })
 );
 
@@ -469,6 +499,271 @@ router.post('/trainer-invites/:token/respond',
   })
 );
 
+// Coach production dashboard: clients, analytics, and plan builder
+router.get('/coaches/me/patients',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH),
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.listCoachPatients(req.user.id);
+    res.json({ success: true, data });
+  })
+);
+
+router.get('/coaches/me/patients/:id/analytics',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH),
+  [param('id').isUUID('loose')],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.getPatientAnalytics(req.user.id, req.params.id);
+    res.json({ success: true, data });
+  })
+);
+
+router.get('/coaches/me/workout-plans',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH),
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.listCoachWorkoutPlans(req.user.id);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/coaches/me/workout-plans',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH),
+  [
+    body('title').notEmpty().withMessage('Plan title is required'),
+    body('patientId').optional().isUUID('loose'),
+    body('patient_id').optional().isUUID('loose'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.createCoachWorkoutPlan(req.user.id, req.body);
+    res.status(201).json({ success: true, data });
+  })
+);
+
+router.get('/coaches/me/diet-plans',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH),
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.listCoachDietPlans(req.user.id);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/coaches/me/diet-plans',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH),
+  [
+    body('title').notEmpty().withMessage('Diet plan title is required'),
+    body('patientId').optional().isUUID('loose'),
+    body('patient_id').optional().isUUID('loose'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.createDietPlan(req.user.id, req.body);
+    res.status(201).json({ success: true, data });
+  })
+);
+
+router.post('/coaches/me/diet-plans/:id/archive',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH),
+  [param('id').isUUID('loose')],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.archiveDietPlan(req.user.id, req.params.id);
+    res.json({ success: true, data });
+  })
+);
+
+router.put('/coaches/me/availability',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH),
+  [
+    body('isAvailable').optional().isBoolean(),
+    body('is_available').optional().isBoolean(),
+    body('isAcceptingClients').optional().isBoolean(),
+    body('is_accepting_clients').optional().isBoolean(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.updateCoachAvailability(req.user.id, req.body);
+    res.json({ success: true, data });
+  })
+);
+
+router.get('/coaches/me/reels',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH),
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.listCoachReels(req.user.id);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/coaches/me/reels',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH),
+  [
+    body('videoUrl').optional().notEmpty(),
+    body('video_url').optional().notEmpty(),
+    body().custom((_, { req }) => {
+      if (!req.body.videoUrl && !req.body.video_url) {
+        throw new Error('videoUrl is required');
+      }
+      return true;
+    }),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.createReel(req.user.id, req.body);
+    res.status(201).json({ success: true, data });
+  })
+);
+
+// Fitness center owner: class CRUD and live feeds
+router.get('/owner/classes',
+  authenticate,
+  requireRole(ROLES.FITNESS_CENTER_OWNER),
+  [
+    query('status').optional().isIn(['scheduled', 'cancelled', 'completed']),
+    query('from').optional().isISO8601(),
+    query('to').optional().isISO8601(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.listOwnerClasses(req.user.id, req.query);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/owner/classes',
+  authenticate,
+  requireRole(ROLES.FITNESS_CENTER_OWNER),
+  [
+    body('title').notEmpty().withMessage('Class title is required'),
+    body('coachId').optional().isUUID('loose'),
+    body('coach_id').optional().isUUID('loose'),
+    body().custom((_, { req }) => {
+      if (!req.body.startsAt && !req.body.starts_at) {
+        throw new Error('Class start time is required');
+      }
+      return true;
+    }),
+    body('startsAt').optional().isISO8601(),
+    body('starts_at').optional().isISO8601(),
+    body('endsAt').optional().isISO8601(),
+    body('ends_at').optional().isISO8601(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.createOwnerClass(req.user.id, req.body);
+    res.status(201).json({ success: true, data });
+  })
+);
+
+router.put('/owner/classes/:id',
+  authenticate,
+  requireRole(ROLES.FITNESS_CENTER_OWNER),
+  [param('id').isUUID('loose')],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.updateOwnerClass(req.user.id, req.params.id, req.body);
+    res.json({ success: true, data });
+  })
+);
+
+router.delete('/owner/classes/:id',
+  authenticate,
+  requireRole(ROLES.FITNESS_CENTER_OWNER),
+  [param('id').isUUID('loose')],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.cancelOwnerClass(req.user.id, req.params.id);
+    res.json({ success: true, data });
+  })
+);
+
+router.get('/owner/bookings',
+  authenticate,
+  requireRole(ROLES.FITNESS_CENTER_OWNER),
+  [
+    query('status').optional().isIn(['booked', 'waitlisted', 'cancelled', 'completed', 'no_show']),
+    query('from').optional().isISO8601(),
+    query('classId').optional().isUUID('loose'),
+    query('class_id').optional().isUUID('loose'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.listOwnerBookings(req.user.id, {
+      ...req.query,
+      classId: req.query.classId || req.query.class_id,
+    });
+    res.json({ success: true, data });
+  })
+);
+
+router.get('/owner/checkins',
+  authenticate,
+  requireRole(ROLES.FITNESS_CENTER_OWNER),
+  [query('from').optional().isISO8601()],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.listOwnerCheckins(req.user.id, req.query);
+    res.json({ success: true, data });
+  })
+);
+
+// Gym/studio reels (owner upload/delete; patients view via GET /facilities/:id)
+router.post('/owner/reels',
+  authenticate,
+  requireRole(ROLES.FITNESS_CENTER_OWNER),
+  [
+    body('video_url').isString().trim().notEmpty().withMessage('Video URL is required'),
+    body('thumbnail_url').optional().isString().trim(),
+    body('title').optional().isString().trim(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.addFitnessReel(req.user.id, req.body);
+    res.status(201).json({ success: true, data });
+  })
+);
+
+router.delete('/owner/reels/:reelId',
+  authenticate,
+  requireRole(ROLES.FITNESS_CENTER_OWNER),
+  [param('reelId').isUUID('loose')],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.deleteFitnessReel(req.user.id, req.params.reelId);
+    res.json({ success: true, data });
+  })
+);
+
+// Workout streaks
+router.get('/streaks',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.getWorkoutStreaks(req.user.id);
+    res.json({ success: true, data });
+  })
+);
+
+// Patient diet plans (nutritionist-assigned)
+router.get('/diet-plans',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.listMyDietPlans(req.user.id);
+    res.json({ success: true, data });
+  })
+);
+
 // Community and challenges
 router.get('/groups',
   optionalAuth,
@@ -505,6 +800,58 @@ router.post('/challenges/:id/join',
   asyncHandler(async (req, res) => {
     const data = await wellnessService.joinChallenge(req.user.id, req.params.id);
     res.status(201).json({ success: true, data });
+  })
+);
+
+router.get('/challenges/:id/leaderboard',
+  optionalAuth,
+  [param('id').isUUID('loose')],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.getChallengeLeaderboard(req.user?.id || null, req.params.id);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/challenges/:id/progress',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  [param('id').isUUID('loose')],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.updateChallengeProgress(req.user.id, req.params.id, req.body);
+    res.json({ success: true, data });
+  })
+);
+
+// Wellness reels (short-form coach content)
+router.get('/reels',
+  optionalAuth,
+  pagination,
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await wellnessService.listReels(req.query, pageOf(req), limitOf(req));
+    res.json({ success: true, ...result });
+  })
+);
+
+router.post('/reels/:id/like',
+  authenticate,
+  [param('id').isUUID('loose')],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.likeReel(req.params.id);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/reels/:id/view',
+  optionalAuth,
+  [param('id').isUUID('loose')],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.incrementReelViews(req.params.id);
+    res.json({ success: true, data });
   })
 );
 

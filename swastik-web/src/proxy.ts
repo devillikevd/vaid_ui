@@ -109,6 +109,7 @@ export const config = {
         '/clinic/:path*',
         '/diagnostic-center/:path*',
         '/wellness/:path*',
+        '/fitness-center/:path*',
         '/pharmacy/:path*',
         '/consultation/:path*',
     ],

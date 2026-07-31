@@ -621,10 +621,15 @@ const createRoleProfile = async (userId, role, data) => {
       const sessionFee = parseNonNegativeNumber(firstProvided(data.sessionFee, data.session_fee, data.consultationFee, data.consultation_fee, 0));
       const videoSessionFee = parseNonNegativeNumber(firstProvided(data.videoSessionFee, data.video_session_fee, data.videoConsultationFee, data.video_consultation_fee));
       const monthlyPlanFee = parseNonNegativeNumber(firstProvided(data.monthlyPlanFee, data.monthly_plan_fee));
+      const subRole = normalizeText(firstProvided(data.subRole, data.sub_role));
+      if (subRole && !['fitness_trainer', 'yoga_coach', 'nutritionist'].includes(subRole)) {
+        throw new ApiError(400, 'Invalid wellness coach sub-role. Use fitness_trainer, yoga_coach, or nutritionist.');
+      }
 
       await insertProfile('wellness_coaches', {
         user_id: userId,
         name: data.name,
+        sub_role: subRole || null,
         headline: normalizeText(data.headline) || null,
         coach_types: coachTypes,
         specialties,
@@ -836,7 +841,7 @@ const assertRoleProfileExists = async (user) => {
 // ==================== Verify Email ====================
 const verifyEmail = async (token) => {
   try {
-    const decoded = jwt.verify(token, config.jwt.secret);
+    const decoded = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] });
     if (decoded.type !== 'email_verification') {
       throw new Error('Invalid token type');
     }
@@ -1055,7 +1060,7 @@ const login = async (rawEmail, password, expectedRole = null) => {
 // ==================== Refresh Token ====================
 const refreshToken = async (token) => {
   try {
-    const decoded = jwt.verify(token, config.jwt.refreshSecret);
+    const decoded = jwt.verify(token, config.jwt.refreshSecret, { algorithms: ['HS256'] });
     if (decoded.type !== 'refresh') {
       throw new Error('Invalid token type');
     }
@@ -1227,7 +1232,7 @@ const resetPassword = async ({ token = null, email: rawEmail = null, otp = null,
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, config.jwt.secret);
+      const decoded = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] });
       if (decoded.type !== 'password_reset') {
         throw new Error('Invalid token');
       }

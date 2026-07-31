@@ -607,7 +607,159 @@ interface ApiService {
         @Query("category") category: String? = null
     ): Response<PaginatedResponse<TrustedSupplementDto>>
 
+    // ==================== WELLNESS ASSESSMENT ====================
+
+    @GET("wellness/assessment")
+    suspend fun getWellnessAssessment(): Response<ApiResponse<WellnessAssessmentDto>>
+
+    @POST("wellness/assessment/goals")
+    suspend fun submitAssessmentGoals(
+        @Body request: CreateAssessmentGoalsRequest
+    ): Response<ApiResponse<WellnessAssessmentDto>>
+
+    @POST("wellness/assessment/bio")
+    suspend fun submitAssessmentBio(
+        @Body request: CreateAssessmentBioRequest
+    ): Response<ApiResponse<WellnessAssessmentDto>>
+
+    @POST("wellness/assessment/health-screening")
+    suspend fun submitHealthScreening(
+        @Body request: CreateHealthScreeningRequest
+    ): Response<ApiResponse<WellnessAssessmentDto>>
+
+    // ==================== WELLNESS COACH DETAIL ====================
+
+    @GET("wellness/coaches/{id}")
+    suspend fun getWellnessCoachDetail(
+        @Path("id") coachId: String
+    ): Response<ApiResponse<WellnessCoachDetailDto>>
+
+    // ==================== WELLNESS SESSIONS ====================
+
+    @GET("wellness/sessions")
+    suspend fun getWellnessSessions(
+        @Query("status") status: String? = null
+    ): Response<ApiResponse<List<WellnessSessionDto>>>
+
+    @POST("wellness/sessions")
+    suspend fun bookWellnessSession(
+        @Body request: BookWellnessSessionRequest
+    ): Response<ApiResponse<WellnessSessionDto>>
+
+    // ==================== WORKOUT PLAN DETAIL & ASSIGNMENT ====================
+
+    @GET("wellness/plans/{id}")
+    suspend fun getWorkoutPlanDetail(
+        @Path("id") planId: String
+    ): Response<ApiResponse<WellnessWorkoutPlanDto>>
+
+    @POST("wellness/plans/{id}/assign")
+    suspend fun assignWorkoutPlan(
+        @Path("id") planId: String,
+        @Body request: AssignWorkoutPlanRequest
+    ): Response<ApiResponse<PatientWorkoutPlanDto>>
+
+    @POST("wellness/workouts/log")
+    suspend fun logWorkout(
+        @Body request: LogWorkoutRequest
+    ): Response<ApiResponse<JsonObject>>
+
+    // ==================== GYM CLASS SCHEDULE & BOOKING ====================
+
+    @GET("wellness/facilities/{id}/classes")
+    suspend fun getGymClassSchedule(
+        @Path("id") centerId: String,
+        @Query("from") from: String? = null,
+        @Query("to") to: String? = null
+    ): Response<ApiResponse<List<FitnessClassDto>>>
+
+    @POST("wellness/facilities/{centerId}/classes/{classId}/book")
+    suspend fun bookGymClass(
+        @Path("centerId") centerId: String,
+        @Path("classId") classId: String
+    ): Response<ApiResponse<JsonObject>>
+
+    @DELETE("wellness/facilities/{centerId}/classes/{classId}/cancel")
+    suspend fun cancelGymClassBooking(
+        @Path("centerId") centerId: String,
+        @Path("classId") classId: String
+    ): Response<ApiResponse<Unit>>
+
+    // ==================== CHALLENGE LEADERBOARD ====================
+
+    @GET("wellness/challenges/{id}/leaderboard")
+    suspend fun getChallengeLeaderboard(
+        @Path("id") challengeId: String
+    ): Response<ApiResponse<ChallengeLeaderboardResponse>>
+
+    @POST("wellness/challenges/{id}/join")
+    suspend fun joinChallenge(
+        @Path("id") challengeId: String
+    ): Response<ApiResponse<JsonObject>>
+
+    @POST("wellness/challenges/{id}/progress")
+    suspend fun updateChallengeProgress(
+        @Path("id") challengeId: String,
+        @Body request: UpdateChallengeProgressRequest
+    ): Response<ApiResponse<JsonObject>>
+
+    // ==================== WELLNESS STREAKS & CHAT & REELS ====================
+
+    @GET("wellness/hub")
+    suspend fun getWellnessHub(): Response<ApiResponse<WellnessHubDto>>
+
+    @GET("wellness/streaks")
+    suspend fun getWellnessStreaks(): Response<ApiResponse<WellnessStreakDto>>
+
+    @GET("wellness/sessions/{id}/messages")
+    suspend fun getWellnessSessionMessages(
+        @Path("id") sessionId: String
+    ): Response<ApiResponse<List<WellnessChatMessageDto>>>
+
+    @GET("wellness/reels")
+    suspend fun getWellnessReels(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20,
+        @Query("category") category: String? = null
+    ): Response<ApiResponse<List<WellnessReelDto>>>
+
+    @POST("wellness/reels/{id}/like")
+    suspend fun likeWellnessReel(
+        @Path("id") reelId: String
+    ): Response<ApiResponse<JsonObject>>
+
+    @POST("wellness/reels/{id}/view")
+    suspend fun viewWellnessReel(
+        @Path("id") reelId: String
+    ): Response<ApiResponse<JsonObject>>
+
+    // ==================== COACH DASHBOARD ====================
+
+    @GET("wellness/coaches/me")
+    suspend fun getMyCoachProfile(): Response<ApiResponse<WellnessCoachDto>>
+
+    @GET("wellness/coaches/me/patients")
+    suspend fun getCoachPatients(): Response<ApiResponse<List<CoachPatientDto>>>
+
+    @GET("wellness/coaches/me/patients/{id}/analytics")
+    suspend fun getCoachPatientAnalytics(
+        @Path("id") patientId: String
+    ): Response<ApiResponse<JsonObject>>
+
+    @PUT("wellness/coaches/me/availability")
+    suspend fun updateCoachAvailability(
+        @Body request: UpdateCoachAvailabilityRequest
+    ): Response<ApiResponse<JsonObject>>
+
+    // ==================== QR GYM CHECK-IN ====================
+
+    @POST("wellness/facilities/checkins")
+    suspend fun qrGymCheckIn(
+        @Body request: QrCheckInRequest
+    ): Response<ApiResponse<JsonObject>>
+
     // ==================== REMINDERS ====================
+
 
     @GET("patients/reminders")
     suspend fun getReminders(

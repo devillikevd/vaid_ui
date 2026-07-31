@@ -125,7 +125,10 @@ sealed class Screen(val route: String) {
     object GuardianDashboard : Screen("guardian_dashboard")
     object HealthConnectSetup : Screen("health_connect_setup")
     object HealthConnectDashboard : Screen("health_connect_dashboard")
-    object WellnessHub : Screen("wellness_hub")
+    object WellnessHub : Screen("wellness_hub?section={section}") {
+        fun createRoute(section: String? = null): String =
+            if (section == null) "wellness_hub" else "wellness_hub?section=$section"
+    }
     object MedicineCart : Screen("medicine_cart/{type}") {
         fun createRoute(type: String) = "medicine_cart/$type"
     }
@@ -134,6 +137,59 @@ sealed class Screen(val route: String) {
     }
     object BookingHistory : Screen("booking_history")
     object DietTracker : Screen("diet_tracker")
+
+    // Wellness Sub-Screens (Separate Pages)
+    object WellnessWorkouts : Screen("wellness_workouts")
+    object WorkoutPlayer : Screen("workout_player/{planId}") {
+        fun createRoute(planId: String): String = "workout_player/$planId"
+    }
+    object WellnessExperts : Screen("wellness_experts")
+    object WellnessCommunity : Screen("wellness_community")
+    object WellnessSupplements : Screen("wellness_supplements")
+    object WellnessReports : Screen("wellness_reports")
+    object WellnessAICoach : Screen("wellness_ai_coach")
+    object WellnessAssessment : Screen("wellness_assessment")
+
+    // Wellness Coach & Sessions
+    object WellnessCoachDetail : Screen("wellness_coach_detail/{coachId}") {
+        fun createRoute(coachId: String): String = "wellness_coach_detail/$coachId"
+    }
+    object WellnessSessionBooking : Screen("wellness_session_booking/{coachId}") {
+        fun createRoute(coachId: String): String = "wellness_session_booking/$coachId"
+    }
+    object WellnessSessions : Screen("wellness_sessions")
+    object WellnessVideoCall : Screen("wellness_video_call/{sessionId}/{coachName}") {
+        fun createRoute(sessionId: String, coachName: String): String {
+            return "wellness_video_call/${sessionId}/${java.net.URLEncoder.encode(coachName, "UTF-8")}"
+        }
+    }
+
+    object CoachDashboard : Screen("coach_dashboard")
+
+    // Phase 2 — High Value
+    object WorkoutCalendar : Screen("workout_calendar")
+    object GymClassSchedule : Screen("gym_class_schedule/{centerId}/{centerName}") {
+        fun createRoute(centerId: String, centerName: String): String {
+            return "gym_class_schedule/$centerId/${java.net.URLEncoder.encode(centerName, "UTF-8")}"
+        }
+    }
+    object WellnessTypedReports : Screen("wellness_typed_reports")
+    object ChallengeLeaderboard : Screen("challenge_leaderboard/{challengeId}/{challengeTitle}") {
+        fun createRoute(challengeId: String, challengeTitle: String): String {
+            return "challenge_leaderboard/$challengeId/${java.net.URLEncoder.encode(challengeTitle, "UTF-8")}"
+        }
+    }
+
+    // Phase 3 — Differentiator
+    object QrGymCheckIn : Screen("qr_gym_checkin")
+    object WellnessChat : Screen("wellness_chat/{sessionId}/{coachName}") {
+        fun createRoute(sessionId: String, coachName: String): String {
+            return "wellness_chat/$sessionId/${java.net.URLEncoder.encode(coachName, "UTF-8")}"
+        }
+    }
+    object WellnessReminders : Screen("wellness_reminders")
+    object WellnessBadges : Screen("wellness_badges")
+    object WellnessReels : Screen("wellness_reels")
     
     // AI Diagnostics
 

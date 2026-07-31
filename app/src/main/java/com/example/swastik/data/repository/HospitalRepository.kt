@@ -1111,7 +1111,16 @@ private fun ClinicDto.toMedicalFacility(
             },
             images = photoUrls,
             description = description,
-            openingHours = openingHours?.toString()
+            openingHours = openingHours?.toString(),
+            reels = reels?.map { reel ->
+                HospitalReel(
+                    id = reel.id ?: "",
+                    videoUrl = reel.videoUrl ?: "",
+                    thumbnailUrl = reel.thumbnailUrl,
+                    title = reel.title,
+                    createdAt = reel.createdAt
+                )
+            } ?: emptyList(),
         )
     }
 

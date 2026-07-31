@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { notificationsApi, vitalsApi, getTokens } from '@/lib/api';
+import { notificationsApi, vitalsApi, wellnessApi, getTokens } from '@/lib/api';
 import { PUBLIC_AI_WS_URL, PUBLIC_SOCKET_URL } from '@/lib/env';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -964,7 +964,127 @@ export function useConsultationChat(consultationId: string | null) {
     };
 }
 
-// ── Vitals Types ──────────────────────────────────────────────────
+/**
+ * Hook for wellness session chat (coach <-> patient).
+ * Backend protocol: wellness:chat:join / wellness:chat:leave / wellness:chat:message /
+ * wellness:chat:typing. The server echoes the sender's own message via wellness:chat:message:sent.
+ */
+export function useWellnessChat(sessionId: string | null) {
+    const { emit, on } = useSocket();
+    const { user } = useAuthStore();
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [typingUsers, setTypingUsers] = useState<string[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+
+    const appendUnique = useCallback((message: ChatMessage) => {
+        setMessages((prev) => {
+            const isDupe = prev.some(
+                (m) => m.userId === message.userId && m.timestamp === message.timestamp && m.message === message.message
+            );
+            if (isDupe) return prev;
+            return [...prev, message];
+        });
+    }, []);
+
+    const loadHistory = useCallback(async () => {
+        if (!sessionId) return;
+        setHistoryLoading(true);
+        try {
+            const response = await wellnessApi.getSessionMessages(sessionId);
+            if (response.success) {
+                const history = (response.data || []) as ChatMessage[];
+                setMessages(history.map((msg) => ({
+                    userId: msg.userId,
+                    message: msg.message,
+                    timestamp: msg.timestamp || new Date().toISOString(),
+                })));
+            }
+        } finally {
+            setHistoryLoading(false);
+        }
+    }, [sessionId]);
+
+    useEffect(() => {
+        if (!sessionId) {
+            setMessages([]);
+            setTypingUsers([]);
+            return;
+        }
+
+        const joinChat = () => emit('wellness:chat:join', sessionId);
+
+        const handleMessage = (message: ChatMessage) => {
+            setMessages((prev) => {
+                const samePending = prev.find(
+                    (m) => m.userId === message.userId && m.message === message.message
+                );
+                if (samePending) {
+                    const sentTs = Date.parse(message.timestamp);
+                    const pendingTs = Date.parse(samePending.timestamp);
+                    if (Number.isFinite(sentTs) && Number.isFinite(pendingTs) && Math.abs(sentTs - pendingTs) < 3000) {
+                        return prev.map((m) => (m === samePending ? message : m));
+                    }
+                }
+                const isDupe = prev.some(
+                    (m) => m.userId === message.userId && m.timestamp === message.timestamp && m.message === message.message
+                );
+                if (isDupe) return prev;
+                return [...prev, message];
+            });
+        };
+
+        const handleTyping = (data: { userId: string; isTyping: boolean }) => {
+            if (data.isTyping) {
+                setTypingUsers((prev) => [...new Set([...prev, data.userId])]);
+            } else {
+                setTypingUsers((prev) => prev.filter((id) => id !== data.userId));
+            }
+        };
+
+        const unsubs = [
+            on('connect', joinChat),
+            on('wellness:chat:message', handleMessage),
+            on('wellness:chat:message:sent', handleMessage),
+            on('wellness:chat:typing', handleTyping),
+        ];
+
+        joinChat();
+        loadHistory();
+
+        return () => {
+            unsubs.forEach((unsub) => unsub());
+            emit('wellness:chat:leave', sessionId);
+        };
+    }, [sessionId, emit, on, loadHistory]);
+
+    const sendMessage = useCallback(
+        (message: string) => {
+            if (!sessionId) return;
+            const ts = new Date().toISOString();
+            const truncatedMessage = message.trim().slice(0, 2000);
+            appendUnique({ userId: user?.id || '', message: truncatedMessage, timestamp: ts });
+            emit('wellness:chat:message', { sessionId, message: truncatedMessage });
+        },
+        [sessionId, emit, user?.id, appendUnique]
+    );
+
+    const setTyping = useCallback(
+        (isTyping: boolean) => {
+            if (!sessionId) return;
+            emit('wellness:chat:typing', { sessionId, isTyping });
+        },
+        [sessionId, emit]
+    );
+
+    return {
+        messages,
+        typingUsers,
+        historyLoading,
+        loadHistory,
+        sendMessage,
+        setTyping,
+    };
+}
 
 export interface VitalsStreamData {
     session_id: string;

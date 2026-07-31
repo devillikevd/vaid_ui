@@ -260,6 +260,24 @@ app.set('trust proxy', 1);
 // Security middleware (after CORS)
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
+  // Explicit HSTS so subdomains + preload are covered (browsers only honor it over HTTPS)
+  strictTransportSecurity: {
+    maxAge: 15552000, // 180 days
+    includeSubDomains: true,
+    preload: true,
+  },
+  referrerPolicy: { policy: 'no-referrer' },
+  // JSON API: frame-ancestors guards against clickjacking of any served content
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'self'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
 }));
 
 // Response compression — 60-80% bandwidth reduction for JSON/text responses
@@ -504,6 +522,10 @@ const startServer = async () => {
         startReminderNotificationCron();
         // Start appointment expire cron
         startAppointmentExpireCron();
+        // Start wellness badge evaluation cron (nightly)
+        startWellnessBadgesCron();
+        // Start wellness chat retention cleanup (daily)
+        startWellnessChatCleanupCron();
         // Start disease outbreak detection cron (runs every 6 hours)
         if (isEnvEnabled('OUTBREAK_CRON_ENABLED', true)) {
           startOutbreakCron(6);
@@ -555,6 +577,8 @@ const startServer = async () => {
 let consultationTimeoutInterval;
 let reminderNotificationInterval;
 let appointmentExpireInterval;
+let wellnessBadgesInterval;
+let wellnessChatCleanupInterval;
 
 const startAppointmentExpireCron = () => {
   if (String(process.env.APPOINTMENT_EXPIRE_CRON_ENABLED || 'true').toLowerCase() === 'false') {
@@ -564,6 +588,7 @@ const startAppointmentExpireCron = () => {
   const intervalMs = Number(process.env.APPOINTMENT_EXPIRE_CRON_INTERVAL_MS || 5 * 60 * 1000);
   const lockTtlSec = Math.max(30, Math.ceil(intervalMs / 1000) - 5);
   appointmentExpireInterval = setInterval(async () => {
+    const startedAt = Date.now();
     try {
       try {
         const { cacheSetIfNotExists } = require('./config/redis');
@@ -571,9 +596,39 @@ const startAppointmentExpireCron = () => {
         if (!lockAcquired) return;
       } catch (lockErr) {}
       const expirePastAppointments = require('./cron/expireAppointments');
-      await expirePastAppointments();
+      const result = await expirePastAppointments();
+      logger.info(`[Cron] Appointment expire result: ${JSON.stringify(result)}`);
+      if (result && result.error) {
+        const { notifyCronAlert } = require('./services/cronAlert');
+        await notifyCronAlert({
+          job: 'appointment-expire',
+          ok: false,
+          message: result.error,
+          durationMs: Date.now() - startedAt,
+        });
+      } else if (String(process.env.CRON_ALERT_ON_SUCCESS || 'false').toLowerCase() === 'true') {
+        const { notifyCronAlert } = require('./services/cronAlert');
+        await notifyCronAlert({
+          job: 'appointment-expire',
+          ok: true,
+          message: 'Appointment expiry scan completed',
+          durationMs: Date.now() - startedAt,
+          context: result || {},
+        });
+      }
     } catch (err) {
       logger.error('[Cron] Appointment expire error:', err.message);
+      try {
+        const { notifyCronAlert } = require('./services/cronAlert');
+        await notifyCronAlert({
+          job: 'appointment-expire',
+          ok: false,
+          message: err.message,
+          durationMs: Date.now() - startedAt,
+        });
+      } catch (alertErr) {
+        logger.warn('[Cron] Failed to send appointment-expire alert:', alertErr.message);
+      }
     }
   }, intervalMs);
 };
@@ -588,6 +643,7 @@ const startConsultationTimeoutCron = () => {
   const lockTtlSec = Math.max(30, Math.ceil(intervalMs / 1000) - 5);
 
   consultationTimeoutInterval = setInterval(async () => {
+    const startedAt = Date.now();
     try {
       // Multi-instance safety: only one instance should run this scan per interval.
       try {
@@ -607,11 +663,130 @@ const startConsultationTimeoutCron = () => {
         .lt('started_at', cutoff)
         .select('id');
 
-      if (!error && data?.length > 0) {
-        logger.info(`[Cron] Timed out ${data.length} stale consultations`);
+      if (error) throw error;
+      const result = { timedOut: data?.length || 0 };
+      logger.info(`[Cron] Consultation timeout result: ${JSON.stringify(result)}`);
+      if (String(process.env.CRON_ALERT_ON_SUCCESS || 'false').toLowerCase() === 'true') {
+        const { notifyCronAlert } = require('./services/cronAlert');
+        await notifyCronAlert({
+          job: 'consultation-timeout',
+          ok: true,
+          message: 'Consultation timeout scan completed',
+          durationMs: Date.now() - startedAt,
+          context: result,
+        });
       }
     } catch (err) {
       logger.error('[Cron] Consultation timeout error:', err.message);
+      try {
+        const { notifyCronAlert } = require('./services/cronAlert');
+        await notifyCronAlert({
+          job: 'consultation-timeout',
+          ok: false,
+          message: err.message,
+          durationMs: Date.now() - startedAt,
+        });
+      } catch (alertErr) {
+        logger.warn('[Cron] Failed to send consultation-timeout alert:', alertErr.message);
+      }
+    }
+  }, intervalMs);
+};
+
+const startWellnessBadgesCron = () => {
+  if (String(process.env.WELLNESS_BADGES_CRON_ENABLED || 'true').toLowerCase() === 'false') {
+    logger.info('[Cron] Wellness badge scheduler is disabled by WELLNESS_BADGES_CRON_ENABLED=false');
+    return;
+  }
+
+  const intervalMs = Number(process.env.WELLNESS_BADGES_CRON_INTERVAL_MS || 24 * 60 * 60 * 1000);
+  const lockTtlSec = Math.max(60, Math.ceil(intervalMs / 1000) - 5);
+
+  wellnessBadgesInterval = setInterval(async () => {
+    const startedAt = Date.now();
+    try {
+      try {
+        const { cacheSetIfNotExists } = require('./config/redis');
+        const lockAcquired = await cacheSetIfNotExists('cron:wellness-badges:lock', process.pid, lockTtlSec);
+        if (!lockAcquired) return;
+      } catch (lockErr) {
+        logger.warn('[Cron] Wellness badge lock unavailable; running without lock:', lockErr.message);
+      }
+      const evaluateWellnessBadges = require('./cron/badges');
+      const result = await evaluateWellnessBadges();
+      logger.info(`[Cron] Wellness badge evaluation result: ${JSON.stringify(result)}`);
+      if (String(process.env.CRON_ALERT_ON_SUCCESS || 'false').toLowerCase() === 'true') {
+        const { notifyCronAlert } = require('./services/cronAlert');
+        await notifyCronAlert({
+          job: 'wellness-badges',
+          ok: true,
+          message: 'Wellness badge evaluation completed',
+          durationMs: Date.now() - startedAt,
+          context: result,
+        });
+      }
+    } catch (err) {
+      logger.error('[Cron] Wellness badge evaluation error:', err.message);
+      try {
+        const { notifyCronAlert } = require('./services/cronAlert');
+        await notifyCronAlert({
+          job: 'wellness-badges',
+          ok: false,
+          message: err.message,
+          durationMs: Date.now() - startedAt,
+        });
+      } catch (alertErr) {
+        logger.warn('[Cron] Failed to send badge alert:', alertErr.message);
+      }
+    }
+  }, intervalMs);
+};
+
+const startWellnessChatCleanupCron = () => {
+  if (String(process.env.WELLNESS_CHAT_CLEANUP_ENABLED || 'true').toLowerCase() === 'false') {
+    logger.info('[Cron] Wellness chat cleanup scheduler is disabled by WELLNESS_CHAT_CLEANUP_ENABLED=false');
+    return;
+  }
+
+  const intervalMs = Number(process.env.WELLNESS_CHAT_CLEANUP_INTERVAL_MS || 24 * 60 * 60 * 1000);
+  const lockTtlSec = Math.max(60, Math.ceil(intervalMs / 1000) - 5);
+
+  wellnessChatCleanupInterval = setInterval(async () => {
+    const startedAt = Date.now();
+    try {
+      try {
+        const { cacheSetIfNotExists } = require('./config/redis');
+        const lockAcquired = await cacheSetIfNotExists('cron:wellness-chat-cleanup:lock', process.pid, lockTtlSec);
+        if (!lockAcquired) return;
+      } catch (lockErr) {
+        logger.warn('[Cron] Wellness chat cleanup lock unavailable; running without lock:', lockErr.message);
+      }
+      const cleanupWellnessChat = require('./cron/wellnessChatCleanup');
+      const result = await cleanupWellnessChat();
+      logger.info(`[Cron] Wellness chat cleanup result: ${JSON.stringify(result)}`);
+      if (String(process.env.CRON_ALERT_ON_SUCCESS || 'false').toLowerCase() === 'true') {
+        const { notifyCronAlert } = require('./services/cronAlert');
+        await notifyCronAlert({
+          job: 'wellness-chat-cleanup',
+          ok: true,
+          message: 'Wellness chat cleanup completed',
+          durationMs: Date.now() - startedAt,
+          context: result,
+        });
+      }
+    } catch (err) {
+      logger.error('[Cron] Wellness chat cleanup error:', err.message);
+      try {
+        const { notifyCronAlert } = require('./services/cronAlert');
+        await notifyCronAlert({
+          job: 'wellness-chat-cleanup',
+          ok: false,
+          message: err.message,
+          durationMs: Date.now() - startedAt,
+        });
+      } catch (alertErr) {
+        logger.warn('[Cron] Failed to send wellness-chat-cleanup alert:', alertErr.message);
+      }
     }
   }, intervalMs);
 };
@@ -626,16 +801,32 @@ const startReminderNotificationCron = () => {
   const lockTtlSec = Math.max(10, Math.ceil(intervalMs / 1000) - 2);
 
   reminderNotificationInterval = setInterval(async () => {
+    const startedAt = Date.now();
     try {
       // Multi-instance safety: only one instance should run reminder scan per interval.
-      const { cacheSetIfNotExists } = require('./config/redis');
-      const lockAcquired = await cacheSetIfNotExists('cron:reminder:lock', process.pid, lockTtlSec);
-      if (!lockAcquired) return;
+      try {
+        const { cacheSetIfNotExists } = require('./config/redis');
+        const lockAcquired = await cacheSetIfNotExists('cron:reminder:lock', process.pid, lockTtlSec);
+        if (!lockAcquired) return;
+      } catch (lockErr) {
+        logger.warn('[Cron] Reminder lock unavailable; running without lock:', lockErr.message);
+      }
 
       const reminderNotificationService = require('./services/reminderNotificationService');
       await reminderNotificationService.runReminderNotificationTick();
     } catch (err) {
       logger.error('[Cron] Reminder notification error:', err.message);
+      try {
+        const { notifyCronAlert } = require('./services/cronAlert');
+        await notifyCronAlert({
+          job: 'reminder-notifications',
+          ok: false,
+          message: err.message,
+          durationMs: Date.now() - startedAt,
+        });
+      } catch (alertErr) {
+        logger.warn('[Cron] Failed to send reminder alert:', alertErr.message);
+      }
     }
   }, intervalMs);
 };
@@ -647,6 +838,8 @@ process.on('unhandledRejection', (err) => {
   if (consultationTimeoutInterval) clearInterval(consultationTimeoutInterval);
   if (reminderNotificationInterval) clearInterval(reminderNotificationInterval);
   if (appointmentExpireInterval) clearInterval(appointmentExpireInterval);
+  if (wellnessBadgesInterval) clearInterval(wellnessBadgesInterval);
+  if (wellnessChatCleanupInterval) clearInterval(wellnessChatCleanupInterval);
   server.close(() => {
     process.exit(1);
   });
@@ -674,6 +867,8 @@ const gracefulShutdown = async (signal) => {
       if (consultationTimeoutInterval) clearInterval(consultationTimeoutInterval);
       if (reminderNotificationInterval) clearInterval(reminderNotificationInterval);
       if (appointmentExpireInterval) clearInterval(appointmentExpireInterval);
+      if (wellnessBadgesInterval) clearInterval(wellnessBadgesInterval);
+      if (wellnessChatCleanupInterval) clearInterval(wellnessChatCleanupInterval);
 
       // Close Socket.IO
       if (io) {

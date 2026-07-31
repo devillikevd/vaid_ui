@@ -1339,6 +1339,14 @@ data class WellnessCoachDto(
     val city: String? = null
 )
 
+data class FitnessCenterReelDto(
+    val id: String? = null,
+    @SerializedName("video_url") val videoUrl: String? = null,
+    @SerializedName("thumbnail_url") val thumbnailUrl: String? = null,
+    val title: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
 data class FitnessCenterDto(
     val id: String,
     val name: String,
@@ -1374,6 +1382,7 @@ data class FitnessCenterDto(
     @SerializedName("is_active") val isActive: Boolean? = null,
     val classes: List<FitnessClassDto>? = null,
     val trainers: List<FitnessCenterTrainerDto>? = null,
+    val reels: List<FitnessCenterReelDto>? = null,
     val distance: Double? = null
 )
 
@@ -1438,7 +1447,92 @@ data class TrustedSupplementDto(
     @SerializedName("is_active") val isActive: Boolean? = null
 )
 
+// ==================== WELLNESS ASSESSMENT DTOs ====================
+
+data class WellnessAssessmentDto(
+    val id: String,
+    @SerializedName("patient_id") val patientId: String? = null,
+    val status: String? = null, // "pending", "in_progress", "completed"
+    val goals: WellnessGoalsDto? = null,
+    val bio: WellnessBioDto? = null,
+    @SerializedName("health_screening") val healthScreening: WellnessHealthScreeningDto? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("updated_at") val updatedAt: String? = null,
+    @SerializedName("completed_at") val completedAt: String? = null
+)
+
+data class WellnessGoalsDto(
+    @SerializedName("primary_goal") val primaryGoal: String? = null,
+    @SerializedName("secondary_goals") val secondaryGoals: List<String>? = null,
+    @SerializedName("target_weight") val targetWeight: Double? = null,
+    @SerializedName("activity_level") val activityLevel: String? = null,
+    @SerializedName("workout_frequency") val workoutFrequency: Int? = null,
+    @SerializedName("preferred_workout_time") val preferredWorkoutTime: String? = null,
+    @SerializedName("preferred_workout_types") val preferredWorkoutTypes: List<String>? = null
+)
+
+data class WellnessBioDto(
+    val height: Double? = null,
+    val weight: Double? = null,
+    val age: Int? = null,
+    val gender: String? = null,
+    @SerializedName("body_fat_percentage") val bodyFatPercentage: Double? = null,
+    @SerializedName("fitness_level") val fitnessLevel: String? = null,
+    @SerializedName("available_equipment") val availableEquipment: List<String>? = null,
+    @SerializedName("workout_location") val workoutLocation: String? = null,
+    @SerializedName("dietary_preferences") val dietaryPreferences: List<String>? = null,
+    val allergies: List<String>? = null
+)
+
+data class WellnessHealthScreeningDto(
+    @SerializedName("has_medical_conditions") val hasMedicalConditions: Boolean? = null,
+    @SerializedName("medical_conditions") val medicalConditions: List<String>? = null,
+    @SerializedName("has_injuries") val hasInjuries: Boolean? = null,
+    val injuries: List<String>? = null,
+    @SerializedName("is_pregnant") val isPregnant: Boolean? = null,
+    @SerializedName("takes_medication") val takesMedication: Boolean? = null,
+    val medications: List<String>? = null,
+    @SerializedName("doctor_clearance") val doctorClearance: Boolean? = null,
+    @SerializedName("par_q_passed") val parQPassed: Boolean? = null,
+    @SerializedName("risk_level") val riskLevel: String? = null
+)
+
+data class CreateAssessmentGoalsRequest(
+    @SerializedName("primary_goal") val primaryGoal: String,
+    @SerializedName("secondary_goals") val secondaryGoals: List<String> = emptyList(),
+    @SerializedName("target_weight") val targetWeight: Double? = null,
+    @SerializedName("activity_level") val activityLevel: String,
+    @SerializedName("workout_frequency") val workoutFrequency: Int,
+    @SerializedName("preferred_workout_time") val preferredWorkoutTime: String? = null,
+    @SerializedName("preferred_workout_types") val preferredWorkoutTypes: List<String> = emptyList()
+)
+
+data class CreateAssessmentBioRequest(
+    val height: Double,
+    val weight: Double,
+    val age: Int? = null,
+    val gender: String? = null,
+    @SerializedName("body_fat_percentage") val bodyFatPercentage: Double? = null,
+    @SerializedName("fitness_level") val fitnessLevel: String,
+    @SerializedName("available_equipment") val availableEquipment: List<String> = emptyList(),
+    @SerializedName("workout_location") val workoutLocation: String? = null,
+    @SerializedName("dietary_preferences") val dietaryPreferences: List<String> = emptyList(),
+    val allergies: List<String> = emptyList()
+)
+
+data class CreateHealthScreeningRequest(
+    @SerializedName("has_medical_conditions") val hasMedicalConditions: Boolean,
+    @SerializedName("medical_conditions") val medicalConditions: List<String> = emptyList(),
+    @SerializedName("has_injuries") val hasInjuries: Boolean,
+    val injuries: List<String> = emptyList(),
+    @SerializedName("is_pregnant") val isPregnant: Boolean = false,
+    @SerializedName("takes_medication") val takesMedication: Boolean = false,
+    val medications: List<String> = emptyList(),
+    @SerializedName("doctor_clearance") val doctorClearance: Boolean = false
+)
+
 // ==================== REMINDER DTOs (CRUD) ====================
+
 
 data class CreateReminderRequest(
     val title: String,
@@ -1532,4 +1626,314 @@ data class HospitalReviewDto(
     val patientName: String?,
     val patientImage: String?,
     val createdAt: String?
+)
+
+// ==================== WELLNESS COACH DETAIL DTO (Full profile from /coaches/:id) ====================
+
+data class WellnessCoachDetailDto(
+    val id: String,
+    val name: String,
+    val headline: String? = null,
+    val bio: String? = null,
+    @SerializedName("coach_types") val coachTypes: List<String>? = null,
+    val specialties: List<String>? = null,
+    @SerializedName("expertise_tags") val expertiseTags: List<String>? = null,
+    val qualifications: List<String>? = null,
+    val certifications: List<String>? = null,
+    @SerializedName("registration_number") val registrationNumber: String? = null,
+    @SerializedName("experience_years") val experienceYears: Int? = null,
+    @SerializedName("session_modes") val sessionModes: List<String>? = null,
+    val languages: List<String>? = null,
+    @SerializedName("session_fee") val sessionFee: Double? = null,
+    @SerializedName("video_session_fee") val videoSessionFee: Double? = null,
+    @SerializedName("monthly_plan_fee") val monthlyPlanFee: Double? = null,
+    val address: String? = null,
+    val city: String? = null,
+    val state: String? = null,
+    val phone: String? = null,
+    val email: String? = null,
+    @SerializedName("profile_image_url") val profileImageUrl: String? = null,
+    @SerializedName("gallery_images") val galleryImages: List<String>? = null,
+    @SerializedName("available_days") val availableDays: List<String>? = null,
+    @SerializedName("available_hours") val availableHours: JsonElement? = null,
+    @SerializedName("is_available") val isAvailable: Boolean? = null,
+    val rating: Double? = null,
+    @SerializedName("total_reviews") val totalReviews: Int? = null,
+    @SerializedName("total_clients") val totalClients: Int? = null,
+    @SerializedName("total_sessions") val totalSessions: Int? = null,
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
+// ==================== WELLNESS SESSION DTOs ====================
+
+data class WellnessSessionDto(
+    val id: String,
+    @SerializedName("session_number") val sessionNumber: String? = null,
+    @SerializedName("patient_id") val patientId: String? = null,
+    @SerializedName("coach_id") val coachId: String? = null,
+    @SerializedName("center_id") val centerId: String? = null,
+    @SerializedName("scheduled_at") val scheduledAt: String? = null,
+    @SerializedName("duration_minutes") val durationMinutes: Int? = null,
+    @SerializedName("session_type") val sessionType: String? = null,
+    val status: String? = null,
+    val fee: Double? = null,
+    @SerializedName("payment_status") val paymentStatus: String? = null,
+    @SerializedName("room_id") val roomId: String? = null,
+    @SerializedName("patient_notes") val patientNotes: String? = null,
+    @SerializedName("coach_notes") val coachNotes: String? = null,
+    @SerializedName("safety_flags") val safetyFlags: List<String>? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("updated_at") val updatedAt: String? = null,
+    val coach: WellnessCoachDto? = null,
+    val patient: WellnessSessionPatientDto? = null
+)
+
+data class WellnessSessionPatientDto(
+    val id: String,
+    val name: String? = null
+)
+
+data class BookWellnessSessionRequest(
+    @SerializedName("coach_id") val coachId: String,
+    @SerializedName("scheduled_at") val scheduledAt: String,
+    @SerializedName("session_type") val sessionType: String = "video",
+    @SerializedName("duration_minutes") val durationMinutes: Int = 45,
+    @SerializedName("center_id") val centerId: String? = null,
+    val notes: String? = null,
+    @SerializedName("safety_flags") val safetyFlags: List<String> = emptyList()
+)
+
+// ==================== WORKOUT LOG DTOs ====================
+
+data class LogWorkoutRequest(
+    @SerializedName("plan_id") val planId: String? = null,
+    @SerializedName("session_id") val sessionId: String? = null,
+    @SerializedName("duration_minutes") val durationMinutes: Int,
+    @SerializedName("calories_burned") val caloriesBurned: Double? = null,
+    @SerializedName("perceived_intensity") val perceivedIntensity: String? = null,
+    val feedback: String? = null,
+    @SerializedName("pain_reported") val painReported: Boolean = false,
+    val exercises: List<WorkoutExerciseLogDto>? = null
+)
+
+data class WorkoutExerciseLogDto(
+    @SerializedName("exercise_id") val exerciseId: String? = null,
+    val name: String? = null,
+    val sets: Int? = null,
+    val reps: Int? = null,
+    @SerializedName("weight_kg") val weightKg: Double? = null,
+    @SerializedName("duration_seconds") val durationSeconds: Int? = null,
+    val completed: Boolean = true
+)
+
+data class AssignWorkoutPlanRequest(
+    @SerializedName("coach_id") val coachId: String? = null
+)
+
+data class WorkoutSessionDto(
+    val id: String,
+    @SerializedName("plan_id") val planId: String? = null,
+    @SerializedName("day_index") val dayIndex: Int? = null,
+    @SerializedName("week_index") val weekIndex: Int? = null,
+    val title: String? = null,
+    val category: String? = null,
+    @SerializedName("duration_minutes") val durationMinutes: Int? = null,
+    val intensity: String? = null,
+    @SerializedName("body_parts") val bodyParts: List<String>? = null,
+    val warmup: JsonElement? = null,
+    val exercises: JsonElement? = null,
+    val cooldown: JsonElement? = null,
+    val instructions: String? = null,
+    @SerializedName("media_url") val mediaUrl: String? = null,
+    @SerializedName("sort_order") val sortOrder: Int? = null
+)
+
+data class PatientWorkoutPlanDto(
+    val id: String,
+    @SerializedName("patient_id") val patientId: String? = null,
+    @SerializedName("plan_id") val planId: String? = null,
+    @SerializedName("coach_id") val coachId: String? = null,
+    val status: String? = null,
+    @SerializedName("started_at") val startedAt: String? = null,
+    @SerializedName("completed_at") val completedAt: String? = null,
+    @SerializedName("adherence_percent") val adherencePercent: Double? = null,
+    @SerializedName("streak_days") val streakDays: Int? = null,
+    val plan: WellnessWorkoutPlanDto? = null
+)
+
+// ==================== SMART HEALTH HUB AGGREGATE ====================
+
+data class WellnessHubDto(
+    val patient: WellnessHubPatientDto? = null,
+    val counts: WellnessHubCountsDto? = null,
+    @SerializedName("today_stats") val todayStats: WellnessHubTodayStatsDto? = null,
+    @SerializedName("active_workout_plan") val activeWorkoutPlan: PatientWorkoutPlanDto? = null,
+    @SerializedName("workouts_completed_today") val workoutsCompletedToday: Int = 0,
+    val reels: List<WellnessReelDto> = emptyList(),
+    val badges: List<JsonObject> = emptyList()
+)
+
+data class WellnessHubPatientDto(
+    val id: String? = null,
+    val name: String? = null,
+    val city: String? = null
+)
+
+data class WellnessHubCountsDto(
+    @SerializedName("workoutPlans") val workoutPlans: Int = 0,
+    @SerializedName("exercises") val exercises: Int = 0,
+    @SerializedName("coaches") val coaches: Int = 0,
+    @SerializedName("fitnessCenters") val fitnessCenters: Int = 0,
+    @SerializedName("groups") val groups: Int = 0,
+    @SerializedName("challenges") val challenges: Int = 0,
+    @SerializedName("supplements") val supplements: Int = 0
+)
+
+data class WellnessHubTodayStatsDto(
+    val steps: Int = 0,
+    @SerializedName("active_calories") val activeCalories: Int = 0,
+    @SerializedName("active_minutes") val activeMinutes: Int = 0
+)
+
+// ==================== LEADERBOARD ====================
+
+data class LeaderboardEntryDto(
+    val id: String? = null,
+    val rank: Int = 0,
+    @SerializedName("patient_id") val patientId: String? = null,
+    @SerializedName("patient_name") val patientName: String? = null,
+    @SerializedName("profile_image_url") val profileImageUrl: String? = null,
+    @SerializedName("progress_value") val score: Double = 0.0,
+    @SerializedName("source_metric") val unit: String? = null,
+    @SerializedName("is_self") val isSelf: Boolean = false,
+    val patient: LeaderboardPatientDto? = null
+) {
+    val displayName: String get() = patient?.name ?: patientName ?: "Athlete"
+    val displayImageUrl: String? get() = patient?.profileImageUrl ?: profileImageUrl
+    val displayUnit: String get() = unit ?: "points"
+}
+
+data class LeaderboardPatientDto(
+    val id: String? = null,
+    val name: String? = null,
+    @SerializedName("profile_image_url") val profileImageUrl: String? = null,
+    val city: String? = null
+)
+
+data class ChallengeLeaderboardResponse(
+    val challenge: JsonObject? = null,
+    val entries: List<LeaderboardEntryDto> = emptyList(),
+    @SerializedName("totalEntries") val totalEntries: Int = 0
+)
+
+// ==================== WELLNESS STREAKS ====================
+
+data class WellnessStreakDto(
+    @SerializedName("current_streak") val currentStreak: Int = 0,
+    @SerializedName("longest_streak") val longestStreak: Int = 0,
+    @SerializedName("active_days_total") val activeDaysTotal: Int = 0,
+    @SerializedName("active_days_last7") val activeDaysLast7: Int = 0,
+    @SerializedName("active_days_last30") val activeDaysLast30: Int = 0,
+    @SerializedName("last_workout_at") val lastWorkoutAt: String? = null
+)
+
+// ==================== WELLNESS REELS ====================
+
+data class WellnessReelDto(
+    val id: String,
+    val title: String? = null,
+    val description: String? = null,
+    @SerializedName("video_url") val videoUrl: String? = null,
+    @SerializedName("thumbnail_url") val thumbnailUrl: String? = null,
+    val category: String? = null,
+    val tags: List<String>? = null,
+    @SerializedName("duration_seconds") val durationSeconds: Int? = null,
+    @SerializedName("likes_count") val likesCount: Int? = null,
+    @SerializedName("views_count") val viewsCount: Int? = null,
+    val status: String? = null,
+    @SerializedName("is_active") val isActive: Boolean? = null,
+    val coach: WellnessReelCoachDto? = null
+)
+
+data class WellnessReelCoachDto(
+    val id: String? = null,
+    val name: String? = null,
+    @SerializedName("profile_image_url") val profileImageUrl: String? = null,
+    val headline: String? = null,
+    @SerializedName("coach_types") val coachTypes: List<String>? = null,
+    @SerializedName("sub_role") val subRole: String? = null
+)
+
+// ==================== WELLNESS CHAT ====================
+
+data class WellnessChatMessageDto(
+    val id: String? = null,
+    @SerializedName("userId") val userId: String? = null,
+    val role: String? = null,
+    val message: String? = null,
+    val timestamp: String? = null
+)
+
+// ==================== COACH DASHBOARD ====================
+
+data class CoachPatientDto(
+    val id: String? = null,
+    @SerializedName("user_id") val userId: String? = null,
+    val name: String? = null,
+    val email: String? = null,
+    val phone: String? = null,
+    @SerializedName("profile_image_url") val profileImageUrl: String? = null,
+    val city: String? = null,
+    @SerializedName("total_sessions") val totalSessions: Int = 0,
+    @SerializedName("last_session_at") val lastSessionAt: String? = null,
+    @SerializedName("active_plans") val activePlans: Int = 0,
+    val source: String? = null
+)
+
+data class UpdateCoachAvailabilityRequest(
+    @SerializedName("is_available") val isAvailable: Boolean? = null,
+    @SerializedName("is_accepting_clients") val isAcceptingClients: Boolean? = null
+)
+
+// ==================== QR CHECK-IN ====================
+
+data class QrCheckInRequest(
+    @SerializedName("center_id") val centerId: String,
+    @SerializedName("qr_token") val qrToken: String? = null,
+    @SerializedName("booking_id") val bookingId: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
+
+data class UpdateChallengeProgressRequest(
+    @SerializedName("progress_value") val progressValue: Double? = null,
+    @SerializedName("source_metric") val sourceMetric: String? = null,
+    val note: String? = null
+)
+
+// ==================== WORKOUT CALENDAR ====================
+
+data class WorkoutCalendarDayDto(
+    val date: String,
+    @SerializedName("workouts_completed") val workoutsCompleted: Int = 0,
+    @SerializedName("duration_minutes") val durationMinutes: Int = 0,
+    @SerializedName("calories_burned") val caloriesBurned: Double = 0.0,
+    @SerializedName("is_rest_day") val isRestDay: Boolean = false
+)
+
+// ==================== WELLNESS TYPED REPORTS ====================
+
+data class WellnessReportSectionDto(
+    val title: String,
+    val type: String? = null,   // "workout", "nutrition", "sleep", "recovery"
+    val value: Double = 0.0,
+    val unit: String? = null,
+    @SerializedName("trend_percent") val trendPercent: Double? = null,
+    @SerializedName("trend_direction") val trendDirection: String? = null,
+    @SerializedName("chart_data") val chartData: List<ChartPointDto>? = null
+)
+
+data class ChartPointDto(
+    val label: String,
+    val value: Double
 )

@@ -25,7 +25,7 @@ const authenticate = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
 
     // Verify JWT — I12: use accessSecret for access tokens
-    const decoded = jwt.verify(token, config.jwt.accessSecret);
+    const decoded = jwt.verify(token, config.jwt.accessSecret, { algorithms: ['HS256'] });
 
     // Reject non-access tokens (email_verification, password_reset, refresh)
     if (decoded.type && decoded.type !== 'access') {
@@ -139,7 +139,7 @@ const optionalAuth = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, config.jwt.accessSecret);
+    const decoded = jwt.verify(token, config.jwt.accessSecret, { algorithms: ['HS256'] });
     if (decoded.type && decoded.type !== 'access') {
       req.user = null;
       return asyncLocalStorage.run({ user: null, token: null }, () => next());

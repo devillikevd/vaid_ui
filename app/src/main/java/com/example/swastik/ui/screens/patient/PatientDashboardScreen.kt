@@ -73,6 +73,9 @@ fun PatientDashboardScreen(
     onNavigateToBookingHistory: () -> Unit = {},
     onNavigateToHealthCard: () -> Unit = {},
     onNavigateToDietTracker: () -> Unit = {},
+    onNavigateToWellnessHub: () -> Unit = {},
+    onNavigateToWellnessSessions: () -> Unit = {},
+    onNavigateToHealthConnectDashboard: () -> Unit = {},
 
     onNavigateToMedicineDetail: (String) -> Unit = {},
     onNavigateToMedicineCart: (String) -> Unit = {},
@@ -326,6 +329,8 @@ fun PatientDashboardScreen(
                             onNavigateToDiagnostic = onNavigateToDiagnostic,
                             onNavigateToHealthCard = onNavigateToHealthCard,
                             onNavigateToDietTracker = onNavigateToDietTracker,
+                            onNavigateToWellnessHub = onNavigateToWellnessHub,
+                            onNavigateToHealthConnectDashboard = onNavigateToHealthConnectDashboard,
                             onNavigateToOrderHistory = onNavigateToOrderHistory,
                             onNavigateToBookingHistory = onNavigateToBookingHistory,
                             onNavigateToVitals = onNavigateToVitals,

@@ -11,6 +11,7 @@ import {
     TicketCheck,
     UserPlus,
     Users,
+    Video,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
@@ -32,6 +33,7 @@ const FITNESS_CENTER_CONFIG: DashboardConfig = {
         { name: 'Classes', href: '/fitness-center#classes', icon: CalendarCheck },
         { name: 'Bookings', href: '/fitness-center#bookings', icon: TicketCheck },
         { name: 'Check-ins', href: '/fitness-center#checkins', icon: ClipboardList },
+        { name: 'Reels', href: '/fitness-center/reels', icon: Video },
         { name: 'Analytics', href: '/fitness-center#analytics', icon: BarChart3 },
         { name: 'Settings', href: '/fitness-center#settings', icon: Settings },
     ],

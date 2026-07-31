@@ -1463,6 +1463,15 @@ export const wellnessApi = {
     getSessions: (status?: string) =>
         fetchWithAuth(`/wellness/sessions${wellnessQuery({ status })}`),
     getOwnerCenter: () => fetchWithAuth('/wellness/owner/center'),
+    addFitnessReel: (video_url: string, title?: string) =>
+        fetchWithAuth('/wellness/owner/reels', {
+            method: 'POST',
+            body: JSON.stringify({ video_url, title }),
+        }),
+    deleteFitnessReel: (reelId: string) =>
+        fetchWithAuth(`/wellness/owner/reels/${reelId}`, {
+            method: 'DELETE',
+        }),
     getOwnerTrainers: () => fetchWithAuth('/wellness/owner/trainers'),
     getOwnerTrainerInvites: (status?: string) =>
         fetchWithAuth(`/wellness/owner/trainer-invites${wellnessQuery({ status })}`),
@@ -1516,6 +1525,69 @@ export const wellnessApi = {
         fetchWithAuth(`/wellness/challenges${wellnessQuery(filters)}`),
     getSupplements: (filters?: Record<string, unknown>, page: number = 1, limit: number = 12) =>
         fetchWithAuth(`/wellness/supplements${wellnessQuery({ ...filters, page, limit })}`),
+    getStreaks: () => fetchWithAuth('/wellness/streaks'),
+    getSessionMessages: (sessionId: string) =>
+        fetchWithAuth(`/wellness/sessions/${sessionId}/messages`),
+    getChallengeLeaderboard: (challengeId: string) =>
+        fetchWithAuth(`/wellness/challenges/${challengeId}/leaderboard`),
+    updateChallengeProgress: (challengeId: string, data?: Record<string, unknown>) =>
+        fetchWithAuth(`/wellness/challenges/${challengeId}/progress`, {
+            method: 'POST',
+            body: JSON.stringify(data || {}),
+        }),
+    getReels: (filters?: Record<string, unknown>, page: number = 1, limit: number = 20) =>
+        fetchWithAuth(`/wellness/reels${wellnessQuery({ ...filters, page, limit })}`),
+    likeReel: (reelId: string) =>
+        fetchWithAuth(`/wellness/reels/${reelId}/like`, { method: 'POST' }),
+    viewReel: (reelId: string) =>
+        fetchWithAuth(`/wellness/reels/${reelId}/view`, { method: 'POST' }),
+    getMyDietPlans: () => fetchWithAuth('/wellness/diet-plans'),
+    getCoachPatients: () => fetchWithAuth('/wellness/coaches/me/patients'),
+    getPatientAnalytics: (patientId: string) =>
+        fetchWithAuth(`/wellness/coaches/me/patients/${patientId}/analytics`),
+    getCoachWorkoutPlans: () => fetchWithAuth('/wellness/coaches/me/workout-plans'),
+    createCoachWorkoutPlan: (data: Record<string, unknown>) =>
+        fetchWithAuth('/wellness/coaches/me/workout-plans', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    getCoachDietPlans: () => fetchWithAuth('/wellness/coaches/me/diet-plans'),
+    createDietPlan: (data: Record<string, unknown>) =>
+        fetchWithAuth('/wellness/coaches/me/diet-plans', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    archiveDietPlan: (planId: string) =>
+        fetchWithAuth(`/wellness/coaches/me/diet-plans/${planId}/archive`, { method: 'POST' }),
+    updateCoachAvailability: (data: Record<string, unknown>) =>
+        fetchWithAuth('/wellness/coaches/me/availability', {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+    getCoachReels: () => fetchWithAuth('/wellness/coaches/me/reels'),
+    createReel: (data: Record<string, unknown>) =>
+        fetchWithAuth('/wellness/coaches/me/reels', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    getOwnerClasses: (filters?: Record<string, unknown>) =>
+        fetchWithAuth(`/wellness/owner/classes${wellnessQuery(filters)}`),
+    createOwnerClass: (data: Record<string, unknown>) =>
+        fetchWithAuth('/wellness/owner/classes', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    updateOwnerClass: (classId: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/wellness/owner/classes/${classId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+    cancelOwnerClass: (classId: string) =>
+        fetchWithAuth(`/wellness/owner/classes/${classId}`, { method: 'DELETE' }),
+    getOwnerBookings: (filters?: Record<string, unknown>) =>
+        fetchWithAuth(`/wellness/owner/bookings${wellnessQuery(filters)}`),
+    getOwnerCheckins: (filters?: Record<string, unknown>) =>
+        fetchWithAuth(`/wellness/owner/checkins${wellnessQuery(filters)}`),
 };
 
 // ==================== Unified Export ====================

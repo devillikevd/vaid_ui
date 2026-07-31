@@ -178,6 +178,13 @@ class SocketManager @Inject constructor(
     private val _chatMessages = MutableSharedFlow<SocketChatMessage>(replay = 0)
     val chatMessages: SharedFlow<SocketChatMessage> = _chatMessages.asSharedFlow()
 
+    // Wellness session chat (reuses SocketChatMessage shape: senderId/role/message/timestamp/isMe)
+    private val _wellnessChatMessages = MutableSharedFlow<SocketChatMessage>(replay = 0)
+    val wellnessChatMessages: SharedFlow<SocketChatMessage> = _wellnessChatMessages.asSharedFlow()
+
+    private val _wellnessChatTyping = MutableSharedFlow<ChatTypingEvent>(replay = 0)
+    val wellnessChatTyping: SharedFlow<ChatTypingEvent> = _wellnessChatTyping.asSharedFlow()
+
     private val _orderUpdates = MutableSharedFlow<OrderUpdate>(replay = 1)
     val orderUpdates: SharedFlow<OrderUpdate> = _orderUpdates.asSharedFlow()
 
@@ -243,6 +250,7 @@ class SocketManager @Inject constructor(
     private var activeVideoPreferredMode: String? = null
     private var activeVideoEffectiveMode: String? = null
     private var activeChatConsultationId: String? = null
+    private var activeWellnessChatSessionId: String? = null
 
     companion object {
         private const val TAG = "SocketManager"
@@ -280,6 +288,22 @@ class SocketManager @Inject constructor(
         scope.launch {
             val currentUserId = tokenManager.userId
             _chatMessages.emit(
+                SocketChatMessage(
+                    senderId = senderId,
+                    role = data.optString("role", ""),
+                    message = data.optString("message", ""),
+                    timestamp = data.optString("timestamp", ""),
+                    isMe = forceIsMe ?: (senderId == currentUserId)
+                )
+            )
+        }
+    }
+
+    private fun emitWellnessChatMessage(data: JSONObject, forceIsMe: Boolean? = null) {
+        val senderId = data.optString("userId", "")
+        scope.launch {
+            val currentUserId = tokenManager.userId
+            _wellnessChatMessages.emit(
                 SocketChatMessage(
                     senderId = senderId,
                     role = data.optString("role", ""),
@@ -359,6 +383,10 @@ class SocketManager @Inject constructor(
             activeChatConsultationId?.let { consultationId ->
                 socket?.emit("chat:join", consultationId)
                 Log.d(TAG, "Re-joined chat room: $consultationId")
+            }
+            activeWellnessChatSessionId?.let { sessionId ->
+                socket?.emit("wellness:chat:join", sessionId)
+                Log.d(TAG, "Re-joined wellness chat room: $sessionId")
             }
         }
 
@@ -527,6 +555,35 @@ class SocketManager @Inject constructor(
                 Log.d(TAG, "Chat Message Ack: $data")
                 emitChatMessage(data, forceIsMe = true)
             } catch (e: Exception) { Log.e(TAG, "Error parsing chat:message:sent", e) }
+        }
+
+        // --- Wellness Session Chat Events ---
+        socket?.on("wellness:chat:message") { args ->
+            try {
+                val data = args[0] as? JSONObject ?: return@on
+                Log.d(TAG, "Wellness Chat Message: $data")
+                emitWellnessChatMessage(data)
+            } catch (e: Exception) { Log.e(TAG, "Error parsing wellness:chat:message", e) }
+        }
+
+        socket?.on("wellness:chat:message:sent") { args ->
+            try {
+                val data = args[0] as? JSONObject ?: return@on
+                Log.d(TAG, "Wellness Chat Ack: $data")
+                emitWellnessChatMessage(data, forceIsMe = true)
+            } catch (e: Exception) { Log.e(TAG, "Error parsing wellness:chat:message:sent", e) }
+        }
+
+        socket?.on("wellness:chat:typing") { args ->
+            try {
+                val data = args[0] as? JSONObject ?: return@on
+                scope.launch {
+                    _wellnessChatTyping.emit(ChatTypingEvent(
+                        userId = data.optString("userId", ""),
+                        isTyping = data.optBoolean("isTyping", false)
+                    ))
+                }
+            } catch (e: Exception) { Log.e(TAG, "Error parsing wellness:chat:typing", e) }
         }
 
         // --- Real-time Updates ---
@@ -847,6 +904,7 @@ class SocketManager @Inject constructor(
         activeVideoPreferredMode = null
         activeVideoEffectiveMode = null
         activeChatConsultationId = null
+        activeWellnessChatSessionId = null
         scope.cancel()
         // Recreate scope so singleton can be reused after re-login
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -984,6 +1042,38 @@ class SocketManager @Inject constructor(
         payload.put("consultationId", consultationId)
         payload.put("isTyping", isTyping)
         socket?.emit("chat:typing", payload)
+    }
+
+    // --- Wellness Session Chat Emitters ---
+
+    fun joinWellnessChat(sessionId: String) {
+        activeWellnessChatSessionId = sessionId
+        val s = socket
+        if (s?.connected() == true) {
+            s.emit("wellness:chat:join", sessionId)
+        } else {
+            Log.w(TAG, "Socket not connected yet; wellness chat will auto-join on connect: $sessionId")
+            connect()
+        }
+    }
+
+    fun leaveWellnessChat(sessionId: String) {
+        if (activeWellnessChatSessionId == sessionId) activeWellnessChatSessionId = null
+        socket?.emit("wellness:chat:leave", sessionId)
+    }
+
+    fun sendWellnessChatMessage(sessionId: String, message: String) {
+        val payload = JSONObject()
+        payload.put("sessionId", sessionId)
+        payload.put("message", message.take(2000))
+        socket?.emit("wellness:chat:message", payload)
+    }
+
+    fun sendWellnessChatTyping(sessionId: String, isTyping: Boolean) {
+        val payload = JSONObject()
+        payload.put("sessionId", sessionId)
+        payload.put("isTyping", isTyping)
+        socket?.emit("wellness:chat:typing", payload)
     }
     
     fun trackAmbulance(requestId: String) {

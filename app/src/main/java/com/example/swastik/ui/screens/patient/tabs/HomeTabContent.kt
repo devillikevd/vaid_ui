@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.screens.patient.components.*
+import com.example.swastik.ui.screens.patient.WellnessHubActions
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import com.example.swastik.R
@@ -73,7 +74,9 @@ fun HomeTabContent(
     onDoctorClick: (String) -> Unit = {},
     onNavigateToAllRecommendedDoctors: () -> Unit = {},
     onNavigateToAISettings: () -> Unit = {},
-    onNavigateToDietTracker: () -> Unit = {}
+    onNavigateToDietTracker: () -> Unit = {},
+    onNavigateToWellnessHub: () -> Unit = {},
+    onNavigateToHealthConnectDashboard: () -> Unit = {}
 ) {
     val homeBgColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
         MaterialTheme.colorScheme.background
@@ -211,7 +214,10 @@ fun HomeTabContent(
                     onClick = onNavigateToHealthCard,
                     onNutritionClick = onNavigateToDietTracker
                 )
-
+                
+                WellnessHubActions(
+                    onWellnessHubClick = onNavigateToWellnessHub
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp)) // Reduced from 16.dp

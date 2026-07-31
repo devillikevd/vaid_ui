@@ -88,6 +88,34 @@ interface FitnessClass {
     price?: number | string | null;
 }
 
+interface OwnerClass extends FitnessClass {
+    description?: string | null;
+    ends_at?: string | null;
+    status?: string;
+    waitlist_enabled?: boolean;
+    waitlisted_count?: number;
+    center_id?: string;
+    coach?: { id: string; name?: string | null } | null;
+}
+
+interface OwnerBooking {
+    id: string;
+    status?: string;
+    booking_type?: string;
+    booking_date?: string | null;
+    patient?: { id: string; name?: string | null; phone?: string | null; city?: string | null } | null;
+    class?: { id: string; title?: string | null; starts_at?: string | null } | null;
+    coach?: { id: string; name?: string | null } | null;
+}
+
+interface OwnerCheckin {
+    id: string;
+    checked_in_at?: string;
+    booking_type?: string;
+    patient?: { id: string; name?: string | null; phone?: string | null } | null;
+    booking?: { id: string; booking_type?: string | null; class?: { title?: string | null } | null } | null;
+}
+
 interface OwnerDashboardData {
     center?: FitnessCenter | null;
     trainers?: CenterTrainer[];
@@ -137,15 +165,39 @@ export default function FitnessCenterDashboard() {
     const [inviteLoading, setInviteLoading] = useState(false);
     const [latestInviteLink, setLatestInviteLink] = useState<string | null>(null);
     const [cancellingInviteId, setCancellingInviteId] = useState<string | null>(null);
+    const [ownerClasses, setOwnerClasses] = useState<OwnerClass[]>([]);
+    const [bookings, setBookings] = useState<OwnerBooking[]>([]);
+    const [checkins, setCheckins] = useState<OwnerCheckin[]>([]);
+    const [classesLoading, setClassesLoading] = useState(false);
+    const [bookingsLoading, setBookingsLoading] = useState(false);
+    const [checkinsLoading, setCheckinsLoading] = useState(false);
+    const [creatingClass, setCreatingClass] = useState(false);
+    const [cancellingClassId, setCancellingClassId] = useState<string | null>(null);
+    const [classForm, setClassForm] = useState({
+        title: '',
+        classType: 'strength',
+        level: 'beginner',
+        startsAt: '',
+        capacity: '10',
+        price: '',
+    });
 
     const loadDashboard = useCallback(async (silent = false) => {
         if (silent) setIsRefreshing(true);
         else setIsLoading(true);
         setError(null);
         try {
-            const response = await wellnessApi.getOwnerCenter();
-            if (!response.success) throw new Error(response.error || 'Unable to load gym/studio dashboard.');
-            setData((response.data || null) as OwnerDashboardData | null);
+            const [centerResponse, classResponse, bookingResponse, checkinResponse] = await Promise.all([
+                wellnessApi.getOwnerCenter(),
+                wellnessApi.getOwnerClasses(),
+                wellnessApi.getOwnerBookings(),
+                wellnessApi.getOwnerCheckins(),
+            ]);
+            if (!centerResponse.success) throw new Error(centerResponse.error || 'Unable to load gym/studio dashboard.');
+            setData((centerResponse.data || null) as OwnerDashboardData | null);
+            if (classResponse.success) setOwnerClasses(asArray<OwnerClass>(classResponse.data));
+            if (bookingResponse.success) setBookings(asArray<OwnerBooking>(bookingResponse.data));
+            if (checkinResponse.success) setCheckins(asArray<OwnerCheckin>(checkinResponse.data));
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Unable to load gym/studio dashboard.');
             setData(null);
@@ -225,6 +277,48 @@ export default function FitnessCenterDashboard() {
             toast.error('Cancel failed', err instanceof Error ? err.message : 'Unable to cancel invite.');
         } finally {
             setCancellingInviteId(null);
+        }
+    };
+
+    const createClass = async (event: FormEvent) => {
+        event.preventDefault();
+        const title = classForm.title.trim();
+        if (!title || !classForm.startsAt) {
+            toast.error('Details required', 'Provide a class title and start time.');
+            return;
+        }
+        setCreatingClass(true);
+        try {
+            const response = await wellnessApi.createOwnerClass({
+                title,
+                class_type: classForm.classType,
+                level: classForm.level,
+                starts_at: new Date(classForm.startsAt).toISOString(),
+                capacity: Math.max(1, Number(classForm.capacity) || 10),
+                price: classForm.price ? Math.max(0, Number(classForm.price)) : 0,
+            });
+            if (!response.success) throw new Error(response.error || 'Unable to create class.');
+            toast.success('Class created', `"${title}" is now on your timetable.`);
+            setClassForm({ title: '', classType: 'strength', level: 'beginner', startsAt: '', capacity: '10', price: '' });
+            await loadDashboard(true);
+        } catch (err) {
+            toast.error('Class creation failed', err instanceof Error ? err.message : 'Unable to create class.');
+        } finally {
+            setCreatingClass(false);
+        }
+    };
+
+    const cancelClass = async (classId: string, title: string) => {
+        setCancellingClassId(classId);
+        try {
+            const response = await wellnessApi.cancelOwnerClass(classId);
+            if (!response.success) throw new Error(response.error || 'Unable to cancel class.');
+            toast.success('Class cancelled', `"${title}" was cancelled and booked patients were notified.`);
+            await loadDashboard(true);
+        } catch (err) {
+            toast.error('Cancel failed', err instanceof Error ? err.message : 'Unable to cancel class.');
+        } finally {
+            setCancellingClassId(null);
         }
     };
 
@@ -446,23 +540,101 @@ export default function FitnessCenterDashboard() {
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
                 <Card id="classes">
-                    <CardHeader>
-                        <CardTitle>Upcoming Classes</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <CardTitle>Class Timetable</CardTitle>
+                        <StatusBadge status={classesLoading ? 'pending' : 'active'} size="sm" />
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                        {classes.length === 0 ? (
-                            <EmptyLine icon={CalendarCheck} text="Upcoming class timetable will appear after classes are added." />
-                        ) : classes.map((item) => (
+                    <CardContent className="space-y-4">
+                        <form onSubmit={createClass} className="rounded-xl border border-cyan-100 bg-cyan-50/50 p-3 dark:border-cyan-900/50 dark:bg-cyan-950/30">
+                            <p className="mb-3 text-sm font-semibold text-cyan-900 dark:text-cyan-100">Add a new class</p>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <Input
+                                    label="Title"
+                                    value={classForm.title}
+                                    onChange={(event) => setClassForm((current) => ({ ...current, title: event.target.value }))}
+                                    placeholder="Morning HIIT"
+                                    required
+                                />
+                                <Input
+                                    label="Starts At"
+                                    type="datetime-local"
+                                    value={classForm.startsAt}
+                                    onChange={(event) => setClassForm((current) => ({ ...current, startsAt: event.target.value }))}
+                                    required
+                                />
+                                <select
+                                    className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none dark:border-gray-700 dark:bg-gray-900"
+                                    value={classForm.classType}
+                                    onChange={(event) => setClassForm((current) => ({ ...current, classType: event.target.value }))}
+                                >
+                                    <option value="strength">Strength</option>
+                                    <option value="hiit">HIIT</option>
+                                    <option value="yoga">Yoga</option>
+                                    <option value="cardio">Cardio</option>
+                                    <option value="pilates">Pilates</option>
+                                    <option value="dance">Dance</option>
+                                </select>
+                                <select
+                                    className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none dark:border-gray-700 dark:bg-gray-900"
+                                    value={classForm.level}
+                                    onChange={(event) => setClassForm((current) => ({ ...current, level: event.target.value }))}
+                                >
+                                    <option value="beginner">Beginner</option>
+                                    <option value="intermediate">Intermediate</option>
+                                    <option value="advanced">Advanced</option>
+                                    <option value="all_levels">All levels</option>
+                                </select>
+                                <Input
+                                    label="Capacity"
+                                    type="number"
+                                    min={1}
+                                    max={500}
+                                    value={classForm.capacity}
+                                    onChange={(event) => setClassForm((current) => ({ ...current, capacity: event.target.value }))}
+                                />
+                                <Input
+                                    label="Price (₹)"
+                                    type="number"
+                                    min={0}
+                                    value={classForm.price}
+                                    onChange={(event) => setClassForm((current) => ({ ...current, price: event.target.value }))}
+                                    placeholder="0 = free"
+                                />
+                            </div>
+                            <div className="mt-3">
+                                <Button type="submit" isLoading={creatingClass} leftIcon={<CalendarCheck className="h-4 w-4" />}>
+                                    Add Class
+                                </Button>
+                            </div>
+                        </form>
+                        {ownerClasses.length === 0 ? (
+                            <EmptyLine icon={CalendarCheck} text="No classes scheduled yet. Add one above to start accepting bookings." />
+                        ) : ownerClasses.slice(0, 8).map((item) => (
                             <div key={item.id} className="flex flex-col gap-3 rounded-xl border border-gray-100 p-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
+                                <div className="min-w-0">
                                     <p className="font-semibold text-gray-900 dark:text-gray-100">{item.title}</p>
                                     <p className="text-sm text-gray-500 dark:text-gray-400">
                                         {[humanize(item.class_type), humanize(item.level), formatDateTime(item.starts_at)].filter(Boolean).join(' • ')}
                                     </p>
+                                    {item.status === 'cancelled' && <p className="mt-1 text-xs font-medium text-red-500">Cancelled — bookings were released</p>}
                                 </div>
-                                <p className="text-sm font-semibold text-cyan-700">
-                                    {(item.booked_count ?? 0)}/{item.capacity ?? 0} booked
-                                </p>
+                                <div className="flex shrink-0 items-center gap-3">
+                                    <p className="text-sm font-semibold text-cyan-700">
+                                        {(item.booked_count ?? 0)}/{item.capacity ?? 0} booked
+                                        {item.waitlisted_count ? ` + ${item.waitlisted_count} waitlist` : ''}
+                                    </p>
+                                    <StatusBadge status={item.status || 'active'} size="sm" />
+                                    {item.status !== 'cancelled' && (
+                                        <Button
+                                            size="sm"
+                                            variant="danger"
+                                            onClick={() => cancelClass(item.id, item.title)}
+                                            isLoading={cancellingClassId === item.id}
+                                        >
+                                            Cancel
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </CardContent>
@@ -478,7 +650,67 @@ export default function FitnessCenterDashboard() {
                         <ReadinessItem done={trainers.length > 0} label="Trainer roster" />
                         <ReadinessItem done={(metrics.totalBookings ?? 0) > 0} label="Booking activity" />
                         <ReadinessItem done={!!center?.is_verified} label="Verified profile" />
-                        <ReadinessItem done={(classes.length > 0)} label="Class timetable" />
+                        <ReadinessItem done={ownerClasses.length > 0} label="Class timetable" />
+                    </CardContent>
+                </Card>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                <Card id="bookings">
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <CardTitle>Recent Bookings</CardTitle>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => loadDashboard(true)}
+                            isLoading={bookingsLoading}
+                            leftIcon={<RefreshCw className="h-4 w-4" />}
+                        >
+                            Refresh
+                        </Button>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {bookings.length === 0 ? (
+                            <EmptyLine icon={TicketCheck} text="Bookings will appear here as patients reserve your classes." />
+                        ) : bookings.slice(0, 10).map((booking) => (
+                            <div key={booking.id} className="flex flex-col gap-2 rounded-xl border border-gray-100 p-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="min-w-0">
+                                    <p className="font-semibold text-gray-900 dark:text-gray-100">{booking.patient?.name || 'Anonymous patient'}</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        {booking.class?.title || 'Drop-in session'}
+                                        {booking.booking_date ? ` • ${formatDateTime(booking.booking_date)}` : ''}
+                                    </p>
+                                    {booking.patient?.phone && <p className="text-xs text-gray-400">{booking.patient.phone}</p>}
+                                </div>
+                                <div className="flex shrink-0 items-center gap-2">
+                                    <StatusBadge status={booking.status || 'booked'} size="sm" />
+                                </div>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+
+                <Card id="checkins">
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <CardTitle>Live Check-ins</CardTitle>
+                        <StatusBadge status={checkinsLoading ? 'pending' : 'active'} size="sm" />
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {checkins.length === 0 ? (
+                            <EmptyLine icon={Clipboard} text="Patient check-ins at your facility will stream in here." />
+                        ) : checkins.slice(0, 10).map((checkin) => (
+                            <div key={checkin.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-4 dark:border-gray-800">
+                                <div className="min-w-0">
+                                    <p className="font-semibold text-gray-900 dark:text-gray-100">{checkin.patient?.name || 'Patient'}</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        {checkin.booking?.class?.title || humanize(checkin.booking?.booking_type || checkin.booking_type) || 'Day pass'}
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm font-semibold text-emerald-600">{formatDateTime(checkin.checked_in_at)}</p>
+                                </div>
+                            </div>
+                        ))}
                     </CardContent>
                 </Card>
             </div>

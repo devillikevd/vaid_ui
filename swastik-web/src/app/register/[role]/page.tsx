@@ -152,6 +152,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     const [languages, setLanguages] = useState('');
     const [bio, setBio] = useState('');
     const [isEmergencyAvailable, setIsEmergencyAvailable] = useState(false);
+    const [subRole, setSubRole] = useState('');
     const [latitude, setLatitude] = useState<number | null>(null);
     const [longitude, setLongitude] = useState<number | null>(null);
     const [hospitalType, setHospitalType] = useState('Private');
@@ -247,6 +248,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
             if (!consultationFee.trim()) errors.consultationFee = 'Consultation fee is required';
             else if (!Number.isFinite(Number(consultationFee)) || Number(consultationFee) < 0) errors.consultationFee = 'Consultation fee must be a non-negative number';
         } else if (isWellnessRole) {
+            if (!subRole) errors.subRole = 'Select your primary coaching role';
             if (!specialization.trim()) errors.specialization = 'Coach type or specialty is required';
             if (!qualification.trim()) errors.qualification = 'Qualification or certification is required';
             if (!experience.trim()) errors.experience = 'Years of experience is required';
@@ -299,6 +301,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                     break;
                 case 'wellness_coach':
                     roleData = {
+                        sub_role: subRole,
                         headline: bio.trim() ? bio.trim().split('\n')[0] : specialization.trim(),
                         coach_types: specialization.split(',').map((item) => item.trim()).filter(Boolean),
                         specialties: specialization.split(',').map((item) => item.trim()).filter(Boolean),
@@ -650,6 +653,24 @@ export default function RegisterPage({ params }: RegisterPageProps) {
 
                             {isWellnessRole && (
                                 <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
+                                            {withRequiredMark('Primary Coaching Role', true)}
+                                        </label>
+                                        <select
+                                            value={subRole}
+                                            onChange={(e) => { setSubRole(e.target.value); setFieldErrors((p) => { const { subRole, ...rest } = p; return rest; }); }}
+                                            className={`w-full px-4 py-3.5 border rounded-xl text-white bg-white/[0.03] focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all appearance-none ${fieldErrors.subRole ? '!border-red-400' : 'border-white/10'}`}
+                                        >
+                                            <option value="" className="text-black">Select primary role</option>
+                                            <option value="fitness_trainer" className="text-black">Fitness Trainer</option>
+                                            <option value="yoga_coach" className="text-black">Yoga Coach</option>
+                                            <option value="nutritionist" className="text-black">Nutritionist</option>
+                                        </select>
+                                        {fieldErrors.subRole && (
+                                            <p className="text-sm text-red-400 mt-1.5">{fieldErrors.subRole}</p>
+                                        )}
+                                    </div>
                                     <Input
                                         label={withRequiredMark('Coach Type / Specialty', true)}
                                         value={specialization}

@@ -65,4 +65,7 @@
 \i 048_diagnostic_enhancements.sql
 \i 20250727120000_create_medicine_categories.sql
 \i 049_wellness_ecosystem.sql
+\i 051_wellness_production_features.sql
+\i 052_security_hardening.sql
+\i 053_fitness_center_reels.sql
 SELECT '✅ SWASTIK PRODUCTION SCHEMA v4.1 DEPLOYED!' as status;

@@ -33,6 +33,7 @@ const DISPATCH_ROLES = [...new Set([...GLOBAL_DISPATCH_ROLES, ...HOSPITAL_DISPAT
 const TRACKING_ROLES = ['patient', 'ambulance_operator', 'ambulance_driver', 'hospital_owner', 'hospital_manager', 'admin', 'super_admin'];
 const VIDEO_ROLES = ['doctor', 'patient'];
 const CHAT_ROLES = ['doctor', 'patient'];
+const WELLNESS_CHAT_ROLES = ['patient', 'wellness_coach'];
 
 // Helper: wrap socket event handlers with async try-catch
 const safeHandler = (socket, handler) => {
@@ -116,6 +117,76 @@ const ensureConsultationRoomAccess = async (socket, roomPrefix, roomId) => {
   return true;
 };
 
+// Wellness session chat — verifies that the user is the coach or patient of the session.
+const verifyWellnessSessionParticipant = async (userId, role, sessionId) => {
+  if (!WELLNESS_CHAT_ROLES.includes(role)) {
+    throw new Error('Unauthorized: wellness chat access denied');
+  }
+
+  const { data: session, error } = await supabaseAdmin
+    .from('wellness_sessions')
+    .select('id, coach_id, patient_id, status, scheduled_at')
+    .eq('id', sessionId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!session) throw new Error('Wellness session not found');
+
+  const table = role === 'patient' ? 'patients' : 'wellness_coaches';
+  const { data: record } = await supabaseAdmin
+    .from(table)
+    .select('id, user_id')
+    .eq('user_id', userId)
+    .single();
+
+  const participantId = record?.id;
+  const isParticipant =
+    role === 'patient'
+      ? participantId === session.patient_id
+      : participantId === session.coach_id;
+
+  if (!isParticipant) {
+    throw new Error('Access denied: you are not a participant of this wellness session');
+  }
+
+  const participantUserIds = await (async () => {
+    const [patientRow, coachRow] = await Promise.all([
+      supabaseAdmin.from('patients').select('user_id').eq('id', session.patient_id).single(),
+      supabaseAdmin.from('wellness_coaches').select('user_id').eq('id', session.coach_id).single(),
+    ]);
+    return {
+      patientUserId: patientRow.data?.user_id || null,
+      coachUserId: coachRow.data?.user_id || null,
+    };
+  })();
+
+  return { session, ...participantUserIds };
+};
+
+const ensureWellnessChatRoomAccess = async (socket, sessionId) => {
+  if (!sessionId || typeof sessionId !== 'string') return false;
+
+  const room = `wellness:chat:${sessionId}`;
+  socket.verifiedWellnessChatRooms ||= new Set();
+  socket.wellnessSessions ||= {};
+
+  if (!socket.verifiedWellnessChatRooms.has(room)) {
+    try {
+      const verified = await verifyWellnessSessionParticipant(socket.userId, socket.userRole, sessionId);
+      socket.verifiedWellnessChatRooms.add(room);
+      socket.wellnessSessions[room] = verified;
+    } catch (dbErr) {
+      console.warn(`Wellness chat access check failed for ${room}, user ${socket.userId}:`, dbErr.message);
+      socket.emit('error', { message: dbErr.message || 'Unable to verify wellness session access' });
+      return false;
+    }
+  }
+
+  if (!socket.rooms.has(room)) {
+    socket.join(room);
+  }
+  return true;
+};
+
 const logSignalingEvent = async (roomId, userId, eventType, data = {}) => {
   try {
     const connection = getMongoConnection();
@@ -164,7 +235,7 @@ const initializeSocketIO = (io) => {
         return next(new Error('Authentication required'));
       }
 
-      const decoded = jwt.verify(token, config.jwt.accessSecret);
+      const decoded = jwt.verify(token, config.jwt.accessSecret, { algorithms: ['HS256'] });
       if (decoded.type && decoded.type !== 'access') {
         return next(new Error('Invalid token type'));
       }
@@ -761,6 +832,81 @@ const initializeSocketIO = (io) => {
       if (!validateData(data, ['consultationId'])) return;
       if (!await ensureConsultationRoomAccess(socket, 'chat', data.consultationId)) return;
       socket.to(`chat:${data.consultationId}`).emit('chat:typing', {
+        userId,
+        isTyping: !!data.isTyping,
+      });
+    }));
+
+    // ==================== WELLNESS SESSION CHAT ====================
+
+    socket.on('wellness:chat:join', safeHandler(socket, async (sessionId) => {
+      if (!hasRole(socket, WELLNESS_CHAT_ROLES)) {
+        return socket.emit('error', { message: 'Unauthorized: wellness chat access denied' });
+      }
+      if (!sessionId || typeof sessionId !== 'string') return;
+
+      if (!await ensureWellnessChatRoomAccess(socket, sessionId)) return;
+      socket.emit('wellness:chat:joined', { sessionId });
+    }));
+
+    socket.on('wellness:chat:leave', safeHandler(socket, (sessionId) => {
+      if (!sessionId || typeof sessionId !== 'string') return;
+      socket.leave(`wellness:chat:${sessionId}`);
+    }));
+
+    socket.on('wellness:chat:message', safeHandler(socket, async (data) => {
+      if (!hasRole(socket, WELLNESS_CHAT_ROLES)) return;
+      if (!validateData(data, ['sessionId', 'message'])) return;
+      if (typeof data.message !== 'string' || data.message.trim().length === 0) return;
+
+      if (data.message.length > 2000) {
+        return socket.emit('error', { message: 'Message too long (max 2000 characters)' });
+      }
+
+      const chatRoom = `wellness:chat:${data.sessionId}`;
+      if (!await ensureWellnessChatRoomAccess(socket, data.sessionId)) return;
+
+      const chatRateLimitKey = `${RATE_LIMIT_PREFIX}wellness_chat:${userId}`;
+      const now = Date.now();
+      try {
+        const lastStr = await cacheGet(chatRateLimitKey);
+        const last = lastStr ? parseInt(lastStr, 10) : 0;
+        if (now - last < 200) return; // 200ms = 5 msg/sec
+        await cacheSet(chatRateLimitKey, now.toString(), 10);
+      } catch { /* rate limit best-effort */ }
+
+      const chatPayload = {
+        userId,
+        role: socket.userRole,
+        message: data.message.trim(),
+        timestamp: new Date().toISOString(),
+      };
+
+      socket.to(chatRoom).emit('wellness:chat:message', chatPayload);
+      socket.emit('wellness:chat:message:sent', chatPayload);
+
+      // Persist chat message to MongoDB (shared ChatMessage collection, source-tagged)
+      try {
+        const { ChatMessage } = require('../database/models');
+        if (ChatMessage) {
+          await ChatMessage.create({
+            sessionId: data.sessionId,
+            userId,
+            role: socket.userRole,
+            content: data.message.trim(),
+            metadata: { wellnessSessionId: data.sessionId, source: 'wellness_socket' },
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to persist wellness chat message:', err.message);
+      }
+    }));
+
+    socket.on('wellness:chat:typing', safeHandler(socket, async (data) => {
+      if (!hasRole(socket, WELLNESS_CHAT_ROLES)) return;
+      if (!validateData(data, ['sessionId'])) return;
+      if (!await ensureWellnessChatRoomAccess(socket, data.sessionId)) return;
+      socket.to(`wellness:chat:${data.sessionId}`).emit('wellness:chat:typing', {
         userId,
         isTyping: !!data.isTyping,
       });
