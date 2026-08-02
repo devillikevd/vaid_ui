@@ -583,7 +583,7 @@ fun Step3Location(address: String, phone: String, onAddressChange: (String) -> U
         Spacer(modifier = Modifier.height(16.dp))
         
         if (address.isBlank()) {
-            com.example.swastik.ui.screens.patient.components.SwiggyAddressEditor(
+            com.example.swastik.ui.screens.patient.components.HomeAddressEditor(
                 initialAddress = "",
                 onAddressSaved = onAddressChange
             )
@@ -768,3 +768,4 @@ private fun BookingStepperRedesigned(currentVisualStep: Int, isPrescription: Boo
         }
     }
 }
+

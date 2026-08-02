@@ -1,4 +1,5 @@
 package com.example.swastik.ui.screens.patient.components
+import com.example.swastik.ui.screens.patient.tabs.HomeServiceTab
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.core.animateFloat
@@ -306,7 +307,10 @@ fun CompactHealthIdCard(
                     )
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.align(Alignment.Top).offset(y = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text("Open", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF047857))
                     Icon(Icons.Filled.ChevronRight, null, tint = Color(0xFF047857), modifier = Modifier.size(16.dp))
                 }
@@ -355,12 +359,14 @@ private fun HubMetricPill(
             .heightIn(min = 58.dp)
             .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(12.dp))
             .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = Color(0xFF047857), modifier = Modifier.size(15.dp))
-            Text(label, fontSize = 9.sp, color = Color(0xFF64748B), maxLines = 1)
+            Text(label, fontSize = 9.sp, color = Color(0xFF475569), maxLines = 1)
         }
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
             value,
             fontSize = 11.sp,
@@ -610,57 +616,152 @@ fun QuickActionGridCard(
 }
 
 @Composable
-fun CommunityQABanner(onClick: () -> Unit) {
+fun CommunityQABanner(totalQuestions: Int? = null, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE5F5F0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
         ) {
-            // Avatars overlap
-            Box(modifier = Modifier.width(54.dp).height(36.dp)) {
-                Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFF1F5F9)).border(2.dp, Color.White, CircleShape).align(Alignment.CenterStart), contentAlignment = Alignment.Center) { Text(stringResource(R.string.string_2), fontSize = 18.sp) }
-                Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFF1F5F9)).border(2.dp, Color.White, CircleShape).align(Alignment.CenterEnd), contentAlignment = Alignment.Center) { Text(stringResource(R.string.str_key_1), fontSize = 18.sp) }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(
-                modifier = Modifier.weight(1f)
+            // Top Section
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF4CAF50)))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        stringResource(R.string.community_qa),
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 14.sp,
-                        color = Color(0xFF1E293B)
+                // Left side: Fake Doctor Profiles
+                Box(
+                    modifier = Modifier
+                        .width(100.dp)
+                        .height(72.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Left profile
+                    Image(
+                        painter = painterResource(id = R.drawable.childspecialist),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .offset(x = (-26).dp)
+                            .clip(CircleShape)
+                            .border(2.dp, Color.White, CircleShape)
+                    )
+                    // Right profile
+                    Image(
+                        painter = painterResource(id = R.drawable.eyespecialist),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .offset(x = 26.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, Color.White, CircleShape)
+                    )
+                    // Center profile
+                    Image(
+                        painter = painterResource(id = R.drawable.generalphysician),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, Color.White, CircleShape)
+                    )
+                    // Green dot on center profile
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .offset(x = 20.dp, y = (-2).dp)
+                            .size(14.dp)
+                            .border(2.dp, Color.White, CircleShape)
+                            .clip(CircleShape)
+                            .background(Color(0xFF00C853))
                     )
                 }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    stringResource(R.string.get_answers_from_verified_doctors),
-                    fontSize = 11.sp,
-                    color = Color(0xFF64748B)
-                )
-            }
 
-            Icon(
-                Icons.Filled.ChevronRight,
-                contentDescription = null,
-                tint = Color(0xFF94A3B8),
-                modifier = Modifier.size(24.dp)
-            )
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                // Middle: Texts
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Community Q&A",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 18.sp,
+                            color = Color(0xFF1E293B)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        // LIVE Badge
+                        Row(
+                            modifier = Modifier
+                                .background(Color(0xFFD4EFE5), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF00C853)))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("LIVE", color = Color(0xFF00C853), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Ask doctors. Get verified answers.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = Color(0xFFD4EFE5), thickness = 1.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Bottom Section (Stats)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Live Discussions
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.background(Color(0xFFD4EFE5), RoundedCornerShape(4.dp)).padding(4.dp), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.Chat, contentDescription = null, tint = Color(0xFF00C853), modifier = Modifier.size(14.dp))
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Live Discussions", fontSize = 10.sp, color = Color(0xFF1E293B), fontWeight = FontWeight.Medium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                // Verified Doctors
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.background(Color(0xFFD4EFE5), RoundedCornerShape(4.dp)).padding(4.dp), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.VerifiedUser, contentDescription = null, tint = Color(0xFF00C853), modifier = Modifier.size(14.dp))
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Verified Doctors", fontSize = 10.sp, color = Color(0xFF1E293B), fontWeight = FontWeight.Medium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                // Questions Count
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.background(Color(0xFFD4EFE5), RoundedCornerShape(4.dp)).padding(4.dp), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.People, contentDescription = null, tint = Color(0xFF00C853), modifier = Modifier.size(14.dp))
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    val qCountStr = if (totalQuestions == null) "0 Questions" else if (totalQuestions >= 1000) "${totalQuestions / 1000}K+ Questions" else "$totalQuestions Questions"
+                    Text(qCountStr, fontSize = 10.sp, color = Color(0xFF1E293B), fontWeight = FontWeight.Medium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
+            }
         }
     }
 }
@@ -999,6 +1100,7 @@ private fun HealthcareServiceCard(
 
 @Composable
 fun TopHealthcareServicesRow(
+    activeServiceTab: HomeServiceTab = HomeServiceTab.HOME,
     onHospitalsClick: () -> Unit,
     onClinicsClick: () -> Unit,
     onPharmacyClick: () -> Unit,
@@ -1006,8 +1108,8 @@ fun TopHealthcareServicesRow(
     onFitnessClick: () -> Unit = {}
 ) {
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-    // Screen width - padding (16dp*2) - spacing (8dp*4) divided by 5
-    val itemWidth = (configuration.screenWidthDp.dp - 32.dp - 32.dp) / 5
+    // Screen width - padding (16dp*2) - spacing (8dp*3) divided by 4.1 to show a peek of the next
+    val itemWidth = (configuration.screenWidthDp.dp - 32.dp - 24.dp) / 4
 
     androidx.compose.foundation.lazy.LazyRow(
         modifier = Modifier
@@ -1021,7 +1123,8 @@ fun TopHealthcareServicesRow(
                 modifier = Modifier.width(itemWidth),
                 imageRes = R.drawable.find_hospital,
                 backgroundColor = Color(0xFFE8F1FC), // Light blue
-                imageAlignment = androidx.compose.ui.BiasAlignment(0f, 0.7f), // Shift UP significantly to crop top location icon
+                imagePadding = 10.dp, // Add padding to prevent the image from covering the entire card
+                isSelected = activeServiceTab == HomeServiceTab.HOSPITAL,
                 onClick = onHospitalsClick
             )
         }
@@ -1030,7 +1133,7 @@ fun TopHealthcareServicesRow(
                 modifier = Modifier.width(itemWidth),
                 imageRes = R.drawable.clinic_visit,
                 backgroundColor = Color(0xFFE8F5E9), // Light green
-                imageAlignment = androidx.compose.ui.BiasAlignment(0f, -0.5f), // Shift slightly UP from TopCenter
+                isSelected = activeServiceTab == HomeServiceTab.CLINIC,
                 onClick = onClinicsClick
             )
         }
@@ -1039,7 +1142,7 @@ fun TopHealthcareServicesRow(
                 modifier = Modifier.width(itemWidth),
                 imageRes = R.drawable.order_medicine,
                 backgroundColor = Color(0xFFFFF0E6), // Light peach
-                imageAlignment = androidx.compose.ui.BiasAlignment(0f, -0.5f), // Shift slightly UP from TopCenter
+                isSelected = activeServiceTab == HomeServiceTab.PHARMACY,
                 onClick = onPharmacyClick
             )
         }
@@ -1048,14 +1151,15 @@ fun TopHealthcareServicesRow(
                 modifier = Modifier.width(itemWidth),
                 imageRes = R.drawable.book_test_lab,
                 backgroundColor = Color(0xFFF4EBF7), // Light purple
-                imageAlignment = androidx.compose.ui.BiasAlignment(0f, -0.5f), // Shift slightly UP from TopCenter
+                isSelected = activeServiceTab == HomeServiceTab.DIAGNOSTIC,
                 onClick = onDiagnosticsClick
             )
         }
-        // 5th card: Gym & Studios (Material icon until drawable provided)
+        // 5th card: Gym & Studios
         item {
             GymStudioIconCard(
                 modifier = Modifier.width(itemWidth),
+                isSelected = activeServiceTab == HomeServiceTab.FITNESS,
                 onClick = onFitnessClick
             )
         }
@@ -1069,23 +1173,26 @@ fun TopServiceIconCard(
     imageRes: Int,
     backgroundColor: Color,
     imageAlignment: Alignment = Alignment.Center,
+    imagePadding: androidx.compose.ui.unit.Dp = 0.dp,
+    isSelected: Boolean = false,
     onClick: () -> Unit
 ) {
     Card(
         modifier = modifier
-            .aspectRatio(1.25f) // Wider rectangle makes the cards shorter! This automatically crops out the vertical margins!
-            .clip(RoundedCornerShape(16.dp))
+            .offset(y = if (isSelected) 8.dp else 0.dp)
+            .aspectRatio(1f) // Perfect square
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Image(
             painter = painterResource(id = imageRes),
-            contentDescription = imageRes.toString(),
-            contentScale = ContentScale.Crop, // Magically zooms past the baked-in white margins
-            alignment = imageAlignment, // Allows shifting hospital to bottom
-            modifier = Modifier.fillMaxSize(), // No padding guarantees 0 borders!
+            contentDescription = null,
+            contentScale = ContentScale.Crop, // Changed to Crop to ensure image fills nicely
+            alignment = imageAlignment,
+            modifier = Modifier.fillMaxSize().padding(imagePadding).scale(1.2f), // Scale slightly to remove transparent padding
             colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
                 color = backgroundColor,
                 blendMode = androidx.compose.ui.graphics.BlendMode.Multiply
@@ -1097,26 +1204,31 @@ fun TopServiceIconCard(
 @Composable
 fun GymStudioIconCard(
     modifier: Modifier = Modifier,
+    isSelected: Boolean = false,
     onClick: () -> Unit
 ) {
-    val gymBgColor = Color(0xFFE8F8EF) // Wellness Hub green theme
+    val gymBgColor = Color(0xFFE1F5FE) // Very light sky blue
     Card(
         modifier = modifier
-            .aspectRatio(1.25f)
-            .clip(RoundedCornerShape(16.dp))
+            .offset(y = if (isSelected) 8.dp else 0.dp)
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = gymBgColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = Icons.Default.FitnessCenter,
-                contentDescription = "Gym & Studios",
-                tint = Color(0xFF047857),
-                modifier = Modifier.size(32.dp)
+        Image(
+            painter = painterResource(id = R.drawable.gymcoach), // using gymcoach as gymcard doesn't exist
+            contentDescription = "Gym & Studios",
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize().padding(10.dp).scale(1.2f),
+            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
+                color = gymBgColor,
+                blendMode = androidx.compose.ui.graphics.BlendMode.Multiply
             )
-        }
+        )
     }
 }
 
@@ -1384,14 +1496,18 @@ fun DoctorCard(
         modifier = modifier
             .clickable(onClick = onViewProfile),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
-                .padding(12.dp)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color(0xFFE8F8EF), Color(0xFFF8FBFF))
+                    )
+                )
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Profile Image with Verified Badge

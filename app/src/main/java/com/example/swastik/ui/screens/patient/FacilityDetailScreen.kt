@@ -1230,12 +1230,17 @@ private fun LazyListScope.overviewTabContent(
     }
 
     // ── Floor Guide Map ──
-    if (!facility.floorGuideMapUrl.isNullOrBlank()) {
+    val floorGuideStr = try {
+        val element = facility.floorGuideMapUrl
+        if (element != null && element.isJsonPrimitive) element.asString else null
+    } catch (e: Exception) { null }
+
+    if (!floorGuideStr.isNullOrBlank()) {
         item {
             Surface(
                 onClick = {
                     try {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(facility.floorGuideMapUrl)))
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(floorGuideStr)))
                     } catch (_: Exception) {
                         Toast.makeText(context, "Cannot open floor guide", Toast.LENGTH_SHORT).show()
                     }

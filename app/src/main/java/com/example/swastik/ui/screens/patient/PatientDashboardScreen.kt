@@ -2,6 +2,7 @@ package com.example.swastik.ui.screens.patient
 
 import android.Manifest
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
@@ -61,6 +62,11 @@ fun PatientDashboardScreen(
     onNavigateToClinics: () -> Unit = {},
     onNavigateToPharmacies: () -> Unit = {},
     onNavigateToFitnessCenters: () -> Unit = {},
+    onNavigateToHospitalDetail: (String) -> Unit = {},
+    onNavigateToClinicDetail: (String) -> Unit = {},
+    onNavigateToPharmacyDetail: (String) -> Unit = {},
+    onNavigateToDiagnosticDetail: (String) -> Unit = {},
+    onNavigateToFitnessCenterDetail: (String) -> Unit = {},
     onNavigateToPharmacy: (String?, String?) -> Unit = { _, _ -> },
     onNavigateToReports: () -> Unit = {},
     onNavigateToPrescriptions: () -> Unit = {},
@@ -256,6 +262,12 @@ fun PatientDashboardScreen(
 
     val unreadCount = notifications.count { !it.isRead }
 
+    var activeServiceTab by remember { mutableStateOf(HomeServiceTab.HOME) }
+
+    BackHandler(enabled = selectedTab == 0 && activeServiceTab != HomeServiceTab.HOME) {
+        activeServiceTab = HomeServiceTab.HOME
+    }
+
     // Pull-to-refresh state
     val pullToRefreshState = rememberPullToRefreshState()
     if (pullToRefreshState.isRefreshing) {
@@ -295,13 +307,17 @@ fun PatientDashboardScreen(
                         0 -> {
                             val fitnessLog by viewModel.fitnessLog.collectAsState()
                             val guardianEnabled by viewModel.guardianEnabled.collectAsState()
+                            val totalCommunityQuestions by viewModel.totalCommunityQuestions.collectAsState()
                             HomeTabContent(
+                                activeServiceTab = activeServiceTab,
+                                onServiceTabChange = { activeServiceTab = it },
                                 profile = profile,
                                 unreadNotificationsCount = unreadCount,
                                 doctors = doctors,
                                 searchSuggestions = uiState.searchSuggestions,
                                 fitnessLog = fitnessLog,
                                 guardianEnabled = guardianEnabled,
+                                totalCommunityQuestions = totalCommunityQuestions,
                                 onGuardianToggle = { enabled -> 
                                     if (enabled) {
                                         val permissions = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -324,6 +340,11 @@ fun PatientDashboardScreen(
                             onNavigateToClinics = onNavigateToClinics,
                             onNavigateToPharmacies = onNavigateToPharmacies,
                             onNavigateToFitnessCenters = onNavigateToFitnessCenters,
+                            onNavigateToHospitalDetail = onNavigateToHospitalDetail,
+                            onNavigateToClinicDetail = onNavigateToClinicDetail,
+                            onNavigateToPharmacyDetail = onNavigateToPharmacyDetail,
+                            onNavigateToDiagnosticDetail = onNavigateToDiagnosticDetail,
+                            onNavigateToFitnessCenterDetail = onNavigateToFitnessCenterDetail,
                             onNavigateToEmergency = onNavigateToEmergency,
                             onNavigateToChatbot = onNavigateToChatbot,
                             onNavigateToDiagnostic = onNavigateToDiagnostic,

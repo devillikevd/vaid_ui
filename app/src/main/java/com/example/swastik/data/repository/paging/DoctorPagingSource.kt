@@ -11,10 +11,12 @@ class DoctorPagingSource(
     private val search: String?,
     private val hospitalId: String?,
     private val clinicId: String?,
-    private val latitude: Double?,
-    private val longitude: Double?,
-    private val city: String?,
-    private val global: Boolean?
+    private val latitude: Double? = null,
+    private val longitude: Double? = null,
+    private val city: String? = null,
+    private val global: Boolean? = null,
+    private val sortBy: String? = null,
+    private val consultationType: String? = null
 ) : PagingSource<Int, Doctor>() {
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Doctor> {
@@ -29,7 +31,10 @@ class DoctorPagingSource(
                 latitude = latitude,
                 longitude = longitude,
                 global = global,
-                page = page
+                sortBy = sortBy,
+                consultationType = consultationType,
+                page = page,
+                limit = params.loadSize
             )
             
             when (result) {

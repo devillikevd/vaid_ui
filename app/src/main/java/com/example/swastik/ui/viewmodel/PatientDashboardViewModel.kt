@@ -88,7 +88,8 @@ class PatientDashboardViewModel @Inject constructor(
     private val fitnessRepository: com.example.swastik.data.repository.FitnessRepository,
     private val guardianRepository: com.example.swastik.data.repository.GuardianRepository,
     private val favoriteDoctorsStore: com.example.swastik.data.repository.FavoriteDoctorsStore,
-    private val favoriteFacilitiesStore: com.example.swastik.data.repository.FavoriteFacilitiesStore
+    private val favoriteFacilitiesStore: com.example.swastik.data.repository.FavoriteFacilitiesStore,
+    private val communityRepository: com.example.swastik.data.repository.CommunityRepository
 ) : ViewModel() {
 
     val healthConnectManager = HealthConnectManager(context)
@@ -97,14 +98,18 @@ class PatientDashboardViewModel @Inject constructor(
     val fitnessLog = fitnessRepository.getTodayLog()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.example.swastik.data.model.DailyFitnessLog())
 
-    val guardianSettings = AppSettingsStore.settings
-
     val guardianEnabled = AppSettingsStore.settings
         .combine(MutableStateFlow(Unit)) { settings, _ -> settings.guardianEnabled }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val liveTelemetry = guardianRepository.telemetryFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.example.swastik.data.local.GuardianTelemetry())
+
+    val guardianSettings = AppSettingsStore.settings
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.example.swastik.data.local.AppSettings())
+
+    private val _totalCommunityQuestions = MutableStateFlow<Int?>(null)
+    val totalCommunityQuestions = _totalCommunityQuestions.asStateFlow()
 
     val guardianEvents = guardianRepository.getAllEvents()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -185,6 +190,8 @@ class PatientDashboardViewModel @Inject constructor(
             pushNotificationCoordinator.registerCurrentDeviceIfPossible()
             loadDashboard()
         }
+        fetchDashboardData()
+        fetchTotalQuestions()
         collectRealtimeNotifications()
         collectProviderCatalogUpdates()
         collectPrescriptionUpdates()
@@ -192,6 +199,17 @@ class PatientDashboardViewModel @Inject constructor(
         scheduleAlarms()
     }
 
+    suspend fun submitFeedback(
+        rating: Int,
+        category: String,
+        feedbackText: String,
+        allowContact: Boolean,
+        screenshotFile: java.io.File?
+    ): com.example.swastik.data.repository.Result<Unit> {
+        return patientRepository.submitFeedback(rating, category, feedbackText, allowContact, screenshotFile)
+    }
+
+    // ==================== INITIAL LOAD ====================
     fun logout(onComplete: () -> Unit) {
         viewModelScope.launch {
             authRepository.logout()
@@ -922,6 +940,45 @@ class PatientDashboardViewModel @Inject constructor(
     }
 
     // ── Reminders ───────────────────────────────────────────────
+
+    fun fetchDashboardData() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            when (val result = patientRepository.getDashboard()) {
+                is Result.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        dashboard = result.data,
+                        error = null
+                    )
+                    // Fetch real data from backend for Smart Health Hub
+                    when (val summariesResult = patientRepository.getWearableSummaries(1)) {
+                        is Result.Success -> {
+                            summariesResult.data.firstOrNull()?.let { summary ->
+                                fitnessRepository.syncWithBackendData(summary)
+                            }
+                        }
+                        else -> {} // ignore errors silently for this background sync
+                    }
+                }
+                is Result.Error -> _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = result.message
+                )
+                is Result.Loading -> {}
+            }
+        }
+    }
+
+    private fun fetchTotalQuestions() {
+        viewModelScope.launch {
+            communityRepository.getQuestions(page = 1, limit = 1).collect { result ->
+                if (result is Result.Success) {
+                    _totalCommunityQuestions.value = result.data.total
+                }
+            }
+        }
+    }
 
     private fun formatScheduledAt(time: String): String {
         return try {

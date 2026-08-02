@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.runtime.*
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,27 +35,44 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import com.example.swastik.R
 
+import com.example.swastik.ui.screens.patient.HospitalFinderScreen
+import com.example.swastik.data.model.FacilityType
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
+
+enum class HomeServiceTab {
+    HOME, HOSPITAL, CLINIC, PHARMACY, DIAGNOSTIC, FITNESS
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeTabContent(
+    activeServiceTab: HomeServiceTab = HomeServiceTab.HOME,
+    onServiceTabChange: (HomeServiceTab) -> Unit = {},
     profile: PatientProfile?,
     unreadNotificationsCount: Int,
     doctors: List<Doctor> = emptyList(),
     searchSuggestions: List<String> = emptyList(),
     fitnessLog: DailyFitnessLog? = null,
     guardianEnabled: Boolean = false,
+    totalCommunityQuestions: Int? = 0,
     onGuardianToggle: (Boolean) -> Unit = {},
     paddingValues: PaddingValues,
     onNotificationClick: () -> Unit,
     onProfileClick: () -> Unit,
     onStartInPersonConsultation: () -> Unit,
     onStartVideoConsultation: () -> Unit,
-    onNavigateToAppointments: () -> Unit,
-    onNavigateToReports: () -> Unit,
-    onNavigateToHospitals: () -> Unit,
-    onNavigateToClinics: () -> Unit,
-    onNavigateToPharmacies: () -> Unit,
+    onNavigateToAppointments: () -> Unit = {},
+    onNavigateToReports: () -> Unit = {},
+    onNavigateToHospitals: () -> Unit = {},
+    onNavigateToClinics: () -> Unit = {},
+    onNavigateToPharmacies: () -> Unit = {},
     onNavigateToFitnessCenters: () -> Unit = {},
+    onNavigateToHospitalDetail: (String) -> Unit = {},
+    onNavigateToClinicDetail: (String) -> Unit = {},
+    onNavigateToPharmacyDetail: (String) -> Unit = {},
+    onNavigateToDiagnosticDetail: (String) -> Unit = {},
+    onNavigateToFitnessCenterDetail: (String) -> Unit = {},
     onNavigateToEmergency: () -> Unit = {},
     onNavigateToChatbot: () -> Unit,
     onNavigateToDiagnostic: () -> Unit = {},
@@ -84,10 +102,28 @@ fun HomeTabContent(
         Color(0xFFF8FAFC) // Light Gray
     }
 
-    val topTeal = Color(0xFF00695C).copy(alpha = 0.22f) // Slightly darker teal at top
-    val midTeal = Color(0xFF00695C).copy(alpha = 0.08f) // Lighter teal
+    val targetTopColor = when (activeServiceTab) {
+        HomeServiceTab.HOME -> Color(0xFF00695C)
+        HomeServiceTab.HOSPITAL -> Color(0xFF1976D2) // Blue
+        HomeServiceTab.CLINIC -> Color(0xFF388E3C) // Green
+        HomeServiceTab.PHARMACY -> Color(0xFFF57C00) // Orange
+        HomeServiceTab.DIAGNOSTIC -> Color(0xFF7B1FA2) // Purple
+        HomeServiceTab.FITNESS -> Color(0xFF0288D1) // Sky blue
+    }
+
+    val animatedTopColor by androidx.compose.animation.animateColorAsState(
+        targetValue = targetTopColor.copy(alpha = 0.22f),
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 500),
+        label = "TopColor"
+    )
+    val animatedMidColor by androidx.compose.animation.animateColorAsState(
+        targetValue = targetTopColor.copy(alpha = 0.08f),
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 500),
+        label = "MidColor"
+    )
+
     val gradientBrush = androidx.compose.ui.graphics.Brush.verticalGradient(
-        colors = listOf(topTeal, midTeal, Color.Transparent),
+        colors = listOf(animatedTopColor, animatedMidColor, Color.Transparent),
         startY = 0f,
         endY = 600f // Bound the gradient so it doesn't stretch infinitely
     )
@@ -105,43 +141,48 @@ fun HomeTabContent(
                 .background(gradientBrush)
         )
 
-        // LazyColumn wrapped in a Box with statusBarsPadding so it starts entirely below the status bar
+        var topBarHeightPx by remember { mutableFloatStateOf(0f) }
+        var topBarOffsetHeightPx by remember { mutableFloatStateOf(0f) }
+
+        val nestedScrollConnection = remember {
+            object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+                override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
+                    val delta = available.y
+                    val newOffset = topBarOffsetHeightPx + delta
+                    val previousOffset = topBarOffsetHeightPx
+                    topBarOffsetHeightPx = newOffset.coerceIn(-topBarHeightPx, 0f)
+                    val consumed = topBarOffsetHeightPx - previousOffset
+                    return androidx.compose.ui.geometry.Offset(0f, consumed)
+                }
+            }
+        }
+
+        // Main Content Area
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
+                .clipToBounds()
+                .nestedScroll(nestedScrollConnection)
         ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding())
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val topBarOffsetDp = with(density) { topBarOffsetHeightPx.toDp() }
+            val topBarHeightDp = with(density) { topBarHeightPx.toDp() }
+
+            // Scrollable Content Area below tabs
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = topBarHeightDp + topBarOffsetDp)
             ) {
-        // Redesigned Header for Home Tab
-        item {
-            Column(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                DashboardHeader(
-                    profile = profile,
-                    unreadNotificationsCount = unreadNotificationsCount,
-                    onNotificationClick = onNotificationClick,
-                    onProfileClick = onProfileClick,
-                    onLocationClick = onLocationClick,
-                    onAddAddressClick = onAddAddressClick,
-                    isHomeTab = true,
-                    onEmergencyClick = onNavigateToEmergency,
-                    onChatbotClick = onNavigateToChatbot
-                )
-                
-                // Top Healthcare Services Row (Hospitals, Clinics, Pharmacy, Diagnostics)
-                TopHealthcareServicesRow(
-                    onHospitalsClick = onNavigateToHospitals,
-                    onClinicsClick = onNavigateToClinics,
-                    onPharmacyClick = onNavigateToPharmacies,
-                    onDiagnosticsClick = onNavigateToDiagnostic,
-                    onFitnessClick = onNavigateToFitnessCenters
-                )
-            }
-        }
+                androidx.compose.animation.Crossfade(targetState = activeServiceTab, label = "TabCrossfade") { tab ->
+                    when (tab) {
+                        HomeServiceTab.HOME -> {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding())
+                                ) {
         
         // Search Bar sticky header
         stickyHeader {
@@ -254,12 +295,102 @@ fun HomeTabContent(
             )
             
             // Community Q&A Banner (Moved to the bottom)
-            CommunityQABanner(onClick = onNavigateToCommunityQA)
+            CommunityQABanner(totalQuestions = totalCommunityQuestions, onClick = onNavigateToCommunityQA)
             
             Spacer(modifier = Modifier.height(32.dp)) // Extra space at bottom
         }
-        } // Closes inner statusBarsPadding Box
-    } // Closes outer Box
+                                }
+                            }
+                        }
+                        HomeServiceTab.HOSPITAL -> {
+                            HospitalFinderScreen(
+                                isEmbedded = true,
+                                initialFacilityType = FacilityType.HOSPITAL,
+                                onBackClick = {},
+                                onDoctorBookClick = { doc, fac -> onNavigateToBooking(doc.id) },
+                                onHospitalClick = onNavigateToHospitalDetail, // Routes to detail screen
+                                onNavigateToDiagnosticBooking = { _ -> onNavigateToDiagnostic() },
+                                onNavigateToCart = onNavigateToOrderHistory,
+                                onNavigateToNotifications = onNotificationClick
+                            )
+                        }
+                        HomeServiceTab.CLINIC -> {
+                            HospitalFinderScreen(
+                                isEmbedded = true,
+                                initialFacilityType = FacilityType.CLINIC,
+                                onBackClick = {},
+                                onDoctorBookClick = { doc, fac -> onNavigateToBooking(doc.id) },
+                                onClinicClick = onNavigateToClinicDetail, // Routes to detail
+                                onNavigateToDiagnosticBooking = { _ -> onNavigateToDiagnostic() },
+                                onNavigateToCart = onNavigateToOrderHistory,
+                                onNavigateToNotifications = onNotificationClick
+                            )
+                        }
+                        HomeServiceTab.PHARMACY -> {
+                            HospitalFinderScreen(
+                                isEmbedded = true,
+                                initialFacilityType = FacilityType.MEDICAL_STORE,
+                                onBackClick = {},
+                                onPharmacyDetailClick = onNavigateToPharmacyDetail, // Route to detail
+                                onNavigateToDiagnosticBooking = { _ -> onNavigateToDiagnostic() },
+                                onNavigateToCart = onNavigateToOrderHistory,
+                                onNavigateToNotifications = onNotificationClick
+                            )
+                        }
+                        HomeServiceTab.DIAGNOSTIC -> {
+                            com.example.swastik.ui.screens.patient.diagnostic.DiagnosticBookingScreen(
+                                isEmbedded = true,
+                                onBackClick = {},
+                                onNavigateToBookingHistory = onNavigateToBookingHistory,
+                                onCenterClick = onNavigateToDiagnosticDetail
+                            )
+                        }
+                        HomeServiceTab.FITNESS -> {
+                            HospitalFinderScreen(
+                                isEmbedded = true,
+                                initialFacilityType = FacilityType.FITNESS_CENTER,
+                                onBackClick = {},
+                                onFitnessCenterDetailClick = onNavigateToFitnessCenterDetail, // Route to detail
+                                onNavigateToDiagnosticBooking = { _ -> onNavigateToDiagnostic() },
+                                onNavigateToCart = onNavigateToOrderHistory,
+                                onNavigateToNotifications = onNotificationClick
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Fixed Header and Tabs (now collapsing, drawn on top)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { topBarHeightPx = it.height.toFloat() }
+                    .offset(y = topBarOffsetDp)
+                    .background(Color.Transparent)
+            ) {
+                DashboardHeader(
+                    profile = profile,
+                    unreadNotificationsCount = unreadNotificationsCount,
+                    onNotificationClick = onNotificationClick,
+                    onProfileClick = onProfileClick,
+                    onLocationClick = onLocationClick,
+                    onAddAddressClick = onAddAddressClick,
+                    isHomeTab = true,
+                    onEmergencyClick = onNavigateToEmergency,
+                    onChatbotClick = onNavigateToChatbot
+                )
+                
+                // Top Healthcare Services Row acts as Tabs
+                TopHealthcareServicesRow(
+                    activeServiceTab = activeServiceTab,
+                    onHospitalsClick = { onServiceTabChange(HomeServiceTab.HOSPITAL) },
+                    onClinicsClick = { onServiceTabChange(HomeServiceTab.CLINIC) },
+                    onPharmacyClick = { onServiceTabChange(HomeServiceTab.PHARMACY) },
+                    onDiagnosticsClick = { onServiceTabChange(HomeServiceTab.DIAGNOSTIC) },
+                    onFitnessClick = { onServiceTabChange(HomeServiceTab.FITNESS) }
+                )
+            }
+        } // Closes inner Box (Main Content Area)
     
     // Pulse Animation for AI Button
     val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "Pulse")

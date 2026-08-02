@@ -21,6 +21,8 @@ interface DoctorRepository {
         longitude: Double? = null,
         city: String? = null,
         global: Boolean? = null,
+        sortBy: String? = null,
+        consultationType: String? = null,
         page: Int = 1,
         limit: Int = 20
     ): Result<PaginatedResponse<Doctor>>
@@ -55,6 +57,8 @@ class DoctorRepositoryImpl @Inject constructor(
         longitude: Double?,
         city: String?,
         global: Boolean?,
+        sortBy: String?,
+        consultationType: String?,
         page: Int,
         limit: Int
     ): Result<PaginatedResponse<Doctor>> {
@@ -69,6 +73,8 @@ class DoctorRepositoryImpl @Inject constructor(
                 latitude = latitude,
                 longitude = longitude,
                 global = global,
+                sortBy = sortBy,
+                consultationType = consultationType,
                 page = page,
                 limit = limit
             )

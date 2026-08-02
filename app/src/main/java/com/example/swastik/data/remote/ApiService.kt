@@ -5,10 +5,10 @@ import com.example.swastik.data.remote.dto.EmergencyRequest
 import com.example.swastik.data.remote.dto.ReviewRequest
 import com.example.swastik.data.remote.dto.*
 import com.google.gson.JsonObject
-import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.*
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 
 /**
  * Retrofit API Service for VAIDIDEA Healthcare Platform
@@ -80,6 +80,17 @@ interface ApiService {
     
     @GET("patients/search-suggestions")
     suspend fun getSearchSuggestions(): Response<ApiResponse<List<String>>>
+    
+    // Feedback
+    @Multipart
+    @POST("patients/feedback")
+    suspend fun submitFeedback(
+        @Part("overallRating") rating: RequestBody,
+        @Part("category") category: RequestBody,
+        @Part("feedbackText") feedbackText: RequestBody,
+        @Part("allowContact") allowContact: RequestBody,
+        @Part screenshot: MultipartBody.Part?
+    ): Response<ApiResponse<Unit>>
     
     @PUT("patients/profile")
     suspend fun updatePatientProfile(@Body profile: UpdateProfileRequest): Response<ApiResponse<PatientDto>>
@@ -252,6 +263,8 @@ interface ApiService {
         @Query("latitude") latitude: Double? = null,
         @Query("longitude") longitude: Double? = null,
         @Query("global") global: Boolean? = null,
+        @Query("sortBy") sortBy: String? = null,
+        @Query("consultationType") consultationType: String? = null,
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 20
     ): Response<PaginatedResponse<Doctor>>
@@ -917,7 +930,11 @@ interface ApiService {
     @GET("community/questions")
     suspend fun getCommunityQuestions(
         @Query("page") page: Int = 1,
-        @Query("limit") limit: Int = 20
+        @Query("limit") limit: Int = 20,
+        @Query("filter") filter: String? = null,
+        @Query("topic") topic: String? = null,
+        @Query("search") search: String? = null,
+        @Query("sortBy") sortBy: String? = null
     ): Response<CommunityQuestionResponse>
 
     @GET("community/questions/{id}")
@@ -936,14 +953,22 @@ interface ApiService {
         @Body request: PostAnswerRequest
     ): Response<CommunityAnswer>
 
+    @PUT("community/answers/{id}")
+    suspend fun updateAnswer(
+        @Path("id") id: String,
+        @Body request: PostAnswerRequest
+    ): Response<CommunityAnswer>
+
     @POST("community/questions/{id}/upvote")
     suspend fun upvoteQuestion(
-        @Path("id") questionId: String
+        @Path("id") questionId: String,
+        @Query("action") action: String
     ): Response<ApiResponse<Unit>>
 
     @POST("community/answers/{id}/upvote")
     suspend fun upvoteAnswer(
-        @Path("id") answerId: String
+        @Path("id") answerId: String,
+        @Query("action") action: String
     ): Response<ApiResponse<Unit>>
 
     @DELETE("community/questions/{id}")
@@ -955,6 +980,14 @@ interface ApiService {
     suspend fun deleteAnswer(
         @Path("id") answerId: String
     ): Response<ApiResponse<Unit>>
+
+    @POST("community/questions/{id}/bookmark")
+    suspend fun toggleBookmark(
+        @Path("id") questionId: String
+    ): Response<JsonObject>
+
+    @GET("community/trending")
+    suspend fun getTrendingTopics(): Response<List<JsonObject>>
 
     // ==================== DIET & NUTRITION ====================
 

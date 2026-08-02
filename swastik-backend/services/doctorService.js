@@ -412,7 +412,7 @@ class DoctorService {
     let query = supabaseAdmin
       .from('doctors')
       .select(`
-        id, name, specialization, experience_years, rating, total_reviews,
+        id, name, specialization, experience_years, rating, total_reviews, total_consultations,
         qualifications, consultation_fee, video_consultation_fee, bio,
         profile_image_url, intro_video_url, languages, is_available,
         hospital_id, clinic_doctors(clinic_id, clinic:clinics(latitude, longitude)),
@@ -441,12 +441,17 @@ class DoctorService {
       query = query.gte('rating', filters.minRating);
     }
 
-    if (filters.global) {
-      query = query.not('video_consultation_fee', 'is', null);
-    }
+    // Removed old filters.global logic because it forced video_consultation_fee to not be null.
+    // We now rely on consultationType for filtering by fee.
 
     if (filters.maxFee) {
       query = query.lte('consultation_fee', filters.maxFee);
+    }
+
+    if (filters.consultationType === 'video') {
+      query = query.not('video_consultation_fee', 'is', null);
+    } else if (filters.consultationType === 'in_person') {
+      query = query.not('consultation_fee', 'is', null);
     }
 
     // City-based filter: match hospital city
@@ -584,7 +589,68 @@ class DoctorService {
       };
     });
 
-    result.sort((a, b) => b.smart_score - a.smart_score);
+    if (filters.sortBy) {
+      switch (filters.sortBy) {
+        case 'rating_desc':
+          result.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
+          break;
+        case 'consultations_desc':
+          result.sort((a, b) => (parseInt(b.total_consultations) || 0) - (parseInt(a.total_consultations) || 0));
+          break;
+        case 'experience_desc':
+          result.sort((a, b) => (parseInt(b.experience_years) || 0) - (parseInt(a.experience_years) || 0));
+          break;
+        case 'fee_asc':
+          result.sort((a, b) => {
+            const getFee = (doc) => {
+              let fee = 999999;
+              if (filters.consultationType === 'video' && doc.video_consultation_fee != null) {
+                fee = parseFloat(doc.video_consultation_fee);
+              } else if (filters.consultationType === 'in_person' && doc.consultation_fee != null) {
+                fee = parseFloat(doc.consultation_fee);
+              } else {
+                const cFee = parseFloat(doc.consultation_fee);
+                const vFee = parseFloat(doc.video_consultation_fee);
+                let validFees = [];
+                if (!isNaN(cFee) && cFee > 0) validFees.push(cFee);
+                if (!isNaN(vFee) && vFee > 0) validFees.push(vFee);
+                if (validFees.length > 0) fee = Math.min(...validFees);
+              }
+              return (isNaN(fee) || fee <= 0) ? 999999 : fee;
+            };
+            return getFee(a) - getFee(b);
+          });
+          break;
+        case 'fee_desc':
+          result.sort((a, b) => {
+            const getFee = (doc) => {
+              let fee = -1;
+              if (filters.consultationType === 'video' && doc.video_consultation_fee != null) {
+                fee = parseFloat(doc.video_consultation_fee);
+              } else if (filters.consultationType === 'in_person' && doc.consultation_fee != null) {
+                fee = parseFloat(doc.consultation_fee);
+              } else {
+                const cFee = parseFloat(doc.consultation_fee);
+                const vFee = parseFloat(doc.video_consultation_fee);
+                let validFees = [];
+                if (!isNaN(cFee) && cFee > 0) validFees.push(cFee);
+                if (!isNaN(vFee) && vFee > 0) validFees.push(vFee);
+                if (validFees.length > 0) fee = Math.max(...validFees);
+              }
+              return (isNaN(fee) || fee <= 0) ? -1 : fee;
+            };
+            return getFee(b) - getFee(a);
+          });
+          break;
+        case 'distance_asc':
+          result.sort((a, b) => (parseFloat(a.distance_km) || 999999) - (parseFloat(b.distance_km) || 999999));
+          break;
+        default:
+          result.sort((a, b) => b.smart_score - a.smart_score);
+      }
+    } else {
+      result.sort((a, b) => b.smart_score - a.smart_score);
+    }
 
     // Apply pagination in memory for both cases
     count = result.length;

@@ -5,6 +5,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -29,6 +31,8 @@ import com.example.swastik.data.remote.dto.UpdateProfileRequest
 import com.example.swastik.ui.theme.*
 import com.example.swastik.ui.viewmodel.ProfileUpdateState
 import com.example.swastik.utils.ProfileValidation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
 import androidx.compose.material3.MaterialTheme
@@ -693,4 +697,317 @@ fun ChangePasswordDialog(
         dismissButton = { TextButton(onClick = onDismiss, enabled = !isSaving) { Text(stringResource(R.string.cancel)) } },
         shape = RoundedCornerShape(20.dp)
     )
+}
+
+// ==================== FULL PROFILE DETAILS DIALOG ====================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FullProfileDetailsDialog(
+    profile: PatientProfile?,
+    onDismiss: () -> Unit,
+    onEditProfileClick: () -> Unit,
+    onAddFamilyMember: (String, String, String?) -> Unit,
+    onDeleteFamilyMember: (String) -> Unit,
+    onAddEmergencyContact: (String, String, String) -> Unit,
+    onDeleteEmergencyContact: (String) -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    
+    // State for inline add forms
+    var showAddFamily by remember { mutableStateOf(false) }
+    var familyName by remember { mutableStateOf("") }
+    var familyRelation by remember { mutableStateOf("") }
+    var familyPhone by remember { mutableStateOf("") }
+
+    var showAddEmergency by remember { mutableStateOf(false) }
+    var emergencyName by remember { mutableStateOf("") }
+    var emergencyRelation by remember { mutableStateOf("") }
+    var emergencyPhone by remember { mutableStateOf("") }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = colorScheme.background
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Top App Bar
+                TopAppBar(
+                    title = { Text(stringResource(R.string.personal_info), fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = colorScheme.background)
+                )
+
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 40.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    // --- PERSONAL INFO SECTION ---
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        stringResource(R.string.personal_info),
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = colorScheme.onSurface
+                                    )
+                                    IconButton(
+                                        onClick = onEditProfileClick, 
+                                        modifier = Modifier.size(36.dp).background(colorScheme.primaryContainer, CircleShape)
+                                    ) {
+                                        Icon(Icons.Outlined.Edit, contentDescription = "Edit", tint = colorScheme.primary, modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), color = colorScheme.outline.copy(alpha = 0.15f))
+                                
+                                DetailRow("Phone Number", profile?.phoneNumber?.ifEmpty { "--" } ?: "--")
+                                DetailRow("Email", profile?.email?.ifEmpty { "--" } ?: "--")
+                                DetailRow("Age", profile?.displayAge ?: "--")
+                                DetailRow("Gender", profile?.gender?.ifEmpty { "--" } ?: "--")
+                                DetailRow("Blood Group", profile?.bloodGroup?.ifEmpty { "--" } ?: "--")
+                                DetailRow("Weight", if ((profile?.weight ?: 0f) > 0f) "${profile?.weight} kg" else "--")
+                                DetailRow("Height", if ((profile?.height ?: 0f) > 0f) "${profile?.height} cm" else "--")
+                            }
+                        }
+                    }
+
+                    // --- FAMILY MEMBERS SECTION ---
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Outlined.FamilyRestroom, contentDescription = null, tint = colorScheme.primary)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(stringResource(R.string.family_members), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                val familyMembers = profile?.familyMembers ?: emptyList()
+                                if (familyMembers.isEmpty() && !showAddFamily) {
+                                    Text("No family members added.", fontSize = 14.sp, color = colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+                                } else {
+                                    familyMembers.forEach { member ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Column {
+                                                Text(member.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = colorScheme.onSurface)
+                                                Text("${member.relationship}${if (member.phone.isNotEmpty()) " • ${member.phone}" else ""}", fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
+                                            }
+                                            IconButton(onClick = { onDeleteFamilyMember(member.id) }, modifier = Modifier.size(32.dp)) {
+                                                Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = colorScheme.error, modifier = Modifier.size(20.dp))
+                                            }
+                                        }
+                                        HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.1f))
+                                    }
+                                }
+
+                                if (showAddFamily) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().background(colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp)).padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = familyName, onValueChange = { familyName = it },
+                                            label = { Text("Name") }, modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(8.dp), singleLine = true
+                                        )
+                                        OutlinedTextField(
+                                            value = familyRelation, onValueChange = { familyRelation = it },
+                                            label = { Text("Relation (e.g. Brother)") }, modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(8.dp), singleLine = true
+                                        )
+                                        OutlinedTextField(
+                                            value = familyPhone, onValueChange = { familyPhone = it },
+                                            label = { Text("Phone (Optional)") }, modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(8.dp), singleLine = true,
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                                        )
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                            TextButton(onClick = { showAddFamily = false }) { Text("Cancel") }
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Button(
+                                                onClick = {
+                                                    onAddFamilyMember(familyName, familyRelation, familyPhone.ifBlank { null })
+                                                    familyName = ""; familyRelation = ""; familyPhone = ""
+                                                    showAddFamily = false
+                                                },
+                                                enabled = familyName.isNotBlank() && familyRelation.isNotBlank()
+                                            ) {
+                                                Text("Save")
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    OutlinedButton(
+                                        onClick = { showAddFamily = true },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Add Family Member")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // --- EMERGENCY CONTACTS SECTION ---
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Outlined.ContactEmergency, contentDescription = null, tint = colorScheme.primary)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(stringResource(R.string.emergency_contacts), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                val emergencyContacts = profile?.emergencyContacts ?: emptyList()
+                                if (emergencyContacts.isEmpty() && !showAddEmergency) {
+                                    Text("No emergency contacts added.", fontSize = 14.sp, color = colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+                                } else {
+                                    emergencyContacts.forEach { contact ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Column {
+                                                Text(contact.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = colorScheme.onSurface)
+                                                Text("${contact.relationship} • ${contact.phone}", fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
+                                            }
+                                            IconButton(onClick = { onDeleteEmergencyContact(contact.id) }, modifier = Modifier.size(32.dp)) {
+                                                Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = colorScheme.error, modifier = Modifier.size(20.dp))
+                                            }
+                                        }
+                                        HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.1f))
+                                    }
+                                }
+
+                                if (showAddEmergency) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().background(colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp)).padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = emergencyName, onValueChange = { emergencyName = it },
+                                            label = { Text("Name") }, modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(8.dp), singleLine = true
+                                        )
+                                        OutlinedTextField(
+                                            value = emergencyRelation, onValueChange = { emergencyRelation = it },
+                                            label = { Text("Relation (e.g. Friend)") }, modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(8.dp), singleLine = true
+                                        )
+                                        OutlinedTextField(
+                                            value = emergencyPhone, onValueChange = { emergencyPhone = it },
+                                            label = { Text("Phone Number") }, modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(8.dp), singleLine = true,
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                                        )
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                            TextButton(onClick = { showAddEmergency = false }) { Text("Cancel") }
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Button(
+                                                onClick = {
+                                                    onAddEmergencyContact(emergencyName, emergencyPhone, emergencyRelation)
+                                                    emergencyName = ""; emergencyRelation = ""; emergencyPhone = ""
+                                                    showAddEmergency = false
+                                                },
+                                                enabled = emergencyName.isNotBlank() && emergencyRelation.isNotBlank() && emergencyPhone.isNotBlank()
+                                            ) {
+                                                Text("Save")
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    OutlinedButton(
+                                        onClick = { showAddEmergency = true },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Add Emergency Contact")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            value, 
+            fontSize = 15.sp, 
+            fontWeight = FontWeight.SemiBold, 
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.End
+        )
+    }
 }

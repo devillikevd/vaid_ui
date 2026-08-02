@@ -743,9 +743,9 @@ router.get('/doctors/recommended',
 // Search doctors
 router.get('/doctors',
   asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20, specialization, search, hospitalId, clinicId, city, latitude, longitude, global } = req.query;
+    const { page = 1, limit = 20, specialization, search, hospitalId, clinicId, city, latitude, longitude, global, sortBy, consultationType } = req.query;
     const result = await doctorService.getAllDoctors(
-      { specialization, search, hospitalId, clinicId, city, latitude, longitude, global: global === 'true' },
+      { specialization, search, hospitalId, clinicId, city, latitude, longitude, global: global === 'true', sortBy, consultationType },
       parseInt(page),
       parseInt(limit)
     );

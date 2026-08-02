@@ -66,6 +66,8 @@ fun ProfileHeader(onSettingsClick: () -> Unit) {
 fun ProfileInfoCard(
     modifier: Modifier = Modifier,
     profile: PatientProfile?,
+    onCardClick: () -> Unit,
+    onDpClick: () -> Unit,
     onEditClick: () -> Unit,
     onShareClick: () -> Unit,
     onCameraClick: () -> Unit,
@@ -73,7 +75,9 @@ fun ProfileInfoCard(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onCardClick() },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -113,7 +117,7 @@ fun ProfileInfoCard(
                             .size(90.dp)
                             .clip(CircleShape)
                             .background(colorScheme.primaryContainer)
-                            .clickable { onCameraClick() },
+                            .clickable { onDpClick() },
                         contentAlignment = Alignment.Center
                     ) {
                         if (profile?.profileImageUrl?.isNotEmpty() == true) {
@@ -175,42 +179,45 @@ fun ProfileInfoCard(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    
-                    Spacer(modifier = Modifier.width(8.dp))
-                    
-                    IconButton(
-                        onClick = onCameraClick,
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            Icons.Outlined.CameraAlt, 
-                            contentDescription = "Change Photo", 
-                            tint = colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
+                }
+
+                val pct = ((profile?.completionPercentage ?: 0f) * 100).toInt()
+                if (pct < 100) {
+                    // Find first missing field to guide the user
+                    val nextStep = when {
+                        profile?.name.isNullOrEmpty() -> "Add your name"
+                        profile?.email.isNullOrEmpty() -> "Add email address"
+                        (profile?.age ?: 0) <= 0 -> "Add your date of birth"
+                        profile?.gender.isNullOrEmpty() -> "Add your gender"
+                        profile?.bloodGroup.isNullOrEmpty() -> "Add blood group"
+                        (profile?.weight ?: 0f) <= 0f -> "Add your weight"
+                        (profile?.height ?: 0f) <= 0f -> "Add your height"
+                        profile?.location.isNullOrEmpty() -> "Add your location"
+                        profile?.profileImageUrl.isNullOrEmpty() -> "Add a profile photo"
+                        profile?.emergencyContacts.isNullOrEmpty() -> "Add emergency contact"
+                        else -> null
                     }
-                }
-                Text(profile?.phoneNumber ?: "", fontSize = 14.sp, color = colorScheme.onSurfaceVariant)
-                if (profile?.email?.isNotEmpty() == true) {
-                    Text(profile.email, fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(colorScheme.surfaceVariant.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    ProfileStat(profile?.displayAge ?: "--", stringResource(R.string.age), "yrs")
-                    VerticalDivider()
-                    ProfileStat(profile?.displayBloodGroup ?: "--", stringResource(R.string.blood), stringResource(R.string.type_unit))
-                    VerticalDivider()
-                    ProfileStat(profile?.displayWeight ?: "--", stringResource(R.string.weight), "kg")
-                    VerticalDivider()
-                    ProfileStat(profile?.displayHeight ?: "--", stringResource(R.string.height), "cm")
+                    if (nextStep != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Outlined.Info,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = colorScheme.error.copy(alpha = 0.75f)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                "Profile incomplete • $nextStep",
+                                fontSize = 11.sp,
+                                color = colorScheme.error.copy(alpha = 0.75f),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -425,20 +432,13 @@ fun SectionTitleWithBadge(title: String, badge: String, badgeColor: Color) {
 fun HealthIdCard(profile: PatientProfile?, onClick: () -> Unit = {}) {
     val colorScheme = MaterialTheme.colorScheme
     val hasAbha = profile?.abhaNumber?.isNotEmpty() == true
-    // Use green theme consistently for all cards
-    val containerBgColor = Color(0xFFE8F5E9) // Light Green
-    val iconBgColor = Color(0xFFC8E6C9) // Slightly darker Green for icon BG
-    val accentColor = Color(0xFF2E7D32) // Dark Green for accents
-    val accentTextColor = Color.Black // Force dark text for contrast on light BG
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = containerBgColor
-        )
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surface)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -448,13 +448,13 @@ fun HealthIdCard(profile: PatientProfile?, onClick: () -> Unit = {}) {
                 modifier = Modifier
                     .size(50.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(iconBgColor),
+                    .background(colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     if (hasAbha) Icons.Outlined.Verified else Icons.Outlined.AddCard,
                     contentDescription = null,
-                    tint = accentColor,
+                    tint = colorScheme.primary,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -462,7 +462,7 @@ fun HealthIdCard(profile: PatientProfile?, onClick: () -> Unit = {}) {
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.abha_number), fontSize = 12.sp, color = Color.DarkGray)
+                Text(stringResource(R.string.abha_number), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                 Text(
                     if (hasAbha) {
                         val abha = profile?.abhaNumber ?: ""
@@ -473,21 +473,21 @@ fun HealthIdCard(profile: PatientProfile?, onClick: () -> Unit = {}) {
                     } else stringResource(R.string.not_linked),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = accentTextColor,
+                    color = colorScheme.onSurface,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
                 Text(
                     if (hasAbha) stringResource(R.string.linked_hospitals, profile?.linkedHospitals ?: 0) else stringResource(R.string.tap_to_link_abha),
                     fontSize = 11.sp,
-                    color = accentColor
+                    color = colorScheme.primary
                 )
             }
 
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = accentColor
+                tint = colorScheme.primary
             )
         }
     }
@@ -497,10 +497,7 @@ fun HealthIdCard(profile: PatientProfile?, onClick: () -> Unit = {}) {
 
 @Composable
 fun SettingsCard(
-    onPersonalInfoClick: () -> Unit,
-    onAddressesClick: () -> Unit,
-    onFamilyClick: () -> Unit,
-    onEmergencyClick: () -> Unit
+    onAddressesClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Card(
@@ -509,13 +506,7 @@ fun SettingsCard(
         colors = CardDefaults.cardColors(containerColor = colorScheme.surface)
     ) {
         Column {
-            SettingsMenuItem(Icons.Outlined.Person, stringResource(R.string.personal_info), stringResource(R.string.name_dob_gender), onClick = onPersonalInfoClick)
-            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.LocationOn, stringResource(R.string.saved_addresses), stringResource(R.string.home_office), onClick = onAddressesClick)
-            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.FamilyRestroom, stringResource(R.string.family_members), stringResource(R.string.manage_linked_profiles), onClick = onFamilyClick)
-            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.ContactEmergency, stringResource(R.string.emergency_contacts), stringResource(R.string.quick_access_emergencies), onClick = onEmergencyClick)
         }
     }
 }
@@ -562,7 +553,7 @@ fun SupportCard(
         Column {
             SettingsMenuItem(Icons.Outlined.Headphones, stringResource(R.string.support_24_7), stringResource(R.string.chat_with_us_anytime), badgeText = stringResource(R.string.online), badgeColor = colorScheme.primary, onClick = onSupportClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.AutoMirrored.Outlined.HelpOutline, stringResource(R.string.help_center), stringResource(R.string.faqs_tutorials), onClick = onHelpClick)
+            SettingsMenuItem(Icons.AutoMirrored.Outlined.HelpOutline, "FAQ", "Frequently Asked Questions", onClick = onHelpClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.Feedback, stringResource(R.string.send_feedback), stringResource(R.string.help_us_improve), onClick = onFeedbackClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))

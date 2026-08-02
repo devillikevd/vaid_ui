@@ -7,11 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,6 +48,29 @@ fun CommunityQADetailsScreen(
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    question?.let {
+                        IconButton(onClick = { viewModel.toggleBookmark(it.id) }) {
+                            Icon(
+                                imageVector = if (it.isBookmarked == true) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                contentDescription = "Bookmark",
+                                tint = if (it.isBookmarked == true) SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        IconButton(onClick = {
+                            val sendIntent = android.content.Intent().apply {
+                                action = android.content.Intent.ACTION_SEND
+                                putExtra(android.content.Intent.EXTRA_TEXT, "Check out this question on Vaididea:\n\n${it.title}\n\nJoin the discussion on our app!")
+                                type = "text/plain"
+                            }
+                            val shareIntent = android.content.Intent.createChooser(sendIntent, "Share Question")
+                            context.startActivity(shareIntent)
+                        }) {
+                            Icon(Icons.Default.Share, contentDescription = "Share")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -153,34 +172,84 @@ fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, o
                 }
             }
         }
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            if (!question.topic.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                SuggestionChip(
+                    onClick = {},
+                    label = { Text("#${question.topic}", color = SwastikPrimary, fontSize = 12.sp) },
+                    colors = SuggestionChipDefaults.suggestionChipColors(
+                        containerColor = SwastikPrimaryLight.copy(alpha = 0.5f)
+                    ),
+                    border = null,
+                    modifier = Modifier.height(28.dp)
+                )
+            }
+            
+            if (!question.attachments.isNullOrEmpty()) {
+                if (!question.topic.isNullOrEmpty()) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(28.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
+                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("${question.attachments.size} Attached", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
         Spacer(modifier = Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
+            val displayName = if (question.isAnonymous) {
+                if (isOwner) "Anonymous (You)" else "Anonymous"
+            } else {
+                if (isOwner) "${question.patient?.name ?: "User"} (You)" else question.patient?.name ?: "User"
+            }
+
             Box(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(SwastikPrimaryLight),
+                    .background(if (question.isAnonymous) MaterialTheme.colorScheme.surfaceVariant else SwastikPrimaryLight),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = question.patient?.name?.take(1) ?: "A",
-                    color = SwastikPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                if (question.isAnonymous) {
+                    Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                } else {
+                    Text(
+                        text = displayName.take(1).uppercase(),
+                        color = SwastikPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = question.patient?.name ?: "Anonymous",
+                text = displayName,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = " • ${question.createdAt.take(10)}",
+                text = " • ${formatCommunityDate(question.createdAt)}",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Spacer(modifier = Modifier.weight(1f))
+            Icon(
+                Icons.Default.Visibility,
+                contentDescription = "Views",
+                tint = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("${question.views}", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
         }
         Spacer(modifier = Modifier.height(16.dp))
         Text(
@@ -200,12 +269,12 @@ fun AnswerCard(
     onUpvote: () -> Unit = {}, 
     onDelete: () -> Unit = {}
 ) {
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(containerColor = if (answer.isDoctorVerified) SwastikPrimaryLight.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (answer.isDoctorVerified) SwastikPrimary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -213,19 +282,31 @@ fun AnswerCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(if (answer.isDoctorVerified) SwastikPrimaryLight else MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = answer.doctor?.name?.take(1) ?: answer.patient?.name?.take(1) ?: "A",
-                            color = if (answer.isDoctorVerified) SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Bold
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    val imageUrl = answer.doctor?.profileImageUrl ?: answer.patient?.profileImageUrl
+                    if (!imageUrl.isNullOrEmpty()) {
+                        coil.compose.AsyncImage(
+                            model = imageUrl,
+                            contentDescription = "Profile Picture",
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
                         )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(if (answer.isDoctorVerified) SwastikPrimaryLight else MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = answer.doctor?.name?.take(1) ?: answer.patient?.name?.take(1) ?: "A",
+                                color = if (answer.isDoctorVerified) SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
@@ -246,34 +327,23 @@ fun AnswerCard(
                                 )
                             }
                         }
-                        if (answer.isDoctorVerified && answer.doctor?.specialization != null) {
+                        if (answer.isDoctorVerified && answer.doctor != null) {
+                            val details = mutableListOf<String>()
+                            answer.doctor.specialization?.let { details.add(it) }
+                            answer.doctor.experienceYears?.let { details.add("${it}Y exp") }
+                            
                             Text(
-                                text = answer.doctor.specialization,
+                                text = details.joinToString(" • "),
                                 fontSize = 12.sp,
                                 color = SwastikPrimary
                             )
                         } else {
                             Text(
-                                text = "Answered ${answer.createdAt.take(10)}",
+                                text = "Answered ${formatCommunityDate(answer.createdAt)}",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    }
-                }
-                
-                if (answer.isDoctorVerified) {
-                    Surface(
-                        color = SwastikPrimaryLight.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.doctor_verified),
-                            color = SwastikPrimary,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
                     }
                 }
             }
@@ -286,18 +356,22 @@ fun AnswerCard(
             )
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onUpvote, enabled = !hasUpvoted) {
+                Button(
+                    onClick = onUpvote,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                    modifier = Modifier.height(32.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (hasUpvoted) SwastikPrimary else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (hasUpvoted) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                ) {
                     Icon(
                         Icons.Default.ThumbUp, 
                         contentDescription = "Upvote", 
-                        modifier = Modifier.size(16.dp),
-                        tint = if (hasUpvoted) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                        modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (hasUpvoted) "Upvoted (${answer.upvotes})" else "Helpful (${answer.upvotes})",
-                        color = if (hasUpvoted) MaterialTheme.colorScheme.primary else LocalContentColor.current
-                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = if (hasUpvoted) "Helpful (${answer.upvotes})" else "Helpful (${answer.upvotes})")
                 }
             }
         }

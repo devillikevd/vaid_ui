@@ -53,7 +53,9 @@ data class DoctorSearchFilters(
     val latitude: Double? = null,
     val longitude: Double? = null,
     val city: String? = null,
-    val global: Boolean? = null
+    val global: Boolean? = null,
+    val sortBy: String? = null,
+    val consultationType: String? = null
 )
 
 
@@ -118,7 +120,9 @@ class DoctorSearchViewModel @Inject constructor(
                 latitude = filters.latitude,
                 longitude = filters.longitude,
                 city = filters.city,
-                global = filters.global
+                global = filters.global,
+                sortBy = filters.sortBy,
+                consultationType = filters.consultationType
             )
         }.flow
     }.cachedIn(viewModelScope)
@@ -203,9 +207,11 @@ class DoctorSearchViewModel @Inject constructor(
         latitude: Double? = _filters.value.latitude,
         longitude: Double? = _filters.value.longitude,
         city: String? = _filters.value.city,
-        global: Boolean? = _filters.value.global
+        global: Boolean? = _filters.value.global,
+        sortBy: String? = _filters.value.sortBy,
+        consultationType: String? = _filters.value.consultationType
     ) {
-        _filters.value = DoctorSearchFilters(
+        _filters.value = _filters.value.copy(
             specialization = specialization,
             search = search,
             hospitalId = hospitalId,
@@ -213,7 +219,9 @@ class DoctorSearchViewModel @Inject constructor(
             latitude = latitude,
             longitude = longitude,
             city = city,
-            global = global
+            global = global,
+            sortBy = sortBy,
+            consultationType = consultationType
         )
         searchDoctors(resetList = true)
     }

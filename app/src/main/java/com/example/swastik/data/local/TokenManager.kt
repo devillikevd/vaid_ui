@@ -201,4 +201,10 @@ class TokenManager @Inject constructor(
         upvoted.add(id)
         sharedPreferences.edit().putStringSet("upvoted_items", upvoted).apply()
     }
+
+    fun removeUpvoted(id: String) {
+        val upvoted = sharedPreferences.getStringSet("upvoted_items", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+        upvoted.remove(id)
+        sharedPreferences.edit().putStringSet("upvoted_items", upvoted).apply()
+    }
 }

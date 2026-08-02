@@ -25,6 +25,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -56,19 +61,19 @@ fun ProfileTabContent(
     viewModel: PatientDashboardViewModel? = null
 ) {
     var showEditProfileDialog by remember { mutableStateOf(false) }
+    var showFullProfileDetailsDialog by remember { mutableStateOf(false) }
     var showPersonalInfoDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
 
     var showNotificationDialog by remember { mutableStateOf(false) }
     var showGuardianSettingsDialog by remember { mutableStateOf(false) }
     var showFeedbackDialog by remember { mutableStateOf(false) }
-    var showEmergencyContactsDialog by remember { mutableStateOf(false) }
-    var showFamilyMembersDialog by remember { mutableStateOf(false) }
     var showHelpCenterDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showFullScreenImage by remember { mutableStateOf<String?>(null) }
+    var showDpCard by remember { mutableStateOf(false) }
     var showPhotoOptions by remember { mutableStateOf(false) }
     var showAIModelsSettings by remember { mutableStateOf(false) }
 
@@ -127,7 +132,9 @@ fun ProfileTabContent(
                     ProfileInfoCard(
                         modifier = Modifier,
                         profile = profile,
-                        onEditClick = { showEditProfileDialog = true },
+                        onCardClick = { showFullProfileDetailsDialog = true },
+                        onDpClick = { showDpCard = true },
+                        onEditClick = { showFullProfileDetailsDialog = true },
                         onShareClick = {
                             val shareText = buildString {
                                 append("${profile?.name ?: context.getString(R.string.default_user_name)}\n")
@@ -158,13 +165,7 @@ fun ProfileTabContent(
                 }
                 item { QuickStatsSection(stats = stats ?: PatientStats()) }
 
-                item {
-                    SectionTitleWithBadge(
-                        stringResource(R.string.health_identity),
-                        if (profile?.isVerified == true) stringResource(R.string.verified) else stringResource(R.string.not_verified),
-                        if (profile?.isVerified == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                item { Text(stringResource(R.string.health_identity), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface) }
                 item { 
                     HealthIdCard(
                         profile = profile,
@@ -176,10 +177,7 @@ fun ProfileTabContent(
                 item { Text(stringResource(R.string.account_settings), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface) }
                 item {
                     SettingsCard(
-                        onPersonalInfoClick = { showPersonalInfoDialog = true },
-                        onAddressesClick = onAddressesClick,
-                        onFamilyClick = { showFamilyMembersDialog = true },
-                        onEmergencyClick = { showEmergencyContactsDialog = true }
+                        onAddressesClick = onAddressesClick
                     )
                 }
 
@@ -243,6 +241,18 @@ fun ProfileTabContent(
 
     // ── DIALOGS ─────────────────────────────────────────────────
 
+    if (showFullProfileDetailsDialog) {
+        FullProfileDetailsDialog(
+            profile = profile,
+            onDismiss = { showFullProfileDetailsDialog = false },
+            onEditProfileClick = { showEditProfileDialog = true },
+            onAddFamilyMember = { name, relation, phone -> viewModel?.addFamilyMember(name, relation, phone) },
+            onDeleteFamilyMember = { memberId -> viewModel?.deleteFamilyMember(memberId) },
+            onAddEmergencyContact = { name, phone, relation -> viewModel?.addEmergencyContact(name, phone, relation) },
+            onDeleteEmergencyContact = { contactId -> viewModel?.deleteEmergencyContact(contactId) }
+        )
+    }
+
     if (showEditProfileDialog || showPersonalInfoDialog) {
         EditProfileDialog(
             profile = profile,
@@ -276,33 +286,7 @@ fun ProfileTabContent(
         FeedbackDialog(onDismiss = { showFeedbackDialog = false })
     }
 
-    if (showEmergencyContactsDialog) {
-        EmergencyContactsDialog(
-            contacts = profile?.emergencyContacts ?: emptyList(),
-            onDismiss = { showEmergencyContactsDialog = false },
-            onAddContact = { name, phone, relation ->
-                viewModel?.addEmergencyContact(name, phone, relation)
-            },
-            onDeleteContact = { contactId ->
-                viewModel?.deleteEmergencyContact(contactId)
-            }
-        )
-    }
-
-    if (showFamilyMembersDialog) {
-        FamilyMembersDialog(
-            members = profile?.familyMembers ?: emptyList(),
-            onDismiss = { showFamilyMembersDialog = false },
-            onAddMember = { name, relation, phone ->
-                viewModel?.addFamilyMember(name, relation, phone)
-            },
-            onDeleteMember = { memberId ->
-                viewModel?.deleteFamilyMember(memberId)
-            }
-        )
-    }
-
-
+    // Removed separate FamilyMembersDialog and EmergencyContactsDialog
 
     if (showHelpCenterDialog) {
         HelpCenterDialog(onDismiss = { showHelpCenterDialog = false })
@@ -398,37 +382,73 @@ fun ProfileTabContent(
         )
     }
 
-    if (showFullScreenImage != null) {
-        androidx.compose.ui.window.Dialog(
-            onDismissRequest = { showFullScreenImage = null },
-            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black)
-                    .clickable { showFullScreenImage = null },
-                contentAlignment = Alignment.Center
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(showFullScreenImage)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = "Full Profile Photo",
-                    modifier = Modifier.fillMaxWidth(),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
-                )
-                IconButton(
-                    onClick = { showFullScreenImage = null },
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(16.dp)
+    // DP Card Viewer – shows photo in a compact dialog with options below
+    if (showDpCard) {
+        AlertDialog(
+            onDismissRequest = { showDpCard = false },
+            title = { Text("Profile Photo", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onPrimary)
+                    // DP image / initials in a larger circle
+                    Box(
+                        modifier = Modifier
+                            .size(180.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (profile?.profileImageUrl?.isNotEmpty() == true) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(profile.profileImageUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Profile Photo",
+                                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Text(
+                                profile?.initials?.ifEmpty { "?" } ?: "?",
+                                fontSize = 64.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
-            }
-        }
+            },
+            confirmButton = {
+                // Change photo button
+                Button(
+                    onClick = {
+                        showDpCard = false
+                        imagePickerLauncher.launch("image/*")
+                    },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Outlined.PhotoCamera, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(stringResource(R.string.change_photo))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDpCard = false
+                        viewModel?.deleteProfileImage()
+                    }
+                ) {
+                    Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(stringResource(R.string.remove_photo), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            shape = RoundedCornerShape(20.dp)
+        )
     }
 
     // ── Toast observers for async operations ────────────────────

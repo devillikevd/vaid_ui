@@ -416,7 +416,7 @@ internal fun SearchBarSection(
     onFilterClick: () -> Unit,
     isDarkMode: Boolean
 ) {
-    val containerColor = MaterialTheme.colorScheme.primaryContainer
+    val containerColor = if (isDarkMode) MaterialTheme.colorScheme.surface else Color.White
     val placeholderText = when (selectedFacilityType) {
         FacilityType.HOSPITAL -> "Search hospitals..."
         FacilityType.CLINIC -> "Search clinics..."

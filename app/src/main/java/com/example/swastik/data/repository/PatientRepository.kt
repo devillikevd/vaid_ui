@@ -11,6 +11,7 @@ import com.example.swastik.data.local.db.CachedNotification
 import com.example.swastik.data.local.db.CachedPrescription
 import com.example.swastik.data.local.AppSettingsStore
 import com.example.swastik.notifications.resolvePatientNotificationDestination
+import com.example.swastik.notifications.resolvePatientNotificationDestination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,11 @@ import com.google.gson.reflect.TypeToken
 import javax.inject.Inject
 import javax.inject.Singleton
 import android.util.Log
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
 
 /**
  * Repository for managing patient data.
@@ -69,6 +75,43 @@ class PatientRepository @Inject constructor(
     // Stats
     private val _stats = MutableStateFlow(PatientStats())
     val stats: StateFlow<PatientStats> = _stats.asStateFlow()
+
+    suspend fun submitFeedback(
+        rating: Int,
+        category: String,
+        feedbackText: String,
+        allowContact: Boolean,
+        screenshotFile: File?
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val ratingBody = rating.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val categoryBody = category.toRequestBody("text/plain".toMediaTypeOrNull())
+            val textBody = feedbackText.toRequestBody("text/plain".toMediaTypeOrNull())
+            val contactBody = allowContact.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            
+            var screenshotPart: MultipartBody.Part? = null
+            if (screenshotFile != null && screenshotFile.exists()) {
+                val reqFile = screenshotFile.asRequestBody("image/*".toMediaTypeOrNull())
+                screenshotPart = MultipartBody.Part.createFormData("screenshot", screenshotFile.name, reqFile)
+            }
+            
+            val response = apiService.submitFeedback(
+                rating = ratingBody,
+                category = categoryBody,
+                feedbackText = textBody,
+                allowContact = contactBody,
+                screenshot = screenshotPart
+            )
+            
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to submit feedback")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "An unknown error occurred")
+        }
+    }
 
     /**
      * Fetch patient dashboard data
@@ -834,6 +877,19 @@ class PatientRepository @Inject constructor(
                 Result.Success(Unit)
             } else {
                 Result.Error(response.body()?.message ?: "Failed to sync vitals")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun getWearableSummaries(days: Int = 1): Result<List<WearableDailySummaryDto>> {
+        return try {
+            val response = apiService.getWearableSummaries(days = days)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()?.data ?: emptyList())
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to fetch wearable summaries")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")

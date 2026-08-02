@@ -9,7 +9,7 @@ async function run() {
   
   try {
     await client.connect();
-    const sql = fs.readFileSync('database/production/048_diagnostic_enhancements.sql', 'utf8');
+    const sql = fs.readFileSync('database/production/056_community_qa_v4.sql', 'utf8');
     await client.query(sql);
     console.log('Migration completed successfully');
   } catch (err) {

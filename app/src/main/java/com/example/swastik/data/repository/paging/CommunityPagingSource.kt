@@ -6,13 +6,24 @@ import com.example.swastik.data.model.CommunityQuestion
 import com.example.swastik.data.remote.ApiService
 
 class CommunityPagingSource(
-    private val apiService: ApiService
+    private val apiService: ApiService,
+    private val filter: String? = null,
+    private val topic: String? = null,
+    private val search: String? = null,
+    private val sortBy: String? = null
 ) : PagingSource<Int, CommunityQuestion>() {
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, CommunityQuestion> {
         val page = params.key ?: 1
         return try {
-            val response = apiService.getCommunityQuestions(page = page, limit = params.loadSize)
+            val response = apiService.getCommunityQuestions(
+                page = page, 
+                limit = params.loadSize,
+                filter = filter,
+                topic = topic,
+                search = search,
+                sortBy = sortBy
+            )
             
             if (response.isSuccessful && response.body() != null) {
                 val questions = response.body()!!.questions

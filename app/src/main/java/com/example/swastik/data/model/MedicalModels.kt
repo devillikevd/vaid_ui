@@ -56,7 +56,7 @@ data class MedicalFacility(
     @SerializedName("insurance_accepted") val insuranceAccepted: List<String> = emptyList(),
     @SerializedName("er_wait_time_minutes") val erWaitTimeMinutes: Int? = null,
     @SerializedName("virtual_tour_url") val virtualTourUrl: String? = null,
-    @SerializedName("floor_guide_map_url") val floorGuideMapUrl: String? = null,
+    @SerializedName("floor_guide_map_url") val floorGuideMapUrl: com.google.gson.JsonElement? = null,
     val reels: List<HospitalReel> = emptyList(),
     val inventory: List<PharmacyMedicine> = emptyList(),
     val tests: List<DiagnosticTest> = emptyList(),

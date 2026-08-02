@@ -56,6 +56,8 @@ fun DiagnosticBookingScreen(
     onBackClick: () -> Unit,
     initialCenterId: String? = null,
     onNavigateToBookingHistory: () -> Unit = {},
+    isEmbedded: Boolean = false,
+    onCenterClick: (String) -> Unit = {},
     viewModel: DiagnosticViewModel = hiltViewModel(),
     patientDashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel = hiltViewModel()
 ) {
@@ -138,15 +140,17 @@ fun DiagnosticBookingScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.diagnostic_centers), fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DiagnosticAccent, titleContentColor = Color.White, navigationIconContentColor = Color.White)
-            )
+            if (!isEmbedded) {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.diagnostic_centers), fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = DiagnosticAccent, titleContentColor = Color.White, navigationIconContentColor = Color.White)
+                )
+            }
         }
     ) { padding ->
         Column(
@@ -248,12 +252,25 @@ fun DiagnosticBookingScreen(
                         }
                     }
                 } else {
+                    androidx.activity.compose.BackHandler(enabled = !isEmbedded && uiState.selectedCenter != null) {
+                        viewModel.resetBooking()
+                        viewModel.searchCenters(searchQuery)
+                    }
                     LazyColumn(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(displayCenters) { center ->
-                            CenterCard(center = center, onClick = { viewModel.selectCenter(center) })
+                            CenterCard(
+                                center = center, 
+                                onClick = { 
+                                    if (isEmbedded) {
+                                        onCenterClick(center.id)
+                                    } else {
+                                        viewModel.selectCenter(center)
+                                    }
+                                }
+                            )
                         }
                     }
                 }
@@ -864,7 +881,7 @@ fun DiagnosticBookingFlow(
                                     Spacer(modifier = Modifier.height(8.dp))
                                     
                                     if (collectionAddress.isBlank()) {
-                                        com.example.swastik.ui.screens.patient.components.SwiggyAddressEditor(
+                                        com.example.swastik.ui.screens.patient.components.HomeAddressEditor(
                                             initialAddress = "",
                                             onAddressSaved = { address ->
                                                 collectionAddress = address
@@ -1094,3 +1111,4 @@ private fun BookingStepperRedesigned(currentVisualStep: Int, isPrescription: Boo
         }
     }
 }
+

@@ -268,6 +268,14 @@ fun FindDoctorsCategoriesScreen(
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    var showLearnMore by remember { mutableStateOf(false) }
+
+    if (showLearnMore) {
+        LearnHowToBookBottomSheet(
+            mode = mode,
+            onDismiss = { showLearnMore = false }
+        )
+    }
 
     // Handle back button when search suggestions are visible
     if (isFocused || searchQuery.isNotEmpty()) {
@@ -368,7 +376,7 @@ fun FindDoctorsCategoriesScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
-                    .clickable { },
+                    .clickable { showLearnMore = true },
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -753,6 +761,98 @@ private fun CategoriesGrid(
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LearnHowToBookBottomSheet(
+    mode: String,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+        ) {
+            Text(
+                text = "How to book an appointment",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = if (mode == "in_person") "Follow these simple steps to visit the clinic" else "Follow these simple steps for a seamless video consultation",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            if (mode == "in_person") {
+                StepItem(icon = Icons.Outlined.Search, title = "Find your Doctor", description = "Search for top doctors by specialty, nearby hospitals, or low fees.")
+                StepItem(icon = Icons.Outlined.Event, title = "Choose a Time Slot", description = "Select a convenient date and time to visit the clinic.")
+                StepItem(icon = Icons.Outlined.CheckCircle, title = "Book & Confirm", description = "Pay online or choose 'Pay at Clinic' to generate your appointment token.")
+                StepItem(icon = Icons.Outlined.DirectionsWalk, title = "Visit the Clinic", description = "Navigate to the clinic using the app and show your Token at the reception. No standing in long queues!", isLast = true)
+            } else {
+                StepItem(icon = Icons.Outlined.PersonSearch, title = "Find your Doctor", description = "Find highly-rated doctors available for instant or scheduled video calls.")
+                StepItem(icon = Icons.Outlined.Payment, title = "Secure Payment", description = "Book your slot by paying the consultation fee securely online.")
+                StepItem(icon = Icons.Outlined.Videocam, title = "Join the Call", description = "Get a reminder notification 5 mins before. Click 'Join Call' directly from the app.")
+                StepItem(icon = Icons.Outlined.Description, title = "Digital Prescription", description = "Once the call ends, your prescription will be automatically saved in your Medical Records.", isLast = true)
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(25.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+            ) {
+                Text("Got it! Let's Book", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+fun StepItem(icon: ImageVector, title: String, description: String, isLast: Boolean = false) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = if (isLast) 0.dp else 16.dp)
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(SwastikPrimaryLight, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
+            }
+            if (!isLast) {
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 4.dp)
+                        .width(2.dp)
+                        .height(32.dp)
+                        .background(SwastikPrimaryLight)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(text = title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = description, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 18.sp)
         }
     }
 }

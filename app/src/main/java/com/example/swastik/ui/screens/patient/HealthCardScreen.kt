@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.QrCodeScanner
@@ -180,16 +181,7 @@ fun HealthCardScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Fitness Tracking Section (Scrollable)
-            if (fitnessLog != null) {
-                item {
-                    com.example.swastik.ui.screens.patient.components.FitnessTrackingCard(
-                        fitnessLog = fitnessLog!!,
-                        modifier = Modifier.fillMaxWidth(),
-                        containerColor = healthCardMainBg
-                    )
-                }
-            }
+
 
             item {
                 // QR Code Section
@@ -645,15 +637,20 @@ fun WellnessHubActions(
                 Text(
                     "Workouts, coaches, gyms, supplements & more",
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-            Icon(
-                Icons.Default.KeyboardArrowRight,
-                contentDescription = "Open",
-                tint = Color(0xFF047857),
-                modifier = Modifier.size(24.dp)
-            )
+            Row(
+                modifier = Modifier
+                    .align(Alignment.Top)
+                    .offset(x = 10.dp, y = (-6).dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Open", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF047857))
+                Icon(Icons.Filled.ChevronRight, null, tint = Color(0xFF047857), modifier = Modifier.size(16.dp))
+            }
         }
     }
 }

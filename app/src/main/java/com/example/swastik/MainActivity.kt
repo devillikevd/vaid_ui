@@ -440,6 +440,11 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onNavigateToClinics = { navController.navigateSafe(Screen.HospitalFinder.createRoute(FacilityType.CLINIC)) },
                 onNavigateToPharmacies = { navController.navigateSafe(Screen.HospitalFinder.createRoute(FacilityType.MEDICAL_STORE)) },
                 onNavigateToFitnessCenters = { navController.navigateSafe(Screen.HospitalFinder.createRoute(FacilityType.FITNESS_CENTER)) },
+                onNavigateToHospitalDetail = { hospitalId -> navController.navigateSafe(Screen.HospitalDetail.createRoute(hospitalId)) },
+                onNavigateToClinicDetail = { clinicId -> navController.navigateSafe(Screen.ClinicDetail.createRoute(clinicId)) },
+                onNavigateToPharmacyDetail = { pharmacyId -> navController.navigateSafe(Screen.PharmacyDetail.createRoute(pharmacyId)) },
+                onNavigateToDiagnosticDetail = { diagnosticId -> navController.navigateSafe(Screen.DiagnosticDetail.createRoute(diagnosticId)) },
+                onNavigateToFitnessCenterDetail = { fitnessId -> navController.navigateSafe(Screen.FitnessCenterDetail.createRoute(fitnessId)) },
                 onNavigateToPharmacy = { pharmacyId, pharmacyName ->
                     navController.navigateSafe(
                         Screen.HospitalFinder.createRoute(

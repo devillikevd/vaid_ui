@@ -11,9 +11,9 @@ import javax.inject.Singleton
 class CommunityRepository @Inject constructor(
     private val apiService: ApiService
 ) {
-    fun getQuestions(page: Int = 1, limit: Int = 20): Flow<Result<CommunityQuestionResponse>> = flow {
+    fun getQuestions(page: Int = 1, limit: Int = 20, filter: String? = null, topic: String? = null, search: String? = null, sortBy: String? = null): Flow<Result<CommunityQuestionResponse>> = flow {
         try {
-            val response = apiService.getCommunityQuestions(page, limit)
+            val response = apiService.getCommunityQuestions(page, limit, filter, topic, search, sortBy)
             if (response.isSuccessful && response.body() != null) {
                 emit(Result.Success(response.body()!!))
             } else {
@@ -37,9 +37,9 @@ class CommunityRepository @Inject constructor(
         }
     }
 
-    suspend fun createQuestion(title: String, content: String): Result<CommunityQuestion> {
+    suspend fun createQuestion(title: String, content: String, topic: String? = null, isAnonymous: Boolean = false, attachments: List<String> = emptyList()): Result<CommunityQuestion> {
         return try {
-            val response = apiService.createQuestion(PostQuestionRequest(title, content))
+            val response = apiService.createQuestion(PostQuestionRequest(title, content, topic, isAnonymous, attachments))
             if (response.isSuccessful && response.body() != null) {
                 Result.Success(response.body()!!)
             } else {
@@ -65,9 +65,22 @@ class CommunityRepository @Inject constructor(
         }
     }
 
-    suspend fun upvoteQuestion(questionId: String): Result<Unit> {
+    suspend fun updateAnswer(answerId: String, content: String): Result<CommunityAnswer> {
         return try {
-            val response = apiService.upvoteQuestion(questionId)
+            val response = apiService.updateAnswer(answerId, PostAnswerRequest(content))
+            if (response.isSuccessful && response.body() != null) {
+                Result.Success(response.body()!!)
+            } else {
+                Result.Error("Failed to update answer: ${response.message()}")
+            }
+        } catch (e: Exception) {
+            Result.Error("Error: ${e.message}")
+        }
+    }
+
+    suspend fun upvoteQuestion(questionId: String, action: String): Result<Unit> {
+        return try {
+            val response = apiService.upvoteQuestion(questionId, action)
             if (response.isSuccessful) {
                 Result.Success(Unit)
             } else {
@@ -78,9 +91,9 @@ class CommunityRepository @Inject constructor(
         }
     }
 
-    suspend fun upvoteAnswer(answerId: String): Result<Unit> {
+    suspend fun upvoteAnswer(answerId: String, action: String): Result<Unit> {
         return try {
-            val response = apiService.upvoteAnswer(answerId)
+            val response = apiService.upvoteAnswer(answerId, action)
             if (response.isSuccessful) {
                 Result.Success(Unit)
             } else {
@@ -114,6 +127,33 @@ class CommunityRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Result.Error("Error: ${e.message}")
+        }
+    }
+
+    suspend fun toggleBookmark(questionId: String): Result<Boolean> {
+        return try {
+            val response = apiService.toggleBookmark(questionId)
+            if (response.isSuccessful && response.body() != null) {
+                val bookmarked = response.body()?.get("bookmarked")?.asBoolean ?: false
+                Result.Success(bookmarked)
+            } else {
+                Result.Error("Failed to toggle bookmark")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Unknown error")
+        }
+    }
+
+    suspend fun getTrendingTopics(): Result<List<com.google.gson.JsonObject>> {
+        return try {
+            val response = apiService.getTrendingTopics()
+            if (response.isSuccessful && response.body() != null) {
+                Result.Success(response.body()!!)
+            } else {
+                Result.Error("Failed to get trending topics")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Unknown error")
         }
     }
 }

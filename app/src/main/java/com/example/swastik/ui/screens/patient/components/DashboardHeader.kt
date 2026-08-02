@@ -117,30 +117,30 @@ fun DashboardHeader(
                     val firstName = profile?.name?.split(" ")?.firstOrNull() ?: "User"
                     Text(
                         text = firstName,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-
+                    Spacer(modifier = Modifier.height(2.dp))
                     // Location Picker
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .fillMaxWidth()
                             .clickable { onLocationClick() }
+                            .padding(vertical = 2.dp)
                     ) {
                         Icon(
                             Icons.Outlined.LocationOn,
                             contentDescription = "Location",
-                            modifier = Modifier.size(12.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            modifier = Modifier.size(14.dp),
+                            tint = SwastikPrimary
                         )
-                        Spacer(modifier = Modifier.width(2.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = profile?.location?.ifEmpty { "Set Location" } ?: "Set Location",
-                            fontSize = 11.sp,
+                            text = profile?.location?.ifEmpty { "Set your location" } ?: "Set your location",
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -148,10 +148,10 @@ fun DashboardHeader(
                             modifier = Modifier.weight(1f, fill = false)
                         )
                         Icon(
-                            Icons.Default.ArrowDropDown,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            Icons.Filled.ArrowDropDown,
+                            contentDescription = "Change Location",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }

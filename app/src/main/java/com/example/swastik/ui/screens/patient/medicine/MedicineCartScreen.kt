@@ -341,7 +341,7 @@ fun MedicineCartScreen(
                                 Spacer(Modifier.height(12.dp))
                                 
                                 if (cartState.deliveryAddress.isBlank()) {
-                                    com.example.swastik.ui.screens.patient.components.SwiggyAddressEditor(
+                                    com.example.swastik.ui.screens.patient.components.HomeAddressEditor(
                                         initialAddress = "",
                                         onAddressSaved = { address ->
                                             viewModel.setDeliveryAddress(cartType, address)
@@ -589,3 +589,4 @@ private fun CartItemCard(
         }
     }
 }
+

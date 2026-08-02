@@ -67,6 +67,7 @@ fun HospitalFinderScreen(
     onNavigateToDiagnosticBooking: (String?) -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
     isDarkMode: Boolean = false,
+    isEmbedded: Boolean = false,
     viewModel: HospitalFinderViewModel = hiltViewModel(),
     medicineViewModel: MedicineViewModel = hiltViewModel()
 ) {
@@ -265,7 +266,7 @@ fun HospitalFinderScreen(
         topBar = {
             if (isEmergencyMode) {
                 EmergencyTopBar(onExitEmergency = { isEmergencyMode = false })
-            } else {
+            } else if (!isEmbedded) {
                 TopAppBar(
                     title = {
                         Text(

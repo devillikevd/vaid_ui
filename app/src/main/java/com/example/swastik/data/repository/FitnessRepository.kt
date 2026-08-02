@@ -76,4 +76,28 @@ class FitnessRepository @Inject constructor(
         )
         Log.d("FitnessRepository", "Added $safeMinutes active minutes. Total: $newActiveMinutes")
     }
+
+    suspend fun syncWithBackendData(backendLog: com.example.swastik.data.remote.dto.WearableDailySummaryDto) {
+        val today = java.time.LocalDate.now().toString()
+        // Ensure we only sync today's log
+        if (backendLog.summaryDate != today) return
+        
+        val localLog = getTodayLogSync()
+        // Use the max of local or backend data to prevent losing progress if backend is stale
+        val updatedSteps = maxOf(localLog.totalSteps, backendLog.steps?.toInt() ?: 0)
+        val updatedCalories = maxOf(localLog.caloriesBurned, backendLog.totalCalories?.toFloat() ?: 0f)
+        val updatedActiveMins = maxOf(localLog.activeMinutes, backendLog.activeMinutes?.toInt() ?: 0)
+        
+        if (updatedSteps > localLog.totalSteps || updatedCalories > localLog.caloriesBurned || updatedActiveMins > localLog.activeMinutes) {
+            fitnessDao.updateLog(
+                localLog.copy(
+                    totalSteps = updatedSteps,
+                    caloriesBurned = updatedCalories,
+                    activeMinutes = updatedActiveMins,
+                    lastUpdated = System.currentTimeMillis()
+                )
+            )
+            Log.d("FitnessRepository", "Synced with backend data: Steps=$updatedSteps")
+        }
+    }
 }

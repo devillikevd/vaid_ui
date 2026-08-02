@@ -122,12 +122,13 @@ fun AppointmentBookingScreen(
             doctorSearchViewModel.setInPersonLocation(isGlobal = false)
         }
         
-        if (!preselectedHospitalId.isNullOrBlank() || !preselectedClinicId.isNullOrBlank() || !preselectedSpecialization.isNullOrBlank() || !preselectedSearch.isNullOrBlank()) {
+        if (!preselectedHospitalId.isNullOrBlank() || !preselectedClinicId.isNullOrBlank() || !preselectedSpecialization.isNullOrBlank() || !preselectedSearch.isNullOrBlank() || consultationMode != null) {
             doctorSearchViewModel.updateFilters(
                 hospitalId = preselectedHospitalId,
                 clinicId = preselectedClinicId,
                 specialization = preselectedSpecialization,
-                search = preselectedSearch
+                search = preselectedSearch,
+                consultationType = if (consultationMode == "video") "video" else if (consultationMode == "in_person") "in_person" else null
             )
         } else if (preselectedDoctorId.isNullOrBlank()) {
             doctorSearchViewModel.searchDoctors(resetList = true)
@@ -651,6 +652,74 @@ private fun DoctorSelectionStep(
             singleLine = true
         )
 
+        val filtersFlow by doctorSearchViewModel.filters.collectAsState()
+        val currentSortBy = filtersFlow.sortBy
+        val currentConsultationType = filtersFlow.consultationType
+
+        val sortOptions = mutableListOf<Pair<String, String?>>()
+        sortOptions.add("All" to null)
+        sortOptions.add("Most Rating" to "rating_desc")
+        sortOptions.add("Most Consultation" to "consultations_desc")
+        sortOptions.add("Experienced" to "experience_desc")
+        sortOptions.add("Less Fee" to "fee_asc")
+        sortOptions.add("High Fee" to "fee_desc")
+        if (consultationMode != "video") {
+            sortOptions.add("Nearest" to "distance_asc")
+        }
+
+        val typeOptions = listOf(
+            "All Types" to null,
+            "In-Person" to "in_person",
+            "Video Call" to "video"
+        )
+
+        LazyRow(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(end = 16.dp)
+        ) {
+            if (consultationMode == "speciality" || consultationMode == null) {
+                items(typeOptions) { (label, value) ->
+                    val selected = currentConsultationType == value
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (selected) SwastikPrimary else MaterialTheme.colorScheme.surface,
+                        contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        border = BorderStroke(1.dp, if (selected) Color.Transparent else MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.clickable { doctorSearchViewModel.updateFilters(consultationType = value) }
+                    ) {
+                        Text(
+                            text = label,
+                            fontSize = 12.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+                item {
+                    Box(modifier = Modifier.padding(horizontal = 4.dp).width(1.dp).height(24.dp).background(Color.LightGray))
+                }
+            }
+
+            items(sortOptions) { (label, value) ->
+                val selected = currentSortBy == value
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (selected) SwastikPrimaryLight else MaterialTheme.colorScheme.surface,
+                    contentColor = if (selected) SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    border = BorderStroke(1.dp, if (selected) Color.Transparent else MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.clickable { doctorSearchViewModel.updateFilters(sortBy = value) }
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = 12.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
+        }
+
         when {
             uiState.error != null -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -664,7 +733,33 @@ private fun DoctorSelectionStep(
                 }
             }
             consultationMode == "recommended" -> {
-                if (recommendedDoctors.isEmpty()) {
+                val filteredRecommended = remember(recommendedDoctors, currentSortBy, currentConsultationType) {
+                    val typeFiltered = if (currentConsultationType != null) {
+                        recommendedDoctors.filter { doc ->
+                            if (currentConsultationType == "video") {
+                                doc.videoConsultationFee != null || doc.consultationTypes?.contains("video") == true
+                            } else {
+                                // Default to assuming they support in_person if video isn't the sole requirement, 
+                                // or check explicit types if present.
+                                doc.consultationTypes?.contains("in_person") != false
+                            }
+                        }
+                    } else {
+                        recommendedDoctors
+                    }
+                    
+                    when (currentSortBy) {
+                        "rating_desc" -> typeFiltered.sortedByDescending { it.averageRating ?: 0f }
+                        "consultations_desc" -> typeFiltered.sortedByDescending { it.totalReviews }
+                        "experience_desc" -> typeFiltered.sortedByDescending { it.experienceYears ?: 0 }
+                        "fee_asc" -> typeFiltered.sortedBy { it.consultationFee }
+                        "fee_desc" -> typeFiltered.sortedByDescending { it.consultationFee }
+                        "distance_asc" -> typeFiltered // Distance sorting not available locally without location
+                        else -> typeFiltered
+                    }
+                }
+                
+                if (filteredRecommended.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Outlined.PersonSearch, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -675,11 +770,11 @@ private fun DoctorSelectionStep(
                 } else {
                     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(
-                            count = recommendedDoctors.size,
-                            key = { index -> recommendedDoctors[index].id },
+                            count = filteredRecommended.size,
+                            key = { index -> filteredRecommended[index].id },
                             contentType = { "Doctor" }
                         ) { index ->
-                            val doctor = recommendedDoctors[index]
+                            val doctor = filteredRecommended[index]
                             DoctorBookingCard(
                                 doctor = doctor,
                                 onSelect = { onDoctorSelected(doctor, true) },
