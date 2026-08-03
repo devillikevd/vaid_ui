@@ -3,7 +3,7 @@
  * Scans AuditLogs periodically for suspicious activities like IP switching or role escalation.
  */
 const { AuditLog } = require('../database/models');
-const logger = require('../config/logger');
+const logger = require('../utils/logger');
 
 const ANOMALY_THRESHOLDS = {
   ipSwitches: 3, // Alert if 3+ distinct IPs are used by a single user in 1 hour

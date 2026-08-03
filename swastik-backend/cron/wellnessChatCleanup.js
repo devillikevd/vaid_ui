@@ -1,4 +1,4 @@
-const logger = require('../config/logger');
+const logger = require('../utils/logger');
 
 const DEFAULT_RETENTION_DAYS = 180;
 const BATCH_SIZE = 5000;

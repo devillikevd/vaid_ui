@@ -1,4 +1,4 @@
-const logger = require('../config/logger');
+const logger = require('../utils/logger');
 
 const notifyCronAlert = async ({ job, ok, message, durationMs, context = {} }) => {
   const webhookUrl = process.env.CRON_ALERT_WEBHOOK_URL;

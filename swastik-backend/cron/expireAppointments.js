@@ -1,5 +1,5 @@
 const { supabaseAdmin } = require('../config/supabase');
-const logger = require('../config/logger');
+const logger = require('../utils/logger');
 
 const expirePastAppointments = async () => {
   try {
