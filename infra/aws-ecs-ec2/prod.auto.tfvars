@@ -1,8 +1,7 @@
 project_name    = "swastik"
 environment     = "prod"
 aws_region      = "ap-south-1"
-certificate_arn = "arn:aws:acm:ap-south-1:725098487373:certificate/d1234694-cdb3-4dea-ab27-c5252377a815"
-
+certificate_arn = "arn:aws:acm:ap-south-1:324081754250:certificate/96f05022-359b-4f2e-a586-64272997efc5"
 # Cost-effective defaults. Increase only after monitoring.
 instance_type        = "t4g.small"
 ec2_min_size         = 1

@@ -33,11 +33,11 @@ locals {
   secret_names = toset([
     "SUPABASE_ANON_KEY",
     "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_PUBLISHABLE_KEY",
+    "DATABASE_URL",
     "JWT_SECRET",
     "JWT_ACCESS_SECRET",
     "JWT_REFRESH_SECRET",
-    "UPSTASH_REDIS_REST_URL",
-    "UPSTASH_REDIS_REST_TOKEN",
     "MONGODB_URI",
     "GROQ_API_KEY",
     "GEMINI_API_KEY",
@@ -46,7 +46,8 @@ locals {
     "GMAIL_APP_PASSWORD",
     "EMAIL_FROM_ADDRESS",
     "FIREBASE_SERVICE_ACCOUNT_BASE64",
-    "REDIS_PASSWORD"
+    "FIREBASE_PRIVATE_KEY",
+    "PHI_ENCRYPTION_KEY"
   ])
 
   ssm_secret_arns = {
@@ -65,18 +66,41 @@ locals {
     { name = "STORAGE_PROVIDER", value = "s3" },
     { name = "STORAGE_AUTO_CREATE_BUCKET", value = "false" },
     { name = "STORAGE_FORCE_PATH_STYLE", value = "false" },
-    { name = "S3_BUCKET_NAME", value = "swastik-telemedicine-bucket" },
-    { name = "BUCKET_NAME", value = "swastik-telemedicine-bucket" },
-    { name = "S3_PUBLIC_URL", value = "https://swastik-telemedicine-bucket.s3.${var.aws_region}.amazonaws.com" },
+    { name = "STORAGE_SIGNED_URL_EXPIRY_SECONDS", value = "3600" },
+    { name = "STORAGE_PUBLIC_READ_PREFIXES", value = "profiles/*,documents/*,reports/*,prescriptions/*,videos/*,licenses/*,entities/*,thumbnails/*,medium/*" },
+    { name = "S3_BUCKET_NAME", value = local.s3_bucket_name },
+    { name = "BUCKET_NAME", value = local.s3_bucket_name },
+    { name = "S3_PUBLIC_URL", value = "https://${local.s3_bucket_name}.s3.${var.aws_region}.amazonaws.com" },
     { name = "REDIS_URL", value = local.redis_url },
     { name = "FRONTEND_WEB_URL", value = var.frontend_web_url },
     { name = "FRONTEND_DOCTOR_WEB_URL", value = var.frontend_doctor_web_url },
     { name = "FRONTEND_APP_URL", value = var.frontend_app_url },
     { name = "RATE_LIMIT_WINDOW_MS", value = "900000" },
     { name = "RATE_LIMIT_MAX_REQUESTS", value = tostring(var.rate_limit_max_requests) },
+    { name = "AI_MAX_PER_SESSION", value = "999999" },
+    { name = "AI_MAX_PER_DAY", value = "999999" },
+    { name = "JWT_EXPIRES_IN", value = "7d" },
+    { name = "JWT_REFRESH_EXPIRES_IN", value = "30d" },
+    { name = "WEBRTC_STUN_SERVER", value = "stun:74.125.250.129:19302" },
+    { name = "EMAIL_FROM_NAME", value = "VAIDIDEA Healthcare" },
+    { name = "FIREBASE_PROJECT_ID", value = "swastik-61fe9" },
+    { name = "FIREBASE_CLIENT_EMAIL", value = "firebase-adminsdk-fbsvc@swastik-61fe9.iam.gserviceaccount.com" },
     { name = "BACKGROUND_JOBS_ENABLED", value = "true" },
     { name = "REMINDER_CRON_ENABLED", value = "true" },
-    { name = "OUTBREAK_CRON_ENABLED", value = "true" }
+    { name = "OUTBREAK_CRON_ENABLED", value = "true" },
+    { name = "APPOINTMENT_EXPIRE_CRON_ENABLED", value = "true" },
+    { name = "APPOINTMENT_EXPIRE_CRON_INTERVAL_MS", value = "300000" },
+    { name = "CONSULTATION_TIMEOUT_CRON_ENABLED", value = "true" },
+    { name = "CONSULTATION_TIMEOUT_CRON_INTERVAL_MS", value = "600000" },
+    { name = "WELLNESS_BADGES_CRON_ENABLED", value = "true" },
+    { name = "WELLNESS_BADGES_CRON_INTERVAL_MS", value = "86400000" },
+    { name = "WELLNESS_CHAT_CLEANUP_ENABLED", value = "true" },
+    { name = "WELLNESS_CHAT_CLEANUP_INTERVAL_MS", value = "86400000" },
+    { name = "WELLNESS_CHAT_RETENTION_DAYS", value = "180" },
+    { name = "CRON_ALERT_WEBHOOK_URL", value = "" },
+    { name = "CRON_ALERT_ON_SUCCESS", value = "false" },
+    { name = "AMBULANCE_LOCATION_UPDATE_INTERVAL", value = "5000" },
+    { name = "MAX_AMBULANCE_SEARCH_RADIUS_KM", value = "50" }
     ],
     var.turn_enabled ? [
       { name = "WEBRTC_TURN_SERVER", value = local.turn_url },
@@ -109,8 +133,7 @@ locals {
     "MONGODB_URI",
     "GROQ_API_KEY",
     "GEMINI_API_KEY",
-    "HUGGINGFACE_API_KEY",
-    "REDIS_PASSWORD"
+    "HUGGINGFACE_API_KEY"
   ])
 
   ai_secrets = [

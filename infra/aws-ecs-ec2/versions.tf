@@ -2,10 +2,10 @@ terraform {
   required_version = ">= 1.6.0"
 
   backend "s3" {
-    bucket         = "swastik-terraform-state-725098487373"
+    bucket         = "swastik-terraform-state-324081754250"
     key            = "prod/terraform.tfstate"
     region         = "ap-south-1"
-    dynamodb_table = "terraform-state-lock"
+    use_lockfile   = true
     encrypt        = true
   }
 
