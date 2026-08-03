@@ -47,7 +47,8 @@ locals {
     "EMAIL_FROM_ADDRESS",
     "FIREBASE_SERVICE_ACCOUNT_BASE64",
     "FIREBASE_PRIVATE_KEY",
-    "PHI_ENCRYPTION_KEY"
+    "PHI_ENCRYPTION_KEY",
+    "REDIS_PASSWORD"
   ])
 
   ssm_secret_arns = {
