@@ -278,6 +278,7 @@ dependencies {
 
     // Coil for async image loading in Compose
     implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("io.coil-kt:coil-gif:2.6.0")
 
     // Firebase Cloud Messaging (gracefully no-ops when project config is absent)
     implementation("com.google.firebase:firebase-messaging:24.1.0")

@@ -55,6 +55,43 @@ const CATEGORY_TO_WORKOUT_TYPE = {
   'cardio': 'cardio',
 };
 
+// Refined workout_type based on exercise name patterns (more granular than category alone)
+const inferWorkoutType = (name, category) => {
+  const n = (name || '').toLowerCase();
+  if (n.includes('stretch') || n.includes('stretching')) return 'stretching';
+  if (n.includes('yoga') || n.includes('asana')) return 'yoga';
+  if (n.includes('pilates')) return 'pilates';
+  if (n.includes('plank') || n.includes('hold') || n.includes('wall sit') || n.includes('dead hang')) return 'isometric';
+  if (n.includes('jump') || n.includes('burpee') || n.includes('box jump') || n.includes('plyometric')) return 'plyometrics';
+  if (n.includes('run') || n.includes('jog') || n.includes('cycling') || n.includes('rowing') || n.includes('elliptical') || n.includes('skierg') || n.includes('stepmill')) return 'cardio';
+  if (n.includes('crunch') || n.includes('sit-up') || n.includes('leg raise') || n.includes('russian twist') || n.includes('v-up') || n.includes('bicycle') || n.includes('mountain climber')) return 'core';
+  if (n.includes('push-up') || n.includes('pushup') || n.includes('pull-up') || n.includes('pullup') || n.includes('chin-up') || n.includes('dip') || n.includes('body weight')) return 'calisthenics';
+  return CATEGORY_TO_WORKOUT_TYPE[category] || 'strength';
+};
+
+// Target muscle → sub_category for finer-grained UI filtering
+const TARGET_TO_SUB_CATEGORY = {
+  'abs': 'Core & Abs',
+  'pectorals': 'Chest',
+  'biceps': 'Biceps',
+  'glutes': 'Glutes & Hips',
+  'delts': 'Shoulders',
+  'triceps': 'Triceps',
+  'upper back': 'Upper Back',
+  'lats': 'Lats & Back',
+  'calves': 'Calves',
+  'quads': 'Quads',
+  'forearms': 'Forearms & Grip',
+  'cardiovascular system': 'Cardio & Endurance',
+  'hamstrings': 'Hamstrings',
+  'spine': 'Spine & Posture',
+  'traps': 'Traps & Neck',
+  'adductors': 'Inner Thighs',
+  'abductors': 'Outer Thighs',
+  'serratus anterior': 'Serratus & Ribs',
+  'levator scapulae': 'Neck & Scapula',
+};
+
 // Equipment normalization
 const normalizeEquipment = (eq) => {
   if (!eq) return 'bodyweight';
@@ -218,7 +255,9 @@ const transformExercise = (ex, urls = {}) => {
   const slug = `exdb-${ex.id}`;
   const equipmentNormalized = normalizeEquipment(ex.equipment);
   const category = (ex.category || '').toLowerCase();
-  const workoutType = CATEGORY_TO_WORKOUT_TYPE[category] || 'strength';
+  const target = (ex.target || '').toLowerCase();
+  const workoutType = inferWorkoutType(ex.name, category);
+  const subCategory = TARGET_TO_SUB_CATEGORY[target] || category.replace(/^\w/, c => c.toUpperCase()) || null;
   const level = assignLevel(ex);
 
   // Extract multi-language instructions
@@ -261,6 +300,7 @@ const transformExercise = (ex, urls = {}) => {
       media_id: ex.media_id || null,
       instructions_multilang: instructionsMultilang,
       equipment_original: ex.equipment || null,
+      sub_category: subCategory,
     },
     is_active: true,
   };

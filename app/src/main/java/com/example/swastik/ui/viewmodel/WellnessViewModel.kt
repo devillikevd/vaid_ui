@@ -59,7 +59,15 @@ data class WellnessUiState(
     // Assessment submission state
     val isSubmitting: Boolean = false,
     val submitSuccess: Boolean = false,
-    val submitError: String? = null
+    val submitError: String? = null,
+    // Exercise library filter & pagination state
+    val exerciseSearchQuery: String = "",
+    val exerciseSelectedCategory: String? = null,
+    val exerciseSelectedLevel: String? = null,
+    val exerciseCurrentPage: Int = 1,
+    val exerciseTotalPages: Int = 1,
+    val exerciseTotalCount: Int = 0,
+    val isLoadingMoreExercises: Boolean = false
 )
 
 @HiltViewModel
@@ -108,7 +116,12 @@ class WellnessViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val plansDeferred = async { wellnessRepository.getWorkoutPlans() }
-            val exercisesDeferred = async { wellnessRepository.getExercises() }
+            val exercisesDeferred = async { wellnessRepository.getExercises(
+                page = 1,
+                category = _uiState.value.exerciseSelectedCategory,
+                level = _uiState.value.exerciseSelectedLevel,
+                query = _uiState.value.exerciseSearchQuery.takeIf { it.isNotBlank() }
+            ) }
             val plans = plansDeferred.await()
             val exercises = exercisesDeferred.await()
             _uiState.value = _uiState.value.copy(
@@ -116,9 +129,70 @@ class WellnessViewModel @Inject constructor(
                 hasLoaded = true,
                 error = listOf(plans, exercises).filterIsInstance<Result.Error>().firstOrNull()?.message,
                 workoutPlans = plans.getOrNull().orEmpty(),
-                exercises = exercises.getOrNull().orEmpty()
+                exercises = (exercises as? Result.Success)?.data?.data.orEmpty(),
+                exerciseCurrentPage = (exercises as? Result.Success)?.data?.page ?: 1,
+                exerciseTotalPages = (exercises as? Result.Success)?.data?.totalPages ?: 1,
+                exerciseTotalCount = (exercises as? Result.Success)?.data?.total ?: 0
             )
         }
+    }
+
+    fun loadExercises(resetPage: Boolean = true) {
+        viewModelScope.launch {
+            val page = if (resetPage) 1 else _uiState.value.exerciseCurrentPage
+            _uiState.value = _uiState.value.copy(
+                isLoading = resetPage,
+                isLoadingMoreExercises = !resetPage
+            )
+            val result = wellnessRepository.getExercises(
+                page = page,
+                category = _uiState.value.exerciseSelectedCategory,
+                level = _uiState.value.exerciseSelectedLevel,
+                query = _uiState.value.exerciseSearchQuery.takeIf { it.isNotBlank() }
+            )
+            when (result) {
+                is Result.Success -> {
+                    val newExercises = if (resetPage) result.data.data
+                    else _uiState.value.exercises + result.data.data
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isLoadingMoreExercises = false,
+                        exercises = newExercises,
+                        exerciseCurrentPage = result.data.page,
+                        exerciseTotalPages = result.data.totalPages,
+                        exerciseTotalCount = result.data.total
+                    )
+                }
+                is Result.Error -> _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    isLoadingMoreExercises = false,
+                    error = result.message
+                )
+                is Result.Loading -> { /* handled */ }
+            }
+        }
+    }
+
+    fun loadMoreExercises() {
+        val state = _uiState.value
+        if (state.isLoadingMoreExercises || state.exerciseCurrentPage >= state.exerciseTotalPages) return
+        _uiState.value = state.copy(exerciseCurrentPage = state.exerciseCurrentPage + 1)
+        loadExercises(resetPage = false)
+    }
+
+    fun setExerciseCategory(category: String?) {
+        _uiState.value = _uiState.value.copy(exerciseSelectedCategory = category, exerciseCurrentPage = 1)
+        loadExercises()
+    }
+
+    fun setExerciseLevel(level: String?) {
+        _uiState.value = _uiState.value.copy(exerciseSelectedLevel = level, exerciseCurrentPage = 1)
+        loadExercises()
+    }
+
+    fun setExerciseSearch(query: String) {
+        _uiState.value = _uiState.value.copy(exerciseSearchQuery = query, exerciseCurrentPage = 1)
+        loadExercises()
     }
 
     fun refreshExperts() {

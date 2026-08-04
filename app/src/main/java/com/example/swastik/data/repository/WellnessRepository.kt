@@ -6,6 +6,13 @@ import com.google.gson.JsonObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
+data class PaginatedExerciseResult(
+    val data: List<ExerciseLibraryDto>,
+    val page: Int,
+    val totalPages: Int,
+    val total: Int
+)
+
 @Singleton
 class WellnessRepository @Inject constructor(
     private val apiService: ApiService
@@ -21,10 +28,34 @@ class WellnessRepository @Inject constructor(
         Result.Error(e.message ?: "Network error", e)
     }
 
-    suspend fun getExercises(): Result<List<ExerciseLibraryDto>> = try {
-        val response = apiService.getExerciseLibrary(limit = 30)
+    suspend fun getExercises(
+        page: Int = 1,
+        limit: Int = 30,
+        query: String? = null,
+        bodyPart: String? = null,
+        category: String? = null,
+        level: String? = null,
+        equipment: String? = null,
+        target: String? = null
+    ): Result<PaginatedExerciseResult> = try {
+        val response = apiService.getExerciseLibrary(
+            page = page,
+            limit = limit,
+            query = query,
+            bodyPart = bodyPart,
+            category = category,
+            level = level,
+            equipment = equipment,
+            target = target
+        )
         if (response.isSuccessful && response.body()?.success == true) {
-            Result.Success(response.body()?.data ?: emptyList())
+            val body = response.body()!!
+            Result.Success(PaginatedExerciseResult(
+                data = body.data ?: emptyList(),
+                page = body.pagination?.page ?: page,
+                totalPages = body.pagination?.totalPages ?: 1,
+                total = body.pagination?.total ?: (body.data?.size ?: 0)
+            ))
         } else {
             Result.Error("Failed to load exercise animations")
         }

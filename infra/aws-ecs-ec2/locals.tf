@@ -68,7 +68,7 @@ locals {
     { name = "STORAGE_AUTO_CREATE_BUCKET", value = "false" },
     { name = "STORAGE_FORCE_PATH_STYLE", value = "false" },
     { name = "STORAGE_SIGNED_URL_EXPIRY_SECONDS", value = "3600" },
-    { name = "STORAGE_PUBLIC_READ_PREFIXES", value = "profiles/*,documents/*,reports/*,prescriptions/*,videos/*,licenses/*,entities/*,thumbnails/*,medium/*" },
+    { name = "STORAGE_PUBLIC_READ_PREFIXES", value = "profiles/*,documents/*,reports/*,prescriptions/*,videos/*,licenses/*,entities/*,thumbnails/*,medium/*,exercises/*" },
     { name = "S3_BUCKET_NAME", value = local.s3_bucket_name },
     { name = "BUCKET_NAME", value = local.s3_bucket_name },
     { name = "S3_PUBLIC_URL", value = "https://${local.s3_bucket_name}.s3.${var.aws_region}.amazonaws.com" },
