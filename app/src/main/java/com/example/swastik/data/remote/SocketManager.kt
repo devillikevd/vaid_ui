@@ -473,12 +473,11 @@ class SocketManager @Inject constructor(
         socket?.on("video:offer") { args ->
             try {
                 val data = args[0] as? JSONObject ?: return@on
-                val offer = data.optJSONObject("offer") ?: return@on
                 Log.d(TAG, "Received Offer")
                 scope.launch {
                     _signalingEvents.emit(SignalingEvent.Offer(
-                        sdp = offer.optString("sdp", ""),
-                        type = offer.optString("type", "offer")
+                        sdp = data.optString("sdp", ""),
+                        type = data.optString("type", "offer")
                     ))
                 }
             } catch (e: Exception) { Log.e(TAG, "Error parsing video:offer", e) }
@@ -487,12 +486,11 @@ class SocketManager @Inject constructor(
         socket?.on("video:answer") { args ->
             try {
                 val data = args[0] as? JSONObject ?: return@on
-                val answer = data.optJSONObject("answer") ?: return@on
                 Log.d(TAG, "Received Answer")
                 scope.launch {
                     _signalingEvents.emit(SignalingEvent.Answer(
-                        sdp = answer.optString("sdp", ""),
-                        type = answer.optString("type", "answer")
+                        sdp = data.optString("sdp", ""),
+                        type = data.optString("type", "answer")
                     ))
                 }
             } catch (e: Exception) { Log.e(TAG, "Error parsing video:answer", e) }
@@ -501,13 +499,12 @@ class SocketManager @Inject constructor(
         socket?.on("video:ice-candidate") { args ->
             try {
                 val data = args[0] as? JSONObject ?: return@on
-                val candidate = data.optJSONObject("candidate") ?: return@on
                 Log.d(TAG, "Received ICE Candidate")
                 scope.launch {
                     _signalingEvents.emit(SignalingEvent.IceCandidate(
-                        sdpMid = candidate.optString("sdpMid", ""),
-                        sdpMLineIndex = candidate.optInt("sdpMLineIndex", 0),
-                        sdp = candidate.optString("candidate", "")
+                        sdpMid = data.optString("sdpMid", ""),
+                        sdpMLineIndex = data.optInt("sdpMLineIndex", 0),
+                        sdp = data.optString("candidate", "")
                     ))
                 }
             } catch (e: Exception) { Log.e(TAG, "Error parsing video:ice-candidate", e) }
@@ -867,6 +864,22 @@ class SocketManager @Inject constructor(
                     ))
                 }
             } catch (e: Exception) { Log.e(TAG, "Error parsing appointment:confirmed", e) }
+        }
+
+        socket?.on("appointment:cancelled") { args ->
+            try {
+                val data = args[0] as? JSONObject ?: return@on
+                scope.launch {
+                    _appointmentUpdates.emit(AppointmentUpdateEvent(
+                        appointmentId = data.optString("appointmentId", data.optString("id", "")),
+                        status = "cancelled",
+                        doctorName = data.optNullableString("doctorName"),
+                        date = data.optNullableString("date") ?: data.optNullableString("appointment_date"),
+                        timeSlot = data.optNullableString("timeSlot") ?: data.optNullableString("time_slot"),
+                        timestamp = data.optString("timestamp", "")
+                    ))
+                }
+            } catch (e: Exception) { Log.e(TAG, "Error parsing appointment:cancelled", e) }
         }
 
         // --- Doctor Slots Updates (Race Condition) ---

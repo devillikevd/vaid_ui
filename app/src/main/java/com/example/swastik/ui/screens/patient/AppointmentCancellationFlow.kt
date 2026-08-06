@@ -28,6 +28,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.swastik.R
 import com.example.swastik.data.model.Appointment
+import com.example.swastik.ui.screens.patient.booking.formatTimeSlot
 import com.example.swastik.ui.theme.SwastikPrimary
 
 enum class CancellationStep {
@@ -379,7 +380,7 @@ private fun CancellationSuccessContent(
             Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(6.dp))
-                Text("${appointment.date} at ${appointment.timeSlot}", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                Text("${appointment.date} at ${formatTimeSlot(appointment.timeSlot)}", fontSize = 12.sp, fontWeight = FontWeight.Medium)
             }
         }
         

@@ -548,6 +548,7 @@ export const adminApi = {
 // Backend: routes/doctor/index.js
 
 export const doctorApi = {
+    getJourneyStats: () => fetchWithAuth('/doctors/me/journey'),
     getDashboard: () => fetchWithAuth('/doctors/me/dashboard'),
 
     getProfile: () => fetchWithAuth('/doctors/me/profile'),
@@ -564,6 +565,12 @@ export const doctorApi = {
         fetchWithAuth('/doctors/me/slots', {
             method: 'PUT',
             body: JSON.stringify({ slots }),
+        }),
+
+    toggleSlotBlock: (date: string, timeSlot: string, action: 'block' | 'unblock') =>
+        fetchWithAuth('/doctors/me/slots/block', {
+            method: 'POST',
+            body: JSON.stringify({ date, timeSlot, action }),
         }),
 
     getAppointments: (status?: string, date?: string, page: number = 1) => {
@@ -639,8 +646,8 @@ export const doctorApi = {
     getOutbreakHeatmap: () => fetchWithAuth('/admin/outbreaks/public/heatmap'),
     getOutbreakStats: (days: number = 30) => fetchWithAuth(`/admin/outbreaks/public/stats?days=${days}`),
 
-    getReviews: (doctorId: string, page: number = 1, limit: number = 10) =>
-        fetchWithAuth(`/patients/reviews/doctor/${doctorId}?page=${page}&limit=${limit}`),
+    getReviews: (page: number = 1, limit: number = 10) =>
+        fetchWithAuth(`/doctors/me/reviews?page=${page}&limit=${limit}`),
 };
 
 // ==================== HOSPITAL API ====================
@@ -1199,10 +1206,10 @@ export const appointmentsApi = {
         }),
 
     /** Use PUT /appointments/:id/status for confirm/complete/etc */
-    updateStatus: (id: string, status: string, notes?: string) =>
+    updateStatus: (id: string, status: string, notes?: string, otp?: string) =>
         fetchWithAuth(`/appointments/${id}/status`, {
             method: 'PUT',
-            body: JSON.stringify({ status, notes }),
+            body: JSON.stringify({ status, notes, otp }),
         }),
 
     cancel: (id: string, reason?: string) =>
@@ -1223,6 +1230,7 @@ export const appointmentsApi = {
 
 export const consultationsApi = {
     getAll: () => fetchWithAuth('/consultations'),
+    getById: (id: string) => fetchWithAuth(`/consultations/${id}`),
 
     start: (appointmentId: string) =>
         fetchWithAuth(`/consultations/${appointmentId}/start`, { method: 'POST' }),

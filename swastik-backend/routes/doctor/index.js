@@ -58,6 +58,32 @@ router.get('/me/profile',
   })
 );
 
+// Get doctor reviews (own)
+router.get('/me/reviews',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const { page = 1, limit = 10 } = req.query;
+    const { supabaseAdmin } = require('../../config/supabase');
+    
+    // Get the doctor's profile ID
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: 'Doctor profile not found' });
+    }
+
+    const reviewService = require('../../services/reviewService');
+    const result = await reviewService.getEntityReviews('doctor', doctor.id, parseInt(page), parseInt(limit));
+    
+    res.json({ success: true, ...result });
+  })
+);
+
 // Update doctor profile
 router.put('/me/profile',
   authenticate,
@@ -184,7 +210,81 @@ router.get('/me/slots',
       .order('slot_date', { ascending: true });
 
     if (error) throw error;
-    res.json({ success: true, data: slots || [] });
+
+    const { data: allAppointments, error: aptError } = await supabaseAdmin
+      .from('appointments')
+      .select('appointment_date, time_slot, patient_notes')
+      .eq('doctor_id', doctor.id)
+      .in('status', ['scheduled', 'confirmed', 'in_progress']);
+
+    if (aptError) throw aptError;
+
+    const blocked = [];
+    const booked = [];
+
+    (allAppointments || []).forEach(a => {
+      const time = a.time_slot.length > 5 ? a.time_slot.slice(0, 5) : a.time_slot;
+      const apt = { date: a.appointment_date, time };
+      if (a.patient_notes === 'BLOCKED_BY_DOCTOR') {
+        blocked.push(apt);
+      } else {
+        booked.push(apt);
+      }
+    });
+
+    res.json({ success: true, data: slots || [], blocked, booked });
+  })
+);
+
+// Toggle blocked slot
+router.post('/me/slots/block',
+  authenticate,
+  authorize('doctor'),
+  [
+    body('date').isDate().withMessage('Valid date is required'),
+    body('timeSlot').matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('Valid time slot (HH:MM) is required'),
+    body('action').isIn(['block', 'unblock']).withMessage('Action must be block or unblock'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { date, timeSlot, action } = req.body;
+    const { supabaseAdmin } = require('../../config/supabase');
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: 'Doctor profile not found' });
+    }
+
+    if (action === 'block') {
+      const { error } = await supabaseAdmin
+        .from('appointments')
+        .insert({
+          doctor_id: doctor.id,
+          patient_id: null,
+          appointment_date: date,
+          time_slot: timeSlot + ':00',
+          status: 'scheduled',
+          type: 'clinic',
+          patient_notes: 'BLOCKED_BY_DOCTOR'
+        });
+      if (error) throw error;
+    } else {
+      const { error } = await supabaseAdmin
+        .from('appointments')
+        .delete()
+        .eq('doctor_id', doctor.id)
+        .eq('appointment_date', date)
+        .eq('time_slot', timeSlot + ':00')
+        .eq('status', 'scheduled')
+        .eq('patient_notes', 'BLOCKED_BY_DOCTOR');
+      if (error) throw error;
+    }
+
+    res.json({ success: true, message: `Slot successfully ${action}ed` });
   })
 );
 
@@ -442,6 +542,130 @@ router.get('/me/prescriptions',
       success: true,
       data: prescriptions,
       pagination: { page: parseInt(page), limit: parseInt(limit), total: count || 0, totalPages: Math.ceil((count || 0) / parseInt(limit)) },
+    });
+  })
+);
+
+// Get doctor lifetime journey stats
+router.get('/me/journey',
+  authenticate,
+  authorize('doctor'),
+  requireApproval,
+  asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../../config/supabase');
+    
+    // Get doctor profile and joined date
+    const { data: doctor, error: docError } = await supabaseAdmin
+      .from('doctors')
+      .select(`
+        id, rating, total_reviews,
+        user:users!doctors_user_id_fkey(created_at)
+      `)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (docError || !doctor) {
+      return res.status(404).json({ success: false, message: 'Doctor not found' });
+    }
+
+    // Get all completed appointments for this doctor to calculate earnings and unique patients
+    const { data: consultations, error: consError } = await supabaseAdmin
+      .from('appointments')
+      .select('id, fee, patient_id')
+      .eq('doctor_id', doctor.id)
+      .eq('status', 'completed');
+
+    if (consError) {
+      return res.status(500).json({ success: false, message: 'Failed to fetch journey stats' });
+    }
+
+    // Calculate stats
+    let lifetimeEarnings = 0;
+    const uniquePatients = new Set();
+    
+    (consultations || []).forEach(cons => {
+      lifetimeEarnings += (cons.fee || 0);
+      if (cons.patient_id) {
+        uniquePatients.add(cons.patient_id);
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        joinedDate: doctor.user?.created_at,
+        totalPatients: uniquePatients.size,
+        totalConsultations: (consultations || []).length,
+        lifetimeEarnings,
+        averageRating: doctor.rating || 0,
+        totalReviews: doctor.total_reviews || 0
+      }
+    });
+  })
+);
+
+// Get earnings breakdown
+router.get('/me/earnings',
+  authenticate,
+  authorize('doctor'),
+  requireApproval,
+  asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../../config/supabase');
+    const { data: doctor, error: docError } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (docError || !doctor) {
+      return res.status(404).json({ success: false, message: 'Doctor not found' });
+    }
+
+    const { date } = req.query;
+    
+    let query = supabaseAdmin
+      .from('appointments')
+      .select(`
+        id, 
+        appointment_date, 
+        time_slot, 
+        fee,
+        type,
+        symptoms,
+        patient:patients(id, name),
+        consultation:consultations(
+          id, 
+          started_at, 
+          ended_at, 
+          duration_minutes, 
+          rating, 
+          review, 
+          chief_complaint, 
+          symptoms,
+          prescriptions(id, file_url, pdf_url)
+        )
+      `)
+      .eq('doctor_id', doctor.id)
+      .eq('status', 'completed')
+      .order('appointment_date', { ascending: false })
+      .order('time_slot', { ascending: false });
+
+    if (date === 'today') {
+      const today = new Date().toISOString().split('T')[0];
+      query = query.eq('appointment_date', today);
+    } else if (date) {
+      query = query.eq('appointment_date', date);
+    }
+
+    const { data: earnings, error: earnError } = await query;
+
+    if (earnError) {
+      return res.status(500).json({ success: false, message: 'Failed to fetch earnings' });
+    }
+
+    res.json({
+      success: true,
+      data: earnings
     });
   })
 );

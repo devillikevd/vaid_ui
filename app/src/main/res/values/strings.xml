@@ -667,7 +667,7 @@
     <string name="all_specialities">All Specialities</string>
     <string name="all_caught_up">You\'re all caught up! We\'ll let you know when there\'s an update.</string>
     <string name="filter_unread">Unread</string>
-    <string name="clear_all">Clear All</string>
+    <string name="clear_all">Mark All Read</string>
     <string name="filter_medicines">Medicines</string>
     <string name="booking_summary">Booking Summary</string>
     <string name="specialty">Specialty</string>

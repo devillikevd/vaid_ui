@@ -34,6 +34,7 @@ fun NotificationPanelDialog(
     notifications: List<NotificationItem>,
     onDismiss: () -> Unit,
     onClearAll: () -> Unit = {},
+    onMarkAllRead: () -> Unit = {},
     onMarkAsRead: (String) -> Unit = {},
     onActionClick: (NotificationItem) -> Unit = {}
 ) {
@@ -139,7 +140,7 @@ fun NotificationPanelDialog(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (notifications.isNotEmpty()) {
                                 TextButton(
-                                    onClick = { onClearAll() },
+                                    onClick = { onMarkAllRead() },
                                     contentPadding = PaddingValues(horizontal = 12.dp)
                                 ) {
                                     Text(stringResource(R.string.clear_all), color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)

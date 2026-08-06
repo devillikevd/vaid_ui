@@ -7,6 +7,10 @@ const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { buildProviderResubmissionFields } = require('../utils/providerApproval');
 const { calculateAge } = require('../utils/patientProfile');
 
+// Cap on how many already-past slots to surface on a given day's booking view.
+// Without this, a full day of elapsed slots floods the UI as "booked".
+const MAX_PAST_SLOTS_SHOWN = 8;
+
 /**
  * Haversine distance between two lat/lng points in kilometers.
  * Used for nearby doctor search.
@@ -286,7 +290,8 @@ class DoctorService {
       throw new ApiError(404, 'Doctor profile not found');
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    // Fix #42: Use IST for today's date instead of UTC to prevent timezone offset issues in India
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
     // Fix #40: Run all dashboard queries in parallel instead of sequentially
     const [
@@ -299,18 +304,21 @@ class DoctorService {
       completedTodayApptsResult,
     ] = await Promise.all([
       supabaseAdmin.from('appointments')
-        .select('*, patient:patients(id, name, date_of_birth, gender, profile_image_url)')
+        .select('*, patient:patients(id, name, date_of_birth, gender, profile_image_url, blood_group, weight, height)')
         .eq('doctor_id', doctor.id).eq('appointment_date', today)
         .in('status', ['scheduled', 'confirmed', 'in_progress'])
+        .or('patient_notes.neq.BLOCKED_BY_DOCTOR,patient_notes.is.null')
         .order('time_slot', { ascending: true }),
       supabaseAdmin.from('appointments')
-        .select('*, patient:patients(id, name, date_of_birth, gender)')
+        .select('*, patient:patients(id, name, date_of_birth, gender, profile_image_url, blood_group, weight, height)')
         .eq('doctor_id', doctor.id).gt('appointment_date', today)
         .in('status', ['scheduled', 'confirmed'])
+        .or('patient_notes.neq.BLOCKED_BY_DOCTOR,patient_notes.is.null')
         .order('appointment_date', { ascending: true }).limit(10),
       supabaseAdmin.from('appointments')
         .select('*', { count: 'exact' })
         .eq('doctor_id', doctor.id).eq('status', 'scheduled')
+        .or('patient_notes.neq.BLOCKED_BY_DOCTOR,patient_notes.is.null')
         .gte('appointment_date', today),
       supabaseAdmin.from('consultations')
         .select('*, patient:patients(id, name), appointment:appointments(type)')
@@ -760,10 +768,16 @@ class DoctorService {
       .eq('appointment_date', date)
       .in('status', ['scheduled', 'confirmed', 'in_progress']);
 
-    const bookedSlots = bookedAppointments?.map(a => a.time_slot) || [];
+    // Appointments store time_slot as "HH:MM:SS" while generated slots are
+    // "HH:MM" — normalize to "HH:MM" so booked slots are actually matched.
+    const bookedSlots = new Set(
+      (bookedAppointments || []).map(a => (a.time_slot && a.time_slot.length > 5 ? a.time_slot.slice(0, 5) : a.time_slot))
+    );
 
     // Generate available time slots
     const availableSlots = [];
+    const pastSlots = [];
+
     slotConfig.forEach(config => {
       const [startHour, startMin] = config.start_time.split(':').map(Number);
       const [endHour, endMin] = config.end_time.split(':').map(Number);
@@ -776,28 +790,36 @@ class DoctorService {
         const h = Math.floor(currentTotalMins / 60);
         const m = currentTotalMins % 60;
         const timeSlot = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-        
-        let is_available = !bookedSlots.includes(timeSlot);
 
-        // Filter out past slots for today
-        if (is_available) {
-          const slotDateStr = `${date}T${timeSlot.padStart(5, '0')}:00+05:30`;
-          const slotTimeMs = Date.parse(slotDateStr);
-          if (!isNaN(slotTimeMs) && slotTimeMs < Date.now()) {
-            is_available = false;
-          }
+        const period = h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : 'Evening';
+
+        const slotDateStr = `${date}T${timeSlot.padStart(5, '0')}:00+05:30`;
+        const slotTimeMs = Date.parse(slotDateStr);
+        const isPast = !isNaN(slotTimeMs) && slotTimeMs < Date.now();
+
+        if (isPast) {
+          // Already-elapsed slot: collected separately and capped below so the
+          // booking UI isn't flooded with stale "booked" entries from earlier
+          // in the day.
+          pastSlots.push({ time: timeSlot, period, is_available: false });
+        } else {
+          availableSlots.push({
+            time: timeSlot,
+            period: period,
+            is_available: !bookedSlots.has(timeSlot),
+          });
         }
-
-        availableSlots.push({
-          time: timeSlot,
-          period: h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : 'Evening',
-          is_available: is_available,
-        });
         currentTotalMins += duration;
       }
     });
 
-    return availableSlots;
+    // Keep only the most recent elapsed slots (MAX_PAST_SLOTS_SHOWN).
+    pastSlots.sort((a, b) => b.time.localeCompare(a.time)); // most recent first
+    const keptPastSlots = pastSlots.slice(0, MAX_PAST_SLOTS_SHOWN);
+
+    const allSlots = availableSlots.concat(keptPastSlots);
+    allSlots.sort((a, b) => a.time.localeCompare(b.time));
+    return allSlots;
   }
 
   // Update availability

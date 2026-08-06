@@ -46,6 +46,9 @@ router.post('/',
     body('type').isIn(['video', 'clinic', 'home_visit', 'in_person']).withMessage('Invalid appointment type'),
     body('hospitalId').optional().isUUID().withMessage('Hospital ID must be valid'),
     body('clinicId').optional().isUUID().withMessage('Clinic ID must be valid'),
+    body('reason').optional().isString(),
+    body('symptoms').optional().isArray(),
+    body('patientNotes').optional().isString(),
   ],
   validate,
   asyncHandler(async (req, res) => {
@@ -86,18 +89,20 @@ router.get('/:id',
 router.put('/:id/status',
   [
     body('status').isIn(['confirmed', 'cancelled', 'completed', 'no_show']).withMessage('Invalid status'),
+    body('otp').optional().isString().isLength({ min: 6, max: 6 }).withMessage('Invalid OTP format'),
   ],
   validate,
   asyncHandler(async (req, res) => {
     if (req.user.role !== 'doctor') {
       return res.status(403).json({ success: false, message: 'Only doctors can update appointment status' });
     }
-    const { status, reason } = req.body;
+    const { status, reason, notes, otp } = req.body;
     const appointment = await appointmentService.updateAppointmentStatus(
       req.user.id,
       req.params.id,
       status,
-      reason
+      reason || notes,
+      otp
     );
     res.json({ success: true, data: appointment });
   })

@@ -69,6 +69,17 @@ router.post('/register',
     delete req.body.is_approved;
     delete req.body.approval_status;
     delete req.body.created_at;
+
+    // Enforce "Dr. " prefix for doctors
+    if (req.body.role === 'doctor' && req.body.name) {
+      let trimmed = req.body.name.trim();
+      let lower = trimmed.toLowerCase();
+      if (!lower.startsWith('dr.') && !lower.startsWith('dr ')) {
+        req.body.name = `Dr. ${trimmed}`;
+      } else {
+        req.body.name = trimmed;
+      }
+    }
     
     const result = await authService.register(req.body);
     res.status(201).json({

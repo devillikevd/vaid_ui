@@ -334,7 +334,8 @@ data class Appointment(
     val doctor: Doctor?,
     val patient: Patient?,
     val hospital: AppointmentFacility? = null,
-    val clinic: AppointmentFacility? = null
+    val clinic: AppointmentFacility? = null,
+    @SerializedName("completion_otp") val completionOtp: String? = null
 )
 
 data class Prescription(

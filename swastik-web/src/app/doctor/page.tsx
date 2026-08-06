@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
     Calendar,
+    CalendarClock,
     Clock,
     CheckCircle,
     TrendingUp,
@@ -12,10 +13,14 @@ import {
     Settings,
     Bell,
     RefreshCw,
-    QrCode
+    QrCode,
+    Loader2,
+    Star
 } from 'lucide-react';
+import { formatDoctorName } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
@@ -23,15 +28,23 @@ import { useRouter } from 'next/navigation';
 import { useDoctorStore, type Appointment } from '@/stores/doctorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useAppointmentUpdates, type AppointmentUpdate } from '@/hooks/useSocket';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { KeyboardShortcutHelp, usePageShortcuts } from '@/components/shared/KeyboardShortcutHelp';
 import { api } from '@/lib/api';
 
 export default function DoctorDashboard() {
-    const { stats, todaysAppointments, upcomingAppointments, isLoading, fetchDashboardData, startConsultation, endConsultation, fetchReviews, reviews, loadingReviews } = useDoctorStore();
+    const { stats, todaysAppointments, upcomingAppointments, isLoading, fetchDashboardData, startConsultation, endConsultation, fetchReviews, reviews, loadingReviews, confirmAppointment, rescheduleAppointment } = useDoctorStore();
     const { user } = useAuthStore();
     const router = useRouter();
     const [newApptAlert, setNewApptAlert] = useState<string | null>(null);
     const [launchingAppointmentId, setLaunchingAppointmentId] = useState<string | null>(null);
+    const [approvingId, setApprovingId] = useState<string | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [reschedulePrompt, setReschedulePrompt] = useState<any>(null);
+    const [newScheduleAppt, setNewScheduleAppt] = useState<any>(null);
+    const [newScheduleDate, setNewScheduleDate] = useState('');
+    const [newScheduleTime, setNewScheduleTime] = useState('');
+    const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
     const shortcuts = useMemo(() => [
         { key: 'a', description: 'Go to Appointments', action: () => router.push('/doctor/appointments') },
@@ -68,11 +81,13 @@ export default function DoctorDashboard() {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
+    // Auto-refresh polling fallback so the dashboard stays fresh even if a
+    // socket event is missed (tab visible → refetch every 30s).
+    useAutoRefresh(fetchDashboardData);
+
     useEffect(() => {
-        if (user?.id) {
-            fetchReviews(user.id);
-        }
-    }, [user?.id, fetchReviews]);
+        fetchReviews();
+    }, [fetchReviews]);
 
     const currentTime = new Date();
     const nextAppointment = todaysAppointments.find((appointment: Appointment) =>
@@ -84,7 +99,7 @@ export default function DoctorDashboard() {
     []);
 
     const canOpenConsultation = useCallback((appointment: Appointment) =>
-        isVideoAppointment(appointment) && ['scheduled', 'confirmed', 'in_progress', 'active'].includes(appointment.status),
+        isVideoAppointment(appointment) && ['confirmed', 'in_progress', 'active'].includes(appointment.status),
     [isVideoAppointment]);
 
     const handleOpenConsultation = useCallback(async (appointment: Appointment) => {
@@ -99,6 +114,67 @@ export default function DoctorDashboard() {
         }
     }, [router, startConsultation]);
 
+    const handleApprove = useCallback(async (appointment: Appointment) => {
+        const aptDateStr = appointment.date || appointment.appointment_date;
+        const aptTimeStr = appointment.time || appointment.timeSlot;
+        if (aptDateStr && aptTimeStr) {
+            try {
+                const aptDate = new Date(aptDateStr);
+                const now = new Date();
+                const [hours, minutes] = aptTimeStr.split(':').map(Number);
+                if (!isNaN(hours) && !isNaN(minutes)) {
+                    const aptDateTime = new Date(aptDate.getFullYear(), aptDate.getMonth(), aptDate.getDate(), hours, minutes);
+                    if (aptDateTime < now) {
+                        setReschedulePrompt(appointment);
+                        return;
+                    }
+                }
+            } catch(e) {}
+        }
+        setApprovingId(appointment.id);
+        await confirmAppointment(appointment.id);
+        setApprovingId(null);
+        // Auto-open patient details after approval
+        setSelectedAppointment(appointment);
+    }, [confirmAppointment]);
+
+    const confirmReschedule = useCallback(async () => {
+        if (!reschedulePrompt) return;
+        setApprovingId(reschedulePrompt.id);
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 15);
+        const newDate = now.toISOString().split('T')[0];
+        const newTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        await rescheduleAppointment(reschedulePrompt.id, newDate, newTime);
+        setApprovingId(null);
+        setReschedulePrompt(null);
+    }, [reschedulePrompt, rescheduleAppointment]);
+
+    const openNewSchedule = useCallback((appointment: Appointment) => {
+        setNewScheduleAppt(appointment);
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 15);
+        const fallbackDate = now.toISOString().split('T')[0];
+        const fallbackTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        setNewScheduleDate(appointment.appointment_date || appointment.date || fallbackDate);
+        setNewScheduleTime((appointment.time || appointment.timeSlot || fallbackTime).substring(0, 5));
+    }, []);
+
+    const submitNewSchedule = useCallback(async () => {
+        if (!newScheduleAppt) return;
+        if (!newScheduleDate || !newScheduleTime) {
+            alert('Please choose a date and time for the new schedule.');
+            return;
+        }
+        setApprovingId(newScheduleAppt.id);
+        await rescheduleAppointment(newScheduleAppt.id, newScheduleDate, newScheduleTime);
+        setApprovingId(null);
+        setNewScheduleAppt(null);
+        setNewScheduleDate('');
+        setNewScheduleTime('');
+        fetchDashboardData();
+    }, [newScheduleAppt, newScheduleDate, newScheduleTime, rescheduleAppointment, fetchDashboardData]);
+
     const handleEndConsultation = useCallback(async (appointment: Appointment) => {
         if (!confirm('Are you sure you want to forcefully end this consultation? This will clear it from your active session.')) return;
         try {
@@ -111,10 +187,10 @@ export default function DoctorDashboard() {
 
     // Stats configuration using real data
     const STATS = [
-        { label: "Today's Appointments", value: stats?.todaysAppointments ?? 0, icon: Calendar, change: '', color: 'text-blue-600', bg: 'bg-blue-100' },
-        { label: 'Completed', value: stats?.completed ?? 0, icon: CheckCircle, change: '', color: 'text-green-600', bg: 'bg-green-100' },
-        { label: 'Pending', value: stats?.pending ?? 0, icon: Clock, change: '', color: 'text-yellow-600', bg: 'bg-yellow-100' },
-        { label: "Today's Earnings", value: `₹${(stats?.todaysEarnings ?? 0).toLocaleString('en-IN')}`, icon: TrendingUp, change: '', color: 'text-emerald-600', bg: 'bg-emerald-100' },
+        { label: "Today's Appointments", value: stats?.todaysAppointments ?? 0, icon: Calendar, change: '', color: 'text-blue-600', bg: 'bg-blue-100', href: '/doctor/appointments' },
+        { label: "Today's Completed Consultations", value: stats?.completed ?? 0, icon: CheckCircle, change: '', color: 'text-green-600', bg: 'bg-green-100', href: '/doctor/consultations' },
+        { label: 'Pending', value: stats?.pending ?? 0, icon: Clock, change: '', color: 'text-yellow-600', bg: 'bg-yellow-100', href: '/doctor/appointments?status=pending' },
+        { label: "Today's Earnings", value: `₹${(stats?.todaysEarnings ?? 0).toLocaleString('en-IN')}`, icon: TrendingUp, change: '', color: 'text-emerald-600', bg: 'bg-emerald-100', href: '/doctor/earnings' },
     ];
 
     // UI-05 Fix: Skeleton loading state
@@ -138,7 +214,7 @@ export default function DoctorDashboard() {
             <div className="bg-gradient-to-r from-emerald-600 to-emerald-800 rounded-2xl p-6 text-white">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold">Welcome back, {user?.name || 'Doctor'}!</h1>
+                        <h1 className="text-2xl font-bold">Welcome back, {formatDoctorName(user?.name) || 'Doctor'}!</h1>
                         <p className="text-emerald-100 mt-1">
                             {currentTime.toLocaleDateString('en-IN', {
                                 weekday: 'long',
@@ -148,8 +224,13 @@ export default function DoctorDashboard() {
                             })}
                         </p>
                     </div>
-                    <div className="hidden md:flex items-center gap-4">
-                        <div className="text-right">
+                    <div className="hidden md:flex items-center gap-6">
+                        <Link href="/doctor/journey">
+                            <Button variant="secondary" className="bg-emerald-500/30 text-emerald-50 hover:bg-emerald-500/50 border border-emerald-400/40 gap-2 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all hover:scale-105">
+                                <Star className="h-4 w-4 text-emerald-200 fill-emerald-200" /> My Journey
+                            </Button>
+                        </Link>
+                        <div className="text-right border-l border-emerald-500/50 pl-6">
                             <p className="text-sm text-emerald-200">Next Appointment</p>
                             <p className="font-medium">
                                 {nextAppointment?.time || 'No upcoming'}
@@ -164,22 +245,24 @@ export default function DoctorDashboard() {
                 {STATS.map((stat) => {
                     const Icon = stat.icon;
                     return (
-                        <Card key={stat.label}>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</p>
-                                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{stat.value}</p>
-                                    {stat.change && (
-                                        <p className={`text-sm mt-1 ${stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-                                            {stat.change} from yesterday
-                                        </p>
-                                    )}
+                        <Link href={stat.href} key={stat.label} className="block transition-transform hover:-translate-y-1">
+                            <Card className="h-full cursor-pointer hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors shadow-sm hover:shadow-md">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</p>
+                                        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{stat.value}</p>
+                                        {stat.change && (
+                                            <p className={`text-sm mt-1 ${stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
+                                                {stat.change} from yesterday
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className={`p-3 rounded-xl ${stat.bg}`}>
+                                        <Icon className={`h-6 w-6 ${stat.color}`} />
+                                    </div>
                                 </div>
-                                <div className={`p-3 rounded-xl ${stat.bg}`}>
-                                    <Icon className={`h-6 w-6 ${stat.color}`} />
-                                </div>
-                            </div>
-                        </Card>
+                            </Card>
+                        </Link>
                     );
                 })}
             </div>
@@ -195,8 +278,13 @@ export default function DoctorDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-3">
-                            {todaysAppointments.map((appointment: Appointment) => (
-                                (() => {
+                            {todaysAppointments.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                    <p>No appointments yet</p>
+                                </div>
+                            ) : (
+                                todaysAppointments.map((appointment: Appointment) => (
+                                    (() => {
                                     const consultationReady = canOpenConsultation(appointment);
                                     const consultationLive = ['in_progress', 'active'].includes(appointment.status);
                                     const isLaunching = launchingAppointmentId === appointment.id;
@@ -204,10 +292,15 @@ export default function DoctorDashboard() {
                                     return (
                                 <div
                                     key={appointment.id}
-                                    className={`flex items-center justify-between p-4 rounded-xl border ${consultationLive
+                                    className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer ${consultationLive
                                         ? 'border-emerald-300 bg-emerald-50'
-                                        : 'border-gray-200 dark:border-gray-700'
-                                        }`}
+                                        : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-700 hover:bg-gray-50/50 dark:hover:bg-gray-800/30'
+                                        } transition-colors`}
+                                    onClick={(e) => {
+                                        // Only open modal if not clicking a button
+                                        if ((e.target as HTMLElement).closest('button')) return;
+                                        setSelectedAppointment(appointment);
+                                    }}
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className="flex flex-col items-center text-sm font-medium min-w-[70px]">
@@ -253,16 +346,38 @@ export default function DoctorDashboard() {
                                                 )}
                                             </>
                                         )}
-                                        {!consultationReady && ['scheduled', 'confirmed'].includes(appointment.status) && (
+                                        {!consultationReady && appointment.status === 'scheduled' && (
+                                            <Button
+                                                size="sm"
+                                                variant="primary"
+                                                disabled={approvingId === appointment.id}
+                                                onClick={() => handleApprove(appointment)}
+                                                className="bg-emerald-600 hover:bg-emerald-700"
+                                            >
+                                                {approvingId === appointment.id ? 'Approving...' : 'Approve'}
+                                            </Button>
+                                        )}
+                                        {!consultationReady && appointment.status === 'confirmed' && (
                                             <Button size="sm" variant="outline" onClick={() => router.push(`/doctor/appointments`)}>
                                                 Manage
+                                            </Button>
+                                        )}
+                                        {!consultationReady && ['scheduled', 'confirmed'].includes(appointment.status) && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => openNewSchedule(appointment)}
+                                                disabled={approvingId === appointment.id}
+                                                leftIcon={<CalendarClock className="h-3 w-3 text-emerald-600" />}
+                                            >
+                                                New Schedule
                                             </Button>
                                         )}
                                     </div>
                                 </div>
                                     );
                                 })()
-                            ))}
+                            )))}
                         </div>
                     </CardContent>
                 </Card>
@@ -278,21 +393,21 @@ export default function DoctorDashboard() {
                             <div className="grid grid-cols-2 gap-3">
                                 <Link
                                     href="/doctor/consultations"
-                                    className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-emerald-300 hover:bg-emerald-50 transition-colors text-center"
+                                    className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-center"
                                 >
                                     <FileText className="h-6 w-6 text-emerald-600 mx-auto mb-2" />
                                     <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Consultations</p>
                                 </Link>
                                 <Link
                                     href="/doctor/patients"
-                                    className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:bg-blue-50 transition-colors text-center"
+                                    className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-center"
                                 >
                                     <User className="h-6 w-6 text-blue-600 mx-auto mb-2" />
                                     <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Patient Records</p>
                                 </Link>
                                 <Link
                                     href="/doctor/schedule"
-                                    className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-yellow-300 hover:bg-yellow-50 transition-colors text-center"
+                                    className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-yellow-300 dark:hover:border-yellow-800 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors text-center"
                                 >
                                     <Calendar className="h-6 w-6 text-yellow-600 mx-auto mb-2" />
                                     <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Edit Schedule</p>
@@ -306,7 +421,7 @@ export default function DoctorDashboard() {
                                 </Link>
                                 <Link
                                     href="/doctor/scan-patient"
-                                    className="col-span-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-purple-300 hover:bg-purple-50 transition-colors text-center"
+                                    className="col-span-2 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors text-center"
                                 >
                                     <QrCode className="h-6 w-6 text-purple-600 mx-auto mb-2" />
                                     <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Scan Patient QR</p>
@@ -361,7 +476,10 @@ export default function DoctorDashboard() {
                         <CardContent>
                             <div className="space-y-3">
                                 {upcomingAppointments.slice(0, 3).map((appointment: Appointment) => (
-                                    <div key={appointment.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                                    <div key={appointment.id} 
+                                        className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/30 rounded-lg px-2 -mx-2 transition-colors"
+                                        onClick={() => setSelectedAppointment(appointment)}
+                                    >
                                         <div>
                                             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{appointment.patientName}</p>
                                             <p className="text-xs text-gray-500 dark:text-gray-400">{appointment.appointment_date} • {appointment.time}</p>
@@ -379,6 +497,195 @@ export default function DoctorDashboard() {
             </div>
         </div>
         <KeyboardShortcutHelp open={showHelp} onClose={() => setShowHelp(false)} shortcuts={allShortcuts} />
+
+        {reschedulePrompt && (
+            <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                onClick={(event) => {
+                    if (event.target === event.currentTarget && approvingId !== reschedulePrompt.id) {
+                        setReschedulePrompt(null);
+                    }
+                }}
+            >
+                <Card className="w-full max-w-md">
+                    <div className="space-y-4">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Reschedule Past Appointment</h2>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                This appointment&apos;s requested time has already passed. Would you like to reschedule it to 15 minutes from now and approve?
+                            </p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+                            <Button variant="outline" onClick={() => setReschedulePrompt(null)} disabled={approvingId === reschedulePrompt.id}>
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={async () => {
+                                    setApprovingId(reschedulePrompt.id);
+                                    await confirmAppointment(reschedulePrompt.id);
+                                    setApprovingId(null);
+                                    setReschedulePrompt(null);
+                                }}
+                                disabled={approvingId === reschedulePrompt.id}
+                            >
+                                Approve with Past Time
+                            </Button>
+                            <Button variant="primary" onClick={confirmReschedule} disabled={approvingId === reschedulePrompt.id} className="bg-emerald-600 hover:bg-emerald-700">
+                                {approvingId === reschedulePrompt.id ? 'Processing...' : 'Reschedule & Approve'}
+                            </Button>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+        )}
+
+        {newScheduleAppt && (
+            <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                onClick={(event) => {
+                    if (event.target === event.currentTarget && approvingId !== newScheduleAppt.id) {
+                        setNewScheduleAppt(null);
+                    }
+                }}
+            >
+                <Card className="w-full max-w-md">
+                    <div className="space-y-4">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Give New Schedule</h2>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                {newScheduleAppt.patientName} could not join at {newScheduleAppt.time || newScheduleAppt.timeSlot || 'the scheduled time'}. Choose a new date and time below — the patient will be notified instantly.
+                            </p>
+                        </div>
+                        <div>
+                            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">New Date</label>
+                            <Input
+                                type="date"
+                                value={newScheduleDate}
+                                onChange={(e) => setNewScheduleDate(e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">New Time</label>
+                            <Input
+                                type="time"
+                                value={newScheduleTime}
+                                onChange={(e) => setNewScheduleTime(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+                            <Button variant="outline" onClick={() => setNewScheduleAppt(null)} disabled={approvingId === newScheduleAppt.id}>
+                                Cancel
+                            </Button>
+                            <Button variant="primary" onClick={submitNewSchedule} disabled={approvingId === newScheduleAppt.id}>
+                                {approvingId === newScheduleAppt.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save New Schedule'}
+                            </Button>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+        )}
+        {/* Patient Details Modal */}
+        {selectedAppointment && (
+            <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+                onClick={(e) => { if (e.target === e.currentTarget) setSelectedAppointment(null); }}
+            >
+                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-200">
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-t-2xl p-5 text-white">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/20 rounded-full p-2">
+                                    <User className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold">{selectedAppointment.patientName}</h2>
+                                    <p className="text-emerald-100 text-xs">
+                                        {selectedAppointment.appointment_date} • {selectedAppointment.time}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSelectedAppointment(null)}
+                                className="text-white/70 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Body */}
+                    <div className="p-5 space-y-4">
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-2 gap-3">
+                            {/* Age */}
+                            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-100 dark:border-blue-800">
+                                <p className="text-[10px] font-semibold text-blue-500 dark:text-blue-400 uppercase tracking-wider mb-1">Age</p>
+                                <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                                    {selectedAppointment.patient?.date_of_birth
+                                        ? `${Math.floor((new Date().getTime() - new Date(selectedAppointment.patient.date_of_birth).getTime()) / (365.25 * 24 * 3600 * 1000))} yrs`
+                                        : '—'}
+                                </p>
+                            </div>
+                            {/* Gender */}
+                            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3 border border-purple-100 dark:border-purple-800">
+                                <p className="text-[10px] font-semibold text-purple-500 dark:text-purple-400 uppercase tracking-wider mb-1">Sex</p>
+                                <p className="text-lg font-bold text-gray-900 dark:text-gray-100 capitalize">
+                                    {selectedAppointment.patient?.gender || '—'}
+                                </p>
+                            </div>
+                            {/* Blood Group */}
+                            <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 border border-red-100 dark:border-red-800">
+                                <p className="text-[10px] font-semibold text-red-500 dark:text-red-400 uppercase tracking-wider mb-1">Blood Group</p>
+                                <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                                    {selectedAppointment.patient?.blood_group || '—'}
+                                </p>
+                            </div>
+                            {/* Weight / Height */}
+                            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 border border-amber-100 dark:border-amber-800">
+                                <p className="text-[10px] font-semibold text-amber-500 dark:text-amber-400 uppercase tracking-wider mb-1">Weight / Height</p>
+                                <p className="text-base font-bold text-gray-900 dark:text-gray-100">
+                                    {selectedAppointment.patient?.weight ? `${selectedAppointment.patient.weight} kg` : '—'}
+                                    {' / '}
+                                    {selectedAppointment.patient?.height ? `${selectedAppointment.patient.height} cm` : '—'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Reason / Symptoms */}
+                        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+                            <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Reason for Consultation</p>
+                            <p className="text-sm text-gray-900 dark:text-gray-100">
+                                {Array.isArray(selectedAppointment.symptoms) && selectedAppointment.symptoms.length > 0
+                                    ? selectedAppointment.symptoms.join(', ')
+                                    : selectedAppointment.reason
+                                    || selectedAppointment.patient_notes
+                                    || <span className="text-gray-400 italic">Not specified</span>}
+                            </p>
+                        </div>
+
+                        {/* Consultation Type Badge */}
+                        <div className="flex items-center justify-between">
+                            <span className={`text-xs px-3 py-1 rounded-full font-medium ${
+                                selectedAppointment.type === 'Video' || selectedAppointment.type === 'video'
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                    : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                            }`}>
+                                {selectedAppointment.type === 'Video' || selectedAppointment.type === 'video' ? '📹 Video Call' : '🏥 In-Person'}
+                            </span>
+                            <button
+                                onClick={() => setSelectedAppointment(null)}
+                                className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
         </>
     );
 }

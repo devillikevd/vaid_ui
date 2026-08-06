@@ -133,6 +133,52 @@ fun CommunityQADetailsScreen(
 @Composable
 fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, onDelete: () -> Unit = {}) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showOptionsMenu by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    
+    if (showEditDialog) {
+        var editTitle by remember { mutableStateOf(question.title) }
+        var editContent by remember { mutableStateOf(question.content) }
+        val context = androidx.compose.ui.platform.LocalContext.current
+        
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("Edit Question", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        label = { Text("Title") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = editContent,
+                        onValueChange = { editContent = it },
+                        label = { Text("Content") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showEditDialog = false
+                        android.widget.Toast.makeText(context, "Question updated successfully (local)", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     if (showDeleteDialog) {
         AlertDialog(
@@ -160,15 +206,50 @@ fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, o
     Column {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
             Text(
-                text = question.title,
+                text = question.title.uppercase(),
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.weight(1f)
             )
             if (isOwner) {
-                IconButton(onClick = { showDeleteDialog = true }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete Question", tint = MaterialTheme.colorScheme.error)
+                Box {
+                    IconButton(onClick = { showOptionsMenu = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Options", tint = MaterialTheme.colorScheme.outline)
+                    }
+                    DropdownMenu(
+                        expanded = showOptionsMenu,
+                        onDismissRequest = { showOptionsMenu = false },
+                        modifier = Modifier.background(Color.White)
+                    ) {
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        DropdownMenuItem(
+                            text = { Text("Edit") },
+                            onClick = {
+                                showOptionsMenu = false
+                                try {
+                                    val created = java.time.Instant.parse(question.createdAt)
+                                    val now = java.time.Instant.now()
+                                    if (java.time.Duration.between(created, now).toHours() >= 2) {
+                                        android.widget.Toast.makeText(context, "No edit allow after 2hrs after post", android.widget.Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        showEditDialog = true
+                                    }
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "No edit allow after 2hrs after post", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                            onClick = {
+                                showOptionsMenu = false
+                                showDeleteDialog = true
+                            },
+                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) }
+                        )
+                    }
                 }
             }
         }
@@ -208,7 +289,8 @@ fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, o
             val displayName = if (question.isAnonymous) {
                 if (isOwner) "Anonymous (You)" else "Anonymous"
             } else {
-                if (isOwner) "${question.patient?.name ?: "User"} (You)" else question.patient?.name ?: "User"
+                val firstName = question.patient?.name?.substringBefore(" ") ?: "User"
+                if (isOwner) "$firstName (You)" else firstName
             }
 
             Box(

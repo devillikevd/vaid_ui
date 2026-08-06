@@ -272,6 +272,7 @@ export function NotificationPanel({
     isOpen,
     onClose,
     onClear,
+    onMarkAllRead,
     onNotificationClick,
 }: {
     notifications: Array<{
@@ -285,6 +286,7 @@ export function NotificationPanel({
     isOpen: boolean;
     onClose: () => void;
     onClear?: () => void;
+    onMarkAllRead?: () => void;
     onNotificationClick?: (notification: any) => void;
 }) {
     if (!isOpen) return null;
@@ -329,12 +331,12 @@ export function NotificationPanel({
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                     <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
-                    {notifications.length > 0 && onClear && (
+                    {notifications.length > 0 && onMarkAllRead && (
                         <button
-                            onClick={onClear}
+                            onClick={onMarkAllRead}
                             className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                         >
-                            Clear all
+                            Mark all read
                         </button>
                     )}
                 </div>

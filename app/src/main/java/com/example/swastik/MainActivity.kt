@@ -445,6 +445,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onNavigateToPharmacyDetail = { pharmacyId -> navController.navigateSafe(Screen.PharmacyDetail.createRoute(pharmacyId)) },
                 onNavigateToDiagnosticDetail = { diagnosticId -> navController.navigateSafe(Screen.DiagnosticDetail.createRoute(diagnosticId)) },
                 onNavigateToFitnessCenterDetail = { fitnessId -> navController.navigateSafe(Screen.FitnessCenterDetail.createRoute(fitnessId)) },
+                onJoinVideoConsultation = { appointmentId, doctorName -> 
+                    navController.navigateSafe(Screen.VideoConsultation.createRoute(appointmentId, doctorName)) 
+                },
                 onNavigateToPharmacy = { pharmacyId, pharmacyName ->
                     navController.navigateSafe(
                         Screen.HospitalFinder.createRoute(
@@ -465,6 +468,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     } else {
                         navController.navigateSafe(Screen.AppointmentBooking.createRoute())
                     }
+                },
+                onNavigateToActiveBooking = { appointmentId ->
+                    navController.navigateSafe(Screen.ActiveBookingStatus.createRoute(appointmentId))
                 },
                 onNavigateToEmergency = { navController.navigateSafe(Screen.Emergency.route) },
                 onNavigateToLocationSelection = { navController.navigateSafe(Screen.LocationSelection.route) },
@@ -575,6 +581,24 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 com.example.swastik.ui.screens.patient.community.CommunityQADetailsScreen(
                     navController = navController,
                     questionId = questionId
+                )
+            }
+        }
+
+        composable(
+            route = Screen.ActiveBookingStatus.route,
+            arguments = listOf(
+                navArgument("appointmentId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val appointmentId = backStackEntry.arguments?.getString("appointmentId") ?: ""
+                com.example.swastik.ui.screens.patient.booking.ActiveBookingStatusScreen(
+                    appointmentId = appointmentId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToDoctorProfile = { doctorId ->
+                        navController.navigate(Screen.DoctorProfile.createRoute(doctorId))
+                    }
                 )
             }
         }

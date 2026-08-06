@@ -470,7 +470,10 @@ data class CreateAppointmentRequest(
     val type: String,
     val notes: String? = null,
     val hospitalId: String? = null,
-    val clinicId: String? = null
+    val clinicId: String? = null,
+    val reason: String? = null,
+    val symptoms: List<String>? = null,
+    val patientNotes: String? = null
 )
 
 data class AppointmentFacilityDto(
@@ -506,7 +509,9 @@ data class AppointmentDto(
     @SerializedName("cancellation_reason")
     val cancellationReason: String? = null,
     @SerializedName("cancelled_by")
-    val cancelledBy: String? = null
+    val cancelledBy: String? = null,
+    @SerializedName("completion_otp")
+    val completionOtp: String? = null
 )
 
 data class CancelAppointmentRequest(

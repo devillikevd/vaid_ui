@@ -87,3 +87,13 @@ export const ROLE_THEME_COLORS: Record<string, { primary: string; bg: string; ho
     pharmacy_owner: { primary: '#ea580c', bg: 'bg-orange-600', hover: 'hover:bg-orange-700' },
     ambulance_operator: { primary: '#dc2626', bg: 'bg-red-600', hover: 'hover:bg-red-700' },
 };
+
+export function formatDoctorName(name: string | undefined | null): string {
+    if (!name) return '';
+    const trimmed = name.trim();
+    const lower = trimmed.toLowerCase();
+    if (lower.startsWith('dr.') || lower.startsWith('dr ')) {
+        return trimmed;
+    }
+    return `Dr. ${trimmed}`;
+}

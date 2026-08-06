@@ -84,7 +84,8 @@ data class VideoConsultationUiState(
     val medicalRecordAccessExpiresAt: String? = null,
     val medicalRecordAccessMessage: String? = null,
     val guardianAnalyticsSharingAllowed: Boolean = false,
-    val hasConsentedToVisionAnalysis: Boolean = false
+    val hasConsentedToVisionAnalysis: Boolean = false,
+    val completedAppointmentId: String? = null
 )
 
 data class ChatMessageUi(
@@ -828,6 +829,9 @@ class VideoConsultationViewModel @Inject constructor(
         val activeConsultationId = session.consultationId.ifEmpty { session.sessionId }
         if (event.consultationId != activeConsultationId && event.appointmentId != currentAppointmentId) return
 
+        // Capture the appointment ID before clearing it
+        val appointmentIdToSave = if (event.appointmentId.isNullOrEmpty()) { currentAppointmentId ?: activeConsultationId } else { event.appointmentId }
+
         pendingAppointmentId = null
         currentAppointmentId = null
         pendingJoinRetryJob?.cancel()
@@ -836,6 +840,7 @@ class VideoConsultationViewModel @Inject constructor(
         releaseWebRTC()
         _uiState.value = VideoConsultationUiState(
             consultationCompleted = true,
+            completedAppointmentId = appointmentIdToSave,
             modeBanner = "Consultation completed",
             guardianAnalyticsSharingAllowed = isGuardianAnalyticsSharingAllowed()
         )
@@ -1180,6 +1185,9 @@ class VideoConsultationViewModel @Inject constructor(
         val session = _uiState.value.session ?: return
         val roomId = session.sessionId
         val consultationId = session.consultationId.ifEmpty { roomId }
+        
+        // Capture the appointment ID before clearing it
+        val appointmentIdToSave = currentAppointmentId ?: pendingAppointmentId ?: consultationId
 
         pendingAppointmentId = null
         currentAppointmentId = null
@@ -1193,7 +1201,7 @@ class VideoConsultationViewModel @Inject constructor(
         try {
             val endPayload = org.json.JSONObject().apply {
                 put("consultationId", consultationId)
-                put("appointmentId", currentAppointmentId)
+                put("appointmentId", appointmentIdToSave)
             }
             socketManager.getSocket()?.emit("consultation:ended", endPayload)
         } catch (e: Exception) {
@@ -1206,6 +1214,7 @@ class VideoConsultationViewModel @Inject constructor(
         releaseWebRTC()
         _uiState.value = VideoConsultationUiState(
             consultationCompleted = true,
+            completedAppointmentId = appointmentIdToSave,
             guardianAnalyticsSharingAllowed = isGuardianAnalyticsSharingAllowed()
         )
     }
@@ -1645,7 +1654,7 @@ class VideoConsultationViewModel @Inject constructor(
 
     fun submitReview(rating: Int, comment: String, onComplete: () -> Unit) {
         viewModelScope.launch {
-            val appointmentId = pendingAppointmentId ?: currentAppointmentId
+            val appointmentId = pendingAppointmentId ?: currentAppointmentId ?: _uiState.value.completedAppointmentId
             if (appointmentId == null) {
                 onComplete()
                 return@launch

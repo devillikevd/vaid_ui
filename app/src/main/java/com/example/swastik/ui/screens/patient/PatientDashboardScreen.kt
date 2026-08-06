@@ -7,6 +7,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -33,6 +40,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.core.content.ContextCompat
 import com.example.swastik.data.remote.dto.UpdateProfileRequest
 import com.example.swastik.ui.screens.patient.components.*
+import com.example.swastik.ui.screens.patient.booking.formatTimeSlot
+import com.example.swastik.ui.screens.patient.booking.appointmentDateTime
 import com.example.swastik.ui.screens.patient.location.AddLocationDetailsBottomSheet
 import com.example.swastik.data.model.SavedAddress
 import com.example.swastik.ui.screens.patient.tabs.*
@@ -96,7 +105,9 @@ fun PatientDashboardScreen(
     onFindDoctorSpecialityClick: (String) -> Unit = {},
     onNavigateToCommunityQA: () -> Unit = {},
     onDoctorClick: (String) -> Unit = {},
-    onNavigateToAllRecommendedDoctors: () -> Unit = {}
+    onNavigateToAllRecommendedDoctors: () -> Unit = {},
+    onNavigateToActiveBooking: (String) -> Unit = {},
+    onJoinVideoConsultation: (String, String) -> Unit = { _, _ -> }
 ) {
     val selectedTab by viewModel.selectedTab.collectAsState()
     var showNotificationPanel by remember { mutableStateOf(false) }
@@ -262,6 +273,19 @@ fun PatientDashboardScreen(
 
     val unreadCount = notifications.count { !it.isRead }
 
+    // Refresh silently when the dashboard returns to the foreground so socket
+    // events missed while the app was backgrounded are picked up automatically.
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshOnResume()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     var activeServiceTab by remember { mutableStateOf(HomeServiceTab.HOME) }
 
     BackHandler(enabled = selectedTab == 0 && activeServiceTab != HomeServiceTab.HOME) {
@@ -287,10 +311,266 @@ fun PatientDashboardScreen(
         Scaffold(
             contentWindowInsets = WindowInsets(0.dp), // Fix: Prevents Scaffold from consuming status bar insets!
             bottomBar = {
-                PatientBottomNavigation(
-                    selectedTab = selectedTab,
-                    onTabSelected = { viewModel.setTab(it) }
-                )
+                Column {
+                    val upcomingAppointments = uiState.dashboard?.upcomingAppointments ?: emptyList()
+                    val activeBooking = upcomingAppointments.firstOrNull { 
+                        val s = it.status.lowercase()
+                        s == "scheduled" || s == "confirmed" || s == "in_progress" 
+                    }
+                    val showCard = activeBooking != null && selectedTab == 0
+                    var showAllConsultations by remember { mutableStateOf(false) }
+                    if (showCard && activeBooking != null) {
+                        val infiniteTransition = rememberInfiniteTransition(label = "racing_border")
+                        val angle by infiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = 360f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(2500, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart
+                            ),
+                            label = "racing_border_rotation"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 0.dp)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 0.dp, bottomEnd = 0.dp))
+                                .drawWithContent {
+                                    val canvasSize = size.width.coerceAtLeast(size.height) * 2f
+                                    rotate(angle) {
+                                        drawRect(
+                                            brush = Brush.sweepGradient(
+                                                colors = listOf(Color.Transparent, SwastikPrimary, Color.Transparent),
+                                                center = center
+                                            ),
+                                            topLeft = Offset(center.x - canvasSize/2, center.y - canvasSize/2),
+                                            size = androidx.compose.ui.geometry.Size(canvasSize, canvasSize)
+                                        )
+                                    }
+                                    drawContent()
+                                }
+                        ) {
+                            val isConfirmed = activeBooking.status.lowercase() == "confirmed" || activeBooking.status.lowercase() == "in_progress"
+                            val isInProgress = activeBooking.status.lowercase() == "in_progress"
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(2.dp)
+                                    .clickable {
+                                        // If multiple upcoming consultations, expand list; else navigate directly
+                                        if (upcomingAppointments.count { s -> s.status.lowercase().let { it == "scheduled" || it == "confirmed" || it == "in_progress" } } > 1) {
+                                            showAllConsultations = !showAllConsultations
+                                        } else {
+                                            onNavigateToActiveBooking(activeBooking.id)
+                                        }
+                                    },
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
+                                color = Color(0xFFF0FDF4), // Light greenish background
+                                shadowElevation = 8.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(vertical = if (isConfirmed) 16.dp else 12.dp, horizontal = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val iconOffset by infiniteTransition.animateFloat(
+                                        initialValue = -4f,
+                                        targetValue = 4f,
+                                        animationSpec = infiniteRepeatable(
+                                            animation = tween(1000, easing = FastOutSlowInEasing),
+                                            repeatMode = RepeatMode.Reverse
+                                        ),
+                                        label = "icon_bounce"
+                                    )
+                                    val iconFlip by infiniteTransition.animateFloat(
+                                        initialValue = 0f,
+                                        targetValue = 180f,
+                                        animationSpec = infiniteRepeatable(
+                                            animation = tween(1000, easing = FastOutSlowInEasing),
+                                            repeatMode = RepeatMode.Reverse
+                                        ),
+                                        label = "icon_flip"
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(if (isConfirmed) 42.dp else 36.dp)
+                                            .background(Color.White, androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                                            .border(1.dp, Color(0xFFE0E0E0), androidx.compose.foundation.shape.RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isConfirmed) Icons.Default.CheckCircle else Icons.Default.HourglassTop,
+                                            contentDescription = "Active Booking",
+                                            tint = SwastikPrimary,
+                                            modifier = Modifier
+                                                .size(20.dp)
+                                                .offset(y = if (isConfirmed) 0.dp else iconOffset.dp)
+                                                .graphicsLayer {
+                                                    rotationY = if (isConfirmed) 0f else iconFlip
+                                                }
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        var now by remember { mutableStateOf(java.time.LocalDateTime.now()) }
+                                        LaunchedEffect(Unit) {
+                                            while (true) {
+                                                delay(30000L)
+                                                now = java.time.LocalDateTime.now()
+                                            }
+                                        }
+                                        val scheduledAt = appointmentDateTime(activeBooking.date, activeBooking.timeSlot)
+                                        val passed = scheduledAt != null && now.isAfter(scheduledAt)
+                                        Text(
+                                            text = when {
+                                                isInProgress -> "Consultation is live — join now"
+                                                isConfirmed && passed -> "Waiting for new schedule by doctor"
+                                                isConfirmed -> "Your appointment at ${formatTimeSlot(activeBooking.timeSlot)}"
+                                                else -> "Waiting approval by doctor"
+                                            },
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = Color.Black
+                                        )
+                                            if (isConfirmed) {
+                                                val isVideo = activeBooking.type.lowercase().contains("video")
+                                                
+                                                if (isInProgress && isVideo) {
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Button(
+                                                        onClick = { 
+                                                            onJoinVideoConsultation(
+                                                                activeBooking.id, 
+                                                                activeBooking.doctor?.name ?: "Doctor"
+                                                            ) 
+                                                        },
+                                                        modifier = Modifier.fillMaxWidth().height(36.dp),
+                                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                                        contentPadding = PaddingValues(0.dp)
+                                                    ) {
+                                                        Icon(Icons.Default.VideoCall, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Text("Join Consultation", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                } else {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Icon(
+                                                            Icons.Default.Timer,
+                                                            contentDescription = "Timer",
+                                                            tint = if (passed) MaterialTheme.colorScheme.error else SwastikPrimary,
+                                                            modifier = Modifier.size(14.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                        Text(
+                                                            text = if (passed) {
+                                                                "Doctor will provide a new schedule"
+                                                            } else {
+                                                                val minutesLeft = if (scheduledAt != null) java.time.Duration.between(now, scheduledAt).toMinutes() else 0L
+                                                                if (minutesLeft >= 60) "Starts in ${minutesLeft / 60}h ${minutesLeft % 60}m"
+                                                                else "Starts in ${minutesLeft.coerceAtLeast(0)} min"
+                                                            },
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = if (passed) MaterialTheme.colorScheme.error else SwastikPrimary,
+                                                            fontWeight = FontWeight.SemiBold
+                                                        )
+                                                    }
+                                                }
+                                            } else {
+                                            Text(
+                                                text = "${activeBooking.date} • Dr. ${activeBooking.doctor?.name ?: "Unknown"}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color.Gray
+                                            )
+                                        }
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.ChevronRight,
+                                        contentDescription = "Details",
+                                        tint = Color.Gray,
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .background(Color(0xFFF5F5F5), CircleShape)
+                                            .padding(4.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Expanded list of all upcoming consultations
+                        if (showAllConsultations) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                color = Color.White,
+                                shadowElevation = 6.dp,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                                    Text(
+                                        text = "All Upcoming Consultations",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                        color = Color.Black,
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
+                                    upcomingAppointments
+                                        .filter { s -> s.status.lowercase().let { it == "scheduled" || it == "confirmed" || it == "in_progress" } }
+                                        .forEach { appt ->
+                                            Surface(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 4.dp)
+                                                    .clickable {
+                                                        showAllConsultations = false
+                                                        onNavigateToActiveBooking(appt.id)
+                                                    },
+                                                shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                                                color = Color(0xFFF0FDF4),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBBF7D0))
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(12.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        imageVector = if (appt.status.lowercase() == "in_progress") Icons.Default.VideoCall else Icons.Default.CalendarMonth,
+                                                        contentDescription = null,
+                                                        tint = SwastikPrimary,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(10.dp))
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text(
+                                                            text = "Dr. ${appt.doctor?.name ?: "Unknown"}",
+                                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                                            color = Color.Black
+                                                        )
+                                                        Text(
+                                                            text = "${appt.date} • ${formatTimeSlot(appt.timeSlot)}",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = Color.Gray
+                                                        )
+                                                    }
+                                                    val statusColor = when (appt.status.lowercase()) {
+                                                        "confirmed", "in_progress" -> Color(0xFF16A34A)
+                                                        else -> Color(0xFFD97706)
+                                                    }
+                                                    Text(
+                                                        text = appt.status.replaceFirstChar { it.uppercase() },
+                                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                        color = statusColor
+                                                    )
+                                                }
+                                            }
+                                        }
+                                }
+                            }
+                        }
+                    }
+                    PatientBottomNavigation(
+                        selectedTab = selectedTab,
+                        onTabSelected = { viewModel.setTab(it) },
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = if (showCard) 0.dp else 12.dp, bottom = 12.dp),
+                        shape = if (showCard) androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp) else androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+                    )
+                }
             }
         ) { paddingValues ->
             Box(
@@ -457,6 +737,9 @@ fun PatientDashboardScreen(
                 onDismiss = { showNotificationPanel = false },
                 onClearAll = {
                     viewModel.clearAllNotifications()
+                },
+                onMarkAllRead = {
+                    viewModel.markAllNotificationsRead()
                 },
                 onMarkAsRead = { notificationId ->
                     viewModel.markNotificationRead(notificationId)

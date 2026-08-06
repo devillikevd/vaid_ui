@@ -35,6 +35,7 @@ const makeUpstashFacade = (client) => ({
   incr: (key) => client.incr(key),
   decr: (key) => client.decr(key),
   expire: (key, seconds) => client.expire(key, seconds),
+  keys: (pattern) => client.keys(pattern),
   xrevrange: (key, max, min, opts = {}) => client.xrevrange(key, max, min, opts),
 });
 
@@ -62,6 +63,7 @@ const makeIoredisFacade = (client) => ({
   incr: (key) => client.incr(key),
   decr: (key) => client.decr(key),
   expire: (key, seconds) => client.expire(key, seconds),
+  keys: async (pattern) => await client.keys(pattern),
   xrevrange: async (key, max, min, opts = {}) => {
     if (opts.count) {
       return await client.xrevrange(key, max, min, 'COUNT', opts.count);

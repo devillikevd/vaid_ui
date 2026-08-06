@@ -346,8 +346,14 @@ const revokeAccessTokens = async (userId) => {
 
 // ==================== Register ====================
 const register = async (userData) => {
-  const { email: rawEmail, phone, password, name, role = 'patient', ...rest } = userData;
+  const { email: rawEmail, phone, password, name: rawName, role = 'patient', ...rest } = userData;
   const email = normalizeEmail(rawEmail);
+
+  let name = rawName;
+  if (role === 'doctor' && name) {
+    name = name.replace(/^(Dr\.?\s*|Doctor\s+)/i, '').trim();
+    name = `Dr. ${name}`;
+  }
 
   if (role === 'admin' || role === 'super_admin') {
     throw new ApiError(403, 'Self-registration for admin roles is not permitted.');

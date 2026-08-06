@@ -153,6 +153,29 @@ const emitConsultationStartedSync = async (consultation, doctorUserId, doctorNam
   });
 };
 
+// Invalidate the patient's dashboard cache so the card flips to Live/Join
+// immediately after a consultation starts, instead of staying stale on the
+// 30-second Redis TTL.
+const invalidatePatientDashboardCaches = async (consultation) => {
+  try {
+    const { data: patient } = await supabaseAdmin
+      .from('patients')
+      .select('user_id')
+      .eq('id', consultation.patient_id)
+      .single();
+
+    if (!patient?.user_id) return;
+
+    const cacheService = require('./cacheService');
+    await Promise.allSettled([
+      cacheService.delPattern(`patient:dashboard:${patient.user_id}*`),
+      cacheService.delPattern(`dashboard:${patient.user_id}:*`),
+    ]);
+  } catch (err) {
+    console.warn('[ConsultationService] Dashboard cache invalidation failed:', err.message);
+  }
+};
+
 // Get consultation history
 const getConsultationHistory = async (userId, role, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
@@ -279,6 +302,9 @@ const startConsultation = async (doctorUserId, appointmentId) => {
     // Re-emit the start event so waiting patients recover if they missed the
     // original notification and the doctor retries opening the same session.
     await emitConsultationStartedSync(consultation, doctorUserId, doctor.name);
+
+    // Invalidate the patient's dashboard cache so the card updates immediately
+    await invalidatePatientDashboardCaches(consultation);
     return consultation;
   }
 
@@ -300,12 +326,22 @@ const startConsultation = async (doctorUserId, appointmentId) => {
   let consultation = rpcResult.consultation;
   const nowIso = new Date().toISOString();
 
+  // Generate OTP and save to appointment
+  const completionOtp = Math.floor(100000 + Math.random() * 900000).toString();
+  await supabaseAdmin
+    .from('appointments')
+    .update({ completion_otp: completionOtp })
+    .eq('id', appointmentId);
+
   consultation = await syncConsultationSessionState(consultation.id, {
     roomId: consultation.room_id || consultation.id,
     doctorJoinedAt: consultation.doctor_joined_at || nowIso,
   }) || consultation;
 
   await emitConsultationStartedSync(consultation, doctorUserId, doctor.name);
+
+  // Invalidate the patient's dashboard cache so the card updates immediately
+  await invalidatePatientDashboardCaches(consultation);
 
   return consultation;
 };
@@ -437,6 +473,25 @@ const endConsultation = async (doctorUserId, consultationId, data = {}) => {
 
   if (!doctor) {
     throw new ApiError(404, 'Doctor profile not found');
+  }
+
+  // Validate OTP before ending
+  const { data: consultationRecord } = await supabaseAdmin
+    .from('consultations')
+    .select('appointment_id')
+    .eq('id', consultationId)
+    .single();
+
+  if (consultationRecord?.appointment_id) {
+    const { data: appointment } = await supabaseAdmin
+      .from('appointments')
+      .select('completion_otp, type')
+      .eq('id', consultationRecord.appointment_id)
+      .single();
+
+    if (appointment?.type === 'video' && appointment?.completion_otp && appointment.completion_otp !== data.otp) {
+      throw new ApiError(400, 'Invalid completion OTP. Please ask the patient for the 6-digit OTP.');
+    }
   }
 
   // C7: Atomic end — updates consultation + appointment in one transaction

@@ -20,6 +20,9 @@
  */
 const logAudit = async (opts) => {
   try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) return;
+
     const { AuditLog } = require('../database/models');
     if (!AuditLog) return;
 
@@ -47,6 +50,9 @@ const logAudit = async (opts) => {
  */
 const logAnalytics = async (opts) => {
   try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) return;
+
     const { AnalyticsEvent } = require('../database/models');
     if (!AnalyticsEvent) return;
 

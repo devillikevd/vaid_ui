@@ -202,14 +202,20 @@ fun DashboardHeader(
                     exit = androidx.compose.animation.scaleOut() + androidx.compose.animation.fadeOut(),
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = (-6).dp, y = 6.dp)
+                        .offset(x = (-2).dp, y = 2.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(10.dp)
-                            .background(Color.Red, CircleShape)
-                            .border(1.5.dp, Color.White, CircleShape)
-                    )
+                            .size(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (unreadNotificationsCount > 9) "9+" else unreadNotificationsCount.toString(),
+                            color = Color.Black,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
                 }
             } // Close Action Icons Row
@@ -343,8 +349,7 @@ fun DashboardHeader(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(16.dp)
-                                    .background(Color.Red, CircleShape),
+                                    .size(16.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 androidx.compose.animation.AnimatedContent(
@@ -360,7 +365,7 @@ fun DashboardHeader(
                                 ) { count ->
                                     Text(
                                         text = if (count > 9) "9+" else count.toString(),
-                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        color = Color.Black,
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold
                                     )

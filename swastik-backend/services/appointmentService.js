@@ -4,13 +4,21 @@
  */
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
+const { cacheDel } = require('../config/redis');
 const eventEmitter = require('./eventEmitter');
 const notificationService = require('./notificationService');
+
+const invalidateDashboardCaches = async (patientUserId, doctorUserId) => {
+  await Promise.allSettled([
+    patientUserId ? cacheDel(`patient:dashboard:${patientUserId}`) : Promise.resolve(),
+    doctorUserId ? cacheDel(`doctor:dashboard:${doctorUserId}`) : Promise.resolve(),
+  ]);
+};
 
 const APPOINTMENT_SELECT = `
   *,
   doctor:doctors(id, name, specialization, profile_image_url, consultation_fee),
-  patient:patients(id, name, blood_group),
+  patient:patients(id, name, date_of_birth, gender, profile_image_url, blood_group, weight, height),
   hospital:hospitals(id, name, address, city, type),
   clinic:clinics(id, name, address, city)
 `;
@@ -123,7 +131,8 @@ const getActiveClinicDoctorIds = async (clinicIds = []) => {
 // Get appointments for a user (patient or doctor)
 const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
-  let query = supabaseAdmin.from('appointments').select(APPOINTMENT_SELECT, { count: 'exact' });
+  let query = supabaseAdmin.from('appointments').select(APPOINTMENT_SELECT, { count: 'exact' })
+    .or('patient_notes.neq.BLOCKED_BY_DOCTOR,patient_notes.is.null');
 
   // Filter by role
   if (role === 'patient') {
@@ -169,6 +178,8 @@ const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10)
   if (filters.status) {
     if (['active', 'upcoming'].includes(String(filters.status).toLowerCase())) {
       query = query.in('status', ACTIVE_APPOINTMENT_STATUSES);
+    } else if (String(filters.status).toLowerCase() === 'pending') {
+      query = query.eq('status', 'scheduled');
     } else {
       query = query.eq('status', filters.status);
     }
@@ -253,7 +264,7 @@ const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10)
 
 // Book a new appointment
 const bookAppointment = async (patientId, appointmentData) => {
-  const { doctorId, date, timeSlot, type, notes, hospitalId, clinicId } = appointmentData;
+  const { doctorId, date, timeSlot, type, notes, hospitalId, clinicId, reason, symptoms, patientNotes } = appointmentData;
   const normalizedType = type === 'in_person' ? 'clinic' : (type || 'clinic');
 
   if (hospitalId && clinicId) {
@@ -353,6 +364,9 @@ const bookAppointment = async (patientId, appointmentData) => {
     consultation_fee: doctor.consultation_fee,
     status: 'scheduled',
     appointment_number: appointmentNumber,
+    reason: reason || null,
+    symptoms: symptoms || [],
+    patient_notes: patientNotes || null,
   };
 
   const { data: insertedAppointment, error: insertError } = await supabaseAdmin
@@ -418,6 +432,10 @@ const bookAppointment = async (patientId, appointmentData) => {
       data: { appointmentId: appointment.id, patientId: patient.id, date, timeSlot },
     }),
   ]);
+
+  // Invalidate cached dashboards so the new booking appears immediately
+  // (instead of waiting out the 30s Redis TTL) on both patient and doctor.
+  await invalidateDashboardCaches(patientId, doctor.user_id);
 
   return (await attachConsultationContext([appointment]))[0] || appointment;
 };
@@ -495,7 +513,7 @@ const VALID_TRANSITIONS = {
 };
 
 // Update appointment status (doctor)
-const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reason) => {
+const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reason, otp) => {
   const { data: doctor } = await supabaseAdmin
     .from('doctors')
     .select('id')
@@ -503,14 +521,15 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
     .single();
 
   // Fetch current status first to validate transition
-  const { data: current } = await supabaseAdmin
+  const { data: current, error: currentError } = await supabaseAdmin
     .from('appointments')
-    .select('status')
+    .select('status, type')
     .eq('id', appointmentId)
     .eq('doctor_id', doctor?.id)
     .single();
 
   if (!current) {
+    require('fs').appendFileSync('debug.log', `[DEBUG] cancel fail: doctorUserId=${doctorUserId}, doctorId=${doctor?.id}, aptId=${appointmentId}, err=${currentError?.message}\n`);
     throw new ApiError(404, 'Appointment not found or unauthorized');
   }
 
@@ -519,9 +538,21 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
     throw new ApiError(400, `Cannot transition from '${current.status}' to '${status}'`);
   }
 
+  // Validate OTP if completing a video consultation
+  if (status === 'completed' && current.type === 'video' && current.completion_otp) {
+    if (current.completion_otp !== otp) {
+      throw new ApiError(400, 'Invalid completion OTP. Please ask the patient for the 6-digit OTP.');
+    }
+  }
+
   const { data: appointment, error } = await supabaseAdmin
     .from('appointments')
-    .update({ status, cancellation_reason: reason, updated_at: new Date().toISOString() })
+    .update({
+      status,
+      cancellation_reason: reason || null,
+      cancelled_by: status === 'cancelled' ? doctor?.id : null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', appointmentId)
     .eq('doctor_id', doctor?.id)
     .select(APPOINTMENT_SELECT)
@@ -537,6 +568,9 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
     .select('user_id')
     .eq('id', appointment.patient_id)
     .single();
+
+  // Invalidate dashboard caches so both patient and doctor see the change immediately
+  await invalidateDashboardCaches(patientUser?.user_id, doctorUserId);
 
   eventEmitter.emitAppointmentUpdated({
     ...appointment,
@@ -568,6 +602,7 @@ const cancelAppointment = async (patientUserId, appointmentId, reason) => {
     .update({
       status: 'cancelled',
       cancellation_reason: reason || 'Cancelled by patient',
+      cancelled_by: patient?.id || null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', appointmentId)
@@ -586,6 +621,9 @@ const cancelAppointment = async (patientUserId, appointmentId, reason) => {
     .select('user_id, name, specialization')
     .eq('id', appointment.doctor_id)
     .single();
+
+  // Invalidate dashboard caches so both patient and doctor see the change immediately
+  await invalidateDashboardCaches(patientUserId, doctorUser?.user_id);
 
   eventEmitter.emitAppointmentCancelled({
     ...appointment,
@@ -657,12 +695,15 @@ const rescheduleAppointment = async (userId, role, appointmentId, date, timeSlot
   }
 
   // Atomic update: re-check status hasn't changed since our read (TOCTOU guard)
+  // Preserve the existing status — a confirmed appointment stays confirmed after
+  // a reschedule so the patient keeps seeing it as an active booking with the
+  // new time, instead of falling back to "waiting for approval".
   const { data: appointment, error } = await supabaseAdmin
     .from('appointments')
     .update({
       appointment_date: date,
       time_slot: timeSlot,
-      status: 'scheduled',
+      status: existingAppt.status,
       updated_at: new Date().toISOString(),
     })
     .eq('id', appointmentId)
@@ -685,6 +726,9 @@ const rescheduleAppointment = async (userId, role, appointmentId, date, timeSlot
     .select('user_id')
     .eq('id', appointment.patient_id)
     .single();
+
+  // Invalidate dashboard caches so both patient and doctor see the new schedule immediately
+  await invalidateDashboardCaches(patientUser?.user_id, doctorUser?.user_id);
 
   eventEmitter.emitAppointmentUpdated({
     ...appointment,

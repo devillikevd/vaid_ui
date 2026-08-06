@@ -64,6 +64,51 @@ const validateData = (data, requiredFields) => {
   return requiredFields.every((field) => data[field] !== undefined && data[field] !== null);
 };
 
+// Normalize WebRTC signaling payloads to a single flat wire format so both
+// clients interoperate:
+//   - Android sends nested:  { roomId, offer: { sdp, type } } / { roomId, answer: {...} } / { roomId, candidate: {...} }
+//   - Doctor Web App sends flat: { roomId, sdp, type } / { roomId, candidate, sdpMid, sdpMLineIndex }
+// Returns { roomId, sdp, type } for offer/answer or { roomId, candidate, sdpMid, sdpMLineIndex } for ice, or null if invalid.
+const normalizeSignaling = (data, kind) => {
+  if (!data || typeof data !== 'object') return null;
+  const roomId = data.roomId;
+  if (!roomId || typeof roomId !== 'string') return null;
+
+  if (kind === 'offer' || kind === 'answer') {
+    const nested = data[kind];
+    if (nested && typeof nested === 'object' && typeof nested.sdp === 'string' && nested.sdp.length > 0) {
+      return { roomId, sdp: nested.sdp, type: nested.type || kind };
+    }
+    if (typeof data.sdp === 'string' && data.sdp.length > 0) {
+      return { roomId, sdp: data.sdp, type: data.type || kind };
+    }
+    return null;
+  }
+
+  if (kind === 'ice') {
+    const nested = data.candidate;
+    if (nested && typeof nested === 'object' && typeof nested.candidate === 'string') {
+      return {
+        roomId,
+        candidate: nested.candidate,
+        sdpMid: nested.sdpMid ?? null,
+        sdpMLineIndex: nested.sdpMLineIndex ?? null,
+      };
+    }
+    if (typeof data.candidate === 'string') {
+      return {
+        roomId,
+        candidate: data.candidate,
+        sdpMid: data.sdpMid ?? null,
+        sdpMLineIndex: data.sdpMLineIndex ?? null,
+      };
+    }
+    return null;
+  }
+
+  return null;
+};
+
 const verifyConsultationParticipant = async (userId, role, consultationId) => {
   const { data: consultation } = await supabaseAdmin
     .from('consultations')
@@ -681,35 +726,42 @@ const initializeSocketIO = (io) => {
 
     socket.on('video:offer', safeHandler(socket, async (data) => {
       if (!hasRole(socket, VIDEO_ROLES)) return;
-      if (!validateData(data, ['roomId', 'offer'])) return;
-      if (!await ensureConsultationRoomAccess(socket, 'video', data.roomId)) return;
-      socket.to(`video:${data.roomId}`).emit('video:offer', {
-        offer: data.offer,
+      const signal = normalizeSignaling(data, 'offer');
+      if (!signal) return;
+      if (!await ensureConsultationRoomAccess(socket, 'video', signal.roomId)) return;
+      socket.to(`video:${signal.roomId}`).emit('video:offer', {
+        sdp: signal.sdp,
+        type: signal.type,
         from: userId,
       });
-      logSignalingEvent(data.roomId, userId, 'offer');
+      logSignalingEvent(signal.roomId, userId, 'offer');
     }));
 
     socket.on('video:answer', safeHandler(socket, async (data) => {
       if (!hasRole(socket, VIDEO_ROLES)) return;
-      if (!validateData(data, ['roomId', 'answer'])) return;
-      if (!await ensureConsultationRoomAccess(socket, 'video', data.roomId)) return;
-      socket.to(`video:${data.roomId}`).emit('video:answer', {
-        answer: data.answer,
+      const signal = normalizeSignaling(data, 'answer');
+      if (!signal) return;
+      if (!await ensureConsultationRoomAccess(socket, 'video', signal.roomId)) return;
+      socket.to(`video:${signal.roomId}`).emit('video:answer', {
+        sdp: signal.sdp,
+        type: signal.type,
         from: userId,
       });
-      logSignalingEvent(data.roomId, userId, 'answer');
+      logSignalingEvent(signal.roomId, userId, 'answer');
     }));
 
     socket.on('video:ice-candidate', safeHandler(socket, async (data) => {
       if (!hasRole(socket, VIDEO_ROLES)) return;
-      if (!validateData(data, ['roomId', 'candidate'])) return;
-      if (!await ensureConsultationRoomAccess(socket, 'video', data.roomId)) return;
-      socket.to(`video:${data.roomId}`).emit('video:ice-candidate', {
-        candidate: data.candidate,
+      const signal = normalizeSignaling(data, 'ice');
+      if (!signal) return;
+      if (!await ensureConsultationRoomAccess(socket, 'video', signal.roomId)) return;
+      socket.to(`video:${signal.roomId}`).emit('video:ice-candidate', {
+        candidate: signal.candidate,
+        sdpMid: signal.sdpMid,
+        sdpMLineIndex: signal.sdpMLineIndex,
         from: userId,
       });
-      logSignalingEvent(data.roomId, userId, 'ice-candidate', { candidate: data.candidate });
+      logSignalingEvent(signal.roomId, userId, 'ice-candidate', { candidate: signal.candidate });
     }));
 
     socket.on('video:mode', safeHandler(socket, async (data) => {
