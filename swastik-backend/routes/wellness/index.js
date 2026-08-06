@@ -50,6 +50,85 @@ router.put('/profile',
   })
 );
 
+// Wellness assessment (patient onboarding: goals, bio, health screening)
+router.get('/assessment',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.getWellnessAssessment(req.user.id);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/assessment/goals',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  [
+    body('primaryGoal').optional().isString().trim().notEmpty().withMessage('primary_goal is required'),
+    body('primary_goal').optional().isString().trim().notEmpty().withMessage('primary_goal is required'),
+    body().custom((_, { req }) => {
+      if (!req.body.primaryGoal && !req.body.primary_goal) {
+        throw new Error('primary_goal is required');
+      }
+      return true;
+    }),
+    body('workoutFrequency').optional().isInt({ min: 1, max: 7 }),
+    body('workout_frequency').optional().isInt({ min: 1, max: 7 }),
+    body('targetWeight').optional().isFloat({ min: 20, max: 400 }),
+    body('target_weight').optional().isFloat({ min: 20, max: 400 }),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.submitAssessmentGoals(req.user.id, req.body);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/assessment/bio',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  [
+    body('height').optional().isFloat({ min: 60, max: 250 }).withMessage('height must be in cm'),
+    body('weight').optional().isFloat({ min: 10, max: 500 }).withMessage('weight must be in kg'),
+    body().custom((_, { req }) => {
+      if (req.body.height === undefined && req.body.weight === undefined) {
+        throw new Error('height and weight are required');
+      }
+      return true;
+    }),
+    body('age').optional().isInt({ min: 10, max: 120 }),
+    body('bodyFatPercentage').optional().isFloat({ min: 1, max: 75 }),
+    body('body_fat_percentage').optional().isFloat({ min: 1, max: 75 }),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.submitAssessmentBio(req.user.id, req.body);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/assessment/health-screening',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  [
+    body('hasMedicalConditions').optional().isBoolean(),
+    body('has_medical_conditions').optional().isBoolean(),
+    body('hasInjuries').optional().isBoolean(),
+    body('has_injuries').optional().isBoolean(),
+    body('isPregnant').optional().isBoolean(),
+    body('is_pregnant').optional().isBoolean(),
+    body('takesMedication').optional().isBoolean(),
+    body('takes_medication').optional().isBoolean(),
+    body('doctorClearance').optional().isBoolean(),
+    body('doctor_clearance').optional().isBoolean(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.submitHealthScreening(req.user.id, req.body);
+    res.json({ success: true, data });
+  })
+);
+
 // Wearables and Health Connect summaries
 router.get('/wearables/summaries',
   authenticate,
@@ -370,6 +449,46 @@ router.post('/facilities/checkins',
   asyncHandler(async (req, res) => {
     const data = await wellnessService.checkInFacility(req.user.id, req.body);
     res.status(201).json({ success: true, data });
+  })
+);
+
+// Patient-facing gym class schedule and booking
+router.get('/facilities/:id/classes',
+  optionalAuth,
+  [
+    param('id').isUUID('loose'),
+    query('from').optional().isISO8601(),
+    query('to').optional().isISO8601(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.listFacilityClasses(req.params.id, {
+      from: req.query.from,
+      to: req.query.to,
+    });
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/facilities/:centerId/classes/:classId/book',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  [param('centerId').isUUID('loose'), param('classId').isUUID('loose')],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.bookFacilityClass(req.user.id, req.params.centerId, req.params.classId);
+    res.status(201).json({ success: true, data });
+  })
+);
+
+router.delete('/facilities/:centerId/classes/:classId/cancel',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  [param('centerId').isUUID('loose'), param('classId').isUUID('loose')],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.cancelFacilityClassBooking(req.user.id, req.params.centerId, req.params.classId);
+    res.json({ success: true, data });
   })
 );
 

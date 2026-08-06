@@ -2,15 +2,18 @@
 
 import { ReactNode } from 'react';
 import {
-    LayoutDashboard,
     CalendarCheck,
-    Users,
     ClipboardList,
     Dumbbell,
-    Store,
+    Film,
+    LayoutDashboard,
     MessageCircle,
-    Star,
     Settings,
+    Star,
+    Store,
+    Users,
+    Video,
+    Clock,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
@@ -23,17 +26,20 @@ const WELLNESS_CONFIG: DashboardConfig = {
     theme: { color: 'lime', dataTheme: 'wellness' },
     showApprovalBanner: true,
     showFullDropdown: true,
-    settingsHref: '/wellness#profile',
+    settingsHref: '/wellness/settings',
     userDisplayName: 'Coach',
     navItems: [
         { name: 'Dashboard', href: '/wellness', icon: LayoutDashboard },
-        { name: 'Sessions', href: '/wellness#sessions', icon: CalendarCheck },
-        { name: 'Clients', href: '/wellness#clients', icon: Users },
-        { name: 'Plans', href: '/wellness#plans', icon: ClipboardList },
-        { name: 'Marketplace', href: '/wellness#marketplace', icon: Store },
-        { name: 'Community', href: '/wellness#community', icon: MessageCircle },
-        { name: 'Reviews', href: '/wellness#reviews', icon: Star },
-        { name: 'Settings', href: '/wellness#profile', icon: Settings },
+        { name: 'Schedule', href: '/wellness/schedule', icon: Clock },
+        { name: 'Sessions', href: '/wellness/sessions', icon: CalendarCheck },
+        { name: 'Consultations', href: '/wellness/consultations', icon: Video },
+        { name: 'Clients', href: '/wellness/clients', icon: Users },
+        { name: 'Plans', href: '/wellness/plans', icon: ClipboardList },
+        { name: 'Marketplace', href: '/wellness/marketplace', icon: Store },
+        { name: 'Reels', href: '/wellness/reels', icon: Film },
+        { name: 'Community', href: '/wellness/community', icon: MessageCircle },
+        { name: 'Reviews', href: '/wellness/reviews', icon: Star },
+        { name: 'Settings', href: '/wellness/settings', icon: Settings },
     ],
 };
 

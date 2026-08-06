@@ -252,7 +252,14 @@ class WellnessRepository @Inject constructor(
         if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
             Result.Success(response.body()!!.data!!)
         } else {
-            val errorMsg = response.errorBody()?.string() ?: "Failed to book session"
+            val rawError = response.errorBody()?.string() ?: "Failed to book session"
+            // Parse JSON error body to extract readable message (e.g. from 409 double-booking)
+            val errorMsg = try {
+                val errorJson = com.google.gson.JsonParser.parseString(rawError).asJsonObject
+                errorJson.get("error")?.asString
+                    ?: errorJson.get("message")?.asString
+                    ?: rawError
+            } catch (_: Exception) { rawError }
             Result.Error(errorMsg)
         }
     } catch (e: Exception) {
@@ -302,6 +309,17 @@ class WellnessRepository @Inject constructor(
             Result.Success(response.body()?.data)
         } else {
             Result.Error("Failed to book class")
+        }
+    } catch (e: Exception) {
+        Result.Error(e.message ?: "Network error", e)
+    }
+
+    suspend fun cancelGymClassBooking(centerId: String, classId: String): Result<Boolean> = try {
+        val response = apiService.cancelGymClassBooking(centerId, classId)
+        if (response.isSuccessful && response.body()?.success == true) {
+            Result.Success(true)
+        } else {
+            Result.Error("Failed to cancel booking")
         }
     } catch (e: Exception) {
         Result.Error(e.message ?: "Network error", e)

@@ -434,12 +434,56 @@ private fun Step2DateTimeSelection(
         Text("Select Time", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF1B5E20))
         Spacer(Modifier.height(12.dp))
 
-        // Time slots
-        val timeSlots = listOf(
-            "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-            "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
-            "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"
-        )
+        // Dynamic time slots from coach's available_hours (e.g. ["09:00-12:00", "14:00-17:00"])
+        // Falls back to default business hours if coach hasn't configured their schedule.
+        val coachHourRanges = remember(coach.availableHours) {
+            val raw = coach.availableHours
+            val ranges = mutableListOf<Pair<LocalTime, LocalTime>>()
+            try {
+                when {
+                    raw == null || raw.isJsonNull -> {} // no schedule set
+                    raw.isJsonArray -> raw.asJsonArray.forEach { el ->
+                        val s = el.asString
+                        if (s.contains("-")) {
+                            val parts = s.split("-")
+                            ranges.add(LocalTime.parse(parts[0].trim()) to LocalTime.parse(parts[1].trim()))
+                        }
+                    }
+                    raw.isJsonPrimitive -> raw.asString.split(",").forEach { s ->
+                        val t = s.trim()
+                        if (t.contains("-")) {
+                            val parts = t.split("-")
+                            ranges.add(LocalTime.parse(parts[0].trim()) to LocalTime.parse(parts[1].trim()))
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+            ranges.ifEmpty {
+                // Default fallback: morning + afternoon + evening blocks
+                listOf(
+                    LocalTime.of(9, 0) to LocalTime.of(12, 0),
+                    LocalTime.of(14, 0) to LocalTime.of(17, 0),
+                    LocalTime.of(18, 0) to LocalTime.of(20, 0)
+                )
+            }
+        }
+
+        // Generate 30-minute slots only within coach's available ranges
+        val timeSlots = remember(coachHourRanges) {
+            val slots = mutableListOf<String>()
+            coachHourRanges.forEach { (start, end) ->
+                var current = start
+                while (current.isBefore(end)) {
+                    slots.add(current.format(DateTimeFormatter.ofPattern("HH:mm")))
+                    current = current.plusMinutes(30)
+                }
+            }
+            slots.ifEmpty {
+                listOf("09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+                    "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
+                    "17:00", "17:30", "18:00", "18:30", "19:00", "19:30")
+            }
+        }
 
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             timeSlots.chunked(4).forEach { row ->

@@ -233,6 +233,225 @@ const upsertFitnessProfile = async (userId, payload = {}) => {
   return data;
 };
 
+// ── Wellness assessment (Goals / Bio / Health Screening) ────────────
+// Backed by the single-row-per-patient `fitness_profiles` table. Each
+// step is a partial upsert so previously submitted sections survive.
+
+const computeAge = (dateOfBirth) => {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return null;
+  const diff = Date.now() - dob.getTime();
+  const ageDate = new Date(diff);
+  return Math.abs(ageDate.getUTCFullYear() - 1970);
+};
+
+const assessmentStatusOf = (profile) => {
+  if (!profile) return 'pending';
+  const hasGoals = !!(profile.primary_goal || profile.activity_level || (profile.goals || []).length);
+  const hasBio = !!(profile.fitness_experience
+    || profile.height != null || profile.weight != null || profile.age != null || profile.gender
+    || (profile.available_equipment || []).length);
+  const hasHealth = !!(profile.has_medical_conditions || profile.has_injuries || profile.is_pregnant
+    || profile.takes_medication || profile.doctor_clearance || profile.risk_level
+    || (profile.chronic_conditions || []).length || (profile.injury_flags || []).length
+    || (profile.medications || []).length);
+  if (hasGoals && hasBio && hasHealth) return 'completed';
+  if (hasGoals || hasBio || hasHealth) return 'in_progress';
+  return 'pending';
+};
+
+const finalizeAssessment = async (patientId) => {
+  const { data: profile, error } = await supabaseAdmin
+    .from('fitness_profiles')
+    .select('*')
+    .eq('patient_id', patientId)
+    .maybeSingle();
+  if (error) throw error;
+  const status = assessmentStatusOf(profile);
+  const completedAt = status === 'completed' ? profile.completed_at || new Date().toISOString() : null;
+  if (profile && profile.assessment_status === status && (profile.completed_at || null) === completedAt) {
+    return profile;
+  }
+  const { data: updated, error: updateError } = await supabaseAdmin
+    .from('fitness_profiles')
+    .update({
+      assessment_status: status,
+      completed_at: completedAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('patient_id', patientId)
+    .select('*')
+    .single();
+  if (updateError) throw updateError;
+  return updated;
+};
+
+const mapAssessment = (patient, profile) => {
+  if (!profile) return null;
+  const goals = profile.goals || [];
+  const primary = profile.primary_goal || goals[0] || null;
+  const secondary = goals.filter((goal) => goal !== primary);
+  const age = profile.age != null ? profile.age : computeAge(patient.date_of_birth);
+  const conditions = profile.chronic_conditions || [];
+  const injuries = profile.injury_flags || [];
+  const medications = profile.medications || [];
+
+  return {
+    id: profile.id,
+    patient_id: profile.patient_id,
+    status: profile.assessment_status || 'pending',
+    goals: primary || profile.activity_level || profile.target_weight != null
+      ? {
+          primary_goal: primary,
+          secondary_goals: secondary,
+          target_weight: profile.target_weight,
+          activity_level: profile.activity_level,
+          workout_frequency: profile.workout_frequency,
+          preferred_workout_time: profile.preferred_workout_time,
+          preferred_workout_types: profile.preferred_workout_types || [],
+        }
+      : null,
+    bio: profile.fitness_experience || profile.height != null || profile.weight != null || profile.age != null || profile.gender
+      ? {
+          height: profile.height ?? patient.height ?? null,
+          weight: profile.weight ?? patient.weight ?? null,
+          age,
+          gender: profile.gender ?? patient.gender ?? null,
+          body_fat_percentage: profile.body_fat_percentage,
+          fitness_level: profile.fitness_experience || null,
+          available_equipment: profile.available_equipment || [],
+          workout_location: profile.workout_location || null,
+          dietary_preferences: profile.food_preferences || [],
+          allergies: profile.allergies || patient.allergies || [],
+        }
+      : null,
+    health_screening: profile.has_medical_conditions || profile.has_injuries || profile.is_pregnant
+      || profile.takes_medication || profile.doctor_clearance || profile.risk_level
+      || conditions.length || injuries.length || medications.length
+      ? {
+          has_medical_conditions: Boolean(profile.has_medical_conditions || conditions.length),
+          medical_conditions: conditions,
+          has_injuries: Boolean(profile.has_injuries || injuries.length),
+          injuries,
+          is_pregnant: Boolean(profile.is_pregnant || (profile.pregnancy_status && profile.pregnancy_status !== 'none')),
+          takes_medication: Boolean(profile.takes_medication || medications.length),
+          medications,
+          doctor_clearance: profile.doctor_clearance,
+          par_q_passed: profile.risk_answers?.par_q_passed ?? null,
+          risk_level: profile.risk_level || null,
+        }
+      : null,
+    created_at: profile.created_at,
+    updated_at: profile.updated_at,
+    completed_at: profile.completed_at,
+  };
+};
+
+const getWellnessAssessment = async (userId) => {
+  const patient = await resolvePatient(userId);
+  const { data, error } = await supabaseAdmin
+    .from('fitness_profiles')
+    .select('*')
+    .eq('patient_id', patient.id)
+    .maybeSingle();
+  if (error) throw error;
+  return mapAssessment(patient, data);
+};
+
+const submitAssessmentGoals = async (userId, payload = {}) => {
+  const patient = await resolvePatient(userId);
+  const primary = payload.primaryGoal || payload.primary_goal;
+  if (!primary) throw new ApiError(400, 'primary_goal is required');
+  const secondary = asArray(payload.secondaryGoals || payload.secondary_goals).filter((goal) => goal !== primary);
+
+  const { error } = await supabaseAdmin
+    .from('fitness_profiles')
+    .upsert({
+      patient_id: patient.id,
+      primary_goal: primary,
+      goals: [primary, ...secondary],
+      activity_level: payload.activityLevel || payload.activity_level || null,
+      target_weight: asNumber(payload.targetWeight ?? payload.target_weight),
+      workout_frequency: asNumber(payload.workoutFrequency ?? payload.workout_frequency),
+      preferred_workout_time: payload.preferredWorkoutTime || payload.preferred_workout_time || null,
+      preferred_workout_types: asArray(payload.preferredWorkoutTypes || payload.preferred_workout_types),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'patient_id' });
+  if (error) throw error;
+
+  const finalProfile = await finalizeAssessment(patient.id);
+  return mapAssessment(patient, finalProfile);
+};
+
+const submitAssessmentBio = async (userId, payload = {}) => {
+  const patient = await resolvePatient(userId);
+  const height = asNumber(payload.height);
+  const weight = asNumber(payload.weight);
+  if (height == null || weight == null) throw new ApiError(400, 'height and weight are required');
+
+  const { error } = await supabaseAdmin
+    .from('fitness_profiles')
+    .upsert({
+      patient_id: patient.id,
+      height,
+      weight,
+      age: payload.age != null ? asNumber(payload.age) : null,
+      gender: payload.gender || null,
+      body_fat_percentage: asNumber(payload.bodyFatPercentage ?? payload.body_fat_percentage),
+      fitness_experience: payload.fitnessLevel || payload.fitness_level || null,
+      available_equipment: asArray(payload.availableEquipment || payload.available_equipment),
+      workout_location: payload.workoutLocation || payload.workout_location || 'home',
+      food_preferences: asArray(payload.dietaryPreferences || payload.dietary_preferences),
+      allergies: asArray(payload.allergies),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'patient_id' });
+  if (error) throw error;
+
+  const finalProfile = await finalizeAssessment(patient.id);
+  return mapAssessment(patient, finalProfile);
+};
+
+const submitHealthScreening = async (userId, payload = {}) => {
+  const patient = await resolvePatient(userId);
+  const conditions = asArray(payload.medicalConditions || payload.medical_conditions);
+  const injuries = asArray(payload.injuries);
+  const medications = asArray(payload.medications);
+  const isPregnant = payload.isPregnant ?? payload.is_pregnant ?? false;
+  const recommendation = buildRecommendation({
+    ...payload,
+    injuryFlags: injuries,
+    chronicConditions: conditions,
+    medications,
+    pregnancyStatus: isPregnant ? 'pregnant' : 'none',
+  }, patient);
+
+  const { error } = await supabaseAdmin
+    .from('fitness_profiles')
+    .upsert({
+      patient_id: patient.id,
+      has_medical_conditions: payload.hasMedicalConditions ?? payload.has_medical_conditions ?? Boolean(conditions.length),
+      has_injuries: payload.hasInjuries ?? payload.has_injuries ?? Boolean(injuries.length),
+      is_pregnant: isPregnant,
+      takes_medication: payload.takesMedication ?? payload.takes_medication ?? Boolean(medications.length),
+      doctor_clearance: payload.doctorClearance ?? payload.doctor_clearance ?? false,
+      chronic_conditions: conditions,
+      injury_flags: injuries,
+      medications,
+      pregnancy_status: isPregnant ? 'pregnant' : 'none',
+      risk_answers: {
+        ...(payload.riskAnswers || payload.risk_answers || {}),
+        par_q_passed: payload.parQPassed ?? payload.par_q_passed,
+      },
+      ...recommendation,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'patient_id' });
+  if (error) throw error;
+
+  const finalProfile = await finalizeAssessment(patient.id);
+  return mapAssessment(patient, finalProfile);
+};
+
 const countHead = (result) => (result && result.status === 'fulfilled' ? result.value?.count || 0 : 0);
 
 const getHubSummary = async (userId) => {
@@ -707,6 +926,35 @@ const bookCoachSession = async (userId, payload = {}) => {
     throw new ApiError(400, 'Coach does not offer this session mode');
   }
 
+  const scheduledAt = payload.scheduledAt || payload.scheduled_at;
+  if (!scheduledAt) throw new ApiError(400, 'Scheduled time is required');
+
+  const durationMinutes = asNumber(payload.durationMinutes || payload.duration_minutes, 45);
+
+  // ── Double-booking prevention ────────────────────────────────────
+  const requestedStart = new Date(scheduledAt);
+  const requestedEnd = new Date(requestedStart.getTime() + durationMinutes * 60 * 1000);
+
+  const { data: conflicts } = await supabaseAdmin
+    .from('wellness_sessions')
+    .select('id, scheduled_at, duration_minutes')
+    .eq('coach_id', coach.id)
+    .not('status', 'in', '("cancelled","rejected","no_show")')
+    .gte('scheduled_at', new Date(requestedStart.getTime() - 120 * 60 * 1000).toISOString())
+    .lte('scheduled_at', requestedEnd.toISOString());
+
+  if (conflicts && conflicts.length > 0) {
+    const hasOverlap = conflicts.some((existing) => {
+      const existStart = new Date(existing.scheduled_at);
+      const existEnd = new Date(existStart.getTime() + (existing.duration_minutes || 45) * 60 * 1000);
+      return requestedStart < existEnd && requestedEnd > existStart;
+    });
+    if (hasOverlap) {
+      throw new ApiError(409, 'This time slot is already booked. Please choose a different time.');
+    }
+  }
+
+  // ── Create session ───────────────────────────────────────────────
   const { data, error } = await supabaseAdmin
     .from('wellness_sessions')
     .insert({
@@ -714,8 +962,8 @@ const bookCoachSession = async (userId, payload = {}) => {
       patient_id: patient.id,
       coach_id: coach.id,
       center_id: payload.centerId || payload.center_id || null,
-      scheduled_at: payload.scheduledAt || payload.scheduled_at,
-      duration_minutes: asNumber(payload.durationMinutes || payload.duration_minutes, 45),
+      scheduled_at: scheduledAt,
+      duration_minutes: durationMinutes,
       session_type: sessionType,
       fee: asNumber(payload.fee, coach.session_fee || 0),
       patient_notes: payload.notes || payload.patientNotes || null,
@@ -725,6 +973,23 @@ const bookCoachSession = async (userId, payload = {}) => {
     .select('*, coach:wellness_coaches(id, name, profile_image_url, session_fee)')
     .single();
   if (error) throw error;
+
+  // ── Push notification to coach ───────────────────────────────────
+  try {
+    const { sendNotification } = require('./notificationService');
+    const formattedTime = requestedStart.toLocaleString('en-IN', {
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true,
+    });
+    await sendNotification(coach.user_id, {
+      title: 'New Session Booked',
+      body: `${patient.name || 'A patient'} booked a ${sessionType} session on ${formattedTime}`,
+      data: { type: 'wellness_session_booked', sessionId: data.id },
+    });
+  } catch (notifErr) {
+    // Non-blocking — log but don't fail the booking
+    console.warn('[wellness] Coach notification failed:', notifErr.message);
+  }
+
   return data;
 };
 
@@ -869,6 +1134,127 @@ const checkInFacility = async (userId, payload = {}) => {
   if (error) throw error;
   await bumpListVersion('facilities');
   return data;
+};
+
+// Patient-facing gym class schedule & booking
+const listFacilityClasses = async (centerId, filters = {}) => {
+  let query = supabaseAdmin
+    .from('fitness_classes')
+    .select('*, coach:wellness_coaches(id, name, profile_image_url, coach_types, specialties)')
+    .eq('center_id', centerId)
+    .eq('status', 'scheduled');
+  if (filters.from) query = query.gte('starts_at', filters.from);
+  if (filters.to) query = query.lte('starts_at', filters.to);
+  const { data, error } = await query.order('starts_at', { ascending: true }).limit(200);
+  if (error) throw error;
+  return data || [];
+};
+
+const bookFacilityClass = async (userId, centerId, classId) => {
+  const patient = await resolvePatient(userId);
+  const { data: gymClass, error } = await supabaseAdmin
+    .from('fitness_classes')
+    .select('*')
+    .eq('id', classId)
+    .eq('center_id', centerId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!gymClass) throw new ApiError(404, 'Class not found');
+  if (gymClass.status !== 'scheduled') throw new ApiError(400, 'Class is not open for booking');
+
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from('fitness_bookings')
+    .select('*')
+    .eq('patient_id', patient.id)
+    .eq('class_id', classId)
+    .in('status', ['booked', 'waitlisted'])
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (existing) throw new ApiError(409, 'You have already booked this class');
+
+  const bookedCount = gymClass.booked_count || 0;
+  const capacity = gymClass.capacity || 0;
+  const willWaitlist = bookedCount >= capacity;
+  if (willWaitlist && !gymClass.waitlist_enabled) throw new ApiError(400, 'Class is full');
+
+  const { data: booking, error: bookingError } = await supabaseAdmin
+    .from('fitness_bookings')
+    .insert({
+      patient_id: patient.id,
+      center_id: centerId,
+      class_id: classId,
+      coach_id: gymClass.coach_id,
+      booking_type: 'class',
+      status: willWaitlist ? 'waitlisted' : 'booked',
+      amount: gymClass.price || 0,
+    })
+    .select('*, class:fitness_classes(id, title, starts_at, capacity), center:fitness_centers(id, name)')
+    .single();
+  if (bookingError) throw bookingError;
+
+  if (!willWaitlist) {
+    const { error: incError } = await supabaseAdmin
+      .from('fitness_classes')
+      .update({ booked_count: bookedCount + 1, updated_at: new Date().toISOString() })
+      .eq('id', classId);
+    if (incError) throw incError;
+  }
+
+  await bumpListVersion('facilities');
+  return booking;
+};
+
+const cancelFacilityClassBooking = async (userId, centerId, classId) => {
+  const patient = await resolvePatient(userId);
+  const { data: booking, error } = await supabaseAdmin
+    .from('fitness_bookings')
+    .select('*')
+    .eq('patient_id', patient.id)
+    .eq('center_id', centerId)
+    .eq('class_id', classId)
+    .in('status', ['booked', 'waitlisted'])
+    .maybeSingle();
+  if (error) throw error;
+  if (!booking) throw new ApiError(404, 'Active booking not found for this class');
+
+  const wasBooked = booking.status === 'booked';
+  const { error: updateError } = await supabaseAdmin
+    .from('fitness_bookings')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('id', booking.id);
+  if (updateError) throw updateError;
+
+  if (wasBooked) {
+    const { data: gymClass } = await supabaseAdmin
+      .from('fitness_classes')
+      .select('*')
+      .eq('id', classId)
+      .maybeSingle();
+    if (gymClass) {
+      const newCount = Math.max(0, (gymClass.booked_count || 0) - 1);
+      const { data: nextWaitlisted } = await supabaseAdmin
+        .from('fitness_bookings')
+        .select('*')
+        .eq('class_id', classId)
+        .eq('status', 'waitlisted')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      await supabaseAdmin
+        .from('fitness_classes')
+        .update({ booked_count: nextWaitlisted ? newCount + 1 : newCount, updated_at: new Date().toISOString() })
+        .eq('id', classId);
+      if (nextWaitlisted) {
+        await supabaseAdmin
+          .from('fitness_bookings')
+          .update({ status: 'booked', updated_at: new Date().toISOString() })
+          .eq('id', nextWaitlisted.id);
+      }
+    }
+  }
+
+  await bumpListVersion('facilities');
+  return { id: booking.id, status: 'cancelled' };
 };
 
 const getOwnedFitnessCenterDashboard = async (userId) => {
@@ -2275,6 +2661,10 @@ module.exports = {
   getHubSummary,
   getFitnessProfile,
   upsertFitnessProfile,
+  getWellnessAssessment,
+  submitAssessmentGoals,
+  submitAssessmentBio,
+  submitHealthScreening,
   getWearableSummaries,
   upsertWearableSummary,
   listWorkoutPlans,
@@ -2295,6 +2685,9 @@ module.exports = {
   listMySessions,
   listFacilities,
   getFacility,
+  listFacilityClasses,
+  bookFacilityClass,
+  cancelFacilityClassBooking,
   addFitnessReel,
   deleteFitnessReel,
   bookFacility,

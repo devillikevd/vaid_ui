@@ -15,7 +15,7 @@ export default function ConsultationLayout({ children }: { children: ReactNode }
     const { user, isAuthenticated, _hasHydrated } = useAuthStore();
 
     useEffect(() => {
-        if (_hasHydrated && (!isAuthenticated || !user?.role || !['doctor', 'patient'].includes(user.role))) {
+        if (_hasHydrated && (!isAuthenticated || !user?.role || !['doctor', 'patient', 'wellness_coach'].includes(user.role))) {
             router.push('/');
         }
     }, [isAuthenticated, _hasHydrated, user, router]);
