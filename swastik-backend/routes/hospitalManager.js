@@ -31,7 +31,7 @@ router.get('/profile', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER)
 router.put('/profile', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
     body('name').optional().isString().trim().isLength({ min: 2, max: 200 }),
     body('phone').optional().isString().trim(),
-    body('email').optional().isEmail().normalizeEmail(),
+    body('email').optional().isEmail().toLowerCase(),
     body('address').optional().isString().trim(),
     body('latitude').optional().isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
     body('longitude').optional().isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
@@ -111,7 +111,7 @@ router.get('/doctors', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER)
 }));
 
 router.post('/doctors/invite', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
-    body('email').optional().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').optional().isEmail().toLowerCase().withMessage('Valid email is required'),
     body('phone').optional().isString().trim(),
     body('name').optional().isString().trim().isLength({ min: 2, max: 100 }),
     body('specialization').optional().isString().trim(),
@@ -143,7 +143,7 @@ router.get('/pharmacies', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAG
 }));
 
 router.post('/pharmacies/invite', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
-    body('email').isEmail().normalizeEmail().withMessage('Valid pharmacy email is required'),
+    body('email').isEmail().toLowerCase().withMessage('Valid pharmacy email is required'),
     validate,
 ], asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
@@ -191,7 +191,7 @@ router.get('/diagnostic-centers', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPIT
 }));
 
 router.post('/diagnostic-centers/invite', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
-    body('email').isEmail().normalizeEmail().withMessage('Valid diagnostic center email is required'),
+    body('email').isEmail().toLowerCase().withMessage('Valid diagnostic center email is required'),
     validate,
 ], asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
@@ -301,7 +301,7 @@ router.get('/managers', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER
 }));
 
 router.post('/managers', requireRole(ROLES.HOSPITAL_OWNER), [
-    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').isEmail().toLowerCase().withMessage('Valid email is required'),
     body('name').notEmpty().isString().trim().isLength({ min: 2, max: 100 }).withMessage('Name is required (2-100 chars)'),
     body('phone').optional().isString().trim(),
     validate,
@@ -340,7 +340,7 @@ router.get('/ambulances', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAG
 }));
 
 router.post('/ambulances/invite', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
-    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').isEmail().toLowerCase().withMessage('Valid email is required'),
     validate,
 ], asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);

@@ -540,9 +540,9 @@ router.post('/owner/trainer-invites',
   [
     body('coachId').optional().isUUID('loose'),
     body('coach_id').optional().isUUID('loose'),
-    body('email').optional().isEmail().normalizeEmail(),
-    body('invitedEmail').optional().isEmail().normalizeEmail(),
-    body('invited_email').optional().isEmail().normalizeEmail(),
+    body('email').optional().isEmail().toLowerCase(),
+    body('invitedEmail').optional().isEmail().toLowerCase(),
+    body('invited_email').optional().isEmail().toLowerCase(),
     body('role').optional().isString().trim().isLength({ min: 2, max: 80 }),
     body().custom((_, { req }) => {
       if (!req.body.coachId && !req.body.coach_id && !req.body.email && !req.body.invitedEmail && !req.body.invited_email) {

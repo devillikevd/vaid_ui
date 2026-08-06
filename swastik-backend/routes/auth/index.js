@@ -43,7 +43,7 @@ const authRateLimit = (maxAttempts, windowSeconds, keyPrefix) => {
 router.post('/register',
   authRateLimit(8, 600, 'register'), // 8 attempts per 10 minutes
   [
-    body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').trim().isEmail().toLowerCase().withMessage('Valid email is required'),
     body('phone').optional({ values: 'falsy' }).trim().isMobilePhone().withMessage('Valid phone number is required'),
     body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
     body('name').trim().notEmpty().escape().withMessage('Name is required'),
@@ -83,7 +83,7 @@ router.post('/register',
 router.post('/login',
   authRateLimit(15, 900, 'login'), // 15 attempts per 15 min
   [
-    body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').trim().isEmail().toLowerCase().withMessage('Valid email is required'),
     body('password').notEmpty().withMessage('Password is required'),
     body('role').optional().isIn([
       'patient',
@@ -131,7 +131,7 @@ router.get('/verify-email',
 router.post('/verify-email-otp',
   authRateLimit(10, 600, 'verify-otp'),
   [
-    body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').trim().isEmail().toLowerCase().withMessage('Valid email is required'),
     body('otp').trim().matches(/^\d{6}$/).withMessage('A valid 6-digit OTP is required'),
   ],
   validate,
@@ -148,7 +148,7 @@ router.post('/verify-email-otp',
 router.post('/resend-verification',
   authRateLimit(5, 600, 'resend'), // 5 attempts per 10 min
   [
-    body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').trim().isEmail().toLowerCase().withMessage('Valid email is required'),
   ],
   validate,
   asyncHandler(async (req, res) => {
@@ -212,7 +212,7 @@ router.post('/change-password',
 router.post('/forgot-password',
   authRateLimit(5, 900, 'forgot'), // 5 attempts per 15 minutes
   [
-    body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').trim().isEmail().toLowerCase().withMessage('Valid email is required'),
     body('role').optional().isIn([
       'patient',
       'doctor',
@@ -244,7 +244,7 @@ router.post('/reset-password',
   authRateLimit(8, 900, 'reset'), // 8 attempts per 15 minutes
   [
     body('token').optional().isString(),
-    body('email').optional().trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('email').optional().trim().isEmail().toLowerCase().withMessage('Valid email is required'),
     body('otp').optional().trim().matches(/^\d{6}$/).withMessage('A valid 6-digit OTP is required'),
     body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
     body('role').optional().isIn([

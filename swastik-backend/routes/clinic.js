@@ -202,7 +202,7 @@ router.get('/owner/pharmacies', requireRole(ROLES.CLINIC_OWNER), asyncHandler(as
 }));
 
 router.post('/owner/pharmacies/invite', requireRole(ROLES.CLINIC_OWNER), [
-    body('email').isEmail().normalizeEmail().withMessage('Valid pharmacy email is required'),
+    body('email').isEmail().toLowerCase().withMessage('Valid pharmacy email is required'),
     validate,
 ], asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
@@ -249,7 +249,7 @@ router.get('/owner/diagnostic-centers', requireRole(ROLES.CLINIC_OWNER), asyncHa
 }));
 
 router.post('/owner/diagnostic-centers/invite', requireRole(ROLES.CLINIC_OWNER), [
-    body('email').isEmail().normalizeEmail().withMessage('Valid diagnostic center email is required'),
+    body('email').isEmail().toLowerCase().withMessage('Valid diagnostic center email is required'),
     validate,
 ], asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
