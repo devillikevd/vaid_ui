@@ -12,6 +12,7 @@ const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
 const { buildProviderResubmissionFields } = require('../utils/providerApproval');
+const { computeBestPrices, recordRedemptions, voidRedemptionsForOrder } = require('./discountService');
 
 const enrichMissingPhonesFromOwners = async (rows = []) => {
   if (!Array.isArray(rows) || rows.length === 0) return rows;
@@ -859,7 +860,7 @@ const ORDER_STATUS_TRANSITIONS = {
 };
 
 // Update order status
-const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes) => {
+const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes, pharmacyOwnerIdOverride) => {
   // Fetch current order to validate transition
   const { data: current, error: fetchError } = await supabaseAdmin
     .from('pharmacy_orders')
@@ -922,9 +923,11 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes) => 
       .eq('id', current.agent_id);
   }
 
-  // If order cancelled, restore inventory
-  if (nextStatus === 'cancelled' && ['pending', 'confirmed', 'processing', 'ready'].includes(currentStatus)) {
-    if (Array.isArray(normalizedOrder.items)) {
+  // If order cancelled, restore inventory and release redemption caps
+  if (nextStatus === 'cancelled') {
+    await voidRedemptionsForOrder(orderId);
+    if (['pending', 'confirmed', 'processing', 'ready'].includes(currentStatus)) {
+      if (Array.isArray(normalizedOrder.items)) {
       for (const item of normalizedOrder.items) {
         if (item.inventory_id && item.quantity > 0) {
           let retries = 3;
@@ -952,6 +955,7 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes) => 
       }
     }
   }
+  }
 
   // Notify patient
   if (normalizedOrder?.patient_id) {
@@ -965,7 +969,7 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes) => 
       eventEmitter.emitOrderStatusUpdated({
         ...normalizedOrder,
         patient_id: patient.user_id,
-        pharmacy_owner_id: userId,
+        pharmacy_owner_id: pharmacyOwnerIdOverride || userId,
       });
     }
   }
@@ -1036,7 +1040,7 @@ const createOrder = async (patientUserId, orderData) => {
   if (itemIds.length > 0) {
     const { data: invItems } = await supabaseAdmin
       .from('pharmacy_inventory')
-      .select('id, price, name, generic_name, medicine_id')
+      .select('id, price, mrp, name, generic_name, requires_prescription, medicine_id')
       .eq('pharmacy_id', orderData.pharmacyId)
       .or(`id.in.(${itemIds.join(',')}),medicine_id.in.(${itemIds.join(',')})`);
 
@@ -1049,12 +1053,39 @@ const createOrder = async (patientUserId, orderData) => {
 
   let totalAmount = 0;
   const enrichedItems = [];
+  const prescriptionRequiredItems = [];
   const allowUnmatchedItems = Boolean(orderData.prescriptionId) || Boolean(orderData.isCatalogOrder);
+
+  // Server-side campaign pricing (single source of truth).
+  // computeBestPrices expects MEDICINE ids, but order items may carry inventory
+  // ids — resolve through the inventory map so discounts actually apply.
+  const orderMedicineIds = [];
+  const orderQuantities = {};
+  for (const orderItem of orderData.items || []) {
+    const invItem = inventoryMap[orderItem.inventoryItemId || orderItem.medicineId];
+    const medicineId = orderItem.medicineId || invItem?.medicine_id;
+    if (medicineId) {
+      orderMedicineIds.push(medicineId);
+      orderQuantities[medicineId] = (orderQuantities[medicineId] || 0) + (orderItem.quantity || 1);
+    }
+  }
+  let campaignPriceById = new Map();
+  try {
+    const bestPrices = await computeBestPrices(orderMedicineIds, {
+      pharmacyId: orderData.pharmacyId,
+      quantities: orderQuantities,
+      userId: patientUserId,
+    });
+    bestPrices.forEach((p) => campaignPriceById.set(p.medicine_id, p));
+  } catch (campaignErr) {
+    console.error('Campaign pricing failed (order proceeds without discount):', campaignErr.message);
+  }
+
   for (const item of (orderData.items || [])) {
     const reqItemId = item.inventoryItemId || item.medicineId || item.name || item.genericName;
     const invItem = await resolveInventoryRowForOrderItem(orderData.pharmacyId, item, inventoryMap);
     const catalogMedicine = await resolveCatalogMedicine({
-      medicineId: item.medicineId,
+      medicineId: item.medicineId || invItem?.medicine_id,
       name: item.name,
       genericName: item.genericName,
     });
@@ -1063,7 +1094,26 @@ const createOrder = async (patientUserId, orderData) => {
       throw new ApiError(400, `Item ${reqItemId || 'requested'} not available at this pharmacy`);
     }
 
-    const itemPrice = orderData.isCatalogOrder && item.price !== undefined ? item.price : (invItem?.price || 0);
+    // Legally required: prescription-gated (Rx) medicines cannot be sold
+    // without a prescription attached to the order.
+    const itemName = invItem?.name || item.name || catalogMedicine?.name || reqItemId;
+    const requiresRx = Boolean(
+      catalogMedicine?.requires_prescription ??
+      invItem?.requires_prescription ??
+      item.requiresPrescription ??
+      false
+    );
+    if (requiresRx && !orderData.prescriptionId) {
+      prescriptionRequiredItems.push(itemName);
+    }
+
+    // Base price: client price for catalog orders, inventory price otherwise
+    const basePrice = orderData.isCatalogOrder && item.price !== undefined ? item.price : (invItem?.price || 0);
+    // Campaign price lookup by inventory medicine_id (server-side, authoritative)
+    const medicineKey = (invItem?.medicine_id || item.medicineId || '');
+    const campaignPrice = campaignPriceById.get(medicineKey);
+
+    const itemPrice = campaignPrice ? campaignPrice.final_price : basePrice;
     totalAmount += itemPrice * (item.quantity || 1);
 
     enrichedItems.push({
@@ -1071,13 +1121,25 @@ const createOrder = async (patientUserId, orderData) => {
       medicine_id: invItem?.medicine_id || catalogMedicine?.id || item.medicineId || null,
       quantity: item.quantity || 1,
       price: itemPrice,
+      mrp: invItem?.mrp || campaignPrice?.mrp || item.mrp || itemPrice,
+      campaign_id: campaignPrice?.campaign?.id || item.campaignId || null,
+      campaign_name: campaignPrice?.campaign?.name || item.campaignName || null,
+      discount_amount: campaignPrice ? campaignPrice.discount_amount * (item.quantity || 1) : (item.discountAmount || null),
       name: invItem?.name || invItem?.generic_name || item.name || item.genericName || catalogMedicine?.name || 'Medicine',
       generic_name: invItem?.generic_name || item.genericName || catalogMedicine?.generic_name || null,
-      requires_manual_review: !invItem,
-    });
-  }
+       requires_manual_review: !invItem,
+     });
+   }
 
-  const insertPayload = {
+   // Enforce prescription requirement for Rx medicines (drug-law compliance)
+   if (prescriptionRequiredItems.length > 0) {
+     throw new ApiError(
+       422,
+       `The following item(s) require a prescription and cannot be ordered without one: ${prescriptionRequiredItems.join(', ')}. Attach a prescription via "prescriptionId".`
+     );
+   }
+
+   const insertPayload = {
     patient_id: patient.id,
     pharmacy_id: orderData.pharmacyId,
     items: enrichedItems,
@@ -1127,6 +1189,28 @@ const createOrder = async (patientUserId, orderData) => {
         }
       }
     }
+  }
+
+  // Record campaign redemptions
+  try {
+    const campaignIds = [...new Set(enrichedItems.map((i) => i.campaign_id).filter(Boolean))];
+    if (campaignIds.length > 0) {
+      const discountByCampaign = {};
+      enrichedItems.forEach((i) => {
+        if (i.campaign_id) {
+          discountByCampaign[i.campaign_id] = (discountByCampaign[i.campaign_id] || 0) + (i.discount_amount || 0);
+        }
+      });
+      await recordRedemptions({
+        campaignIds,
+        pharmacyId: orderData.pharmacyId,
+        patientUserId,
+        orderId: order.id,
+        discountAmountsByCampaign: discountByCampaign,
+      });
+    }
+  } catch (redemptionErr) {
+    console.error('Failed to record campaign redemptions:', redemptionErr.message);
   }
 
   // Notify pharmacy owner of new order

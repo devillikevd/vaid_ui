@@ -40,6 +40,7 @@ import com.example.swastik.data.model.Medicine
 import com.example.swastik.data.remote.dto.MedicineCategoryDto
 import com.example.swastik.data.remote.dto.NearbyMedicineDto
 import com.example.swastik.ui.viewmodel.MedicineViewModel
+import com.example.swastik.ui.theme.SwastikGreen
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikPrimaryLight
 import coil.compose.AsyncImage
@@ -605,11 +606,19 @@ private fun CompactMedicineListItem(
             // Right: Price
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "₹${medicine.price?.toInt() ?: 0}",
+                    text = "₹${medicine.effectivePrice.toInt()}",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = SwastikPrimary
                 )
+                if (medicine.discountPercentage > 0) {
+                    Text(
+                        text = "${medicine.discountPercentage.toInt()}% OFF",
+                        fontSize = 9.sp,
+                        color = SwastikGreen,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }

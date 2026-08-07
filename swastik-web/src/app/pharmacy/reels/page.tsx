@@ -94,7 +94,7 @@ export default function PharmacyReelsPage() {
             <ConfirmDialog {...dialogProps} />
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pharmacy Reels</h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">Upload short 15-30 second video reels to showcase your pharmacy's authentic medicine stock, facilities, and staff.</p>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">Upload short 15-30 second video reels to showcase your pharmacy&apos;s authentic medicine stock, facilities, and staff.</p>
             </div>
 
             <Card>

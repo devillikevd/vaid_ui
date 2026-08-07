@@ -124,12 +124,14 @@ const inventoryMatchesMedicine = (item = {}, medicine = {}) => {
   return medicineNames.some((term) => inventoryNames.includes(term));
 };
 
-const getNearbyActivePharmacies = async (latitude, longitude, radius = 10) => {
+const getNearbyActivePharmacies = async (latitude, longitude, radius = 25) => {
   const bounds = getBoundingBox({ latitude, longitude }, radius);
 
   const { data: pharmacies, error } = await supabaseAdmin
     .from('pharmacies')
-    .select('id, name, address, phone, latitude, longitude, owner_id')
+    .select(
+      'id, name, address, phone, latitude, longitude, owner_id, is_open, is_24_hours, delivery_available, delivery_radius_km, min_order_delivery, image_url, rating, total_reviews, facilities'
+    )
     .eq('is_active', true)
     .eq('is_approved', true)
     .gte('latitude', bounds.minLat)
@@ -146,6 +148,12 @@ const getNearbyActivePharmacies = async (latitude, longitude, radius = 10) => {
       distance: calculateDistance(
         { latitude, longitude },
         { latitude: pharmacy.latitude, longitude: pharmacy.longitude }
+      ),
+      distance_text: formatDistance(
+        calculateDistance(
+          { latitude, longitude },
+          { latitude: pharmacy.latitude, longitude: pharmacy.longitude }
+        )
       ),
     }))
     .filter((pharmacy) => pharmacy.distance <= radius)
@@ -207,6 +215,30 @@ const searchMedicines = async (query, filters = {}, page = 1, limit = 20) => {
   };
 };
 
+// Lightweight typeahead suggestions for search box
+const getSuggestions = async (query, limit = 10) => {
+  const q = sanitizeSearch(query);
+  if (!q) return [];
+  const { data, error } = await supabaseAdmin
+    .from('medicines')
+    .select('id, name, generic_name, manufacturer, category, dosage_form, image_url')
+    .eq('is_active', true)
+    .or(`name.ilike.%${q}%,generic_name.ilike.%${q}%,manufacturer.ilike.%${q}%`)
+    .order('search_count', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data || []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    generic_name: item.generic_name || null,
+    manufacturer: item.manufacturer || null,
+    category: item.category || null,
+    dosage_form: item.dosage_form || null,
+    image_url: item.image_url || null,
+  }));
+};
+
 // Get medicine by ID
 const getMedicineById = async (id) => {
   const { data, error } = await supabaseAdmin
@@ -238,28 +270,26 @@ const getMedicineById = async (id) => {
 };
 
 // Get medicine availability at nearby pharmacies
-const getMedicineAvailability = async (medicineId, latitude, longitude, radius = 10) => {
-  const [medicine, nearbyPharmacies] = await Promise.all([
+const getMedicineAvailability = async (medicineId, latitude, longitude, radius = 25) => {
+  const [medicineQuery, nearbyPharmacies] = await Promise.all([
     supabaseAdmin
       .from('medicines')
       .select('id, name, generic_name, dosage_form, image_url')
       .eq('id', medicineId)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) throw error;
-        return data;
-      }),
+      .maybeSingle(),
     getNearbyActivePharmacies(latitude, longitude, radius),
   ]);
 
-  if (!medicine || nearbyPharmacies.length === 0) return [];
+  const { data: medicine, error: medicineError } = medicineQuery;
+  if (medicineError) throw medicineError;
 
+  if (!medicine || nearbyPharmacies.length === 0) return [];
   const pharmacyIds = nearbyPharmacies.map((pharmacy) => pharmacy.id);
   const pharmacyById = new Map(nearbyPharmacies.map((pharmacy) => [pharmacy.id, pharmacy]));
 
   const { data: inventory, error } = await supabaseAdmin
     .from('pharmacy_inventory')
-    .select('id, pharmacy_id, medicine_id, name, generic_name, quantity, price, pack_size, unit_type, image_url')
+    .select('id, pharmacy_id, medicine_id, name, generic_name, quantity, price, mrp, pack_size, unit_type')
     .in('pharmacy_id', pharmacyIds)
     .gt('quantity', 0);
 
@@ -281,10 +311,18 @@ const getMedicineAvailability = async (medicineId, latitude, longitude, radius =
       pharmacy_name: pharmacy.name,
       address: pharmacy.address,
       price: item.price,
+      mrp: item.mrp ?? null,
       in_stock: (item.quantity || 0) > 0,
       distance: pharmacy.distance,
+      distance_text: pharmacy.distance_text,
       dosage_form: medicine.dosage_form,
-      image_url: medicine.image_url || item.image_url,
+      image_url: medicine.image_url,
+      pharmacy_image_url: pharmacy.image_url,
+      pharmacy_rating: pharmacy.rating,
+      pharmacy_is_open: pharmacy.is_open,
+      pharmacy_is_24_hours: pharmacy.is_24_hours,
+      delivery_available: pharmacy.delivery_available,
+      delivery_radius_km: pharmacy.delivery_radius_km,
     };
 
     if (!existing || (candidate.price ?? Number.MAX_SAFE_INTEGER) < (existing.price ?? Number.MAX_SAFE_INTEGER)) {
@@ -296,7 +334,7 @@ const getMedicineAvailability = async (medicineId, latitude, longitude, radius =
 };
 
 // Get nearby medicines (hybrid aggregation)
-const getNearbyMedicines = async (latitude, longitude, radius = 10, limit = 20) => {
+const getNearbyMedicines = async (latitude, longitude, radius = 25, limit = 20) => {
   if (!latitude || !longitude) return [];
   const nearbyPharmacies = await getNearbyActivePharmacies(latitude, longitude, radius);
   if (nearbyPharmacies.length === 0) return [];
@@ -314,6 +352,8 @@ const getNearbyMedicines = async (latitude, longitude, radius = 10, limit = 20) 
       generic_name, 
       category, 
       price, 
+      mrp, 
+      discount_percent, 
       quantity, 
       pack_size, 
       unit_type, 
@@ -341,12 +381,22 @@ const getNearbyMedicines = async (latitude, longitude, radius = 10, limit = 20) 
       category: dosageForm,
       therapeuticCategory: item.category || null,
       price: item.price || 0,
+      mrp: item.mrp ?? null,
+      pack_size: item.pack_size ?? 1,
+      unit_type: item.unit_type ?? 'unit',
       pharmacyName: pharmacy.name,
       pharmacyId: pharmacy.id,
       inStock: (item.quantity || 0) > 0,
       quantity: item.quantity || 0,
       distance: pharmacy.distance,
+      distance_text: pharmacy.distance_text,
       image_url: item.medicines?.image_url || null,
+      pharmacy_image_url: pharmacy.image_url,
+      pharmacy_rating: pharmacy.rating,
+      pharmacy_is_open: pharmacy.is_open,
+      pharmacy_is_24_hours: pharmacy.is_24_hours,
+      pharmacy_delivery_available: pharmacy.delivery_available,
+      pharmacy_delivery_radius_km: pharmacy.delivery_radius_km,
     };
 
     const existing = uniqueMedicines.get(key);
@@ -361,8 +411,7 @@ const getNearbyMedicines = async (latitude, longitude, radius = 10, limit = 20) 
 
   return Array.from(uniqueMedicines.values())
     .sort((left, right) => left.distance - right.distance)
-    .slice(0, limit)
-    .map(({ distance, ...item }) => item);
+    .slice(0, limit);
 };
 
 // Get alternatives (generic equivalents)
@@ -391,7 +440,7 @@ const getAlternatives = async (medicineId) => {
 };
 
 // Find pharmacies with medicine
-const findPharmaciesWithMedicine = async (medicineId, latitude, longitude, radius = 10) => {
+const findPharmaciesWithMedicine = async (medicineId, latitude, longitude, radius = 25) => {
   return getMedicineAvailability(medicineId, latitude, longitude, radius);
 };
 
@@ -734,6 +783,7 @@ module.exports = {
   getCategories,
   getPopularMedicines,
   searchMedicines,
+  getSuggestions,
   getMedicineById,
   getMedicineAvailability,
   getNearbyMedicines,

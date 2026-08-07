@@ -72,7 +72,7 @@ export default function ClinicReelsPage() {
         <div className="space-y-6">
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Clinic Reels</h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">Upload short 15-30 second video reels to showcase your clinic's infrastructure, services, and patient care.</p>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">Upload short 15-30 second video reels to showcase your clinic&apos;s infrastructure, services, and patient care.</p>
             </div>
 
             <Card>

@@ -2,6 +2,7 @@ package com.example.swastik.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.util.Log
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
@@ -386,6 +387,15 @@ class MedicineViewModel @Inject constructor(
                 else -> {}
             }
 
+            // Enrich global catalogue with campaign prices (best-effort)
+            if (!globalMedicines.isNullOrEmpty()) {
+                try {
+                    globalMedicines = medicineRepository.enrichWithCampaignPrices(globalMedicines!!)
+                } catch (e: Exception) {
+                    Log.w("MedicineViewModel", "Campaign enrichment failed: ${e.message}")
+                }
+            }
+
             // Show global results immediately while nearby is still loading
             _uiState.value = _uiState.value.copy(
                 medicines = globalMedicines ?: _uiState.value.medicines,
@@ -425,8 +435,14 @@ class MedicineViewModel @Inject constructor(
             val category = _uiState.value.selectedCategory
             when (val result = medicineRepository.searchMedicines(query, category = category)) {
                 is Result.Success -> {
+                    var meds = result.data
+                    try {
+                        meds = medicineRepository.enrichWithCampaignPrices(meds)
+                    } catch (e: Exception) {
+                        Log.w("MedicineViewModel", "Campaign enrichment failed: ${e.message}")
+                    }
                     _uiState.value = _uiState.value.copy(
-                        medicines = result.data,
+                        medicines = meds,
                         isLoading = false
                     )
                 }
@@ -484,8 +500,14 @@ class MedicineViewModel @Inject constructor(
                 // Search with category (and optional query)
                 when (val result = medicineRepository.searchMedicines(query.ifBlank { "" }, category = category)) {
                     is Result.Success -> {
+                        var meds = result.data
+                        try {
+                            meds = medicineRepository.enrichWithCampaignPrices(meds)
+                        } catch (e: Exception) {
+                            Log.w("MedicineViewModel", "Campaign enrichment failed: ${e.message}")
+                        }
                         _uiState.value = _uiState.value.copy(
-                            medicines = result.data,
+                            medicines = meds,
                             isLoading = false
                         )
                     }
@@ -695,7 +717,13 @@ class MedicineViewModel @Inject constructor(
                         name = it.medicine.name,
                         genericName = it.medicine.genericName,
                         quantity = it.quantity,
-                        price = it.medicine.price
+                        price = it.medicine.effectivePrice,
+                        mrp = it.medicine.mrp ?: it.medicine.price,
+                        campaignId = it.medicine.campaignId,
+                        campaignName = it.medicine.campaignName,
+                        discountAmount = if (it.medicine.hasActiveCampaign) {
+                            ((it.medicine.price ?: 0f) - it.medicine.effectivePrice) * it.quantity
+                        } else null
                     )
                 },
                 deliveryAddress = cart.deliveryAddress,

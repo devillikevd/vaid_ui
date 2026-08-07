@@ -429,6 +429,13 @@ interface ApiService {
 
     @GET("medicines/{id}/alternatives")
     suspend fun getMedicineAlternatives(@Path("id") id: String): Response<PaginatedResponse<Medicine>>
+
+    // ==================== Discount Campaigns ====================
+
+    @POST("discounts/campaigns/best-price")
+    suspend fun getBestCampaignPrices(
+        @Body request: CampaignPriceRequestDto
+    ): Response<ApiResponse<List<CampaignPriceDto>>>
     
     @GET("pharmacy/nearby")
     suspend fun getNearbyPharmacies(

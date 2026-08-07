@@ -869,6 +869,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onNavigateToCart = {
                         navController.navigateSafe(Screen.MedicineCart.createRoute("GLOBAL"))
                     },
+                    onNavigateToPharmacyCart = {
+                        navController.navigateSafe(Screen.MedicineCart.createRoute("PHARMACY"))
+                    },
                     onNavigateToOrders = {
                         navController.navigateSafe(Screen.OrderHistory.createRoute(0))
                     },
@@ -1100,6 +1103,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 medicineId = medicineId,
                 onBackClick = { navController.popBackStack() },
                 onNavigateToCart = { navController.navigateSafe(Screen.MedicineCart.createRoute("GLOBAL")) },
+                onNavigateToPharmacyCart = { navController.navigateSafe(Screen.MedicineCart.createRoute("PHARMACY")) },
                 onMedicineClick = { id -> navController.navigateSafe("medicine_detail/$id") }
             )
             }

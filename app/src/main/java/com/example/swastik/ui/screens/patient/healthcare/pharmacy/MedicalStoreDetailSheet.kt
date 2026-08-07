@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +58,7 @@ internal fun MedicalStoreDetailSheet(
 
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scrollOffset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 300f
+    var inventorySearchQuery by remember { mutableStateOf("") }
 
     LazyColumn(
         state = listState,
@@ -112,14 +114,14 @@ internal fun MedicalStoreDetailSheet(
             }
         }
 
-        item {
-            Column(
-                modifier = Modifier
-                    .offset(y = (-24).dp)
-                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .fillMaxWidth()
-            ) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .offset(y = (-24).dp)
+                            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .fillMaxWidth()
+                    ) {
                 Spacer(modifier = Modifier.height(24.dp))
                 Spacer(modifier = Modifier.height(24.dp))
                 Card(
@@ -299,12 +301,120 @@ internal fun MedicalStoreDetailSheet(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    Text(
+                        text = stringResource(R.string.order_medicines),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor
+                    )
+
+                    OutlinedTextField(
+                            value = inventorySearchQuery,
+                            onValueChange = { query ->
+                                inventorySearchQuery = query
+                                onInventorySearch(query)
+                            },
+                            placeholder = { Text(stringResource(R.string.search_medicines)) },
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = null, tint = SwastikPrimary)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = SwastikPrimary,
+                                unfocusedBorderColor = if (isDarkMode) Color(0xFF334155) else Color(0xFFE2E8F0)
+                            )
+                        )
+
+                        when {
+                            isInventoryLoading -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(140.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(color = SwastikPrimary)
+                                }
+                            }
+                            inventoryItems.isEmpty() -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(120.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.no_medicines_found),
+                                        color = subtextColor,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
+                            else -> {
+                                inventoryItems.forEach { item ->
+                                    PharmacyInventoryCard(
+                                        item = item,
+                                        isDarkMode = isDarkMode,
+                                        onAddToCart = { onAddInventoryToCart(item) }
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                            }
+                        }
+
+                        if (cartItemCount > 0) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = SwastikPrimary),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = Color.White)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "$cartItemCount item${if (cartItemCount == 1) "" else "s"}",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Text(
+                                        text = stringResource(R.string.view_cart),
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(Color.White.copy(alpha = 0.2f))
+                                            .clickable { onViewCart() }
+                                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
                     Button(
                         onClick = { onOpenBookingFlow(false) },
                         modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -446,17 +556,29 @@ internal fun PharmacyInventoryCard(
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    item.price?.let { "₹$it" } ?: "Price unavailable",
+                    item.effectivePrice.let { if (item.price != null) "₹$it" else "Price unavailable" },
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = textColor
                 )
-                if (item.mrp != null && item.mrp != item.price) {
+                val strikePrice = when {
+                    item.hasActiveCampaign -> item.price
+                    else -> item.mrp
+                }
+                if (strikePrice != null && strikePrice > item.effectivePrice) {
                     Text(
-                        "MRP ₹${item.mrp}",
+                        if (item.hasActiveCampaign) "₹$strikePrice" else "MRP ₹$strikePrice",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Normal
+                        textDecoration = TextDecoration.LineThrough
+                    )
+                }
+                if (item.discountPercentage > 0) {
+                    Text(
+                        "${item.discountPercentage.toInt()}% OFF",
+                        fontSize = 10.sp,
+                        color = Color(0xFF2E7D32),
+                        fontWeight = FontWeight.Bold
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))

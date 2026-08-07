@@ -251,7 +251,7 @@ export default function EarningsPage() {
                                                                             <span className="text-xs ml-1 text-gray-900 dark:text-gray-100 font-medium">{consultation.rating}/5</span>
                                                                         </div>
                                                                         {consultation.review && (
-                                                                            <p className="text-xs text-gray-600 dark:text-gray-400 italic">"{consultation.review}"</p>
+                                                                            <p className="text-xs text-gray-600 dark:text-gray-400 italic">&quot;{consultation.review}&quot;</p>
                                                                         )}
                                                                     </div>
                                                                 ) : (

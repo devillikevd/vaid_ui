@@ -374,8 +374,21 @@ data class Medicine(
     @SerializedName("nearby_pharmacy_id") val nearbyPharmacyId: String? = null,
     @SerializedName("nearby_pharmacy") val nearbyPharmacy: String? = null,
     @SerializedName("pharmacy_distance") val pharmacyDistance: String? = null,
-    @SerializedName("image_url") val imageUrl: String? = null
-)
+    @SerializedName("image_url") val imageUrl: String? = null,
+    // Campaign pricing
+    @SerializedName("campaign_price") val campaignPrice: Float? = null,
+    @SerializedName("campaign_discount_pct") val campaignDiscountPct: Float? = null,
+    @SerializedName("campaign_id") val campaignId: String? = null,
+    @SerializedName("campaign_name") val campaignName: String? = null
+) {
+    val effectivePrice: Float get() = campaignPrice ?: price ?: 0f
+    val hasActiveCampaign: Boolean
+        get() = campaignPrice != null && price != null && campaignPrice!! < price!!
+    val discountPercentage: Float
+        get() = if (hasActiveCampaign) {
+            ((price!! - campaignPrice!!) * 100 / price!!)
+        } else 0f
+}
 
 enum class MedicineCategory {
     @SerializedName("tablet")
@@ -500,7 +513,7 @@ data class CartItem(
     val medicine: Medicine,
     var quantity: Int = 1
 ) {
-    val totalPrice: Float get() = (medicine.price ?: 0f) * quantity
+    val totalPrice: Float get() = medicine.effectivePrice * quantity
 }
 
 data class MedicineOrder(

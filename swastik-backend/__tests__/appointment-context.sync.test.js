@@ -26,6 +26,7 @@ const makeAppointmentsBuilder = (result) => {
     eq: jest.fn(() => builder),
     in: jest.fn(() => builder),
     order: jest.fn(() => builder),
+    or: jest.fn(() => builder),
     range: jest.fn(() => Promise.resolve(result)),
   };
   return builder;

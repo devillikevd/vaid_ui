@@ -10,6 +10,7 @@ import com.example.swastik.data.remote.SocketManager
 import com.example.swastik.data.remote.dto.ClinicDoctorDto
 import com.example.swastik.data.remote.dto.PharmacyInventoryItemDto
 import com.example.swastik.data.repository.HospitalRepository
+import com.example.swastik.data.repository.MedicineRepository
 import com.example.swastik.utils.LocationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
@@ -59,6 +60,7 @@ data class HospitalFinderUiState(
 @HiltViewModel
 class HospitalFinderViewModel @Inject constructor(
     private val hospitalRepository: HospitalRepository,
+    private val medicineRepository: MedicineRepository,
     private val locationHelper: LocationHelper,
     private val socketManager: SocketManager
 ) : ViewModel() {
@@ -503,7 +505,13 @@ class HospitalFinderViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isPharmacyInventoryLoading = true)
             try {
-                val items = hospitalRepository.getPharmacyInventory(pharmacyId, search)
+                var items = hospitalRepository.getPharmacyInventory(pharmacyId, search)
+                // Enrich inventory with campaign prices for this pharmacy
+                try {
+                    items = medicineRepository.enrichInventoryWithCampaignPrices(items, pharmacyId)
+                } catch (_: Exception) {
+                    // best-effort; keep raw inventory on failure
+                }
                 _uiState.value = _uiState.value.copy(
                     pharmacyInventory = items,
                     isPharmacyInventoryLoading = false

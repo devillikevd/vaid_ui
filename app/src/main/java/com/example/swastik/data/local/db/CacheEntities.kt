@@ -86,6 +86,11 @@ data class CachedMedicine(
     val description: String?,
     val requiresPrescription: Boolean,
     val imageUrl: String? = null,
+    // Campaign fields
+    val campaignPrice: Double? = null,
+    val campaignDiscountPct: Double? = null,
+    val campaignId: String? = null,
+    val campaignName: String? = null,
     val cachedAt: Long = System.currentTimeMillis()
 )
 

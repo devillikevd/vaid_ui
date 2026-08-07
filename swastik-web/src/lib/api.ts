@@ -475,6 +475,18 @@ export const adminApi = {
             body: JSON.stringify({ medicines }),
         }),
 
+    dryRunBulkMedicines: (medicines: any[]) =>
+        fetchWithAuth('/admin/medicines/bulk', {
+            method: 'POST',
+            body: JSON.stringify({ dryRun: true, medicines }),
+        }),
+
+    checkMedicineExists: (name: string, manufacturer?: string) => {
+        const params = new URLSearchParams({ name });
+        if (manufacturer) params.set('manufacturer', manufacturer);
+        return fetchWithAuth(`/admin/medicines/exists?${params}`);
+    },
+
     addBulkMasterTests: (tests: any[]) =>
         fetchWithAuth('/admin/master-tests/bulk', {
             method: 'POST',
@@ -542,6 +554,35 @@ export const adminApi = {
 
     triggerOutbreakAnalysis: () =>
         fetchWithAuth('/admin/outbreaks/analyze', { method: 'POST' }),
+
+    // ── Discount Campaigns ──
+
+    getCampaigns: (filters?: { page?: number; limit?: number; status?: string; scopeType?: string }, page: number = 1, limit: number = 20) => {
+        const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+        if (filters?.status && filters.status !== 'all') params.set('status', filters.status);
+        if (filters?.scopeType) params.set('scope_type', filters.scopeType);
+        return fetchWithAuth(`/discounts/campaigns?${params}`);
+    },
+
+    getCampaign: (id: string) =>
+        fetchWithAuth(`/discounts/campaigns/${id}`),
+
+    createCampaign: (data: Record<string, unknown>) =>
+        fetchWithAuth('/discounts/campaigns', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    updateCampaign: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/discounts/campaigns/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+
+    deleteCampaign: (id: string) =>
+        fetchWithAuth(`/discounts/campaigns/${id}`, {
+            method: 'DELETE',
+        }),
 };
 
 // ==================== DOCTOR API ====================
@@ -940,6 +981,28 @@ export const pharmacyApi = {
         fetchWithAuth(`/medicines/catalog-requests/${id}/accept`, {
             method: 'POST',
             body: JSON.stringify(data),
+        }),
+
+    // ── Discount Campaigns ──
+
+    getAvailableCampaigns: (status?: string) => {
+        const params = new URLSearchParams();
+        if (status && status !== 'all') params.set('status', status);
+        const suffix = params.toString() ? `?${params}` : '';
+        return fetchWithAuth(`/discounts/pharmacy/campaigns/available${suffix}`);
+    },
+
+    getMyCampaigns: () =>
+        fetchWithAuth('/discounts/pharmacy/campaigns/mine'),
+
+    optInCampaign: (id: string) =>
+        fetchWithAuth(`/discounts/pharmacy/campaigns/${id}/optin`, {
+            method: 'POST',
+        }),
+
+    optOutCampaign: (id: string) =>
+        fetchWithAuth(`/discounts/pharmacy/campaigns/${id}/optout`, {
+            method: 'POST',
         }),
 };
 

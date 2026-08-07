@@ -116,7 +116,10 @@ class HospitalRepository @Inject constructor(
                         closeTime = pharmacy.closeTime,
                         isOpen = pharmacy.isOpen ?: true,
                         is24Hours = pharmacy.is24Hours ?: false,
-                        imageUrl = pharmacy.imageUrl
+                        imageUrl = pharmacy.imageUrl,
+                        deliveryAvailable = pharmacy.deliveryAvailable ?: pharmacy.offersDelivery ?: false,
+                        minOrderDelivery = pharmacy.minOrderDelivery,
+                        deliveryRadiusKm = pharmacy.deliveryRadiusKm
                     )
                 } ?: emptyList()
             }

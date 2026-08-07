@@ -15,7 +15,7 @@ export default function HealthLibrarySection() {
             </div>
             
             <h2 className="font-heading text-4xl sm:text-5xl text-vd-forest mb-6 tracking-tight leading-[1.1]">
-              The World's Most Comprehensive <br />
+              The World&apos;s Most Comprehensive <br />
               <em className="text-vd-sage italic font-medium">Health Library</em>
             </h2>
             

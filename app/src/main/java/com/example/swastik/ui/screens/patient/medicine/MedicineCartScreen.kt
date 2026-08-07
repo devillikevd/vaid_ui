@@ -559,7 +559,11 @@ private fun CartItemCard(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(item.medicine.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Text(item.medicine.price?.toInt()?.let { "₹$it each" } ?: "Price on request", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                Text(
+                    item.medicine.effectivePrice.let { if (item.medicine.price != null) "₹${it.toInt()} each" else "Price on request" },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
             }
             // Quantity controls
             Row(verticalAlignment = Alignment.CenterVertically) {
