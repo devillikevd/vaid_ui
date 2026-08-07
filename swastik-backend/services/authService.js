@@ -978,7 +978,12 @@ const login = async (rawEmail, password, expectedRole = null) => {
     .eq('email', email)
     .single();
 
-  if (error || !user) {
+  if (error && error.code !== 'PGRST116') {
+    console.error('Supabase Login Error:', error);
+    throw new ApiError(500, 'Database connection error. Check environment variables.');
+  }
+
+  if (!user) {
     throw new ApiError(401, 'Account is not registered');
   }
 
