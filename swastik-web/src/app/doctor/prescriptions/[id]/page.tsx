@@ -47,7 +47,7 @@ export default function PrescriptionDetailsPage() {
         );
     }
 
-    const createdDate = prescription.date ? new Date(prescription.date) : prescription.created_at ? new Date(prescription.created_at) : null;
+    const createdDate = (prescription as any).date ? new Date((prescription as any).date) : prescription.created_at ? new Date(prescription.created_at) : null;
     const followUpDate = prescription.followUpDate ? new Date(prescription.followUpDate) : null;
 
     return (
@@ -86,9 +86,9 @@ export default function PrescriptionDetailsPage() {
                     >
                         <Printer className="w-4 h-4" /> Print
                     </button>
-                    {(prescription.file_url || prescription.pdf_url) && (
+                    {((prescription as any).file_url || (prescription as any).pdf_url) && (
                         <a 
-                            href={prescription.file_url || prescription.pdf_url} 
+                            href={(prescription as any).file_url || (prescription as any).pdf_url} 
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium"
@@ -108,8 +108,8 @@ export default function PrescriptionDetailsPage() {
                         </div>
                         <div>
                             <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{prescription.patientName || 'Unknown Patient'}</h3>
-                            {prescription.patientPhone && (
-                                <p className="text-sm text-gray-500 dark:text-gray-400">{prescription.patientPhone}</p>
+                            {(prescription as any).patientPhone && (
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{(prescription as any).patientPhone}</p>
                             )}
                         </div>
                     </div>
@@ -162,14 +162,14 @@ export default function PrescriptionDetailsPage() {
             </div>
 
             {/* Uploaded File View if any */}
-            {(prescription.file_url || prescription.pdf_url) && !prescription.medications?.length && (
+            {((prescription as any).file_url || (prescription as any).pdf_url) && !prescription.medications?.length && (
                 <Card padding="md">
                     <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
                         <FileImage className="w-5 h-5 text-emerald-600" /> Uploaded Prescription
                     </h3>
                     <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-center p-4">
                         <img 
-                            src={prescription.file_url || prescription.pdf_url} 
+                            src={(prescription as any).file_url || (prescription as any).pdf_url} 
                             alt="Prescription Document" 
                             className="max-h-[600px] max-w-full object-contain"
                         />
@@ -240,21 +240,21 @@ export default function PrescriptionDetailsPage() {
             )}
 
             {/* Additional Advice */}
-            {(prescription.dietaryAdvice || prescription.lifestyleAdvice) && (
+            {((prescription as any).dietaryAdvice || (prescription as any).lifestyleAdvice) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8">
-                    {prescription.dietaryAdvice && (
+                    {(prescription as any).dietaryAdvice && (
                         <Card padding="md" className="border-l-4 border-l-orange-400">
                             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Dietary Advice</h3>
                             <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                                {prescription.dietaryAdvice}
+                                {(prescription as any).dietaryAdvice}
                             </p>
                         </Card>
                     )}
-                    {prescription.lifestyleAdvice && (
+                    {(prescription as any).lifestyleAdvice && (
                         <Card padding="md" className="border-l-4 border-l-blue-400">
                             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Lifestyle Advice</h3>
                             <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                                {prescription.lifestyleAdvice}
+                                {(prescription as any).lifestyleAdvice}
                             </p>
                         </Card>
                     )}

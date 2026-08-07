@@ -266,7 +266,7 @@ export default function DoctorVitalsPage() {
                             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Record New Vitals</h2>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Log clinical measurements for a patient.</p>
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
+                        <Button variant="ghost" size="sm" onClick={() => setShowForm(false)} className="w-8 h-8 p-0 text-gray-400 hover:text-gray-600">
                             <X className="h-5 w-5" />
                         </Button>
                     </div>

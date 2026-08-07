@@ -74,7 +74,7 @@ export default function DoctorPrescriptionsPage() {
                                         <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500 dark:text-gray-400">
                                             <span className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2 py-0.5 rounded-md text-xs font-medium">
                                                 <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                                                {rx.date ? new Date(rx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : rx.created_at ? new Date(rx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Date not set'}
+                                                {(rx as any).date ? new Date((rx as any).date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : rx.created_at ? new Date(rx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Date not set'}
                                             </span>
                                             {rx.diagnosis && (
                                                 <span className="text-xs px-2 py-0.5 rounded-md bg-blue-50 border border-blue-100 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800/30 dark:text-blue-400 font-medium">
