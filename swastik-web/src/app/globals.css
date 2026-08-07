@@ -39,6 +39,19 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Fix native select options and browser elements in dark mode */
+.dark {
+  color-scheme: dark;
+}
+
+option {
+  @apply bg-white text-gray-900;
+}
+
+.dark option {
+  @apply bg-gray-900 text-gray-100;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

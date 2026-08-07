@@ -74,6 +74,8 @@ export default function NewPrescriptionPage() {
 
     const [items, setItems] = useState<PrescriptionItem[]>([{ ...emptyItem }]);
     const [diagnosis, setDiagnosis] = useState('');
+    const [symptoms, setSymptoms] = useState('');
+    const [tests, setTests] = useState('');
     const [notes, setNotes] = useState('');
     const [followUpDate, setFollowUpDate] = useState('');
     const [dietaryAdvice, setDietaryAdvice] = useState('');
@@ -141,6 +143,12 @@ export default function NewPrescriptionPage() {
                 }
             }
 
+            const combinedNotes = [
+                symptoms ? `Chief Complaints:\n${symptoms}` : '',
+                tests ? `Lab Tests Prescribed:\n${tests}` : '',
+                notes ? `Additional Notes:\n${notes}` : ''
+            ].filter(Boolean).join('\n\n');
+
             const response = await consultationsApi.addPrescription(consultationId, {
                 items: entryMode === 'digital' ? items.map((item) => ({
                     medicineName: item.medicineName,
@@ -153,7 +161,7 @@ export default function NewPrescriptionPage() {
                     isCritical: item.isCritical,
                 })) : [],
                 diagnosis: diagnosis || undefined,
-                notes: notes || undefined,
+                notes: combinedNotes || undefined,
                 followUpDate: followUpDate || undefined,
                 dietaryAdvice: dietaryAdvice || undefined,
                 lifestyleAdvice: lifestyleAdvice || undefined,
@@ -196,7 +204,7 @@ export default function NewPrescriptionPage() {
             <div className="flex items-center gap-4">
                 <button
                     onClick={() => router.back()}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                    className="p-2 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -226,41 +234,65 @@ export default function NewPrescriptionPage() {
                 </div>
             )}
 
-            {/* Diagnosis & Notes */}
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4">
-                <h2 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-emerald-600" /> Diagnosis & Notes
+            {/* Clinical Details */}
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-5 shadow-sm">
+                <h2 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 pb-3">
+                    <FileText className="w-5 h-5 text-emerald-600" /> Clinical Details
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Chief Complaints / Symptoms</label>
+                        <textarea
+                            value={symptoms}
+                            onChange={(e) => setSymptoms(e.target.value)}
+                            placeholder="E.g., Fever for 3 days, headache..."
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm"
+                        />
+                    </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Diagnosis</label>
                         <input
                             type="text"
                             value={diagnosis}
                             onChange={(e) => setDiagnosis(e.target.value)}
-                            placeholder="Enter diagnosis"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            placeholder="Enter confirmed or provisional diagnosis"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm"
+                        />
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lab Tests Prescribed</label>
+                        <textarea
+                            value={tests}
+                            onChange={(e) => setTests(e.target.value)}
+                            placeholder="E.g., CBC, LFT, Lipid Profile..."
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Follow-up Date</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Additional Notes</label>
+                        <textarea
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="Any other observations or instructions..."
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm"
+                        />
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-3 border-t border-gray-100 dark:border-gray-800">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Next Follow-up Date</label>
                         <input
                             type="date"
                             value={followUpDate}
                             onChange={(e) => setFollowUpDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm"
                         />
                     </div>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-                    <textarea
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Additional notes for the patient..."
-                        rows={2}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                    />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>

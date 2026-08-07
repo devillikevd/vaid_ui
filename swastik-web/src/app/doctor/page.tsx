@@ -90,6 +90,13 @@ export default function DoctorDashboard() {
     }, [fetchReviews]);
 
     const currentTime = new Date();
+    const getGreeting = () => {
+        const hour = currentTime.getHours();
+        if (hour >= 5 && hour < 12) return 'Good Morning';
+        if (hour >= 12 && hour < 17) return 'Good Afternoon';
+        if (hour >= 17 && hour < 21) return 'Good Evening';
+        return 'Good Night';
+    };
     const nextAppointment = todaysAppointments.find((appointment: Appointment) =>
         ['scheduled', 'confirmed', 'in_progress', 'active'].includes(appointment.status)
     );
@@ -214,7 +221,7 @@ export default function DoctorDashboard() {
             <div className="bg-gradient-to-r from-emerald-600 to-emerald-800 rounded-2xl p-6 text-white">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold">Welcome back, {formatDoctorName(user?.name) || 'Doctor'}!</h1>
+                        <h1 className="text-2xl font-bold">{getGreeting()}, {formatDoctorName(user?.name) || 'Doctor'}!</h1>
                         <p className="text-emerald-100 mt-1">
                             {currentTime.toLocaleDateString('en-IN', {
                                 weekday: 'long',
@@ -232,9 +239,28 @@ export default function DoctorDashboard() {
                         </Link>
                         <div className="text-right border-l border-emerald-500/50 pl-6">
                             <p className="text-sm text-emerald-200">Next Appointment</p>
-                            <p className="font-medium">
-                                {nextAppointment?.time || 'No upcoming'}
-                            </p>
+                            {(() => {
+                                if (!nextAppointment) return <p className="font-medium text-emerald-100">No upcoming</p>;
+                                const timeStr = nextAppointment.time || nextAppointment.timeSlot || '';
+                                const isExpired = (() => {
+                                    if (!timeStr) return false;
+                                    const [h, m] = timeStr.split(':');
+                                    const t = new Date();
+                                    t.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+                                    return currentTime > t;
+                                })();
+                                return isExpired ? (
+                                    <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                                        <span className="relative flex h-2 w-2">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                        </span>
+                                        <p className="font-bold text-red-300 text-sm">⚠ Expired</p>
+                                    </div>
+                                ) : (
+                                    <p className="font-medium text-white">{timeStr}</p>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
@@ -289,22 +315,46 @@ export default function DoctorDashboard() {
                                     const consultationLive = ['in_progress', 'active'].includes(appointment.status);
                                     const isLaunching = launchingAppointmentId === appointment.id;
 
+                                    // Overdue: appointment time has passed and it's still pending/confirmed
+                                    const isOverdue = (() => {
+                                        if (!['scheduled', 'confirmed'].includes(appointment.status)) return false;
+                                        const timeStr = appointment.time || appointment.timeSlot || '';
+                                        if (!timeStr) return false;
+                                        const [hStr, mStr] = timeStr.split(':');
+                                        const apptDate = new Date();
+                                        apptDate.setHours(parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
+                                        return currentTime > apptDate;
+                                    })();
+
                                     return (
                                 <div
                                     key={appointment.id}
-                                    className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer ${consultationLive
+                                    className={`flex flex-col rounded-xl border cursor-pointer overflow-hidden transition-colors ${
+                                        isOverdue
+                                        ? 'border-red-400 dark:border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)]'
+                                        : consultationLive
                                         ? 'border-emerald-300 bg-emerald-50'
-                                        : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-700 hover:bg-gray-50/50 dark:hover:bg-gray-800/30'
-                                        } transition-colors`}
+                                        : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-700'
+                                    }`}
                                     onClick={(e) => {
                                         // Only open modal if not clicking a button
                                         if ((e.target as HTMLElement).closest('button')) return;
                                         setSelectedAppointment(appointment);
                                     }}
                                 >
+                                    {/* Overdue Alert Banner */}
+                                    {isOverdue && (
+                                        <div className="flex items-center gap-2 bg-red-500 text-white text-xs font-semibold px-4 py-2 animate-pulse">
+                                            <span>⚠️</span>
+                                            <span>Appointment time has passed! Please reschedule or take action immediately.</span>
+                                        </div>
+                                    )}
+                                    <div className={`flex items-center justify-between p-4 ${
+                                        isOverdue ? 'bg-red-50 dark:bg-red-950/30' : consultationLive ? 'bg-emerald-50' : ''
+                                    }`}>
                                     <div className="flex items-center gap-4">
                                         <div className="flex flex-col items-center text-sm font-medium min-w-[70px]">
-                                            <span className="text-gray-900 dark:text-gray-100">{appointment.time}</span>
+                                            <span className={`font-bold ${ isOverdue ? 'text-red-600' : 'text-gray-900 dark:text-gray-100' }`}>{appointment.time}</span>
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <div className="bg-gray-100 dark:bg-gray-700 rounded-full p-2">
@@ -329,11 +379,15 @@ export default function DoctorDashboard() {
                                             <>
                                                 <Button
                                                     size="sm"
-                                                    className="bg-emerald-600 hover:bg-emerald-700"
-                                                    disabled={isLaunching}
+                                                    className={isOverdue
+                                                        ? 'bg-gray-400 cursor-not-allowed opacity-60 text-white'
+                                                        : 'bg-emerald-600 hover:bg-emerald-700'
+                                                    }
+                                                    disabled={isLaunching || isOverdue}
                                                     onClick={() => handleOpenConsultation(appointment)}
+                                                    title={isOverdue ? 'Please reschedule first before starting' : ''}
                                                 >
-                                                    {isLaunching ? 'Opening...' : consultationLive ? 'Join Call' : 'Start Call'}
+                                                    {isLaunching ? 'Opening...' : isOverdue ? 'Reschedule First!' : consultationLive ? 'Join Call' : 'Start Call'}
                                                 </Button>
                                                 {consultationLive && (
                                                     <Button
@@ -362,17 +416,19 @@ export default function DoctorDashboard() {
                                                 Manage
                                             </Button>
                                         )}
-                                        {!consultationReady && ['scheduled', 'confirmed'].includes(appointment.status) && (
+                                        {['scheduled', 'confirmed'].includes(appointment.status) && (
                                             <Button
                                                 size="sm"
-                                                variant="outline"
+                                                variant={isOverdue ? 'danger' : 'outline'}
                                                 onClick={() => openNewSchedule(appointment)}
                                                 disabled={approvingId === appointment.id}
-                                                leftIcon={<CalendarClock className="h-3 w-3 text-emerald-600" />}
+                                                leftIcon={<CalendarClock className={`h-3 w-3 ${ isOverdue ? 'text-white' : 'text-emerald-600' }`} />}
+                                                className={isOverdue ? 'bg-red-600 hover:bg-red-700 text-white border-red-600 animate-bounce' : ''}
                                             >
-                                                New Schedule
+                                                {isOverdue ? 'Reschedule Now!' : 'New Schedule'}
                                             </Button>
                                         )}
+                                    </div>
                                     </div>
                                 </div>
                                     );
@@ -475,21 +531,27 @@ export default function DoctorDashboard() {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-3">
-                                {upcomingAppointments.slice(0, 3).map((appointment: Appointment) => (
-                                    <div key={appointment.id} 
-                                        className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/30 rounded-lg px-2 -mx-2 transition-colors"
-                                        onClick={() => setSelectedAppointment(appointment)}
-                                    >
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{appointment.patientName}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">{appointment.appointment_date} • {appointment.time}</p>
-                                        </div>
-                                        <span className={`text-xs px-2 py-1 rounded-full ${appointment.type === 'Video' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                                            }`}>
-                                            {appointment.type}
-                                        </span>
+                                {(!upcomingAppointments || upcomingAppointments.length === 0) ? (
+                                    <div className="py-6 text-center text-gray-500 dark:text-gray-400">
+                                        <p className="text-sm font-medium">No upcoming appointments</p>
                                     </div>
-                                ))}
+                                ) : (
+                                    upcomingAppointments.slice(0, 3).map((appointment: Appointment) => (
+                                        <div key={appointment.id} 
+                                            className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/30 rounded-lg px-2 -mx-2 transition-colors"
+                                            onClick={() => setSelectedAppointment(appointment)}
+                                        >
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{appointment.patientName}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">{appointment.appointment_date} • {appointment.time}</p>
+                                            </div>
+                                            <span className={`text-xs px-2 py-1 rounded-full ${appointment.type === 'Video' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                                                }`}>
+                                                {appointment.type}
+                                            </span>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </CardContent>
                     </Card>

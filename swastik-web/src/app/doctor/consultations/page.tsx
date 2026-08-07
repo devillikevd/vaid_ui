@@ -50,18 +50,28 @@ export default function DoctorConsultationsPage() {
                     ) : consultations.map((c: Consultation) => (
                         <div key={c.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className={`p-2.5 rounded-xl ${(c.type || c.appointment?.type) === 'video' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                        {(c.type || c.appointment?.type) === 'video' ? <Video className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-gray-900 dark:text-gray-100">{c.patientName || 'Patient'}</p>
-                                        <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{(c.appointment?.appointment_date || c.created_at) ? new Date(c.appointment?.appointment_date || c.created_at!).toLocaleDateString('en-IN') : '—'}</span>
-                                            <span className="capitalize">{c.type || c.appointment?.type || 'in-person'}</span>
+                                    <div className="flex items-center gap-4">
+                                        <div className={`p-3 rounded-xl shadow-sm border ${(c.type || c.appointment?.type) === 'video' ? 'bg-blue-50/50 border-blue-100 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-emerald-50/50 border-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-800'}`}>
+                                            {(c.type || c.appointment?.type) === 'video' ? <Video className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900 dark:text-gray-100">{c.patientName || (c.appointment as any)?.patientName || 'Unknown Patient'}</p>
+                                            <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                                <span className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 px-2 py-0.5 rounded-md">
+                                                    <Clock className="h-3.5 w-3.5" />
+                                                    {(c.appointment?.appointment_date || c.created_at) ? new Date(c.appointment?.appointment_date || c.created_at!).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                                                </span>
+                                                {c.startedAt && (
+                                                    <span className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 px-2 py-0.5 rounded-md">
+                                                        Start: {new Date(c.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                )}
+                                                <span className="capitalize font-medium text-gray-600 dark:text-gray-300">
+                                                    • {c.type || c.appointment?.type || 'In-person'} Consult
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
                                 <div className="flex items-center gap-3">
                                     <StatusBadge status={c.status || 'scheduled'} size="sm" />
                                     {['in_progress', 'active'].includes(c.status) && 

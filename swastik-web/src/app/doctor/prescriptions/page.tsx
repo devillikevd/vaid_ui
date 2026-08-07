@@ -63,34 +63,56 @@ export default function DoctorPrescriptionsPage() {
                             {prescriptions.length === 0 ? 'No prescriptions written yet. Prescriptions are created during consultations.' : 'No matching prescriptions found.'}
                         </div>
                     ) : paginatedItems.map((rx) => (
-                        <div key={rx.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        <Link href={`/doctor/prescriptions/${rx.id}`} key={rx.id} className="block p-4 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-700"><FileText className="h-5 w-5" /></div>
+                                    <div className="p-3 rounded-xl shadow-sm border bg-emerald-50/50 border-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-800/30 dark:text-emerald-400">
+                                        <FileText className="h-5 w-5" />
+                                    </div>
                                     <div>
-                                        <p className="font-medium text-gray-900 dark:text-gray-100">{rx.patientName}</p>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1"><Calendar className="h-3 w-3" />{rx.created_at ? new Date(rx.created_at).toLocaleDateString('en-IN') : '—'}</p>
-                                        {rx.diagnosis && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Diagnosis: {rx.diagnosis}</p>}
-                                        <div className="flex flex-wrap gap-2 mt-1">
-                                            {(rx.medications || []).slice(0, 3).map((med: any, i: number) => (
-                                                <span key={i} className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{med.name} {med.dosage}</span>
-                                            ))}
-                                            {(rx.medications || []).length > 3 && (
-                                                <span className="text-xs text-gray-400">+{rx.medications!.length - 3} more</span>
+                                        <p className="font-semibold text-gray-900 dark:text-gray-100">{rx.patientName || 'Unknown Patient'}</p>
+                                        <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                            <span className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2 py-0.5 rounded-md text-xs font-medium">
+                                                <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                                                {rx.date ? new Date(rx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : rx.created_at ? new Date(rx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Date not set'}
+                                            </span>
+                                            {rx.diagnosis && (
+                                                <span className="text-xs px-2 py-0.5 rounded-md bg-blue-50 border border-blue-100 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800/30 dark:text-blue-400 font-medium">
+                                                    Diagnosis: {rx.diagnosis}
+                                                </span>
                                             )}
                                         </div>
+                                        {rx.medications && rx.medications.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-2.5">
+                                                {rx.medications.slice(0, 3).map((med: any, i: number) => (
+                                                    <span key={i} className="text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2 py-1 rounded-md text-gray-700 dark:text-gray-300 font-medium shadow-sm">
+                                                        {med.medicineName || med.name} <span className="text-gray-400 mx-1">|</span> {med.dosage}
+                                                    </span>
+                                                ))}
+                                                {rx.medications.length > 3 && (
+                                                    <span className="text-xs text-emerald-600 font-medium px-2 py-1 bg-emerald-50 border border-emerald-100 rounded-md dark:bg-emerald-900/20 dark:border-emerald-800/30 dark:text-emerald-400">+{rx.medications.length - 3} more</span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700">
-                                        {rx.status || 'active'}
+                                <div className="text-right flex flex-col items-end gap-2">
+                                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                        rx.status === 'expired' 
+                                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
+                                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                    }`}>
+                                        {(rx.status || 'Active').toUpperCase()}
                                     </span>
                                     {rx.followUpDate && (
-                                        <p className="text-xs text-gray-400 mt-1">Follow-up: {new Date(rx.followUpDate).toLocaleDateString('en-IN')}</p>
+                                        <p className="text-xs text-gray-500 font-medium bg-gray-50 px-2 py-1 rounded-md border border-gray-200 dark:bg-gray-800 dark:border-gray-700 flex items-center gap-1">
+                                            <Calendar className="h-3 w-3" />
+                                            Follow-up: {new Date(rx.followUpDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                        </p>
                                     )}
                                 </div>
                             </div>
-                        </div>
+                        </Link>
                     ))}
                 </div>
             </Card>

@@ -226,23 +226,37 @@ export default function DoctorAppointmentsPage() {
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div><h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Appointments</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Manage your patient appointments</p></div>
-                <Button onClick={() => fetchAppointments(selectedStatus, undefined, 1)} leftIcon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
+                <div className="flex items-center gap-3">
+                    <Button onClick={() => fetchAppointments(selectedStatus, undefined, 1)} leftIcon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
+                </div>
             </div>
 
-            <Card padding="sm">
-                <div className="flex items-center gap-4">
-                    <div className="flex-1"><Input placeholder="Search patients..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} leftIcon={<Search className="h-5 w-5" />} /></div>
-                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200">
-                        <option value="all">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="scheduled">Scheduled Only</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                    </select>
-                </div>
-            </Card>
+            {/* Status Filter Cards */}
+            <div className="flex flex-wrap items-center gap-2">
+                {[
+                    { id: 'active', label: 'Active' },
+                    { id: 'scheduled', label: 'Scheduled' },
+                    { id: 'confirmed', label: 'Confirmed' },
+                    { id: 'in_progress', label: 'In Progress' },
+                    { id: 'completed', label: 'Completed' },
+                    { id: 'cancelled', label: 'Cancelled' },
+                ].map((status) => {
+                    const isActive = statusFilter === status.id;
+                    return (
+                        <button
+                            key={status.id}
+                            onClick={() => setStatusFilter(status.id)}
+                            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                                isActive
+                                    ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 border border-emerald-500'
+                                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-emerald-500/50 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
+                            }`}
+                        >
+                            {status.label}
+                        </button>
+                    );
+                })}
+            </div>
 
             <Card padding="none">
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -252,9 +266,32 @@ export default function DoctorAppointmentsPage() {
                         const isActive = isActiveAppointment(apt.status);
                         const isActing = actionLoading === apt.id;
                         const consultationId = apt.consultation_id || apt.consultation_room_id;
+
+                        // Overdue: time has passed and still pending/confirmed
+                        const isOverdue = (() => {
+                            if (!['scheduled', 'confirmed'].includes(apt.status || '')) return false;
+                            const timeStr = apt.time || apt.timeSlot || '';
+                            if (!timeStr) return false;
+                            const [hStr, mStr] = timeStr.split(':');
+                            const apptDate = new Date();
+                            apptDate.setHours(parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
+                            return new Date() > apptDate;
+                        })();
+
                         return (
-                            <div key={apt.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                <div className="flex items-center justify-between">
+                            <div key={apt.id} className={`overflow-hidden rounded-lg transition-all ${
+                                isOverdue
+                                    ? 'border border-red-400 dark:border-red-500 shadow-[0_0_14px_rgba(239,68,68,0.25)]'
+                                    : 'border-0'
+                            }`}>
+                                {/* Overdue Banner */}
+                                {isOverdue && (
+                                    <div className="flex items-center gap-2 bg-red-500 text-white text-xs font-semibold px-4 py-2 animate-pulse">
+                                        <span>⚠️</span>
+                                        <span>Appointment time has passed! Please reschedule immediately.</span>
+                                    </div>
+                                )}
+                                <div className={`flex items-center justify-between p-4 ${ isOverdue ? 'bg-red-50 dark:bg-red-950/30' : 'p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50' }`}>
                                     <div className="flex items-center gap-4">
                                         <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-700"><User className="h-5 w-5" /></div>
                                         <div>
@@ -283,8 +320,16 @@ export default function DoctorAppointmentsPage() {
                                                     </Button>
                                                 )}
                                                 {(apt.type === 'video' || apt.type === 'Video') && apt.status !== 'scheduled' && (
-                                                    <Button size="sm" variant="primary" onClick={() => handleStartConsultation(apt.id)} disabled={isActing} leftIcon={isActing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}>
-                                                        {apt.status === 'in_progress' || consultationId ? 'Rejoin' : 'Start'}
+                                                    <Button
+                                                        size="sm"
+                                                        variant="primary"
+                                                        onClick={() => handleStartConsultation(apt.id)}
+                                                        disabled={isActing || isOverdue}
+                                                        leftIcon={isActing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                                                        className={isOverdue ? 'opacity-50 cursor-not-allowed' : ''}
+                                                        title={isOverdue ? 'Please reschedule first before starting' : ''}
+                                                    >
+                                                        {isOverdue ? 'Reschedule First!' : (apt.status === 'in_progress' || consultationId ? 'Rejoin' : 'Start')}
                                                     </Button>
                                                 )}
                                                 {apt.status !== 'scheduled' && apt.status !== 'completed' && apt.status !== 'cancelled' && (
@@ -293,8 +338,15 @@ export default function DoctorAppointmentsPage() {
                                                     </Button>
                                                 )}
                                                 {(apt.status === 'scheduled' || apt.status === 'confirmed') && (
-                                                    <Button size="sm" variant="outline" onClick={() => openNewSchedule(apt)} disabled={isActing} leftIcon={<CalendarClock className="h-3 w-3 text-emerald-600" />}>
-                                                        New Schedule
+                                                    <Button
+                                                        size="sm"
+                                                        variant={isOverdue ? 'danger' : 'outline'}
+                                                        onClick={() => openNewSchedule(apt)}
+                                                        disabled={isActing}
+                                                        leftIcon={<CalendarClock className={`h-3 w-3 ${isOverdue ? 'text-white' : 'text-emerald-600'}`} />}
+                                                        className={isOverdue ? 'bg-red-600 hover:bg-red-700 text-white border-red-600 animate-bounce' : ''}
+                                                    >
+                                                        {isOverdue ? 'Reschedule Now!' : 'New Schedule'}
                                                     </Button>
                                                 )}
                                                 <Button size="sm" variant="outline" onClick={() => handleCancel(apt.id)} disabled={isActing}>

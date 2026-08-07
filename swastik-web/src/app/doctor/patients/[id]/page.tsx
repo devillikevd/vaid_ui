@@ -181,6 +181,7 @@ export default function DoctorPatientRecordPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<'overview' | 'timeline' | 'vault' | 'reports'>('overview');
 
     const loadRecord = useCallback(async (refresh = false) => {
         if (!patientId) return;
@@ -258,376 +259,334 @@ export default function DoctorPatientRecordPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-20">
+            {/* Top Navigation & Actions */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <button
-                        type="button"
-                        onClick={() => router.push('/doctor/patients')}
-                        className="inline-flex items-center gap-2 text-sm font-medium text-emerald-700 transition-colors hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        Back to patient list
-                    </button>
-                    <h1 className="mt-3 text-2xl font-bold text-gray-900 dark:text-gray-100">{patientLabel}</h1>
-                    <p className="mt-1 text-gray-600 dark:text-gray-400">Core profile details are always visible. Older history from other doctors stays patient-controlled and only opens after time-limited patient approval.</p>
+                <button
+                    type="button"
+                    onClick={() => router.push('/doctor/patients')}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-emerald-700 dark:text-gray-400 dark:hover:text-emerald-400"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to patients
+                </button>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => void loadRecord(true)} leftIcon={<RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />} disabled={isRefreshing}>
+                        Refresh Profile
+                    </Button>
                 </div>
-                <Button variant="outline" onClick={() => void loadRecord(true)} leftIcon={<RefreshCw className="h-4 w-4" />} isLoading={isRefreshing}>
-                    Refresh record
-                </Button>
             </div>
 
-            <Card padding="none" className="overflow-hidden border-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white shadow-xl">
-                <div className="grid gap-6 p-6 lg:grid-cols-[1.4fr_1fr]">
-                    <div className="flex items-start gap-4">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-white/10 text-xl font-semibold">
+            {/* Premium Sticky Profile Header */}
+            <div className="sticky top-0 z-10 bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm overflow-hidden">
+                <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
+                <div className="p-5 flex flex-col md:flex-row md:items-center gap-5 justify-between">
+                    <div className="flex items-center gap-5">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-50 text-emerald-700 dark:from-emerald-900/40 dark:to-teal-900/20 dark:text-emerald-400 text-2xl font-bold shadow-inner ring-1 ring-emerald-500/20">
                             {patientLabel.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
                         </div>
-                        <div className="space-y-3">
-                            <div>
-                                <p className="text-sm uppercase tracking-[0.24em] text-cyan-200/80">Patient Record</p>
-                                <h2 className="mt-1 text-3xl font-semibold">{patientLabel}</h2>
-                            </div>
-                            <div className="flex flex-wrap gap-2 text-sm text-slate-200">
-                                {[record.age ? `${record.age} years` : null, record.gender, record.blood_group].filter(Boolean).map((item) => (
-                                    <span key={item} className="rounded-full bg-white/10 px-3 py-1">
-                                        {item}
-                                    </span>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{patientLabel}</h1>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                {[record.age ? `${record.age} yrs` : null, record.gender, record.blood_group].filter(Boolean).map((item) => (
+                                    <span key={item} className="rounded-md bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 font-medium border border-gray-200 dark:border-gray-700">{item}</span>
                                 ))}
-                            </div>
-                            <div className="grid gap-2 text-sm text-slate-200 sm:grid-cols-2">
-                                <span className="flex items-center gap-2"><Phone className="h-4 w-4 text-cyan-300" />{record.phone || 'Phone not recorded'}</span>
-                                <span className="flex items-center gap-2"><Mail className="h-4 w-4 text-cyan-300" />{record.email || 'Email not recorded'}</span>
-                                <span className="flex items-center gap-2"><Calendar className="h-4 w-4 text-cyan-300" />Last visit: {formatDate(record.lastVisit)}</span>
-                                <span className="flex items-center gap-2"><User className="h-4 w-4 text-cyan-300" />DOB: {formatDate(record.date_of_birth)}</span>
-                                <span className="flex items-center gap-2"><Scale className="h-4 w-4 text-cyan-300" />Weight: {record.weight ? `${record.weight} kg` : 'Not recorded'}</span>
-                                <span className="flex items-center gap-2"><Ruler className="h-4 w-4 text-cyan-300" />Height: {record.height ? `${record.height} cm` : 'Not recorded'}</span>
-                                <span className="flex items-center gap-2 sm:col-span-2"><MapPin className="h-4 w-4 text-cyan-300" />{record.address || 'Location not recorded'}</span>
+                                {record.phone && <span className="flex items-center gap-1.5 ml-2"><Phone className="h-3.5 w-3.5"/> {record.phone}</span>}
                             </div>
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-2xl bg-white/8 p-4">
-                            <p className="text-xs uppercase tracking-[0.2em] text-slate-300">Visits</p>
-                            <p className="mt-2 text-3xl font-semibold">{record.totalVisits || 0}</p>
+                    <div className="flex gap-4 text-center">
+                        <div className="px-5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800">
+                            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Total Visits</p>
+                            <p className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-0.5">{record.totalVisits || 0}</p>
                         </div>
-                        <div className="rounded-2xl bg-white/8 p-4">
-                            <p className="text-xs uppercase tracking-[0.2em] text-slate-300">Vitals</p>
-                            <p className="mt-2 text-3xl font-semibold">{vitals.length}</p>
-                        </div>
-                        <div className="rounded-2xl bg-white/8 p-4">
-                            <p className="text-xs uppercase tracking-[0.2em] text-slate-300">Consultations</p>
-                            <p className="mt-2 text-3xl font-semibold">{consultations.length}</p>
-                        </div>
-                        <div className="rounded-2xl bg-white/8 p-4">
-                            <p className="text-xs uppercase tracking-[0.2em] text-slate-300">Reports</p>
-                            <p className="mt-2 text-3xl font-semibold">{reports.length}</p>
+                        <div className="px-5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800 hidden sm:block">
+                            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Last Visit</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mt-2">{formatDate(record.lastVisit) || 'N/A'}</p>
                         </div>
                     </div>
                 </div>
-            </Card>
-
-            <div className="grid gap-6 xl:grid-cols-[1.05fr_1fr]">
-                <div className="space-y-6">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <div>
-                                <CardTitle>Appointments</CardTitle>
-                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Recent scheduled visits and their status.</p>
-                            </div>
-                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-gray-800 dark:text-gray-300">
-                                {recentAppointments.length} total
-                            </span>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {recentAppointments.length === 0 ? (
-                                <p className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                    No appointment history is available yet.
-                                </p>
-                            ) : recentAppointments.map((appointment) => (
-                                <div key={appointment.id} className="rounded-2xl border border-gray-200/80 bg-white/80 p-4 dark:border-gray-700 dark:bg-gray-900/70">
-                                    <div className="flex flex-wrap items-start justify-between gap-3">
-                                        <div>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <p className="font-medium text-gray-900 dark:text-gray-100">
-                                                    {formatDate(appointment.appointment_date || appointment.created_at)}
-                                                </p>
-                                                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClasses(appointment.status)}`}>
-                                                    {formatStatus(appointment.status)}
-                                                </span>
-                                            </div>
-                                            <div className="mt-2 flex flex-wrap gap-3 text-sm text-gray-500 dark:text-gray-400">
-                                                <span className="flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" />{appointment.time_slot || 'Time pending'}</span>
-                                                <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" />{formatStatus(appointment.type || 'visit')}</span>
-                                                {appointment.fee ? <span>Fee: ₹{appointment.fee.toLocaleString('en-IN')}</span> : null}
-                                            </div>
-                                        </div>
-                                        {appointment.reason && <p className="max-w-md text-sm text-gray-600 dark:text-gray-300">{appointment.reason}</p>}
-                                    </div>
-                                    {appointment.notes && (
-                                        <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:bg-gray-800 dark:text-gray-300">
-                                            {appointment.notes}
-                                        </p>
-                                    )}
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <div>
-                                <CardTitle>Consultations & Prescriptions</CardTitle>
-                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Notes and medicines created during visits with this doctor.</p>
-                            </div>
-                            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                                {consultations.length} records
-                            </span>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {consultations.length === 0 ? (
-                                <p className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                    No consultation history has been added yet.
-                                </p>
-                            ) : consultations.map((consultation) => (
-                                <div key={consultation.id} className="rounded-2xl border border-gray-200/80 p-4 dark:border-gray-700">
-                                    <div className="flex flex-wrap items-start justify-between gap-3">
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <p className="font-medium text-gray-900 dark:text-gray-100">{formatDate(consultation.created_at, true)}</p>
-                                                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClasses(consultation.status)}`}>
-                                                    {formatStatus(consultation.status)}
-                                                </span>
-                                            </div>
-                                            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                                                {consultation.diagnosis || consultation.notes || 'No diagnosis or consultation notes were recorded.'}
-                                            </p>
-                                        </div>
-                                        <div className="rounded-xl bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-                                            <span className="inline-flex items-center gap-1.5">
-                                                <Pill className="h-4 w-4" />
-                                                {(consultation.prescriptions || []).length} prescriptions
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
+                
+                {/* Tabs */}
+                <div className="flex overflow-x-auto border-t border-gray-100 dark:border-gray-800 px-4 scrollbar-hide">
+                    {[
+                        { id: 'overview', label: 'Overview & Vitals', icon: Activity },
+                        { id: 'timeline', label: 'Consultations', icon: Clock3 },
+                        { id: 'vault', label: 'Shared Vault', icon: Lock },
+                        { id: 'reports', label: 'Lab Reports', icon: FileText }
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`flex items-center gap-2 px-4 py-3.5 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === tab.id ? 'border-emerald-500 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 hover:border-gray-200 dark:hover:border-gray-700'}`}
+                        >
+                            <tab.icon className="w-4 h-4" />
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
+            </div>
 
-                <div className="space-y-6">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <div>
-                                <CardTitle>Recent Vitals</CardTitle>
-                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Latest vitals recorded for this patient.</p>
-                            </div>
-                            <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700 dark:bg-orange-950/40 dark:text-orange-300">
-                                {vitals.length} entries
-                            </span>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {vitals.length === 0 ? (
-                                <p className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                    No vitals have been recorded yet.
-                                </p>
-                            ) : vitals.slice(0, 8).map((vital) => (
-                                <div key={vital.id} className="rounded-2xl border border-gray-200/80 p-4 dark:border-gray-700">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div>
-                                            <p className="font-medium text-gray-900 dark:text-gray-100">{formatDate(vital.recordedAt || vital.created_at, true)}</p>
-                                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{vital.notes || 'Vitals captured from the patient monitoring flow.'}</p>
+            {/* Tab Content */}
+            <div className="mt-6 animate-in fade-in duration-300">
+                {activeTab === 'overview' && (
+                    <div className="grid gap-6 md:grid-cols-2">
+                        {/* Vitals Snapshot */}
+                        <Card className="border-0 shadow-sm ring-1 ring-gray-200 dark:ring-gray-800">
+                            <CardHeader className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/20">
+                                <CardTitle className="flex items-center gap-2 text-lg"><Activity className="w-5 h-5 text-emerald-500"/> Latest Vitals Snapshot</CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-6">
+                                {vitals.length > 0 ? (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="p-4 rounded-xl bg-gradient-to-br from-red-50 to-white dark:from-red-950/20 dark:to-gray-900 border border-red-100 dark:border-red-900/30">
+                                            <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">Heart Rate</p>
+                                            <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">{vitals[0].heartRate || '--'} <span className="text-sm font-medium text-gray-500">bpm</span></p>
                                         </div>
-                                        <Activity className="h-5 w-5 text-emerald-600" />
+                                        <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-gray-900 border border-blue-100 dark:border-blue-900/30">
+                                            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Blood Pressure</p>
+                                            <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">{vitals[0].bloodPressure || '--'}</p>
+                                        </div>
+                                        <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-50 to-white dark:from-cyan-950/20 dark:to-gray-900 border border-cyan-100 dark:border-cyan-900/30">
+                                            <p className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider">SpO2</p>
+                                            <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">{vitals[0].oxygenLevel || '--'} <span className="text-sm font-medium text-gray-500">%</span></p>
+                                        </div>
+                                        <div className="p-4 rounded-xl bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/20 dark:to-gray-900 border border-orange-100 dark:border-orange-900/30">
+                                            <p className="text-xs font-semibold text-orange-600 dark:text-orange-400 uppercase tracking-wider">Temperature</p>
+                                            <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">{vitals[0].temperature || '--'} <span className="text-sm font-medium text-gray-500">°F</span></p>
+                                        </div>
                                     </div>
-                                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                                        <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-gray-800">
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">Blood Pressure</p>
-                                            <p className="font-medium text-gray-900 dark:text-gray-100">{vital.bloodPressure || 'N/A'}</p>
-                                        </div>
-                                        <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-gray-800">
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">Heart Rate</p>
-                                            <p className="font-medium text-gray-900 dark:text-gray-100">{vital.heartRate ? `${vital.heartRate} bpm` : 'N/A'}</p>
-                                        </div>
-                                        <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-gray-800">
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">SpO₂</p>
-                                            <p className="font-medium text-gray-900 dark:text-gray-100">{vital.oxygenLevel ? `${vital.oxygenLevel}%` : 'N/A'}</p>
-                                        </div>
-                                        <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-gray-800">
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">Temperature</p>
-                                            <p className="font-medium text-gray-900 dark:text-gray-100">{vital.temperature ? `${vital.temperature}°F` : 'N/A'}</p>
-                                        </div>
+                                ) : (
+                                    <div className="py-12 text-center text-gray-500">
+                                        <Activity className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                                        <p>No vitals recorded yet.</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                        
+                        {/* Profile Info */}
+                        <Card className="border-0 shadow-sm ring-1 ring-gray-200 dark:ring-gray-800">
+                            <CardHeader className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/20">
+                                <CardTitle className="flex items-center gap-2 text-lg"><User className="w-5 h-5 text-blue-500"/> Personal Information</CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-6 space-y-5">
+                                <div className="grid grid-cols-2 gap-5 text-sm">
+                                    <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
+                                        <p className="text-gray-500 dark:text-gray-400 text-xs uppercase font-medium">Email</p>
+                                        <p className="font-medium text-gray-900 dark:text-gray-100 mt-1 truncate">{record.email || 'N/A'}</p>
+                                    </div>
+                                    <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
+                                        <p className="text-gray-500 dark:text-gray-400 text-xs uppercase font-medium">Date of Birth</p>
+                                        <p className="font-medium text-gray-900 dark:text-gray-100 mt-1">{formatDate(record.date_of_birth)}</p>
+                                    </div>
+                                    <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
+                                        <p className="text-gray-500 dark:text-gray-400 text-xs uppercase font-medium">Weight</p>
+                                        <p className="font-medium text-gray-900 dark:text-gray-100 mt-1">{record.weight ? `${record.weight} kg` : 'N/A'}</p>
+                                    </div>
+                                    <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
+                                        <p className="text-gray-500 dark:text-gray-400 text-xs uppercase font-medium">Height</p>
+                                        <p className="font-medium text-gray-900 dark:text-gray-100 mt-1">{record.height ? `${record.height} cm` : 'N/A'}</p>
+                                    </div>
+                                    <div className="col-span-2 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
+                                        <p className="text-gray-500 dark:text-gray-400 text-xs uppercase font-medium">Address</p>
+                                        <p className="font-medium text-gray-900 dark:text-gray-100 mt-1">{record.address || 'N/A'}</p>
                                     </div>
                                 </div>
-                            ))}
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <div>
-                                <CardTitle>Patient-Approved Medical History</CardTitle>
-                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    Historical records from other doctors only appear after patient consent during the consultation flow.
-                                </p>
-                            </div>
-                            <span className={`rounded-full px-3 py-1 text-xs font-medium ${recordAccess?.hasFullHistoryAccess ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'}`}>
-                                {recordAccess?.hasFullHistoryAccess ? 'Approved' : 'Locked'}
-                            </span>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {recordAccess?.hasFullHistoryAccess ? (
-                                <>
-                                    <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/60 p-4 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/20 dark:text-emerald-200">
-                                        Patient-approved access is active{recordAccess.expiresAt ? ` until ${formatDate(recordAccess.expiresAt, true)}` : ''}. Core profile details remain visible even after this shared-history window ends.
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Other Consultation History</p>
-                                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-gray-800 dark:text-gray-300">
-                                                {sharedConsultations.length} records
-                                            </span>
-                                        </div>
-                                        {sharedConsultations.length === 0 ? (
-                                            <p className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                                No prior consultations from other doctors are available.
-                                            </p>
-                                        ) : sharedConsultations.map((consultation) => (
-                                            <div key={consultation.id} className="rounded-2xl border border-gray-200/80 p-4 dark:border-gray-700">
-                                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                                    <div>
-                                                        <p className="font-medium text-gray-900 dark:text-gray-100">
-                                                            {consultation.doctor?.name ? `Dr. ${consultation.doctor.name}` : 'Doctor not recorded'}
-                                                            {consultation.doctor?.specialization ? ` • ${consultation.doctor.specialization}` : ''}
-                                                        </p>
-                                                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                                            {formatDate(consultation.appointment?.appointment_date || consultation.created_at, true)}
+                {activeTab === 'timeline' && (
+                    <div className="space-y-6">
+                        <Card className="border-0 shadow-sm ring-1 ring-gray-200 dark:ring-gray-800">
+                            <CardHeader className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/20">
+                                <CardTitle className="flex items-center justify-between">
+                                    <span className="flex items-center gap-2"><FileText className="w-5 h-5 text-emerald-600"/> Consultations & Prescriptions</span>
+                                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                        {consultations.length} records
+                                    </span>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-6">
+                                {consultations.length === 0 ? (
+                                    <p className="py-8 text-center text-gray-500">No consultation history.</p>
+                                ) : (
+                                    <div className="relative border-l border-gray-200 dark:border-gray-700 ml-4 space-y-8 pb-4">
+                                        {consultations.map((consultation, i) => (
+                                            <div key={consultation.id} className="relative pl-6">
+                                                <div className="absolute w-3 h-3 bg-emerald-500 rounded-full -left-[6.5px] top-2 ring-4 ring-white dark:ring-gray-900" />
+                                                <div className="bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                                                    <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                                                        <div>
+                                                            <p className="font-bold text-gray-900 dark:text-gray-100">{formatDate(consultation.created_at, true)}</p>
+                                                        </div>
+                                                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClasses(consultation.status)}`}>
+                                                            {formatStatus(consultation.status)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+                                                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                                                            <span className="font-semibold mr-2 text-gray-900 dark:text-gray-100">Diagnosis/Notes:</span>
+                                                            {consultation.diagnosis || consultation.notes || 'No details recorded.'}
                                                         </p>
                                                     </div>
-                                                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClasses(consultation.status)}`}>
-                                                        {formatStatus(consultation.status)}
-                                                    </span>
+                                                    {(consultation.prescriptions && consultation.prescriptions.length > 0) && (
+                                                        <div className="mt-4 flex items-center gap-2">
+                                                            <Pill className="h-4 w-4 text-blue-500" />
+                                                            <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Prescribed {consultation.prescriptions.length} items</span>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
-                                                    {consultation.diagnosis || consultation.notes || 'No diagnosis or notes were recorded for this consultation.'}
-                                                </p>
                                             </div>
                                         ))}
                                     </div>
-
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Other Prescriptions</p>
-                                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-gray-800 dark:text-gray-300">
-                                                {sharedPrescriptions.length} records
-                                            </span>
-                                        </div>
-                                        {sharedPrescriptions.length === 0 ? (
-                                            <p className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                                No prior prescriptions from other doctors are available.
-                                            </p>
-                                        ) : sharedPrescriptions.map((prescription) => (
-                                            <div key={prescription.id} className="rounded-2xl border border-gray-200/80 p-4 dark:border-gray-700">
-                                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                                    <div>
-                                                        <p className="font-medium text-gray-900 dark:text-gray-100">
-                                                            {prescription.doctor?.name ? `Dr. ${prescription.doctor.name}` : 'Doctor not recorded'}
-                                                            {prescription.doctor?.specialization ? ` • ${prescription.doctor.specialization}` : ''}
-                                                        </p>
-                                                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{formatDate(prescription.created_at, true)}</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                        
+                        <Card className="border-0 shadow-sm ring-1 ring-gray-200 dark:ring-gray-800">
+                            <CardHeader className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/20">
+                                <CardTitle className="flex items-center justify-between">
+                                    <span className="flex items-center gap-2"><Calendar className="w-5 h-5 text-blue-600"/> Appointments History</span>
+                                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                        {recentAppointments.length} records
+                                    </span>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-6">
+                                {recentAppointments.length === 0 ? (
+                                    <p className="py-8 text-center text-gray-500">No appointments found.</p>
+                                ) : (
+                                    <div className="grid gap-3">
+                                        {recentAppointments.map(app => (
+                                            <div key={app.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
+                                                        <Calendar className="h-4 w-4 text-gray-500" />
                                                     </div>
-                                                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClasses(prescription.status)}`}>
-                                                        {formatStatus(prescription.status)}
+                                                    <div>
+                                                        <p className="font-medium text-gray-900 dark:text-gray-100">{formatDate(app.appointment_date || app.created_at)} at {app.time_slot}</p>
+                                                        <p className="text-sm text-gray-500 mt-0.5">{app.reason || 'General Visit'}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-3 sm:mt-0 flex items-center gap-3">
+                                                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClasses(app.status)}`}>
+                                                        {formatStatus(app.status)}
                                                     </span>
                                                 </div>
-                                                <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
-                                                    {prescription.diagnosis || prescription.notes || 'No diagnosis or notes were recorded for this prescription.'}
-                                                </p>
-                                                {prescription.prescription_medicines && prescription.prescription_medicines.length > 0 ? (
-                                                    <div className="mt-3 flex flex-wrap gap-2">
-                                                        {prescription.prescription_medicines.slice(0, 4).map((medicine, index) => (
-                                                            <span key={`${prescription.id}-${medicine.id || index}`} className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
-                                                                {medicine.medicine_name || 'Medicine'}
-                                                            </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
+                {activeTab === 'vault' && (
+                    <div className="space-y-6">
+                        <div className={`p-5 rounded-2xl border ${recordAccess?.hasFullHistoryAccess ? 'bg-emerald-50/50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50' : 'bg-amber-50/50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50'} flex items-start gap-4`}>
+                            {recordAccess?.hasFullHistoryAccess ? (
+                                <Lock className="w-6 h-6 text-emerald-600 mt-1 shrink-0" />
+                            ) : (
+                                <Lock className="w-6 h-6 text-amber-600 mt-1 shrink-0" />
+                            )}
+                            <div>
+                                <h3 className={`font-semibold text-lg ${recordAccess?.hasFullHistoryAccess ? 'text-emerald-800 dark:text-emerald-400' : 'text-amber-800 dark:text-amber-400'}`}>
+                                    {recordAccess?.hasFullHistoryAccess ? 'Vault Unlocked' : 'Vault Locked'}
+                                </h3>
+                                <p className={`text-sm mt-1 ${recordAccess?.hasFullHistoryAccess ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                                    {recordAccess?.hasFullHistoryAccess 
+                                        ? `Patient-approved access is active${recordAccess.expiresAt ? ` until ${formatDate(recordAccess.expiresAt, true)}` : ''}. You can view historical records from other doctors.`
+                                        : 'Patient approval is required for past medical history from other clinics. Ask the patient to grant access during consultation.'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {recordAccess?.hasFullHistoryAccess && (
+                            <div className="grid gap-6 md:grid-cols-2">
+                                <Card className="border-0 shadow-sm ring-1 ring-gray-200 dark:ring-gray-800">
+                                    <CardHeader className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/20">
+                                        <CardTitle className="text-lg">Other Consultations</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-6">
+                                        {sharedConsultations.length === 0 ? (
+                                            <p className="text-sm text-gray-500 text-center py-4">No prior consultations found.</p>
+                                        ) : sharedConsultations.map(c => (
+                                            <div key={c.id} className="mb-4 last:mb-0 p-4 border border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50 dark:bg-gray-900/30">
+                                                <p className="font-medium text-gray-900 dark:text-gray-100">Dr. {c.doctor?.name || 'Unknown'}</p>
+                                                <p className="text-xs text-gray-500">{formatDate(c.created_at)}</p>
+                                                <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">{c.diagnosis || c.notes}</p>
+                                            </div>
+                                        ))}
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-0 shadow-sm ring-1 ring-gray-200 dark:ring-gray-800">
+                                    <CardHeader className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/20">
+                                        <CardTitle className="text-lg">Other Prescriptions</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-6">
+                                        {sharedPrescriptions.length === 0 ? (
+                                            <p className="text-sm text-gray-500 text-center py-4">No prior prescriptions found.</p>
+                                        ) : sharedPrescriptions.map(p => (
+                                            <div key={p.id} className="mb-4 last:mb-0 p-4 border border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50 dark:bg-gray-900/30">
+                                                <p className="font-medium text-gray-900 dark:text-gray-100">Dr. {p.doctor?.name || 'Unknown'}</p>
+                                                <p className="text-xs text-gray-500">{formatDate(p.created_at)}</p>
+                                                {p.prescription_medicines && (
+                                                    <div className="mt-3 flex flex-wrap gap-1.5">
+                                                        {p.prescription_medicines.map((m, i) => (
+                                                            <span key={i} className="px-2 py-1 rounded-md bg-blue-100 text-blue-800 text-[10px] font-medium">{m.medicine_name}</span>
                                                         ))}
                                                     </div>
-                                                ) : null}
+                                                )}
                                             </div>
                                         ))}
-                                    </div>
-                                </>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'reports' && (
+                    <Card className="border-0 shadow-sm ring-1 ring-gray-200 dark:ring-gray-800">
+                        <CardHeader className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/20">
+                            <CardTitle className="flex items-center justify-between">
+                                <span className="flex items-center gap-2"><FileText className="w-5 h-5 text-violet-600"/> Lab Reports & Documents</span>
+                                <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-medium text-violet-800 dark:bg-violet-900/30 dark:text-violet-300">
+                                    {reports.length} files
+                                </span>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            {reports.length === 0 ? (
+                                <p className="py-12 text-center text-gray-500">No reports found.</p>
                             ) : (
-                                <div className="rounded-2xl border border-dashed border-amber-200 bg-amber-50/60 p-5 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">
-                                    <div className="flex items-start gap-3">
-                                        <Lock className="mt-0.5 h-5 w-5 shrink-0" />
-                                        <div className="space-y-2">
-                                            <p className="font-semibold">Patient approval is required for past medical history.</p>
-                                            <p>
-                                                Ask the patient to use the consultation screen to share 24-hour access to past reports, prescriptions, and older consultations. Until then, you only see the core profile and any reports the patient shared individually.
-                                            </p>
+                                <div className="grid sm:grid-cols-2 gap-4">
+                                    {reports.map(report => (
+                                        <div key={report.id} className="flex items-start gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-violet-300 transition-colors group">
+                                            <div className="p-3 rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400">
+                                                <FileText className="w-6 h-6" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{getReportTitle(report)}</p>
+                                                <p className="text-xs text-gray-500 mt-1">{formatDate(report.date || report.created_at)} • {formatStatus(report.type)}</p>
+                                                {report.file_url && (
+                                                    <a href={report.file_url} target="_blank" rel="noreferrer" className="inline-block mt-3 text-sm font-medium text-violet-600 hover:text-violet-800 dark:text-violet-400 transition-colors">
+                                                        View Document &rarr;
+                                                    </a>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
+                                    ))}
                                 </div>
                             )}
                         </CardContent>
                     </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <div>
-                                <CardTitle>Reports</CardTitle>
-                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    {recordAccess?.hasFullHistoryAccess
-                                        ? 'Patient-approved reports and lab documents.'
-                                        : 'Only individually shared reports are visible until the patient grants full record access.'}
-                                </p>
-                            </div>
-                            <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
-                                {reports.length} files
-                            </span>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {reports.length === 0 ? (
-                                <p className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                    No reports are linked to this patient yet.
-                                </p>
-                            ) : reports.map((report) => (
-                                <div key={report.id} className="rounded-2xl border border-gray-200/80 p-4 dark:border-gray-700">
-                                    <div className="flex flex-wrap items-start justify-between gap-3">
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <FileText className="h-4 w-4 text-blue-600" />
-                                                <p className="font-medium text-gray-900 dark:text-gray-100">{getReportTitle(report)}</p>
-                                            </div>
-                                            <div className="mt-2 flex flex-wrap gap-2 text-sm text-gray-500 dark:text-gray-400">
-                                                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClasses(report.status)}`}>
-                                                    {formatStatus(report.status || 'pending')}
-                                                </span>
-                                                <span>{formatStatus(report.type || 'report')}</span>
-                                                <span>{formatDate(report.date || report.created_at)}</span>
-                                            </div>
-                                            {(report.doctor_notes || report.notes) && (
-                                                <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">{report.doctor_notes || report.notes}</p>
-                                            )}
-                                        </div>
-                                        {report.file_url ? (
-                                            <a
-                                                href={report.file_url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                                            >
-                                                Open file
-                                            </a>
-                                        ) : null}
-                                    </div>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-                </div>
+                )}
             </div>
         </div>
     );

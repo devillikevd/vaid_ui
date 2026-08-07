@@ -581,10 +581,12 @@ export const doctorApi = {
         return fetchWithAuth(`/appointments?${params}`);
     },
 
-    getPatients: (page: number = 1, search: string = '', limit: number = 20) => {
+    getPatients: (page: number = 1, search: string = '', limit: number = 20, filter: string = 'all', sort: string = 'recent') => {
         const params = new URLSearchParams({
             page: page.toString(),
             limit: limit.toString(),
+            filter,
+            sort
         });
         if (search.trim()) params.set('search', search.trim());
         return fetchWithAuth(`/doctors/me/patients?${params}`);

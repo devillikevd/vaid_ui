@@ -11,6 +11,11 @@ import {
     Menu,
     X,
     Search,
+    User as UserIcon,
+    Settings2,
+    Sun,
+    Moon,
+    Monitor,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
@@ -20,6 +25,7 @@ import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { NotificationBell, NotificationPanel } from '@/components/ui/Toast';
 import { ConnectionIndicator } from '@/components/shared/ConnectionIndicator';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
+import { useTheme } from '@/components/shared/ThemeProvider';
 import GlobalSocketToasts from '@/components/shared/GlobalSocketToasts';
 import { type Notification, useNotifications } from '@/hooks/useSocket';
 
@@ -78,6 +84,28 @@ export interface DashboardConfig {
 }
 
 // ----- Color Mapping -----
+
+// Inline theme option button used inside profile dropdown
+function ThemeOptionButton({ value, Icon }: { value: 'light' | 'dark' | 'system'; Icon: LucideIcon }) {
+    const { theme, setTheme } = useTheme();
+    const isActive = theme === value;
+    const labels = { light: '☀️ Light', dark: '🌙 Dark', system: '💻 System' };
+    return (
+        <button
+            onClick={() => setTheme(value)}
+            className={cn(
+                'flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all',
+                isActive
+                    ? 'bg-emerald-500 text-white shadow-sm'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+            )}
+        >
+            <Icon className="h-3 w-3" />
+            {labels[value].split(' ')[1]}
+        </button>
+    );
+}
+
 
 const COLOR_CLASSES: Record<string, {
     sidebar: string;
@@ -267,7 +295,45 @@ export default function DashboardLayout({
     const [searchOpen, setSearchOpen] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
+    const [animatedPlaceholder, setAnimatedPlaceholder] = useState('Search pages...');
     const { notifications, unreadCount, clearNotifications, markRead, markAllRead } = useNotifications();
+
+    // Typewriter animated placeholder cycling through nav page names
+    useEffect(() => {
+        const pages = config.navItems.map(item => item.name);
+        if (pages.length === 0) return;
+        let pageIdx = 0;
+        let charIdx = 0;
+        let deleting = false;
+        let timeout: ReturnType<typeof setTimeout>;
+
+        const tick = () => {
+            const word = `Search ${pages[pageIdx]}...`;
+            if (!deleting) {
+                charIdx++;
+                setAnimatedPlaceholder(word.slice(0, charIdx));
+                if (charIdx === word.length) {
+                    deleting = true;
+                    timeout = setTimeout(tick, 1400); // pause before deleting
+                    return;
+                }
+                timeout = setTimeout(tick, 55);
+            } else {
+                charIdx--;
+                setAnimatedPlaceholder(word.slice(0, charIdx));
+                if (charIdx === 0) {
+                    deleting = false;
+                    pageIdx = (pageIdx + 1) % pages.length;
+                    timeout = setTimeout(tick, 300);
+                    return;
+                }
+                timeout = setTimeout(tick, 30);
+            }
+        };
+        timeout = setTimeout(tick, 800);
+        return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Close search on outside click
     useEffect(() => {
@@ -279,6 +345,18 @@ export default function DashboardLayout({
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    // Global keyboard shortcut (Cmd/Ctrl + K) to focus search
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                searchInputRef.current?.focus();
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
     }, []);
 
     // Build searchable nav pages list from config
@@ -568,21 +646,27 @@ export default function DashboardLayout({
                         >
                             <Menu className="h-5 w-5" />
                         </button>
-                        <div className="min-w-0">
-                            <h2 className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100 sm:text-base">
+                        {/* Active page icon + name */}
+                        <div className="min-w-0 flex items-center gap-2.5">
+                            {activeNavItem && (() => { const Icon = activeNavItem.icon; return (
+                                <span className={cn('hidden sm:flex items-center justify-center h-8 w-8 rounded-lg shrink-0', colors.logoBg)}>
+                                    <Icon className="h-4 w-4 text-white" />
+                                </span>
+                            ); })()}
+                            <h2 className="truncate text-sm font-bold text-gray-900 dark:text-gray-100 sm:text-base">
                                 {activeNavItem?.name || 'Dashboard'}
                             </h2>
                         </div>
                     </div>
 
                     {/* Search Bar */}
-                    <div ref={searchRef} className="relative hidden md:block flex-1 max-w-xs lg:max-w-sm mx-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                    <div ref={searchRef} className="relative hidden md:flex flex-1 max-w-sm lg:max-w-md mx-4">
+                        <div className="relative w-full group">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-emerald-500 transition-colors pointer-events-none" />
                             <input
                                 ref={searchInputRef}
                                 type="text"
-                                placeholder="Search pages..."
+                                placeholder={animatedPlaceholder}
                                 value={searchQuery}
                                 onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
                                 onFocus={() => setSearchOpen(true)}
@@ -594,12 +678,12 @@ export default function DashboardLayout({
                                         setSearchQuery('');
                                     }
                                 }}
-                                className="w-full pl-9 pr-8 py-1.5 text-sm rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                                className="w-full pl-10 pr-14 py-2.5 text-sm rounded-xl bg-gray-100 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 focus:bg-white dark:focus:bg-gray-800 transition-all shadow-sm"
                             />
                             {searchQuery && (
                                 <button
                                     onClick={() => { setSearchQuery(''); setSearchOpen(false); searchInputRef.current?.focus(); }}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                                 >
                                     <X className="h-3.5 w-3.5" />
                                 </button>
@@ -645,9 +729,7 @@ export default function DashboardLayout({
                     </div>
 
                     <div className="flex shrink-0 items-center gap-1 sm:gap-2 lg:gap-4">
-                        <div className="hidden sm:block">
-                            <ThemeToggle />
-                        </div>
+
                         <div className="hidden sm:block">
                             <ConnectionIndicator />
                         </div>
@@ -704,29 +786,79 @@ export default function DashboardLayout({
                                         onClick={() => setDropdownOpen(false)}
                                         role="presentation"
                                     />
-                                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20">
-                                        {config.showFullDropdown && (
-                                            <>
-                                                <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700">
-                                                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{displayName}</p>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
+                                    <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-20">
+
+                                        {/* Profile Header */}
+                                        <div className="px-4 py-4 bg-gradient-to-br from-emerald-500/10 to-emerald-700/5 border-b border-gray-100 dark:border-gray-700">
+                                            <div className="flex items-center gap-3">
+                                                <div className={cn(
+                                                    'h-11 w-11 rounded-full flex items-center justify-center text-white text-base font-bold shrink-0',
+                                                    colors.avatar
+                                                )}>
+                                                    {getInitials(displayName)}
                                                 </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{displayName}</p>
+                                                    <span className="inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 capitalize">
+                                                        {user?.role?.replace(/_/g, ' ')}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Navigation Links */}
+                                        {config.showFullDropdown && (
+                                            <div className="py-1.5">
+                                                <Link
+                                                    href={`/${user?.role?.replace(/_owner|_manager/, '')}/settings`}
+                                                    onClick={() => setDropdownOpen(false)}
+                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                                >
+                                                    <span className="flex items-center justify-center h-7 w-7 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                                                        <UserIcon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                                    </span>
+                                                    <span>View Profile</span>
+                                                </Link>
                                                 {config.settingsHref && (
                                                     <Link
                                                         href={config.settingsHref}
-                                                        className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                                        onClick={() => setDropdownOpen(false)}
+                                                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                                                     >
-                                                        Settings
+                                                        <span className="flex items-center justify-center h-7 w-7 rounded-lg bg-gray-100 dark:bg-gray-700">
+                                                            <Settings2 className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                                                        </span>
+                                                        <span>Account &amp; Settings</span>
                                                     </Link>
                                                 )}
-                                            </>
+                                            </div>
                                         )}
-                                        <button
-                                            onClick={handleLogout}
-                                            className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                        >
-                                            Sign Out
-                                        </button>
+
+                                        {/* Theme Toggle Row */}
+                                        <div className="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">Theme</p>
+                                            <div className="flex items-center gap-1.5">
+                                                {(['light', 'dark', 'system'] as const).map((t) => {
+                                                    const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
+                                                    return (
+                                                        <ThemeOptionButton key={t} value={t} Icon={Icon} />
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Sign Out */}
+                                        <div className="border-t border-gray-100 dark:border-gray-700 py-1.5">
+                                            <button
+                                                onClick={handleLogout}
+                                                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                            >
+                                                <span className="flex items-center justify-center h-7 w-7 rounded-lg bg-red-100 dark:bg-red-900/30">
+                                                    <LogOut className="h-4 w-4 text-red-500" />
+                                                </span>
+                                                <span className="font-medium">Sign Out</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </>
                             )}

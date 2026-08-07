@@ -156,7 +156,7 @@ interface DoctorState {
     fetchDashboardData: () => Promise<void>;
     fetchAppointments: (status?: string, date?: string, page?: number) => Promise<void>;
     fetchConsultations: () => Promise<void>;
-    fetchPatients: (page?: number, search?: string, limit?: number) => Promise<void>;
+    fetchPatients: (page?: number, search?: string, limit?: number, filter?: string, sort?: string) => Promise<void>;
     fetchSchedule: () => Promise<void>;
     fetchPrescriptions: (page?: number) => Promise<void>;
     fetchVitals: (page?: number, patientId?: string) => Promise<void>;
@@ -383,10 +383,10 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         }
     },
 
-    fetchPatients: async (page: number = 1, search: string = '', limit: number = 20) => {
+    fetchPatients: async (page: number = 1, search: string = '', limit: number = 20, filter: string = 'all', sort: string = 'recent') => {
         set({ loadingPatients: true, error: null });
         try {
-            const response = await doctorApi.getPatients(page, search, limit);
+            const response = await doctorApi.getPatients(page, search, limit, filter, sort);
             if (!response.success) {
                 set({ error: response.error || 'Failed to load patients', loadingPatients: false });
                 return;

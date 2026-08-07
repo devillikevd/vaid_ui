@@ -960,7 +960,7 @@ class DoctorService {
   }
 
   // Get patients list (for doctor)
-  async getPatients(userId, page = 1, limit = 20, search = '') {
+  async getPatients(userId, page = 1, limit = 20, search = '', filter = 'all', sort = 'recent') {
     const { data: doctor } = await supabaseAdmin
       .from('doctors')
       .select('id')
@@ -1057,11 +1057,32 @@ class DoctorService {
       );
     }
 
-    patients.sort((a, b) => {
-      const left = b.lastVisit ? new Date(b.lastVisit).getTime() : 0;
-      const right = a.lastVisit ? new Date(a.lastVisit).getTime() : 0;
-      return left - right;
-    });
+    if (filter === 'last_7_days') {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      patients = patients.filter(p => p.lastVisit && new Date(p.lastVisit) >= weekAgo);
+    } else if (filter === 'last_30_days') {
+      const monthAgo = new Date();
+      monthAgo.setDate(monthAgo.getDate() - 30);
+      patients = patients.filter(p => p.lastVisit && new Date(p.lastVisit) >= monthAgo);
+    }
+
+    if (sort === 'frequent') {
+      patients.sort((a, b) => (b.totalVisits || 0) - (a.totalVisits || 0));
+    } else if (sort === 'oldest') {
+      patients.sort((a, b) => {
+        const left = a.lastVisit ? new Date(a.lastVisit).getTime() : 0;
+        const right = b.lastVisit ? new Date(b.lastVisit).getTime() : 0;
+        return left - right;
+      });
+    } else {
+      // default: recent
+      patients.sort((a, b) => {
+        const left = b.lastVisit ? new Date(b.lastVisit).getTime() : 0;
+        const right = a.lastVisit ? new Date(a.lastVisit).getTime() : 0;
+        return left - right;
+      });
+    }
     const paginatedPatients = patients.slice(offset, offset + limit);
 
     return paginatedResponse(paginatedPatients, patients.length, page, limit);

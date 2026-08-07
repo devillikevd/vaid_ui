@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, createContext, useContext, useCallback, ReactNode } from 'react';
+import { useEffect, useState, useRef, createContext, useContext, useCallback, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 // Toast types
@@ -181,7 +181,15 @@ function ToastContainer({ toasts, removeToast }: { toasts: Toast[]; removeToast:
 export function ToastProvider({ children }: { children: ReactNode }) {
     const [toasts, setToasts] = useState<Toast[]>([]);
 
+    const lastShownRef = useRef<Map<string, number>>(new Map());
+
     const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
+        // Deduplication: skip if same type+title was shown within 2 seconds
+        const dedupKey = `${toast.type}::${toast.title}`;
+        const lastShown = lastShownRef.current.get(dedupKey) ?? 0;
+        if (Date.now() - lastShown < 2000) return '';
+        lastShownRef.current.set(dedupKey, Date.now());
+
         const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const newToast: Toast = {
             ...toast,

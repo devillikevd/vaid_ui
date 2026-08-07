@@ -13,6 +13,9 @@ export default function EarningsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [dateFilter, setDateFilter] = useState('today');
+    const [customStartDate, setCustomStartDate] = useState('');
+    const [customEndDate, setCustomEndDate] = useState('');
 
     const toggleExpand = (id: string) => {
         setExpandedId(expandedId === id ? null : id);
@@ -20,8 +23,28 @@ export default function EarningsPage() {
 
     useEffect(() => {
         const fetchEarnings = async () => {
+            setIsLoading(true);
             try {
-                const response = await fetchWithAuth('/doctors/me/earnings?date=today');
+                let query = '?date=today';
+                const today = new Date();
+                
+                if (dateFilter === 'week') {
+                    const firstDay = new Date(today.setDate(today.getDate() - today.getDay()));
+                    const lastDay = new Date(today.setDate(today.getDate() - today.getDay() + 6));
+                    query = `?startDate=${firstDay.toISOString().split('T')[0]}&endDate=${lastDay.toISOString().split('T')[0]}`;
+                } else if (dateFilter === 'month') {
+                    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                    query = `?startDate=${firstDay.toISOString().split('T')[0]}&endDate=${lastDay.toISOString().split('T')[0]}`;
+                } else if (dateFilter === 'custom' && customStartDate && customEndDate) {
+                    query = `?startDate=${customStartDate}&endDate=${customEndDate}`;
+                } else if (dateFilter === 'today') {
+                    query = '?date=today';
+                } else if (dateFilter === 'all') {
+                    query = '?date=all';
+                }
+
+                const response = await fetchWithAuth(`/doctors/me/earnings${query}`);
                 if (!response.success) {
                     throw new Error(response.error || 'Failed to fetch earnings');
                 }
@@ -33,23 +56,59 @@ export default function EarningsPage() {
             }
         };
         fetchEarnings();
-    }, []);
+    }, [dateFilter, customStartDate, customEndDate]);
 
     const totalEarnings = earningsData.reduce((sum, item) => sum + (item.fee || 0), 0);
     const totalConsultations = earningsData.length;
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-4">
-                <button
-                    onClick={() => router.back()}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-900 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-800"
-                >
-                    <ArrowLeft size={20} />
-                </button>
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Today's Earnings Breakdown</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">View detailed earnings per consultation</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => router.back()}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-900 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-800 shrink-0"
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Earnings Breakdown</h1>
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Track and analyze your consultation earnings over time</p>
+                    </div>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2 bg-white dark:bg-gray-900 p-1.5 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <select 
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                            className="px-3 py-1.5 bg-transparent border-0 text-sm font-medium focus:ring-0 text-gray-700 dark:text-gray-300 outline-none cursor-pointer"
+                        >
+                            <option value="today" className="bg-white dark:bg-gray-900">Today</option>
+                            <option value="week" className="bg-white dark:bg-gray-900">This Week</option>
+                            <option value="month" className="bg-white dark:bg-gray-900">This Month</option>
+                            <option value="all" className="bg-white dark:bg-gray-900">All Time (Overall)</option>
+                            <option value="custom" className="bg-white dark:bg-gray-900">Custom Range</option>
+                        </select>
+                    </div>
+
+                    {dateFilter === 'custom' && (
+                        <div className="flex items-center gap-2">
+                            <input 
+                                type="date"
+                                value={customStartDate}
+                                onChange={(e) => setCustomStartDate(e.target.value)}
+                                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-emerald-500/50 outline-none"
+                            />
+                            <span className="text-gray-400 text-sm">to</span>
+                            <input 
+                                type="date"
+                                value={customEndDate}
+                                onChange={(e) => setCustomEndDate(e.target.value)}
+                                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-emerald-500/50 outline-none"
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -100,7 +159,7 @@ export default function EarningsPage() {
                         <CardContent>
                             {earningsData.length === 0 ? (
                                 <div className="text-center py-12 text-gray-500">
-                                    <p>No completed consultations found for today.</p>
+                                    <p>No completed consultations found for this period.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">

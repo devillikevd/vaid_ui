@@ -307,12 +307,14 @@ router.get('/me/patients',
   authenticate,
   authorize('doctor'),
   asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20, search = '' } = req.query;
+    const { page = 1, limit = 20, search = '', filter = 'all', sort = 'recent' } = req.query;
     const result = await doctorService.getPatients(
       req.user.id,
       parseInt(page),
       parseInt(limit),
-      typeof search === 'string' ? search : ''
+      typeof search === 'string' ? search : '',
+      typeof filter === 'string' ? filter : 'all',
+      typeof sort === 'string' ? sort : 'recent'
     );
     res.json({ success: true, ...result });
   })
@@ -621,7 +623,7 @@ router.get('/me/earnings',
       return res.status(404).json({ success: false, message: 'Doctor not found' });
     }
 
-    const { date } = req.query;
+    const { date, startDate, endDate } = req.query;
     
     let query = supabaseAdmin
       .from('appointments')
@@ -653,8 +655,14 @@ router.get('/me/earnings',
     if (date === 'today') {
       const today = new Date().toISOString().split('T')[0];
       query = query.eq('appointment_date', today);
-    } else if (date) {
+    } else if (date && date !== 'all') {
       query = query.eq('appointment_date', date);
+    } else if (startDate && endDate) {
+      query = query.gte('appointment_date', startDate).lte('appointment_date', endDate);
+    } else if (startDate) {
+      query = query.gte('appointment_date', startDate);
+    } else if (endDate) {
+      query = query.lte('appointment_date', endDate);
     }
 
     const { data: earnings, error: earnError } = await query;
