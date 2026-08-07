@@ -232,6 +232,7 @@ export default function VideoConsultation() {
     const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
     const [consultationData, setConsultationData] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
+    const [mediaPermissionError, setMediaPermissionError] = useState(false);
     const callDurationRef = useRef(0);
     const [isPeerReady, setIsPeerReady] = useState(false);
     const [remoteStreamReady, setRemoteStreamReady] = useState(false);
@@ -715,6 +716,7 @@ export default function VideoConsultation() {
     };
 
     const initializeMedia = async () => {
+        setMediaPermissionError(false);
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
@@ -731,28 +733,39 @@ export default function VideoConsultation() {
             applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, localPreferredMode, remoteMode));
             setupPeerConnection();
             setIsConnecting(false);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Media access error:', err);
-            // Try audio-only if camera fails
-            try {
-                const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                cameraUnavailableRef.current = true;
-                localStreamRef.current = audioStream;
-                userVideoEnabledRef.current = false;
-                setLocalPreferredMode('audio');
-                applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, 'audio', remoteMode));
-                setupPeerConnection();
-                setIsConnecting(false);
-                setModeBannerSafe('📷 Camera unavailable — Audio-only mode', 4000);
-            } catch {
-                cameraUnavailableRef.current = true;
-                setLocalPreferredMode('chat');
-                setError('Failed to access camera and microphone. Please check permissions.');
-                setIsConnecting(false);
-                setConnectionMode('chat'); setShowChat(true);
+            const isPermissionDenied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError';
+
+            // Only try audio-only if it's NOT a permission denial
+            if (!isPermissionDenied) {
+                try {
+                    const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    cameraUnavailableRef.current = true;
+                    localStreamRef.current = audioStream;
+                    userVideoEnabledRef.current = false;
+                    setLocalPreferredMode('audio');
+                    applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, 'audio', remoteMode));
+                    setupPeerConnection();
+                    setIsConnecting(false);
+                    setModeBannerSafe('📷 Camera unavailable — Audio-only mode', 4000);
+                    return;
+                } catch { /* fall through to chat */ }
             }
+
+            // Permission denied OR both audio+video failed — fallback to chat mode
+            cameraUnavailableRef.current = true;
+            setMediaPermissionError(isPermissionDenied);
+            setLocalPreferredMode('chat');
+            setError(isPermissionDenied
+                ? 'Camera/microphone access was denied. Allow permission in your browser, then click Retry.'
+                : 'Failed to access camera and microphone. Please check your device.');
+            setIsConnecting(false);
+            setConnectionMode('chat');
+            setShowChat(true);
         }
     };
+
 
     const setupPeerConnection = () => {
         const pc = new RTCPeerConnection(rtcConfigRef.current);
@@ -1126,14 +1139,34 @@ export default function VideoConsultation() {
                             <div className="flex items-center gap-3">
                                 <MessageCircle className="w-5 h-5 text-blue-400" />
                                 <h3 className="font-semibold text-white">Chat Consultation</h3>
-                                <span className="text-xs text-gray-400 hidden sm:inline">(Poor network — media disabled)</span>
+                                {mediaPermissionError ? (
+                                    <span className="text-xs text-red-400 hidden sm:inline">⚠️ Camera permission denied</span>
+                                ) : (
+                                    <span className="text-xs text-gray-400 hidden sm:inline">(Poor network — media disabled)</span>
+                                )}
                             </div>
-                            <button
-                                onClick={endCall}
-                                className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-xl text-white text-sm font-medium transition-colors flex items-center gap-2"
-                            >
-                                <Phone className="w-4 h-4 rotate-[135deg]" /> End Call
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {mediaPermissionError && (
+                                    <button
+                                        onClick={() => {
+                                            setError(null);
+                                            setMediaPermissionError(false);
+                                            setConnectionMode('video');
+                                            setLocalPreferredMode('video');
+                                            initializeMedia();
+                                        }}
+                                        className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-white text-xs font-medium transition-colors flex items-center gap-1.5"
+                                    >
+                                        🔄 Retry Camera
+                                    </button>
+                                )}
+                                <button
+                                    onClick={endCall}
+                                    className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-xl text-white text-sm font-medium transition-colors flex items-center gap-2"
+                                >
+                                    <Phone className="w-4 h-4 rotate-[135deg]" /> End Call
+                                </button>
+                            </div>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
                             {messages.length === 0 && <p className="text-center text-gray-500 mt-8">Send a message to continue the consultation</p>}
