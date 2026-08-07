@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -958,9 +959,14 @@ fun FacilityDetailScreen(
                             name = item.displayName,
                             manufacturer = item.manufacturer ?: "Unknown",
                             price = item.price,
+                            mrp = item.mrp,
                             requiresPrescription = item.requiresPrescription ?: false,
                             inStock = true,
-                            stockCount = item.quantity ?: 0
+                            stockCount = item.quantity ?: 0,
+                            campaignPrice = item.campaignPrice,
+                            campaignDiscountPct = item.campaignDiscountPct,
+                            campaignId = item.campaignId,
+                            campaignName = item.campaignName
                         )
                         medicineViewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.PHARMACY, medicine, selectedFacility.id, selectedFacility.name)
                         medicineViewModel.updateCartQuantity(com.example.swastik.ui.viewmodel.CartType.PHARMACY, item.id, orderQuantity)
@@ -2384,17 +2390,29 @@ internal fun PharmacyInventoryCard(
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    item.price?.let { "₹$it" } ?: "Price unavailable",
+                    item.effectivePrice.let { if (item.price != null) "₹$it" else "Price unavailable" },
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = textColor
                 )
-                if (item.mrp != null && item.mrp != item.price) {
+                val strikePrice = when {
+                    item.hasActiveCampaign -> item.price
+                    else -> item.mrp
+                }
+                if (strikePrice != null && strikePrice > item.effectivePrice) {
                     Text(
-                        "MRP ₹${item.mrp}",
+                        if (item.hasActiveCampaign) "₹$strikePrice" else "MRP ₹$strikePrice",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Normal
+                        textDecoration = TextDecoration.LineThrough
+                    )
+                }
+                if (item.discountPercentage > 0) {
+                    Text(
+                        "${item.discountPercentage.toInt()}% OFF",
+                        fontSize = 10.sp,
+                        color = Color(0xFF2E7D32),
+                        fontWeight = FontWeight.Bold
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))

@@ -38,6 +38,7 @@ interface AdminMedicinesState {
     updateMedicine: (id: string, data: Record<string, unknown>) => Promise<boolean>;
     deleteMedicine: (id: string) => Promise<boolean>;
     addBulkMedicines: (items: any[]) => Promise<boolean>;
+    checkMedicineExists: (name: string, manufacturer?: string) => Promise<{ exists: boolean; data?: any }>;
     clearError: () => void;
 }
 
@@ -127,6 +128,19 @@ export const useAdminMedicinesStore = create<AdminMedicinesState>((set, get) => 
         } catch (error: any) {
             set({ error: error.message || 'Failed to import bulk medicines', loading: false });
             return false;
+        }
+    },
+
+    checkMedicineExists: async (name: string, manufacturer?: string) => {
+        try {
+            const response = await adminApi.checkMedicineExists(name, manufacturer);
+            if (response.success) {
+                return { exists: Boolean(response.exists), data: response.data };
+            }
+            return { exists: false };
+        } catch (error: any) {
+            set({ error: error.message });
+            return { exists: false };
         }
     },
 }));

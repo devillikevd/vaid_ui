@@ -21,6 +21,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.swastik.R
@@ -38,6 +40,7 @@ fun MedicineDetailScreen(
     medicineId: String,
     onBackClick: () -> Unit,
     onNavigateToCart: () -> Unit = {},
+    onNavigateToPharmacyCart: () -> Unit = {},
     onMedicineClick: (String) -> Unit = {},
     viewModel: MedicineViewModel = hiltViewModel()
 ) {
@@ -47,8 +50,10 @@ fun MedicineDetailScreen(
 
     val detailState by viewModel.detailState.collectAsState()
     val cartState by viewModel.globalCartState.collectAsState()
+    val pharmacyCartState by viewModel.pharmacyCartState.collectAsState()
     val medicine = detailState.medicine
     val colorScheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
     var requestQuantity by remember { mutableIntStateOf(1) }
     var addedToCart by remember { mutableStateOf(false) }
 
@@ -282,11 +287,37 @@ fun MedicineDetailScreen(
 
                     // Price row
                     Text(
-                        text = medicine.price?.let { "₹${it.toInt()}" } ?: "Price on request",
+                        text = medicine.effectivePrice.let { if (medicine.price != null) "₹${it.toInt()}" else "Price on request" },
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
                         color = SwastikPrimary
                     )
+                    val detailStrikePrice = when {
+                        medicine.hasActiveCampaign -> medicine.price
+                        else -> medicine.mrp
+                    }
+                    if (detailStrikePrice != null && detailStrikePrice > medicine.effectivePrice) {
+                        Text(
+                            text = "₹${detailStrikePrice.toInt()}",
+                            fontSize = 14.sp,
+                            color = colorScheme.onSurfaceVariant,
+                            textDecoration = TextDecoration.LineThrough
+                        )
+                    }
+                    if (medicine.discountPercentage > 0) {
+                        Surface(
+                            color = SwastikGreen.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "${medicine.discountPercentage.toInt()}% OFF",
+                                fontSize = 11.sp,
+                                color = SwastikGreen,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -397,8 +428,26 @@ fun MedicineDetailScreen(
                                 "Available at Nearby Pharmacies",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
-                                color = colorScheme.onSurface
+                                color = colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
                             )
+                            if (pharmacyCartState.totalItems > 0) {
+                                TextButton(onClick = onNavigateToPharmacyCart) {
+                                    Icon(
+                                        Icons.Outlined.ShoppingCart,
+                                        contentDescription = null,
+                                        tint = SwastikPrimary,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        "View Cart (${pharmacyCartState.totalItems})",
+                                        fontSize = 12.sp,
+                                        color = SwastikPrimary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
@@ -409,7 +458,47 @@ fun MedicineDetailScreen(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         detailState.availability.forEach { avail ->
-                            AvailabilityPharmacyRow(avail)
+                            val inCartQty = pharmacyCartState.items
+                                .firstOrNull { it.medicine.inventoryItemId == avail.inventoryItemId }
+                                ?.quantity ?: 0
+                            val addToPharmacyCart: () -> Unit = {
+                                val pharmMedicine = medicine.copy(
+                                    inventoryItemId = avail.inventoryItemId,
+                                    price = avail.price,
+                                    mrp = null,
+                                    inStock = avail.inStock
+                                )
+                                val ok = viewModel.addToCart(
+                                    com.example.swastik.ui.viewmodel.CartType.PHARMACY,
+                                    pharmMedicine,
+                                    avail.pharmacyId,
+                                    avail.pharmacyName
+                                )
+                                if (!ok) {
+                                    Toast.makeText(
+                                        context,
+                                        "Items from another pharmacy are in your cart. Clear it first.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                            AvailabilityPharmacyRow(
+                                availability = avail,
+                                isInCart = inCartQty > 0,
+                                cartQuantity = inCartQty,
+                                onAddToCart = addToPharmacyCart,
+                                onIncrement = addToPharmacyCart,
+                                onDecrement = {
+                                    val key = avail.inventoryItemId
+                                    if (key != null) {
+                                        if (inCartQty <= 1) {
+                                            viewModel.removeFromCart(com.example.swastik.ui.viewmodel.CartType.PHARMACY, key)
+                                        } else {
+                                            viewModel.updateCartQuantity(com.example.swastik.ui.viewmodel.CartType.PHARMACY, key, inCartQty - 1)
+                                        }
+                                    }
+                                }
+                            )
                             if (avail != detailState.availability.last()) {
                                 HorizontalDivider(
                                     modifier = Modifier.padding(vertical = 6.dp),
@@ -520,7 +609,14 @@ fun MedicineDetailScreen(
 
 // ==================== AVAILABILITY ROW ====================
 @Composable
-private fun AvailabilityPharmacyRow(availability: MedicineAvailabilityDto) {
+private fun AvailabilityPharmacyRow(
+    availability: MedicineAvailabilityDto,
+    isInCart: Boolean,
+    cartQuantity: Int,
+    onAddToCart: () -> Unit,
+    onDecrement: () -> Unit,
+    onIncrement: () -> Unit
+) {
     val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
@@ -583,7 +679,7 @@ private fun AvailabilityPharmacyRow(availability: MedicineAvailabilityDto) {
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // Price + Stock
+        // Price + Stock + Add
         Column(horizontalAlignment = Alignment.End) {
             if (availability.price != null) {
                 Text(
@@ -592,6 +688,14 @@ private fun AvailabilityPharmacyRow(availability: MedicineAvailabilityDto) {
                     fontSize = 14.sp,
                     color = SwastikPrimary
                 )
+                if (availability.mrp != null && availability.mrp > availability.price) {
+                    Text(
+                        text = "₹${availability.mrp.toInt()}",
+                        fontSize = 10.sp,
+                        color = colorScheme.onSurfaceVariant,
+                        textDecoration = TextDecoration.LineThrough
+                    )
+                }
             }
             Box(
                 modifier = Modifier
@@ -607,6 +711,46 @@ private fun AvailabilityPharmacyRow(availability: MedicineAvailabilityDto) {
                     color = if (availability.inStock) Color(0xFF2E7D32) else SwastikRed,
                     fontWeight = FontWeight.Medium
                 )
+            }
+            if (availability.inStock) {
+                Spacer(modifier = Modifier.height(6.dp))
+                if (isInCart && cartQuantity > 0) {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = SwastikPrimary
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 2.dp)
+                        ) {
+                            IconButton(onClick = onDecrement, modifier = Modifier.size(22.dp)) {
+                                Icon(Icons.Default.Remove, contentDescription = "-", tint = Color.White, modifier = Modifier.size(11.dp))
+                            }
+                            Text(
+                                "$cartQuantity",
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 11.sp
+                            )
+                            IconButton(onClick = onIncrement, modifier = Modifier.size(22.dp)) {
+                                Icon(Icons.Default.Add, contentDescription = "+", tint = Color.White, modifier = Modifier.size(11.dp))
+                            }
+                        }
+                    }
+                } else {
+                    Button(
+                        onClick = onAddToCart,
+                        shape = RoundedCornerShape(50),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = SwastikPrimary,
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier.height(24.dp)
+                    ) {
+                        Text("Add", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                }
             }
         }
     }

@@ -8,6 +8,7 @@ const appointmentService = require('../../services/appointmentService');
 const doctorService = require('../../services/doctorService');
 const reportService = require('../../services/reportService');
 const dispatchService = require('../../services/dispatchService');
+const pharmacyService = require('../../services/pharmacyService');
 const emergencyContactNotificationService = require('../../services/emergencyContactNotificationService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { supabaseAdmin } = require('../../config/supabase');
@@ -1274,29 +1275,23 @@ router.patch('/orders/:id/cancel',
       return res.status(400).json({ success: false, message: 'Cannot cancel order in current status' });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('pharmacy_orders')
-      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-      .eq('id', req.params.id)
-      .select('*')
-      .single();
-
-    if (error) throw error;
-
-    // Notify pharmacy
+    // Resolve pharmacy owner for accurate notifications
     const { data: pharmacy } = await supabaseAdmin
       .from('pharmacies')
       .select('owner_id')
       .eq('id', order.pharmacy_id)
       .single();
 
-    if (pharmacy) {
-      eventEmitter.emitOrderStatusUpdated({
-        ...data,
-        patient_id: req.user.id,
-        pharmacy_owner_id: pharmacy.owner_id,
-      });
-    }
+    // Route through the shared service so inventory is restored, delivery agent
+    // is released, and campaign redemptions are voided (releasing caps).
+    const data = await pharmacyService.updateOrderStatus(
+      req.params.id,
+      order.pharmacy_id,
+      req.user.id,
+      'cancelled',
+      null,
+      pharmacy?.owner_id
+    );
 
     res.json({ success: true, data: normalizePatientOrder(data) });
   })

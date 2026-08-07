@@ -66,6 +66,15 @@ router.get('/search',
   })
 );
 
+// Typeahead suggestions (must be registered before /:id)
+router.get('/suggestions',
+  asyncHandler(async (req, res) => {
+    const { q, limit = 10 } = req.query;
+    const suggestions = await medicineService.getSuggestions(q, parseInt(limit));
+    res.json({ success: true, data: suggestions });
+  })
+);
+
 // Get medicine by ID
 router.get('/:id',
   asyncHandler(async (req, res) => {
@@ -82,7 +91,7 @@ router.get('/:id/availability',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { latitude, longitude, radius = 10 } = req.query;
+    const { latitude, longitude, radius = 25 } = req.query;
     const availability = await medicineService.getMedicineAvailability(
       req.params.id,
       parseFloat(latitude),
@@ -109,7 +118,7 @@ router.get('/:id/pharmacies',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { latitude, longitude, radius = 10 } = req.query;
+    const { latitude, longitude, radius = 25 } = req.query;
     const pharmacies = await medicineService.findPharmaciesWithMedicine(
       req.params.id,
       parseFloat(latitude),

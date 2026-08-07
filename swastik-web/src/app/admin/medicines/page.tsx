@@ -32,6 +32,7 @@ export default function AdminMedicinesPage() {
         updateMedicine,
         deleteMedicine,
         addBulkMedicines,
+        checkMedicineExists,
         clearError,
     } = useAdminMedicinesStore();
 
@@ -71,6 +72,7 @@ export default function AdminMedicinesPage() {
     const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
     const [csvMapping, setCsvMapping] = useState<Record<string, string>>({});
     const [csvPreview, setCsvPreview] = useState<any[]>([]);
+    const [csvDryRunResult, setCsvDryRunResult] = useState<any>(null);
 
     // Sirf essential fields for bulk import — baaki (dosage_form, strength, image etc.)
     // admin add/edit form mein manually set karega per medicine
@@ -190,7 +192,41 @@ export default function AdminMedicinesPage() {
     };
 
     const handleAdd = async () => {
-        if (!form.name.trim()) return;
+        if (!form.name.trim()) {
+            toast.error('Name required', 'Medicine name is required');
+            return;
+        }
+        // Required identity fields so medicines aren't confused (legal correctness)
+        if (!form.strength.trim()) {
+            toast.error('Strength required', 'Please specify strength (e.g. 500mg, 10ml)');
+            return;
+        }
+        if (!form.dosage_form && !form.form) {
+            toast.error('Dosage form required', 'Please select a dosage form (Tablet, Syrup, etc.)');
+            return;
+        }
+        if (!form.pack_size.trim()) {
+            toast.error('Pack size required', 'Please specify pack size (e.g. 10 tablets)');
+            return;
+        }
+        // Price discipline
+        if (form.mrp && parseFloat(form.mrp) < parseFloat(form.price || '0')) {
+            toast.error('Invalid pricing', 'MRP cannot be less than price');
+            return;
+        }
+
+        // Duplicate check before insert
+        const existing = await checkMedicineExists(form.name.trim(), form.manufacturer.trim() || undefined);
+        if (existing.exists) {
+            const go = await confirmAction({
+                title: 'Medicine already exists',
+                message: `"${existing.data?.generic_name || existing.data?.name}" from ${existing.data?.manufacturer || 'this manufacturer'} already exists in the catalog. Create a duplicate anyway?`,
+                confirmLabel: 'Create anyway',
+                variant: 'warning',
+            });
+            if (!go) return;
+        }
+
         setActionLoading('add');
         const success = await addMedicine({
             name: form.name.trim(),
@@ -286,8 +322,8 @@ export default function AdminMedicinesPage() {
         reader.readAsText(file);
     };
 
-    const handleConfirmCSVImport = async () => {
-        const mappedData = csvRawData.map(row => {
+    const buildMappedData = () => {
+        return csvRawData.map(row => {
             const mapped: any = {};
             for (const [header, field] of Object.entries(csvMapping)) {
                 mapped[field] = row[header];
@@ -298,6 +334,33 @@ export default function AdminMedicinesPage() {
             }
             return mapped;
         });
+    };
+
+    const handleDryRunCSV = async () => {
+        const mappedData = buildMappedData();
+        if (!mappedData.some(item => item.name)) {
+            toast.error('Missing Mapping', 'Please map at least the Medicine Name field');
+            return;
+        }
+        setActionLoading('dryrun');
+        try {
+            const result = await adminApi.dryRunBulkMedicines(mappedData);
+            setCsvDryRunResult(result);
+            if (result.success && result.dryRun) {
+                toast.info(
+                    'Dry run complete',
+                    `${result.wouldImport} would be imported, ${result.wouldDuplicate} would be skipped as duplicates.`
+                );
+            } else {
+                toast.error('Dry run failed', result.message || 'Could not preview import');
+            }
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleConfirmCSVImport = async () => {
+        const mappedData = buildMappedData();
 
         if (!mappedData.some(item => item.name)) {
             toast.error('Missing Mapping', 'Please map at least the Medicine Name field');
@@ -771,8 +834,34 @@ export default function AdminMedicinesPage() {
                             </div>
                         )}
 
+                         {csvDryRunResult && (
+                            <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/50 dark:border-gray-700 p-3">
+                                <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-1">Dry Run Results</h3>
+                                <p className="text-sm text-gray-700 dark:text-gray-300">
+                                    <span className="font-medium">{csvDryRunResult.wouldImport || 0}</span> would be imported,
+                                    {' '}<span className="font-medium">{csvDryRunResult.wouldDuplicate || 0}</span> would be skipped as duplicates.
+                                </p>
+                                {(csvDryRunResult.duplicates?.length) > 0 && (
+                                    <ul className="mt-1 list-disc list-inside text-xs text-gray-600 dark:text-gray-400">
+                                        {csvDryRunResult.duplicates.map((d: string) => (
+                                            <li key={d}>{d}</li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                         )}
+
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" onClick={() => setShowCsvMapping(false)}>Cancel</Button>
+                            <Button
+                                variant="outline"
+                                onClick={handleDryRunCSV}
+                                isLoading={actionLoading === 'dryrun'}
+                                disabled={!csvHeaders.some(h => csvMapping[h] === 'name')}
+                                leftIcon={<Upload className="h-4 w-4" />}
+                            >
+                                Dry Run (Preview)
+                            </Button>
                             <Button
                                 onClick={handleConfirmCSVImport}
                                 isLoading={actionLoading === 'import'}

@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -124,12 +125,42 @@ fun MedicineCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "₹${medicine.price}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = SwastikPrimary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "₹${medicine.effectivePrice}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = SwastikPrimary
+                    )
+                    val strikePrice = when {
+                        medicine.hasActiveCampaign -> medicine.price
+                        else -> medicine.mrp
+                    }
+                    if (strikePrice != null && strikePrice > medicine.effectivePrice) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "₹$strikePrice",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textDecoration = TextDecoration.LineThrough
+                        )
+                    }
+                    if (medicine.discountPercentage > 0) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondary,
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                "${medicine.discountPercentage.toInt()}% OFF",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.surface,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -215,7 +246,7 @@ fun CompactMedicineItem(
                 }
             }
             Text(
-                "₹${medicine.price} • ${medicine.manufacturer ?: ""}",
+                "₹${medicine.effectivePrice} • ${medicine.manufacturer ?: ""}",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

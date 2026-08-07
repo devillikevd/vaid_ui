@@ -40,6 +40,7 @@ import com.example.swastik.ui.screens.patient.healthcare.finder.hasValidMapCoord
 import com.example.swastik.ui.screens.patient.healthcare.emergency.EmergencyFacilityDetailSheet
 import com.example.swastik.ui.screens.patient.healthcare.emergency.EmergencyModeContent
 import com.example.swastik.ui.screens.patient.healthcare.emergency.EmergencyTopBar
+import com.example.swastik.ui.screens.patient.healthcare.pharmacy.MedicalStoreDetailSheet
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -63,6 +64,7 @@ fun HospitalFinderScreen(
     onFitnessCenterDetailClick: (String) -> Unit = {},
     onMedicineClick: (String) -> Unit = {},
     onNavigateToCart: () -> Unit = {},
+    onNavigateToPharmacyCart: () -> Unit = {},
     onNavigateToOrders: () -> Unit = {},
     onNavigateToDiagnosticBooking: (String?) -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
@@ -111,7 +113,7 @@ fun HospitalFinderScreen(
         when (facility.type) {
             FacilityType.HOSPITAL, FacilityType.NURSING_HOME -> onHospitalClick(facility.id)
             FacilityType.CLINIC -> onClinicClick(facility.id)
-            FacilityType.MEDICAL_STORE -> onPharmacyDetailClick(facility.id)
+            FacilityType.MEDICAL_STORE -> viewModel.openFacilitySheet(facility, facility.type.name)
             FacilityType.DIAGNOSTIC_CENTER -> onDiagnosticDetailClick(facility.id)
             FacilityType.FITNESS_CENTER -> onFitnessCenterDetailClick(facility.id)
             else -> viewModel.openFacilitySheet(facility, facility.type.name)
@@ -456,6 +458,13 @@ fun HospitalFinderScreen(
         // Facility Detail Bottom Sheet
         if (showBottomSheet && selectedFacility != null) {
             val facility = selectedFacility ?: return@Scaffold
+
+            LaunchedEffect(showBottomSheet, selectedFacility?.id) {
+                if (showBottomSheet && selectedFacility?.type == FacilityType.MEDICAL_STORE) {
+                    viewModel.loadPharmacyInventory(selectedFacility.id, "")
+                }
+            }
+
             ModalBottomSheet(
                 onDismissRequest = { 
                     viewModel.closeFacilitySheet()
@@ -468,14 +477,55 @@ fun HospitalFinderScreen(
                 containerColor = surfaceColor
             ) {
                 val cartState by medicineViewModel.pharmacyCartState.collectAsState()
-                if (isEmergencyMode && facility.isEmergencyAvailable) {
-                    EmergencyFacilityDetailSheet(
-                        facility = facility,
-                        isDarkMode = resolvedDarkMode
-                    )
-                } else {
-                    // All other facility types (HOSPITAL, CLINIC, MEDICAL_STORE, DIAGNOSTIC_CENTER)
-                    // now navigate directly to the full-screen FacilityDetailScreen via handleFacilityClick
+                when {
+                    isEmergencyMode && facility.isEmergencyAvailable -> {
+                        EmergencyFacilityDetailSheet(
+                            facility = facility,
+                            isDarkMode = resolvedDarkMode
+                        )
+                    }
+                    facility.type == FacilityType.MEDICAL_STORE -> {
+                        MedicalStoreDetailSheet(
+                            facility = facility,
+                            inventoryItems = hospitalState.pharmacyInventory,
+                            isInventoryLoading = hospitalState.isPharmacyInventoryLoading,
+                            onInventorySearch = { query -> viewModel.loadPharmacyInventory(facility.id, query) },
+                            onAddInventoryToCart = { item ->
+                                medicineViewModel.addToCart(
+                                    type = com.example.swastik.ui.viewmodel.CartType.PHARMACY,
+                                    medicine = Medicine(
+                                        id = item.medicineId ?: item.id,
+                                        inventoryItemId = item.id,
+                                        name = item.displayName,
+                                        manufacturer = item.manufacturer ?: "Unknown",
+                                        price = item.price,
+                                        mrp = item.mrp,
+                                        requiresPrescription = item.requiresPrescription ?: false,
+                                        inStock = true,
+                                        stockCount = item.quantity ?: 0,
+                                        campaignPrice = item.campaignPrice,
+                                        campaignDiscountPct = item.campaignDiscountPct,
+                                        campaignId = item.campaignId,
+                                        campaignName = item.campaignName
+                                    ),
+                                    pharmacyId = facility.id,
+                                    pharmacyName = facility.name
+                                )
+                            },
+                            cartItemCount = if (cartState.selectedPharmacyId == facility.id) cartState.totalItems else 0,
+                            onViewCart = onNavigateToPharmacyCart,
+                            onViewOrders = onNavigateToOrders,
+                            onViewDetails = {
+                                viewModel.closeFacilitySheet()
+                                onPharmacyDetailClick(facility.id)
+                            },
+                            onOpenBookingFlow = {
+                                viewModel.closeFacilitySheet()
+                                onPharmacyDetailClick(facility.id)
+                            },
+                            isDarkMode = resolvedDarkMode
+                        )
+                    }
                 }
             }
         }

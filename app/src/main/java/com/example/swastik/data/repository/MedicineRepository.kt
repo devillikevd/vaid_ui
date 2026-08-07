@@ -211,9 +211,15 @@ class MedicineRepository @Inject constructor(
             val response = apiService.getMedicineDetails(id)
             if (response.isSuccessful && response.body()?.success == true) {
                 return response.body()?.data?.let {
+                    val enriched = try {
+                        enrichWithCampaignPrices(listOf(it)).first()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Campaign enrichment (detail) failed: ${e.message}")
+                        it
+                    }
                     // Cache this medicine
-                    try { medicineDao.insertMedicines(listOf(it.toCachedMedicine())) } catch (_: Exception) {}
-                    Result.Success(it)
+                    try { medicineDao.insertMedicines(listOf(enriched.toCachedMedicine())) } catch (_: Exception) {}
+                    Result.Success(enriched)
                 } ?: Result.Error("Medicine not found")
             }
         } catch (e: Exception) {
@@ -384,6 +390,92 @@ class MedicineRepository @Inject constructor(
 
     // ==================== Cache Mapping Extensions ====================
 
+    /**
+     * Enrich a list of medicines with active campaign prices from the backend.
+     * Best-effort: if the campaign call fails, returns the original list unchanged.
+     */
+    suspend fun enrichWithCampaignPrices(
+        medicines: List<Medicine>,
+        pharmacyId: String? = null,
+        latitude: Double? = null,
+        longitude: Double? = null
+    ): List<Medicine> {
+        if (medicines.isEmpty()) return medicines
+        val medicineIds = medicines.map { it.id }.distinct()
+        return try {
+            val response = apiService.getBestCampaignPrices(
+                com.example.swastik.data.remote.dto.CampaignPriceRequestDto(
+                    medicineIds = medicineIds,
+                    pharmacyId = pharmacyId,
+                    latitude = latitude,
+                    longitude = longitude
+                )
+            )
+            if (response.isSuccessful && response.body()?.success == true) {
+                val prices = response.body()?.data ?: emptyList()
+                val priceByMedicineId = prices.associateBy { it.medicineId }
+                medicines.map { med ->
+                    val match = priceByMedicineId[med.id]
+                    if (match != null && match.finalPrice < (med.price ?: 0f)) {
+                        med.copy(
+                            campaignPrice = match.finalPrice,
+                            campaignDiscountPct = match.discountPercentage,
+                            campaignId = match.campaign?.id,
+                            campaignName = match.campaign?.name
+                        )
+                    } else med
+                }
+            } else {
+                medicines
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Campaign price enrichment failed: ${e.message}")
+            medicines
+        }
+    }
+
+    /**
+     * Enrich pharmacy inventory items with campaign prices for a specific pharmacy.
+     * Best-effort: returns original list on failure.
+     */
+    suspend fun enrichInventoryWithCampaignPrices(
+        items: List<com.example.swastik.data.remote.dto.PharmacyInventoryItemDto>,
+        pharmacyId: String
+    ): List<com.example.swastik.data.remote.dto.PharmacyInventoryItemDto> {
+        if (items.isEmpty()) return items
+        val medicineIds = items.mapNotNull { it.medicineId }.distinct()
+        if (medicineIds.isEmpty()) return items
+        return try {
+            val response = apiService.getBestCampaignPrices(
+                com.example.swastik.data.remote.dto.CampaignPriceRequestDto(
+                    medicineIds = medicineIds,
+                    pharmacyId = pharmacyId
+                )
+            )
+            if (response.isSuccessful && response.body()?.success == true) {
+                val prices = response.body()?.data ?: emptyList()
+                val priceByMedicineId = prices.associateBy { it.medicineId }
+                items.map { item ->
+                    val medicineId = item.medicineId ?: return@map item
+                    val match = priceByMedicineId[medicineId]
+                    if (match != null && match.finalPrice < (item.price ?: 0f)) {
+                        item.copy(
+                            campaignPrice = match.finalPrice,
+                            campaignDiscountPct = match.discountPercentage,
+                            campaignId = match.campaign?.id,
+                            campaignName = match.campaign?.name
+                        )
+                    } else item
+                }
+            } else {
+                items
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Campaign price enrichment (inventory) failed: ${e.message}")
+            items
+        }
+    }
+
     private fun Medicine.toCachedMedicine() = CachedMedicine(
         id = id,
         name = name,
@@ -394,7 +486,11 @@ class MedicineRepository @Inject constructor(
         category = therapeuticCategory ?: dosageForm ?: category.name,
         description = description,
         requiresPrescription = requiresPrescription,
-        imageUrl = imageUrl
+        imageUrl = imageUrl,
+        campaignPrice = campaignPrice?.toDouble(),
+        campaignDiscountPct = campaignDiscountPct?.toDouble(),
+        campaignId = campaignId,
+        campaignName = campaignName
     )
 
     private fun CachedMedicine.toDomainMedicine() = Medicine(
@@ -412,6 +508,10 @@ class MedicineRepository @Inject constructor(
         stockCount = 0,
         nearbyPharmacy = null,
         pharmacyDistance = null,
-        imageUrl = imageUrl
+        imageUrl = imageUrl,
+        campaignPrice = campaignPrice?.toFloat(),
+        campaignDiscountPct = campaignDiscountPct?.toFloat(),
+        campaignId = campaignId,
+        campaignName = campaignName
     )
 }

@@ -448,6 +448,40 @@ router.get('/medicines', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * @route GET /api/admin/medicines/exists
+ * @desc Check for an existing medicine by name (case-insensitive) to prevent
+ *       duplicate catalog entries. Returns the matched record if found.
+ */
+router.get('/medicines/exists', asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../config/supabase');
+    const name = (req.query.name || '').toString().trim();
+    const manufacturer = req.query.manufacturer ? (req.query.manufacturer || '').toString().trim() : null;
+
+    if (!name) {
+        return res.status(400).json({ success: false, message: 'name query param is required' });
+    }
+
+    let query = supabaseAdmin
+        .from('medicines')
+        .select('id, name, generic_name, manufacturer, category, dosage_form, strength, requires_prescription')
+        .ilike('name', name)
+        .eq('is_active', true);
+
+    if (manufacturer) {
+        query = query.ilike('manufacturer', manufacturer);
+    }
+
+    const { data, error } = await query.maybeSingle();
+    if (error) throw error;
+
+    if (data) {
+        res.json({ success: true, exists: true, data });
+    } else {
+        res.json({ success: true, exists: false, data: null });
+    }
+}));
+
+/**
  * @route POST /api/admin/medicines
  * @desc Add a single medicine to the global catalog
  */
@@ -457,8 +491,50 @@ router.post('/medicines', [
 ], asyncHandler(async (req, res) => {
     const { supabaseAdmin } = require('../config/supabase');
     const m = req.body;
-
     const normalizedCategory = await normalizeCategory(m.category);
+
+    // Enforce legally-meaningful identity fields so medicines can't be confused:
+    // strength + dosage_form + pack_size disambiguate "Paracetamol 500mg Tablet"
+    // from "Paracetamol 500mg Syrup" / the bare "Paracetamol 500mg".
+    if (!m.strength) {
+        return res.status(400).json({ success: false, message: 'strength is required (e.g. 500mg, 10ml)' });
+    }
+    if (!m.dosage_form && !m.form) {
+        return res.status(400).json({ success: false, message: 'dosage_form / form is required (e.g. Tablet, Syrup)' });
+    }
+    if (!m.pack_size) {
+        return res.status(400).json({ success: false, message: 'pack_size is required (e.g. 10 tablets, 1 bottle)' });
+    }
+
+    // Price discipline: MRP must be >= price (can't sell above MRP)
+    const priceNum = parseFloat(m.price) || 0;
+    const mrpNum = (m.mrp ? parseFloat(m.mrp) : undefined);
+    if (mrpNum !== undefined && mrpNum < priceNum) {
+        return res.status(400).json({ success: false, message: 'mrp cannot be less than price' });
+    }
+
+    // Prevent exact-duplicate creation (name, manufacturer) — 409 so the UI can
+    // offer to redirect to the existing record. Mirrors the 036 unique
+    // constraint on (lower(trim(name)), lower(trim(manufacturer))).
+    const manufacturerNorm = m.manufacturer ? m.manufacturer.trim() : null;
+    let dupeQuery = supabaseAdmin
+        .from('medicines')
+        .select('id, name, manufacturer')
+        .ilike('name', m.name)
+        .eq('is_active', true);
+    if (manufacturerNorm) {
+        dupeQuery = dupeQuery.ilike('manufacturer', manufacturerNorm);
+    }
+    const { data: existing, error: existErr } = await dupeQuery.maybeSingle();
+    if (existErr) throw existErr;
+    if (existing) {
+        return res.status(409).json({
+            success: false,
+            code: 'DUPLICATE_MEDICINE',
+            message: `A medicine named "${existing.name}"${existing.manufacturer ? ' from ' + existing.manufacturer : ''} already exists (id: ${existing.id}). Did you mean to edit it?`,
+            data: existing,
+        });
+    }
 
     const medicine = {
         name: m.name,
@@ -522,6 +598,11 @@ router.put('/medicines/:id', [
         return res.status(400).json({ success: false, message: 'No fields to update' });
     }
 
+    // Price discipline: if both price and mrp are being changed, mrp must be >= price
+    if (updates.price !== undefined && updates.mrp !== undefined && updates.mrp < updates.price) {
+        return res.status(400).json({ success: false, message: 'mrp cannot be less than price' });
+    }
+
     // Clean up old image from storage if image_url is being replaced
     if (updates.image_url !== undefined) {
         const { data: existing } = await supabaseAdmin
@@ -571,9 +652,10 @@ router.delete('/medicines/:id', asyncHandler(async (req, res) => {
  */
 router.post('/medicines/bulk', [
     body('medicines').isArray().withMessage('medicines must be an array'),
+    body('dryRun').optional().isBoolean(),
     validate,
 ], asyncHandler(async (req, res) => {
-    const { medicines } = req.body;
+    const { medicines, dryRun } = req.body;
     
     // Validate and normalize each medicine
     const validMedicines = (await Promise.all(medicines.filter(m => m.name).map(async m => {
@@ -609,7 +691,20 @@ router.post('/medicines/bulk', [
     const skippedCount = validMedicines.length - newMedicines.length;
     
     if (newMedicines.length === 0) {
-        return res.json({ success: true, message: `All ${skippedCount} medicines already exist in catalog`, skipped: skippedCount });
+        return res.json({ success: true, message: `All ${skippedCount} medicines already exist in catalog`, imported: 0, skipped: skippedCount, duplicates: validMedicines.map(m => m.name) });
+    }
+
+    // Dry run: report what WOULD be imported, but do not write.
+    if (dryRun) {
+        const duplicateNames = validMedicines.filter(m => existingNames.has(m.name.toLowerCase())).map(m => m.name);
+        return res.json({
+            success: true,
+            dryRun: true,
+            wouldImport: newMedicines.length,
+            wouldDuplicate: skippedCount,
+            duplicates: duplicateNames,
+            message: `Dry run: ${newMedicines.length} would be imported, ${skippedCount} would be skipped as duplicates`,
+        });
     }
 
     const { data, error } = await supabaseAdmin.from('medicines').insert(newMedicines);
@@ -619,10 +714,10 @@ router.post('/medicines/bulk', [
         return res.status(500).json({ success: false, message: 'Failed to import medicines', error: error.message });
     }
 
-    const msg = skippedCount > 0 
+    const msg = skippedCount > 0
         ? `Imported ${newMedicines.length} medicines, skipped ${skippedCount} duplicates`
         : `Successfully imported ${newMedicines.length} medicines`;
-    res.json({ success: true, message: msg, imported: newMedicines.length, skipped: skippedCount });
+    res.json({ success: true, message: msg, imported: newMedicines.length, skipped: skippedCount, duplicates: validMedicines.filter(m => existingNames.has(m.name.toLowerCase())).map(m => m.name) });
 }));
 
 // ==================== SYSTEM ====================

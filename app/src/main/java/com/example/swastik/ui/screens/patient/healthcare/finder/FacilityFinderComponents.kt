@@ -1025,6 +1025,17 @@ internal fun FacilityListCard(
 
             // Badges
             val badges = mutableListOf<Pair<String, Color>>()
+            if (facility.type == FacilityType.MEDICAL_STORE) {
+                if (facility.deliveryAvailable) {
+                    val radiusText = facility.deliveryRadiusKm?.let { " up to $it km" } ?: ""
+                    badges.add("Delivery$radiusText" to Color(0xFF7C3AED))
+                    val eta = estimateDeliveryEtaMinutes(facility.distanceKm)
+                    if (eta != null) badges.add("ETA ~$eta min" to Color(0xFF0EA5E9))
+                }
+                facility.minOrderDelivery?.takeIf { it > 0 }?.let {
+                    badges.add("Min ₹${it.toInt()}" to Color(0xFFEA580C))
+                }
+            }
             if (facility.isEmergencyAvailable) {
                 badges.add("Emergency" to Color(0xFFDC2626))
             }
@@ -1223,4 +1234,10 @@ internal fun QuickActionButton(
             fontWeight = FontWeight.Medium
         )
     }
+}
+
+private fun estimateDeliveryEtaMinutes(distanceKm: Double): Int? {
+    if (distanceKm <= 0) return null
+    val minutes = (distanceKm / 30.0 * 60.0).toInt() + 8
+    return minutes.coerceIn(10, 120)
 }

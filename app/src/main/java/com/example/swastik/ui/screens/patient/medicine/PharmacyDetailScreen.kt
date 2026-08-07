@@ -371,9 +371,14 @@ fun PharmacyDetailScreen(
                                     name = item.displayName,
                                     manufacturer = item.manufacturer ?: "Unknown",
                                     price = item.price,
+                                    mrp = item.mrp,
                                     requiresPrescription = item.requiresPrescription ?: false,
                                     inStock = true,
-                                    stockCount = item.quantity ?: 0
+                                    stockCount = item.quantity ?: 0,
+                                    campaignPrice = item.campaignPrice,
+                                    campaignDiscountPct = item.campaignDiscountPct,
+                                    campaignId = item.campaignId,
+                                    campaignName = item.campaignName
                                 )
                                 medicineViewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.PHARMACY, medicine, facility.id, facility.name)
                                 medicineViewModel.updateCartQuantity(com.example.swastik.ui.viewmodel.CartType.PHARMACY, item.id, orderQuantity)

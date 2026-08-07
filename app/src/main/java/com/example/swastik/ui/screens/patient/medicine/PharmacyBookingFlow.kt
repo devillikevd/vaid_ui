@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import coil.compose.AsyncImage
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -470,7 +471,15 @@ fun Step1Medicines(
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(item.displayName, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = SwastikPrimaryDark, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text(stringResource(R.string.rupee_format, (item.price ?: 0).toString()), color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                Text(stringResource(R.string.rupee_format, item.effectivePrice.toString()), color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                if (item.hasActiveCampaign) {
+                                    Text(
+                                        stringResource(R.string.rupee_format, (item.price ?: 0f).toString()),
+                                        fontSize = 10.sp,
+                                        color = Color.Gray,
+                                        textDecoration = TextDecoration.LineThrough
+                                    )
+                                }
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(stringResource(R.string.pack_format, packSize.toString(), unitType), fontSize = 11.sp, color = Color.Gray)
                                 Text(stringResource(R.string.stock_format, (item.quantity ?: 0).toString()), fontSize = 11.sp, color = if ((item.quantity ?: 0) > 0) Color(0xFF4CAF50) else Color.Red)
@@ -560,8 +569,9 @@ fun Step2Cart(selected: List<Pair<PharmacyInventoryItemDto, Int>>, onRemove: (Ph
                         Column(modifier = Modifier.weight(1f)) {
                             Text(item.displayName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             Spacer(modifier = Modifier.height(4.dp))
-                            val itemTotalPrice = (item.price ?: 0f) * qty
-                            Text(stringResource(R.string.units_total_format, qty, "%.2f".format(item.price ?: 0f), "%.2f".format(itemTotalPrice)), color = SwastikPrimary, fontWeight = FontWeight.SemiBold)
+                            val itemUnitPrice = item.effectivePrice
+                            val itemTotalPrice = itemUnitPrice * qty
+                            Text(stringResource(R.string.units_total_format, qty, "%.2f".format(itemUnitPrice), "%.2f".format(itemTotalPrice)), color = SwastikPrimary, fontWeight = FontWeight.SemiBold)
                         }
                         IconButton(
                             onClick = { onRemove(item) },
@@ -637,9 +647,9 @@ fun Step4Confirmation(
     phone: String,
     bitmap: android.graphics.Bitmap?
 ) {
-    // qty is in units. Total price = unit price * qty
+    // qty is in units. Total price = effective (campaign) price * qty
     val totalPrice = selected.sumOf { (item, qty) ->
-        val price = (item.price ?: 0f).toDouble()
+        val price = item.effectivePrice.toDouble()
         price * qty.toDouble()
     }
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {

@@ -334,6 +334,7 @@ fun HomeTabContent(
                                 onPharmacyDetailClick = onNavigateToPharmacyDetail, // Route to detail
                                 onNavigateToDiagnosticBooking = { _ -> onNavigateToDiagnostic() },
                                 onNavigateToCart = onNavigateToOrderHistory,
+                                onNavigateToPharmacyCart = onNavigateToOrderHistory,
                                 onNavigateToNotifications = onNotificationClick
                             )
                         }

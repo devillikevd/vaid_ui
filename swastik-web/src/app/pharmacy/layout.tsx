@@ -12,6 +12,7 @@ import {
     Link2,
     Users,
     Star,
+    BadgePercent,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig, type NavItem } from '@/components/shared/DashboardLayout';
 import { useOrderUpdates } from '@/hooks/useSocket';
@@ -22,6 +23,7 @@ const BASE_NAV: NavItem[] = [
     { name: 'Prescriptions', href: '/pharmacy/prescriptions', icon: FileText },
     { name: 'Inventory', href: '/pharmacy/inventory', icon: Package },
     { name: 'Orders', href: '/pharmacy/orders', icon: ShoppingCart },
+    { name: 'Campaigns', href: '/pharmacy/campaigns', icon: BadgePercent },
     { name: 'Associations', href: '/pharmacy/associations', icon: Link2 },
     { name: 'Agents', href: '/pharmacy/agents', icon: Users },
     { name: 'Reports', href: '/pharmacy/reports', icon: BarChart3 },

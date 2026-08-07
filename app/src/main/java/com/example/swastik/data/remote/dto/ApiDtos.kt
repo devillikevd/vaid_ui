@@ -275,7 +275,15 @@ data class NearbyMedicineDto(
     val pharmacyId: String?,
     val inStock: Boolean,
     val quantity: Int,
-    @SerializedName("image_url") val imageUrl: String? = null
+    @SerializedName("image_url") val imageUrl: String? = null,
+    val distance: Float? = null,
+    @SerializedName("distance_text") val distanceText: String? = null,
+    @SerializedName("pharmacy_image_url") val pharmacyImageUrl: String? = null,
+    @SerializedName("pharmacy_rating") val pharmacyRating: Float? = null,
+    @SerializedName("pharmacy_is_open") val pharmacyIsOpen: Boolean? = null,
+    @SerializedName("pharmacy_is_24_hours") val pharmacyIs24Hours: Boolean? = null,
+    @SerializedName("pharmacy_delivery_available") val pharmacyDeliveryAvailable: Boolean? = null,
+    @SerializedName("pharmacy_delivery_radius_km") val pharmacyDeliveryRadiusKm: Int? = null
 )
 
 data class EmergencyContactDto(
@@ -646,6 +654,39 @@ data class HospitalDto(
     @SerializedName("image_url") val imageUrl: String? = null
 )
 
+// ==================== CAMPAIGN DTOs ====================
+
+data class DiscountCampaignDto(
+    val id: String,
+    val name: String,
+    @SerializedName("discount_type") val discountType: String,
+    @SerializedName("discount_value") val discountValue: Float,
+    @SerializedName("scope_type") val scopeType: String? = null,
+    @SerializedName("scope_ref") val scopeRef: String? = null,
+    @SerializedName("min_order_value") val minOrderValue: Float? = null,
+    @SerializedName("max_discount_per_order") val maxDiscountPerOrder: Float? = null,
+    @SerializedName("start_at") val startAt: String? = null,
+    @SerializedName("end_at") val endAt: String? = null,
+    @SerializedName("is_active") val isActive: Boolean? = null
+)
+
+data class CampaignPriceDto(
+    @SerializedName("medicine_id") val medicineId: String,
+    @SerializedName("base_price") val basePrice: Float,
+    val mrp: Float,
+    @SerializedName("final_price") val finalPrice: Float,
+    @SerializedName("discount_amount") val discountAmount: Float,
+    @SerializedName("discount_percentage") val discountPercentage: Float,
+    val campaign: DiscountCampaignDto?
+)
+
+data class CampaignPriceRequestDto(
+    @SerializedName("medicine_ids") val medicineIds: List<String>,
+    @SerializedName("pharmacy_id") val pharmacyId: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
+
 // ==================== MEDICINE DTOs ====================
 
 data class MedicineDto(
@@ -663,7 +704,12 @@ data class MedicineDto(
     @SerializedName("requires_prescription")
     val requiresPrescription: Boolean,
     @SerializedName("image_url")
-    val imageUrl: String?
+    val imageUrl: String?,
+    // Campaign pricing fields
+    @SerializedName("campaign_price") val campaignPrice: Float? = null,
+    @SerializedName("campaign_discount_pct") val campaignDiscountPct: Float? = null,
+    @SerializedName("campaign_id") val campaignId: String? = null,
+    @SerializedName("campaign_name") val campaignName: String? = null
 )
 
 data class MedicineCategoryDto(
@@ -806,8 +852,16 @@ data class MedicineAvailabilityDto(
     @SerializedName("pharmacy_name") val pharmacyName: String,
     val address: String?,
     val price: Float?,
+    val mrp: Float? = null,
     @SerializedName("in_stock") val inStock: Boolean,
-    val distance: Float?
+    val distance: Float? = null,
+    @SerializedName("distance_text") val distanceText: String? = null,
+    @SerializedName("pharmacy_image_url") val pharmacyImageUrl: String? = null,
+    @SerializedName("pharmacy_rating") val pharmacyRating: Float? = null,
+    @SerializedName("pharmacy_is_open") val pharmacyIsOpen: Boolean? = null,
+    @SerializedName("pharmacy_is_24_hours") val pharmacyIs24Hours: Boolean? = null,
+    @SerializedName("delivery_available") val deliveryAvailable: Boolean? = null,
+    @SerializedName("delivery_radius_km") val deliveryRadiusKm: Int? = null
 )
 
 data class TtsRequest(
@@ -1114,7 +1168,11 @@ data class OrderItemRequest(
     val name: String? = null,
     val genericName: String? = null,
     val quantity: Int,
-    val price: Float? = null
+    val price: Float? = null,
+    @SerializedName("mrp") val mrp: Float? = null,
+    @SerializedName("campaign_id") val campaignId: String? = null,
+    @SerializedName("campaign_name") val campaignName: String? = null,
+    @SerializedName("discount_amount") val discountAmount: Float? = null
 )
 
 data class MedicineOrderDto(
@@ -1609,12 +1667,23 @@ data class PharmacyInventoryItemDto(
     @SerializedName("requires_prescription") val requiresPrescription: Boolean?,
     @SerializedName("expiry_date") val expiryDate: String?,
     val unit: String?,
-    @SerializedName("image_url") val imageUrl: String? = null
+    @SerializedName("image_url") val imageUrl: String? = null,
+    // Campaign pricing
+    @SerializedName("campaign_price") val campaignPrice: Float? = null,
+    @SerializedName("campaign_discount_pct") val campaignDiscountPct: Float? = null,
+    @SerializedName("campaign_id") val campaignId: String? = null,
+    @SerializedName("campaign_name") val campaignName: String? = null
 ) {
     /** Unified display name */
     val displayName: String get() = name ?: medicineName ?: "Unknown"
     /** In stock if quantity > 0 */
     val inStock: Boolean get() = (quantity ?: 0) > 0
+    /** Effective price after campaign discount */
+    val effectivePrice: Float get() = campaignPrice ?: price ?: 0f
+    val hasActiveCampaign: Boolean
+        get() = campaignPrice != null && price != null && campaignPrice!! < price!!
+    val discountPercentage: Float
+        get() = if (hasActiveCampaign) ((price!! - campaignPrice!!) * 100 / price!!) else 0f
 }
 
 // ==================== HOSPITAL REVIEW DTO ====================
