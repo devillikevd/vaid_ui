@@ -1259,6 +1259,8 @@ export const appointmentsApi = {
 
     getById: (id: string) => fetchWithAuth(`/appointments/${id}`),
 
+    resendOtp: (id: string) => fetchWithAuth(`/appointments/${id}/resend-otp`, { method: 'POST' }),
+
     create: (data: {
         doctorId: string;
         date: string;
@@ -1288,6 +1290,12 @@ export const appointmentsApi = {
         fetchWithAuth(`/appointments/${id}/reschedule`, {
             method: 'POST',
             body: JSON.stringify({ date, timeSlot }),
+        }),
+
+    addPrescription: (appointmentId: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/appointments/${appointmentId}/prescription`, {
+            method: 'POST',
+            body: JSON.stringify(data),
         }),
 };
 

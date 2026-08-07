@@ -26,6 +26,7 @@ import {
     WifiOff,
     PhoneCall,
     Bot,
+    RefreshCw,
 } from 'lucide-react';
 
 // ── ICE Servers with TURN fallback for NAT traversal ───────────────
@@ -242,6 +243,15 @@ export default function VideoConsultation() {
     const [otpInput, setOtpInput] = useState('');
     const [otpError, setOtpError] = useState('');
     const [isEndingCall, setIsEndingCall] = useState(false);
+    const [resendCooldown, setResendCooldown] = useState(0);
+    const [resendSuccess, setResendSuccess] = useState('');
+
+    useEffect(() => {
+        if (resendCooldown > 0) {
+            const timer = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [resendCooldown]);
 
     // ── Network degradation state ──────────────────────────────────
     const [connectionMode, setConnectionMode] = useState<ConnectionMode>('video');
@@ -403,7 +413,7 @@ export default function VideoConsultation() {
                 setCallEndedByRemote(true);
                 cleanup();
                 setTimeout(() => {
-                    router.push(user?.role === 'doctor' ? '/doctor/consultations' : '/');
+                    router.push(user?.role === 'doctor' ? '/doctor/appointments' : '/');
                 }, 4000);
             }
         }, [consultationId, router, user?.role, cleanup])
@@ -1021,12 +1031,12 @@ export default function VideoConsultation() {
                     otp: otp || undefined,
                 });
                 if (!result.success) {
-                    const errMsg = (result as any).error || 'Failed to end consultation';
+                    const errMsg = (result as any).error || (result as any).message || 'Failed to end consultation';
                     // OTP invalid — show error in modal
                     if (errMsg.toLowerCase().includes('otp')) {
                         setOtpError(errMsg);
                         setIsEndingCall(false);
-                        return;
+                        return; // Do not proceed to finally block
                     }
                     // Other error — still exit
                     console.error('End consultation error:', errMsg);
@@ -1036,13 +1046,22 @@ export default function VideoConsultation() {
                 await api.consultations.leave(consultationId).catch(() => {});
             }
             emit('consultation:ended', { consultationId });
+
+            // Only close and redirect on success or non-OTP errors
+            setShowOtpModal(false);
+            cleanup();
+            router.push(user?.role === 'doctor' ? `/doctor/prescriptions/new?consultation=${consultationId}` : '/');
         } catch (err) {
             console.error('Failed to end/leave consultation:', err);
+            // On hard network error, we might still want to let them leave the page? 
+            // Better to show an error so they know it didn't end properly.
+            if (err instanceof Error && err.message.toLowerCase().includes('otp')) {
+                setOtpError(err.message);
+            } else {
+                alert('An error occurred while ending the consultation. Please try again.');
+            }
         } finally {
-            setShowOtpModal(false);
             setIsEndingCall(false);
-            cleanup();
-            router.push(user?.role === 'doctor' ? '/doctor/consultations' : '/');
         }
     };
 
@@ -1107,7 +1126,7 @@ export default function VideoConsultation() {
                     <p className="text-gray-400">The other participant has ended the consultation.</p>
                     <p className="text-gray-500 text-sm">Redirecting in a few seconds…</p>
                     <button
-                        onClick={() => router.push(user?.role === 'doctor' ? '/doctor/consultations' : '/')}
+                        onClick={() => router.push(user?.role === 'doctor' ? '/doctor/appointments' : '/')}
                         className="mt-4 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                     >
                         Go Back Now
@@ -1536,25 +1555,56 @@ export default function VideoConsultation() {
                             <h2 className="text-lg font-bold text-white">Enter Completion OTP</h2>
                             <p className="text-sm text-slate-400 mt-1">Ask the patient for their 6-digit OTP shown on their screen</p>
                         </div>
-                        <div className="flex justify-center gap-2 mb-4">
+                        <div className="relative flex justify-center gap-2 mb-4">
                             {Array.from({ length: 6 }, (_, i) => (
-                                <div key={i} className={`w-10 h-12 flex items-center justify-center rounded-xl text-xl font-bold text-white border-2 ${
-                                    otpInput[i] ? 'bg-emerald-600/30 border-emerald-500' : 'bg-white/5 border-white/10'
+                                <div key={i} className={`w-10 h-12 flex items-center justify-center rounded-xl text-xl font-bold text-white border-2 transition-all ${
+                                    otpInput.length === i
+                                        ? 'border-emerald-500 bg-emerald-900/30 ring-4 ring-emerald-500/20'
+                                        : otpInput.length > i
+                                            ? 'border-emerald-600 bg-emerald-800/40 text-emerald-200'
+                                            : 'bg-white/5 border-white/10 text-slate-400'
                                 }`}>{otpInput[i] || ''}</div>
                             ))}
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                maxLength={6}
+                                value={otpInput}
+                                onChange={e => { setOtpInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 6)); setOtpError(''); }}
+                                onKeyDown={e => { if (e.key === 'Enter') submitOtp(); }}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-text"
+                                autoFocus
+                            />
                         </div>
-                        <input
-                            type="tel"
-                            inputMode="numeric"
-                            maxLength={6}
-                            value={otpInput}
-                            onChange={e => { setOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6)); setOtpError(''); }}
-                            onKeyDown={e => { if (e.key === 'Enter') submitOtp(); }}
-                            placeholder="Type OTP here"
-                            autoFocus
-                            className="w-full text-center text-lg font-mono bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 mb-3"
-                        />
                         {otpError && <p className="text-red-400 text-sm text-center mb-3">{otpError}</p>}
+                        {resendSuccess && <p className="text-emerald-400 text-sm text-center mb-3">{resendSuccess}</p>}
+                        <div className="flex justify-center mb-4">
+                            <button
+                                onClick={async () => {
+                                    if (resendCooldown > 0) return;
+                                    setResendSuccess('');
+                                    setOtpError('');
+                                    try {
+                                        const res = await api.appointments.resendOtp(consultationData?.appointment?.id || consultationData?.appointment_id);
+                                        if (res.success) {
+                                            setResendCooldown(60);
+                                            setResendSuccess('Successfully sent OTP to patient');
+                                        } else {
+                                            setOtpError(res.error || res.message || 'Failed to resend OTP. Please try again.');
+                                        }
+                                    } catch (e) {
+                                        console.error(e);
+                                        setOtpError('Failed to resend OTP. Please try again.');
+                                    }
+                                }}
+                                disabled={resendCooldown > 0}
+                                className="text-sm font-medium text-blue-400 hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                            >
+                                <RefreshCw className="w-4 h-4" />
+                                {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP to Patient'}
+                            </button>
+                        </div>
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setShowOtpModal(false)}

@@ -207,7 +207,8 @@ fun AppointmentBookingScreen(
                     .filter { it.isAfter(selectedDate!!) }
                     .map { it.format(DateTimeFormatter.ISO_LOCAL_DATE) }
                     .take(2)
-                appointmentViewModel.loadTimeSlots(selectedDoctor!!.id, formatted, fallbackDates)
+                val apiType = if (selectedType == "In-Person") "in_person" else "video"
+                appointmentViewModel.loadTimeSlots(selectedDoctor!!.id, formatted, fallbackDates, apiType)
             }
         }
     }
@@ -425,10 +426,12 @@ fun AppointmentBookingScreen(
                                     .filter { it.isAfter(date) }
                                     .map { it.format(DateTimeFormatter.ISO_LOCAL_DATE) }
                                     .take(2)
+                                val apiType = if (selectedType == "In-Person") "in_person" else "video"
                                 appointmentViewModel.loadTimeSlots(
                                     selectedDoctor!!.id,
                                     formatted,
-                                    fallbackDates
+                                    fallbackDates,
+                                    apiType
                                 )
                             },
                             onTimeSlotSelected = { slot -> selectedTimeSlot = slot },
@@ -1433,7 +1436,9 @@ private fun TimeSlotGrid(slots: List<TimeSlot>, selectedSlot: String?, onSlotSel
 
 @Composable
 private fun SlotChunkRows(slots: List<TimeSlot>, selectedSlot: String?, enabled: Boolean, onSlotSelected: (String) -> Unit) {
-    val chunked = slots.chunked(4)
+    val isTokenFormat = slots.any { it.time.contains("Token", ignoreCase = true) }
+    val columns = if (isTokenFormat) 2 else 4
+    val chunked = slots.chunked(columns)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         chunked.forEach { row ->
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1464,7 +1469,7 @@ private fun SlotChunkRows(slots: List<TimeSlot>, selectedSlot: String?, enabled:
                         )
                     }
                 }
-                repeat(4 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+                repeat(columns - row.size) { Spacer(modifier = Modifier.weight(1f)) }
             }
         }
     }

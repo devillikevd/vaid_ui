@@ -34,7 +34,7 @@ const DOCTOR_CONFIG: DashboardConfig = {
     navItems: [
         { name: 'Dashboard', href: '/doctor', icon: LayoutDashboard },
         { name: 'Appointments', href: '/doctor/appointments', icon: Calendar, section: 'Clinical Work' },
-        { name: 'Consultations', href: '/doctor/consultations', icon: Video, section: 'Clinical Work' },
+
         { name: 'Prescriptions', href: '/doctor/prescriptions', icon: ClipboardList, section: 'Clinical Work' },
         { name: 'Patients', href: '/doctor/patients', icon: Users, section: 'Clinical Work' },
         { name: 'Vitals', href: '/doctor/vitals', icon: Activity, section: 'Health & Monitoring' },

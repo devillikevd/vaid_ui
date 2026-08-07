@@ -111,9 +111,9 @@ class AppointmentRepository @Inject constructor(
     /**
      * Get time slots for a doctor
      */
-    suspend fun getDoctorTimeSlots(doctorId: String, date: String): Result<List<TimeSlot>> {
+    suspend fun getDoctorTimeSlots(doctorId: String, date: String, type: String? = null): Result<List<TimeSlot>> {
         return try {
-            val response = apiService.getDoctorSlots(doctorId, date)
+            val response = apiService.getDoctorSlots(doctorId, date, type)
             if (response.isSuccessful && response.body()?.success == true) {
                 val slots = response.body()?.data?.slots ?: emptyList()
                 Result.Success(slots)

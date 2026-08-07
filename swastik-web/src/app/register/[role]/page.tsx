@@ -22,7 +22,10 @@ import {
     CheckCircle,
     GraduationCap,
     IndianRupee,
-    Languages
+    Languages,
+    ChevronRight,
+    ChevronLeft,
+    Upload
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -158,6 +161,11 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     const [hospitalType, setHospitalType] = useState('Private');
     const [centerType, setCenterType] = useState('gym');
 
+    // Multi-Step Wizard
+    const [step, setStep] = useState(1);
+    const [idProofFile, setIdProofFile] = useState<File | null>(null);
+    const [registrationCertFile, setRegistrationCertFile] = useState<File | null>(null);
+
     const [error, setError] = useState('');
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
@@ -212,35 +220,28 @@ export default function RegisterPage({ params }: RegisterPageProps) {
             ? 'Fields marked * are required to complete registration and qualify for admin approval. Facility roles must provide a reachable phone number, full address, and map location so patients can discover them.'
             : 'Fields marked * are required to complete registration and qualify for admin approval. Doctor approval requires a reachable phone number and valid professional credentials.';
 
-    // ── Form Validation ────────────────────────────────────────────
-    const validate = (): boolean => {
+    // ── Form Validation (per step) ────────────────────────────────
+    const validateStep1 = (): boolean => {
         const errors: Record<string, string> = {};
-
-        // Name
         if (!name.trim()) errors.name = 'Name is required';
         else if (name.trim().length < 2) errors.name = 'Name must be at least 2 characters';
-
-        // Email
         if (!email.trim()) errors.email = 'Email is required';
         else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email)) errors.email = 'Invalid email address';
-
-        // Phone
         if (!phone.trim()) errors.phone = 'Phone number is required';
         else if (!/^[+]?\d{10,15}$/.test(phone.replace(/[\s-]/g, ''))) errors.phone = 'Enter a valid phone number (10–15 digits)';
-
-        // Password
         if (!password) errors.password = 'Password is required';
         else if (password.length < 8) errors.password = 'Password must be at least 8 characters';
         else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) errors.password = 'Must include uppercase, lowercase, and a number';
-
-        // Confirm password
         if (!confirmPassword) errors.confirmPassword = 'Please confirm your password';
         else if (password !== confirmPassword) errors.confirmPassword = 'Passwords do not match';
+        if (isFacilityRole && !facilityName.trim()) errors.facilityName = 'Facility name is required';
+        setFieldErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
 
-        // Role-specific
+    const validateStep2 = (): boolean => {
+        const errors: Record<string, string> = {};
         if (config.role === 'doctor') {
-            if (!registrationNumber.trim()) errors.registrationNumber = 'Medical registration number is required';
-            if (!licenseNumber.trim()) errors.licenseNumber = 'License number is required';
             if (!specialization.trim()) errors.specialization = 'Specialization is required';
             if (!qualification.trim()) errors.qualification = 'Medical qualification or degree is required';
             if (!experience.trim()) errors.experience = 'Years of experience is required';
@@ -256,13 +257,22 @@ export default function RegisterPage({ params }: RegisterPageProps) {
             if (!consultationFee.trim()) errors.consultationFee = 'Session fee is required';
             else if (!Number.isFinite(Number(consultationFee)) || Number(consultationFee) < 0) errors.consultationFee = 'Session fee must be a non-negative number';
         } else {
-            if (!facilityName.trim()) errors.facilityName = 'Facility name is required';
-            if (!isFitnessCenterRole && !licenseNumber.trim()) errors.licenseNumber = 'License/Registration number is required';
             if (!address.trim()) errors.address = 'Address is required';
             if (!city.trim()) errors.city = 'City is required';
             if (latitude == null || longitude == null) errors.location = 'Map location is required for approval';
         }
+        setFieldErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
 
+    const validateStep3 = (): boolean => {
+        const errors: Record<string, string> = {};
+        if (config.role === 'doctor') {
+            if (!registrationNumber.trim()) errors.registrationNumber = 'Medical registration number is required';
+            if (!licenseNumber.trim()) errors.licenseNumber = 'License number is required';
+        } else if (isFacilityRole && !isFitnessCenterRole) {
+            if (!licenseNumber.trim()) errors.licenseNumber = 'License/Registration number is required';
+        }
         setFieldErrors(errors);
         return Object.keys(errors).length === 0;
     };
@@ -271,7 +281,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
         e.preventDefault();
         setError('');
 
-        if (!validate()) return;
+        if (!validateStep3()) return;
 
         setIsLoading(true);
 
@@ -509,430 +519,448 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-5">
+                            {/* Step Indicator */}
+                            <div className="flex items-center justify-between mb-8">
+                                <div className="flex flex-col items-center">
+                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold mb-1 transition-all ${step > 1 ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40' : step === 1 ? 'bg-white text-black shadow-md' : 'bg-white/10 text-white/40'}`}>
+                                        {step > 1 ? <CheckCircle className="w-5 h-5" /> : 1}
+                                    </div>
+                                    <span className={`text-[10px] font-semibold tracking-wider uppercase ${step >= 1 ? 'text-white/80' : 'text-white/30'}`}>Account</span>
+                                </div>
+                                <div className={`h-0.5 flex-1 mx-3 rounded transition-all ${step >= 2 ? 'bg-emerald-500' : 'bg-white/10'}`} />
+                                <div className="flex flex-col items-center">
+                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold mb-1 transition-all ${step > 2 ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40' : step === 2 ? 'bg-white text-black shadow-md' : 'bg-white/10 text-white/40'}`}>
+                                        {step > 2 ? <CheckCircle className="w-5 h-5" /> : 2}
+                                    </div>
+                                    <span className={`text-[10px] font-semibold tracking-wider uppercase ${step >= 2 ? 'text-white/80' : 'text-white/30'}`}>Profile</span>
+                                </div>
+                                <div className={`h-0.5 flex-1 mx-3 rounded transition-all ${step >= 3 ? 'bg-emerald-500' : 'bg-white/10'}`} />
+                                <div className="flex flex-col items-center">
+                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold mb-1 transition-all ${step === 3 ? 'bg-white text-black shadow-md' : 'bg-white/10 text-white/40'}`}>
+                                        3
+                                    </div>
+                                    <span className={`text-[10px] font-semibold tracking-wider uppercase ${step >= 3 ? 'text-white/80' : 'text-white/30'}`}>Verify</span>
+                                </div>
+                            </div>
+
                             {error && (
                                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-medium">
                                     {error}
                                 </div>
                             )}
 
-                            <Input
-                                label={withRequiredMark(nameLabel, true)}
-                                value={name}
-                                onChange={(e) => { setName(e.target.value); setFieldErrors(p => { const { name, ...rest } = p; return rest; }); }}
-                                placeholder={namePlaceholder}
-                                leftIcon={<User className="h-5 w-5" />}
-                                error={fieldErrors.name}
-                                required
-                            />
-
-                            {isFacilityRole && (
+                            {/* ── STEP 1: Account Info ── */}
+                            <div className={step === 1 ? 'space-y-4' : 'hidden'}>
                                 <Input
-                                    label={withRequiredMark(facilityLabel, true)}
-                                    value={facilityName}
-                                    onChange={(e) => { setFacilityName(e.target.value); setFieldErrors(p => { const { facilityName, ...rest } = p; return rest; }); }}
-                                    placeholder={`Enter ${facilityLabel.toLowerCase()}`}
-                                    leftIcon={<Building2 className="h-5 w-5" />}
-                                    error={fieldErrors.facilityName}
+                                    label={withRequiredMark(nameLabel, true)}
+                                    value={name}
+                                    onChange={(e) => { setName(e.target.value); setFieldErrors(p => { const { name, ...rest } = p; return rest; }); }}
+                                    placeholder={namePlaceholder}
+                                    leftIcon={<User className="h-5 w-5" />}
+                                    error={fieldErrors.name}
                                     required
                                 />
-                            )}
+                                {isFacilityRole && (
+                                    <Input
+                                        label={withRequiredMark(facilityLabel, true)}
+                                        value={facilityName}
+                                        onChange={(e) => { setFacilityName(e.target.value); setFieldErrors(p => { const { facilityName, ...rest } = p; return rest; }); }}
+                                        placeholder={`Enter ${facilityLabel.toLowerCase()}`}
+                                        leftIcon={<Building2 className="h-5 w-5" />}
+                                        error={fieldErrors.facilityName}
+                                        required
+                                    />
+                                )}
+                                <Input
+                                    label={withRequiredMark('Email Address', true)}
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => { setEmail(e.target.value); setFieldErrors(p => { const { email, ...rest } = p; return rest; }); }}
+                                    placeholder="Enter email"
+                                    leftIcon={<Mail className="h-5 w-5" />}
+                                    error={fieldErrors.email}
+                                    required
+                                />
+                                <Input
+                                    label={withRequiredMark('Phone Number', true)}
+                                    value={phone}
+                                    onChange={(e) => { setPhone(e.target.value); setFieldErrors(p => { const { phone, ...rest } = p; return rest; }); }}
+                                    placeholder="Enter contact number"
+                                    leftIcon={<Phone className="h-5 w-5" />}
+                                    error={fieldErrors.phone}
+                                    required
+                                />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <Input
+                                        label={withRequiredMark('Password', true)}
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={password}
+                                        onChange={(e) => { setPassword(e.target.value); setFieldErrors(p => { const { password, ...rest } = p; return rest; }); }}
+                                        placeholder="Min. 8 characters"
+                                        leftIcon={<Lock className="h-5 w-5" />}
+                                        error={fieldErrors.password}
+                                        rightIcon={
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="hover:text-white text-white/40 transition-colors"
+                                            >
+                                                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                            </button>
+                                        }
+                                        required
+                                    />
+                                    <Input
+                                        label={withRequiredMark('Confirm Password', true)}
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={confirmPassword}
+                                        onChange={(e) => { setConfirmPassword(e.target.value); setFieldErrors(p => { const { confirmPassword, ...rest } = p; return rest; }); }}
+                                        placeholder="Re-enter password"
+                                        leftIcon={<Lock className="h-5 w-5" />}
+                                        error={fieldErrors.confirmPassword}
+                                        required
+                                    />
+                                </div>
+                            </div>
 
-                            <Input
-                                label={withRequiredMark('Email Address', true)}
-                                type="email"
-                                value={email}
-                                onChange={(e) => { setEmail(e.target.value); setFieldErrors(p => { const { email, ...rest } = p; return rest; }); }}
-                                placeholder="Enter email"
-                                leftIcon={<Mail className="h-5 w-5" />}
-                                error={fieldErrors.email}
-                                required
-                            />
+                            {/* ── STEP 2: Professional Profile ── */}
+                            <div className={step === 2 ? 'space-y-4' : 'hidden'}>
+                                {config.role === 'doctor' && (
+                                    <>
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
+                                                {withRequiredMark('Specialization', true)}
+                                            </label>
+                                            <select
+                                                value={specialization}
+                                                onChange={(e) => { setSpecialization(e.target.value); setFieldErrors(p => { const { specialization, ...rest } = p; return rest; }); }}
+                                                className={`w-full px-4 py-3.5 border rounded-xl text-white focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all appearance-none ${fieldErrors.specialization ? '!border-red-400' : 'border-white/10 bg-white/[0.03]'}`}
+                                                required
+                                            >
+                                                <option value="" className="text-black">Select specialization</option>
+                                                {SPECIALIZATIONS.map(s => (
+                                                    <option key={s} value={s} className="text-black">{s}</option>
+                                                ))}
+                                            </select>
+                                            {fieldErrors.specialization && (
+                                                <p className="text-sm text-red-400 mt-1.5">{fieldErrors.specialization}</p>
+                                            )}
+                                        </div>
+                                        <Input
+                                            label={withRequiredMark('Medical Degree / Qualification', true)}
+                                            value={qualification}
+                                            onChange={(e) => { setQualification(e.target.value); setFieldErrors(p => { const { qualification, ...rest } = p; return rest; }); }}
+                                            placeholder="Example: MBBS, MD Internal Medicine"
+                                            leftIcon={<GraduationCap className="h-5 w-5" />}
+                                            error={fieldErrors.qualification}
+                                            required
+                                        />
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <Input
+                                                label={withRequiredMark('Years of Experience', true)}
+                                                type="number"
+                                                value={experience}
+                                                onChange={(e) => { setExperience(e.target.value); setFieldErrors(p => { const { experience, ...rest } = p; return rest; }); }}
+                                                placeholder="e.g. 5"
+                                                leftIcon={<Briefcase className="h-5 w-5" />}
+                                                error={fieldErrors.experience}
+                                                min="0"
+                                                required
+                                            />
+                                            <Input
+                                                label={withRequiredMark('Consultation Fee (₹)', true)}
+                                                type="number"
+                                                value={consultationFee}
+                                                onChange={(e) => { setConsultationFee(e.target.value); setFieldErrors(p => { const { consultationFee, ...rest } = p; return rest; }); }}
+                                                placeholder="e.g. 500"
+                                                leftIcon={<IndianRupee className="h-5 w-5" />}
+                                                error={fieldErrors.consultationFee}
+                                                min="0"
+                                                required
+                                            />
+                                        </div>
+                                        <Input
+                                            label="Languages Spoken"
+                                            value={languages}
+                                            onChange={(e) => setLanguages(e.target.value)}
+                                            placeholder="Example: Hindi, English, Marathi"
+                                            leftIcon={<Languages className="h-5 w-5" />}
+                                        />
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">Profile Summary</label>
+                                            <textarea
+                                                value={bio}
+                                                onChange={(e) => setBio(e.target.value)}
+                                                placeholder="Short clinical background, areas of focus, and patient-care approach"
+                                                rows={3}
+                                                className="w-full px-4 py-3.5 border border-white/10 rounded-xl text-white bg-white/[0.03] placeholder:text-white/30 focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all"
+                                            />
+                                        </div>
+                                    </>
+                                )}
 
-                            <Input
-                                label={withRequiredMark('Phone Number', true)}
-                                value={phone}
-                                onChange={(e) => { setPhone(e.target.value); setFieldErrors(p => { const { phone, ...rest } = p; return rest; }); }}
-                                placeholder="Enter approval contact number"
-                                leftIcon={<Phone className="h-5 w-5" />}
-                                error={fieldErrors.phone}
-                                required
-                            />
-
-                            {/* Role Specific Fields */}
-                            {config.role === 'doctor' && (
-                                <>
-                                    <div>
-                                        <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
-                                            {withRequiredMark('Specialization', true)}
-                                        </label>
-                                        <select
+                                {isWellnessRole && (
+                                    <>
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
+                                                {withRequiredMark('Primary Coaching Role', true)}
+                                            </label>
+                                            <select
+                                                value={subRole}
+                                                onChange={(e) => { setSubRole(e.target.value); setFieldErrors((p) => { const { subRole, ...rest } = p; return rest; }); }}
+                                                className={`w-full px-4 py-3.5 border rounded-xl text-white bg-white/[0.03] focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all appearance-none ${fieldErrors.subRole ? '!border-red-400' : 'border-white/10'}`}
+                                            >
+                                                <option value="" className="text-black">Select primary role</option>
+                                                <option value="fitness_trainer" className="text-black">Fitness Trainer</option>
+                                                <option value="yoga_coach" className="text-black">Yoga Coach</option>
+                                                <option value="nutritionist" className="text-black">Nutritionist</option>
+                                            </select>
+                                            {fieldErrors.subRole && (
+                                                <p className="text-sm text-red-400 mt-1.5">{fieldErrors.subRole}</p>
+                                            )}
+                                        </div>
+                                        <Input
+                                            label={withRequiredMark('Coach Type / Specialty', true)}
                                             value={specialization}
                                             onChange={(e) => { setSpecialization(e.target.value); setFieldErrors(p => { const { specialization, ...rest } = p; return rest; }); }}
-                                            className={`w-full px-4 py-3.5 border rounded-xl text-white focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all appearance-none ${fieldErrors.specialization ? '!border-red-400' : 'border-white/10 bg-white/[0.03]'}`}
+                                            placeholder="Example: Gym trainer, yoga, fat loss"
+                                            leftIcon={<Dumbbell className="h-5 w-5" />}
+                                            error={fieldErrors.specialization}
                                             required
-                                        >
-                                            <option value="" className="text-black">Select specialization</option>
-                                            {SPECIALIZATIONS.map(s => (
-                                                <option key={s} value={s} className="text-black">{s}</option>
-                                            ))}
-                                        </select>
-                                        {fieldErrors.specialization && (
-                                            <p className="text-sm text-red-400 mt-1.5">{fieldErrors.specialization}</p>
-                                        )}
-                                    </div>
-                                    <Input
-                                        label={withRequiredMark('Medical Registration Number', true)}
-                                        value={registrationNumber}
-                                        onChange={(e) => { setRegistrationNumber(e.target.value); setFieldErrors(p => { const { registrationNumber, ...rest } = p; return rest; }); }}
-                                        placeholder="Enter medical registration number"
-                                        leftIcon={<FileText className="h-5 w-5" />}
-                                        error={fieldErrors.registrationNumber}
-                                        required
-                                    />
-                                    <Input
-                                        label={withRequiredMark('Medical License Number', true)}
-                                        value={licenseNumber}
-                                        onChange={(e) => { setLicenseNumber(e.target.value); setFieldErrors(p => { const { licenseNumber, ...rest } = p; return rest; }); }}
-                                        placeholder="Enter medical license number"
-                                        leftIcon={<FileText className="h-5 w-5" />}
-                                        error={fieldErrors.licenseNumber}
-                                        required
-                                    />
-                                    <Input
-                                        label={withRequiredMark('Medical Degree / Qualification', true)}
-                                        value={qualification}
-                                        onChange={(e) => { setQualification(e.target.value); setFieldErrors(p => { const { qualification, ...rest } = p; return rest; }); }}
-                                        placeholder="Example: MBBS, MD Internal Medicine"
-                                        leftIcon={<GraduationCap className="h-5 w-5" />}
-                                        error={fieldErrors.qualification}
-                                        required
-                                    />
-                                    <Input
-                                        label={withRequiredMark('Years of Experience', true)}
-                                        type="number"
-                                        value={experience}
-                                        onChange={(e) => { setExperience(e.target.value); setFieldErrors(p => { const { experience, ...rest } = p; return rest; }); }}
-                                        placeholder="Enter years of experience"
-                                        leftIcon={<Briefcase className="h-5 w-5" />}
-                                        error={fieldErrors.experience}
-                                        min="0"
-                                        required
-                                    />
-                                    <Input
-                                        label={withRequiredMark('Consultation Fee', true)}
-                                        type="number"
-                                        value={consultationFee}
-                                        onChange={(e) => { setConsultationFee(e.target.value); setFieldErrors(p => { const { consultationFee, ...rest } = p; return rest; }); }}
-                                        placeholder="Enter consultation fee in INR"
-                                        leftIcon={<IndianRupee className="h-5 w-5" />}
-                                        error={fieldErrors.consultationFee}
-                                        min="0"
-                                        required
-                                    />
-                                    <Input
-                                        label="Languages"
-                                        value={languages}
-                                        onChange={(e) => setLanguages(e.target.value)}
-                                        placeholder="Example: Hindi, English, Marathi"
-                                        leftIcon={<Languages className="h-5 w-5" />}
-                                    />
-                                    <div>
-                                        <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
-                                            Profile Summary
-                                        </label>
-                                        <textarea
-                                            value={bio}
-                                            onChange={(e) => setBio(e.target.value)}
-                                            placeholder="Short clinical background, areas of focus, and patient-care approach"
-                                            rows={3}
-                                            className="w-full px-4 py-3.5 border border-white/10 rounded-xl text-white bg-white/[0.03] placeholder:text-white/30 focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all"
                                         />
-                                    </div>
-                                </>
-                            )}
+                                        <Input
+                                            label={withRequiredMark('Qualification / Certification', true)}
+                                            value={qualification}
+                                            onChange={(e) => { setQualification(e.target.value); setFieldErrors(p => { const { qualification, ...rest } = p; return rest; }); }}
+                                            placeholder="Example: ACE CPT, Yoga TTC 200"
+                                            leftIcon={<GraduationCap className="h-5 w-5" />}
+                                            error={fieldErrors.qualification}
+                                            required
+                                        />
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <Input
+                                                label={withRequiredMark('Years of Experience', true)}
+                                                type="number"
+                                                value={experience}
+                                                onChange={(e) => { setExperience(e.target.value); setFieldErrors(p => { const { experience, ...rest } = p; return rest; }); }}
+                                                placeholder="e.g. 3"
+                                                leftIcon={<Briefcase className="h-5 w-5" />}
+                                                error={fieldErrors.experience}
+                                                min="0"
+                                                required
+                                            />
+                                            <Input
+                                                label={withRequiredMark('Session Fee (₹)', true)}
+                                                type="number"
+                                                value={consultationFee}
+                                                onChange={(e) => { setConsultationFee(e.target.value); setFieldErrors(p => { const { consultationFee, ...rest } = p; return rest; }); }}
+                                                placeholder="Enter fee in INR"
+                                                leftIcon={<IndianRupee className="h-5 w-5" />}
+                                                error={fieldErrors.consultationFee}
+                                                min="0"
+                                                required
+                                            />
+                                        </div>
+                                        <Input
+                                            label="Languages"
+                                            value={languages}
+                                            onChange={(e) => setLanguages(e.target.value)}
+                                            placeholder="Example: Hindi, English, Kannada"
+                                            leftIcon={<Languages className="h-5 w-5" />}
+                                        />
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">Coach Bio</label>
+                                            <textarea
+                                                value={bio}
+                                                onChange={(e) => setBio(e.target.value)}
+                                                placeholder="Training style, client goals you handle, safety boundaries, and availability"
+                                                rows={3}
+                                                className="w-full px-4 py-3.5 border border-white/10 rounded-xl text-white bg-white/[0.03] placeholder:text-white/30 focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <Input
+                                                label="Service Area"
+                                                value={address}
+                                                onChange={(e) => setAddress(e.target.value)}
+                                                placeholder="Online, home visits, or studio"
+                                                leftIcon={<MapPin className="h-5 w-5" />}
+                                            />
+                                            <Input label="City" value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Bengaluru" />
+                                            <Input label="State" value={state} onChange={(e) => setState(e.target.value)} placeholder="e.g. Karnataka" />
+                                        </div>
+                                    </>
+                                )}
 
-                            {isWellnessRole && (
-                                <>
-                                    <div>
-                                        <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
-                                            {withRequiredMark('Primary Coaching Role', true)}
-                                        </label>
-                                        <select
-                                            value={subRole}
-                                            onChange={(e) => { setSubRole(e.target.value); setFieldErrors((p) => { const { subRole, ...rest } = p; return rest; }); }}
-                                            className={`w-full px-4 py-3.5 border rounded-xl text-white bg-white/[0.03] focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all appearance-none ${fieldErrors.subRole ? '!border-red-400' : 'border-white/10'}`}
-                                        >
-                                            <option value="" className="text-black">Select primary role</option>
-                                            <option value="fitness_trainer" className="text-black">Fitness Trainer</option>
-                                            <option value="yoga_coach" className="text-black">Yoga Coach</option>
-                                            <option value="nutritionist" className="text-black">Nutritionist</option>
-                                        </select>
-                                        {fieldErrors.subRole && (
-                                            <p className="text-sm text-red-400 mt-1.5">{fieldErrors.subRole}</p>
+                                {isFacilityRole && (
+                                    <>
+                                        {config.role === 'hospital_owner' && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">{withRequiredMark('Hospital Type', true)}</label>
+                                                <select value={hospitalType} onChange={(e) => setHospitalType(e.target.value)} className="w-full px-4 py-3.5 border rounded-xl text-white border-white/10 bg-white/[0.03] focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all appearance-none" required>
+                                                    <option value="Private" className="text-black">Private</option>
+                                                    <option value="Government" className="text-black">Government</option>
+                                                </select>
+                                            </div>
                                         )}
-                                    </div>
-                                    <Input
-                                        label={withRequiredMark('Coach Type / Specialty', true)}
-                                        value={specialization}
-                                        onChange={(e) => { setSpecialization(e.target.value); setFieldErrors(p => { const { specialization, ...rest } = p; return rest; }); }}
-                                        placeholder="Example: Gym trainer, yoga, mobility, fat loss"
-                                        leftIcon={<Dumbbell className="h-5 w-5" />}
-                                        error={fieldErrors.specialization}
-                                        required
-                                    />
-                                    <Input
-                                        label={withRequiredMark('Qualification / Certification', true)}
-                                        value={qualification}
-                                        onChange={(e) => { setQualification(e.target.value); setFieldErrors(p => { const { qualification, ...rest } = p; return rest; }); }}
-                                        placeholder="Example: ACE CPT, Yoga TTC 200, Sports Nutrition"
-                                        leftIcon={<GraduationCap className="h-5 w-5" />}
-                                        error={fieldErrors.qualification}
-                                        required
-                                    />
-                                    <Input
-                                        label="Certification / Registration Number"
-                                        value={licenseNumber}
-                                        onChange={(e) => setLicenseNumber(e.target.value)}
-                                        placeholder="Optional certification or license number"
-                                        leftIcon={<FileText className="h-5 w-5" />}
-                                    />
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        {isFitnessCenterRole && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">{withRequiredMark('Center Type', true)}</label>
+                                                <select value={centerType} onChange={(e) => setCenterType(e.target.value)} className="w-full px-4 py-3.5 border rounded-xl text-white border-white/10 bg-white/[0.03] focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all appearance-none" required>
+                                                    <option value="gym" className="text-black">Gym</option>
+                                                    <option value="yoga_studio" className="text-black">Yoga Studio</option>
+                                                    <option value="fitness_center" className="text-black">Fitness Center</option>
+                                                    <option value="dance_studio" className="text-black">Dance Studio</option>
+                                                    <option value="running_club" className="text-black">Running Club</option>
+                                                    <option value="physiotherapy_center" className="text-black">Physiotherapy Center</option>
+                                                </select>
+                                            </div>
+                                        )}
                                         <Input
-                                            label={withRequiredMark('Years of Experience', true)}
-                                            type="number"
-                                            value={experience}
-                                            onChange={(e) => { setExperience(e.target.value); setFieldErrors(p => { const { experience, ...rest } = p; return rest; }); }}
-                                            placeholder="Enter years of coaching experience"
-                                            leftIcon={<Briefcase className="h-5 w-5" />}
-                                            error={fieldErrors.experience}
-                                            min="0"
-                                            required
-                                        />
-                                        <Input
-                                            label={withRequiredMark('Session Fee', true)}
-                                            type="number"
-                                            value={consultationFee}
-                                            onChange={(e) => { setConsultationFee(e.target.value); setFieldErrors(p => { const { consultationFee, ...rest } = p; return rest; }); }}
-                                            placeholder="Enter fee in INR"
-                                            leftIcon={<IndianRupee className="h-5 w-5" />}
-                                            error={fieldErrors.consultationFee}
-                                            min="0"
-                                            required
-                                        />
-                                    </div>
-                                    <Input
-                                        label="Languages"
-                                        value={languages}
-                                        onChange={(e) => setLanguages(e.target.value)}
-                                        placeholder="Example: Hindi, English, Kannada"
-                                        leftIcon={<Languages className="h-5 w-5" />}
-                                    />
-                                    <div>
-                                        <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
-                                            Coach Bio
-                                        </label>
-                                        <textarea
-                                            value={bio}
-                                            onChange={(e) => setBio(e.target.value)}
-                                            placeholder="Training style, client goals you handle, safety boundaries, and availability"
-                                            rows={3}
-                                            className="w-full px-4 py-3.5 border border-white/10 rounded-xl text-white bg-white/[0.03] placeholder:text-white/30 focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <Input
-                                            label="Service Area"
+                                            label={withRequiredMark('Address', true)}
                                             value={address}
-                                            onChange={(e) => setAddress(e.target.value)}
-                                            placeholder="Online, home visits, or studio address"
+                                            onChange={(e) => { setAddress(e.target.value); setFieldErrors(p => { const { address, ...rest } = p; return rest; }); }}
+                                            placeholder="Full Address"
                                             leftIcon={<MapPin className="h-5 w-5" />}
+                                            error={fieldErrors.address}
+                                            required
                                         />
-                                        <Input
-                                            label="City"
-                                            value={city}
-                                            onChange={(e) => setCity(e.target.value)}
-                                            placeholder="e.g. Bengaluru"
-                                        />
-                                        <Input
-                                            label="State"
-                                            value={state}
-                                            onChange={(e) => setState(e.target.value)}
-                                            placeholder="e.g. Karnataka"
-                                        />
-                                    </div>
-                                </>
-                            )}
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <Input label={withRequiredMark('City', true)} value={city} onChange={(e) => { setCity(e.target.value); setFieldErrors(p => { const { city, ...rest } = p; return rest; }); }} placeholder="e.g. Mumbai" error={fieldErrors.city} required />
+                                            <Input label="State" value={state} onChange={(e) => setState(e.target.value)} placeholder="e.g. Maharashtra" />
+                                            <Input label="Pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} placeholder="e.g. 400001" />
+                                        </div>
+                                        <div className="rounded-xl overflow-hidden border border-white/10 relative mt-2 mb-4 bg-white/[0.02]">
+                                            <LocationPicker
+                                                latitude={latitude}
+                                                longitude={longitude}
+                                                address={address}
+                                                onLocationChange={(lat, lng) => {
+                                                    if (lat === 0 && lng === 0) { setLatitude(null); setLongitude(null); }
+                                                    else { setLatitude(lat); setLongitude(lng); }
+                                                    setFieldErrors((p) => { const { location, ...rest } = p; return rest; });
+                                                }}
+                                                accentColor="black"
+                                                label={withRequiredMark('Pin your facility on the map', true)}
+                                                height="300px"
+                                            />
+                                        </div>
+                                        {fieldErrors.location && <p className="text-sm text-red-400 mt-1">{fieldErrors.location}</p>}
+                                        {(config.role === 'hospital_owner' || config.role === 'clinic_owner') && (
+                                            <div className="flex items-center space-x-3 mt-2 p-4 border border-white/10 rounded-xl bg-white/[0.02]">
+                                                <div className="relative flex items-center">
+                                                    <input type="checkbox" id="emergency_available" checked={isEmergencyAvailable} onChange={(e) => setIsEmergencyAvailable(e.target.checked)} className="peer appearance-none w-5 h-5 border border-white/20 rounded bg-white/[0.03] checked:bg-white checked:border-white transition-all cursor-pointer" />
+                                                    <svg className="absolute w-3 h-3 text-black left-1 top-1 opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                                </div>
+                                                <label htmlFor="emergency_available" className="text-sm font-medium text-white/80 cursor-pointer">24/7 Emergency Services Available</label>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
 
-                            {(config.role === 'pharmacy_owner' || config.role === 'hospital_owner' || config.role === 'clinic_owner' || config.role === 'diagnostic_center_owner' || config.role === 'fitness_center_owner') && (
-                                <>
+                            {/* ── STEP 3: Verification & Documents ── */}
+                            <div className={step === 3 ? 'space-y-4' : 'hidden'}>
+                                <div className="mb-2">
+                                    <p className="text-white/50 text-sm">Please provide your credentials for verification. Approved providers gain access to the full platform.</p>
+                                </div>
+
+                                {config.role === 'doctor' && (
+                                    <>
+                                        <Input
+                                            label={withRequiredMark('Medical Registration Number', true)}
+                                            value={registrationNumber}
+                                            onChange={(e) => { setRegistrationNumber(e.target.value); setFieldErrors(p => { const { registrationNumber, ...rest } = p; return rest; }); }}
+                                            placeholder="State Medical Council Reg. No."
+                                            leftIcon={<FileText className="h-5 w-5" />}
+                                            error={fieldErrors.registrationNumber}
+                                            required
+                                        />
+                                        <Input
+                                            label={withRequiredMark('Medical License Number', true)}
+                                            value={licenseNumber}
+                                            onChange={(e) => { setLicenseNumber(e.target.value); setFieldErrors(p => { const { licenseNumber, ...rest } = p; return rest; }); }}
+                                            placeholder="MCI / NMC License Number"
+                                            leftIcon={<FileText className="h-5 w-5" />}
+                                            error={fieldErrors.licenseNumber}
+                                            required
+                                        />
+                                        <div className="space-y-3 pt-2">
+                                            <p className="text-xs uppercase tracking-wider font-semibold text-white/40">Document Uploads (Optional but speeds up verification)</p>
+                                            <div className="p-4 border border-white/10 bg-white/[0.03] rounded-xl">
+                                                <p className="text-sm font-medium text-white/80 mb-1">Government ID Proof</p>
+                                                <p className="text-xs text-white/40 mb-3">Aadhar Card, PAN, or Passport</p>
+                                                <div className="flex items-center gap-3">
+                                                    <button type="button" onClick={() => document.getElementById('id_proof')?.click()} className="flex items-center gap-2 px-3 py-2 border border-white/20 rounded-lg text-sm text-white/70 hover:bg-white/10 transition-all">
+                                                        <Upload className="w-4 h-4" /> Choose File
+                                                    </button>
+                                                    <span className="text-sm text-white/40 truncate">{idProofFile ? idProofFile.name : 'No file chosen'}</span>
+                                                    <input type="file" id="id_proof" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setIdProofFile(e.target.files?.[0] || null)} />
+                                                </div>
+                                            </div>
+                                            <div className="p-4 border border-white/10 bg-white/[0.03] rounded-xl">
+                                                <p className="text-sm font-medium text-white/80 mb-1">Medical Registration Certificate</p>
+                                                <p className="text-xs text-white/40 mb-3">State Medical Council Certificate</p>
+                                                <div className="flex items-center gap-3">
+                                                    <button type="button" onClick={() => document.getElementById('med_cert')?.click()} className="flex items-center gap-2 px-3 py-2 border border-white/20 rounded-lg text-sm text-white/70 hover:bg-white/10 transition-all">
+                                                        <Upload className="w-4 h-4" /> Choose File
+                                                    </button>
+                                                    <span className="text-sm text-white/40 truncate">{registrationCertFile ? registrationCertFile.name : 'No file chosen'}</span>
+                                                    <input type="file" id="med_cert" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setRegistrationCertFile(e.target.files?.[0] || null)} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {isFacilityRole && (
                                     <Input
                                         label={withRequiredMark('License / Registration Number', !isFitnessCenterRole)}
                                         value={licenseNumber}
                                         onChange={(e) => { setLicenseNumber(e.target.value); setFieldErrors(p => { const { licenseNumber, ...rest } = p; return rest; }); }}
-                                        placeholder={isFitnessCenterRole ? 'Optional business, studio, or GST registration number' : 'Enter facility license or registration number'}
+                                        placeholder={isFitnessCenterRole ? 'Optional business or GST registration number' : 'Enter facility license or registration number'}
                                         leftIcon={<FileText className="h-5 w-5" />}
                                         error={fieldErrors.licenseNumber}
                                         required={!isFitnessCenterRole}
                                     />
-                                    {config.role === 'hospital_owner' && (
-                                        <div className="mb-4">
-                                            <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
-                                                {withRequiredMark('Hospital Type', true)}
-                                            </label>
-                                            <select
-                                                value={hospitalType}
-                                                onChange={(e) => setHospitalType(e.target.value)}
-                                                className="w-full px-4 py-3.5 border rounded-xl text-white border-white/10 bg-white/[0.03] focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all appearance-none"
-                                                required
-                                            >
-                                                <option value="Private" className="text-black">Private</option>
-                                                <option value="Government" className="text-black">Government</option>
-                                            </select>
-                                        </div>
-                                    )}
-                                    {config.role === 'fitness_center_owner' && (
-                                        <div className="mb-4">
-                                            <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
-                                                {withRequiredMark('Center Type', true)}
-                                            </label>
-                                            <select
-                                                value={centerType}
-                                                onChange={(e) => setCenterType(e.target.value)}
-                                                className="w-full px-4 py-3.5 border rounded-xl text-white border-white/10 bg-white/[0.03] focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all appearance-none"
-                                                required
-                                            >
-                                                <option value="gym" className="text-black">Gym</option>
-                                                <option value="yoga_studio" className="text-black">Yoga Studio</option>
-                                                <option value="fitness_center" className="text-black">Fitness Center</option>
-                                                <option value="dance_studio" className="text-black">Dance Studio</option>
-                                                <option value="running_club" className="text-black">Running Club</option>
-                                                <option value="physiotherapy_center" className="text-black">Physiotherapy Center</option>
-                                            </select>
-                                        </div>
-                                    )}
-                                    <Input
-                                        label={withRequiredMark('Address', true)}
-                                        value={address}
-                                        onChange={(e) => { setAddress(e.target.value); setFieldErrors(p => { const { address, ...rest } = p; return rest; }); }}
-                                        placeholder="Full Address"
-                                        leftIcon={<MapPin className="h-5 w-5" />}
-                                        error={fieldErrors.address}
-                                        required
-                                    />
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <Input
-                                            label={withRequiredMark('City', true)}
-                                            value={city}
-                                            onChange={(e) => { setCity(e.target.value); setFieldErrors(p => { const { city, ...rest } = p; return rest; }); }}
-                                            placeholder="e.g. Mumbai"
-                                            error={fieldErrors.city}
-                                            required
-                                        />
-                                        <Input
-                                            label="State"
-                                            value={state}
-                                            onChange={(e) => setState(e.target.value)}
-                                            placeholder="e.g. Maharashtra"
-                                        />
-                                        <Input
-                                            label="Pincode"
-                                            value={pincode}
-                                            onChange={(e) => setPincode(e.target.value)}
-                                            placeholder="e.g. 400001"
-                                        />
-                                    </div>
-                                    <div className="rounded-xl overflow-hidden border border-white/10 relative mt-2 mb-4 bg-white/[0.02]">
-                                        <LocationPicker
-                                            latitude={latitude}
-                                            longitude={longitude}
-                                            address={address}
-                                            onLocationChange={(lat, lng) => {
-                                                if (lat === 0 && lng === 0) {
-                                                    setLatitude(null);
-                                                    setLongitude(null);
-                                                } else {
-                                                    setLatitude(lat);
-                                                    setLongitude(lng);
-                                                }
-                                                setFieldErrors((p) => {
-                                                    const { location, ...rest } = p;
-                                                    return rest;
-                                                });
-                                            }}
-                                            accentColor="black"
-                                            label={withRequiredMark('Pin your facility on the map', true)}
-                                            height="300px"
-                                        />
-                                    </div>
-                                    {fieldErrors.location && (
-                                        <p className="text-sm text-red-400 mt-1">{fieldErrors.location}</p>
-                                    )}
-                                    {(config.role === 'hospital_owner' || config.role === 'clinic_owner') && (
-                                        <div className="flex items-center space-x-3 mt-4 mb-2 p-4 border border-white/10 rounded-xl bg-white/[0.02]">
-                                            <div className="relative flex items-center">
-                                                <input
-                                                    type="checkbox"
-                                                    id="emergency_available"
-                                                    checked={isEmergencyAvailable}
-                                                    onChange={(e) => setIsEmergencyAvailable(e.target.checked)}
-                                                    className="peer appearance-none w-5 h-5 border border-white/20 rounded bg-white/[0.03] checked:bg-white checked:border-white transition-all cursor-pointer"
-                                                />
-                                                <svg className="absolute w-3 h-3 text-black left-1 top-1 opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            </div>
-                                            <label htmlFor="emergency_available" className="text-sm font-medium text-white/80 cursor-pointer">
-                                                24/7 Emergency Services Available
-                                            </label>
-                                        </div>
-                                    )}
-                                </>
-                            )}
+                                )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
-                                <Input
-                                    label={withRequiredMark('Password', true)}
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={password}
-                                    onChange={(e) => { setPassword(e.target.value); setFieldErrors(p => { const { password, ...rest } = p; return rest; }); }}
-                                    placeholder="******"
-                                    leftIcon={<Lock className="h-5 w-5" />}
-                                    error={fieldErrors.password}
-                                    rightIcon={
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="hover:text-white text-white/40 transition-colors"
-                                        >
-                                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                        </button>
-                                    }
-                                    required
-                                />
-                                <Input
-                                    label={withRequiredMark('Confirm Password', true)}
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={confirmPassword}
-                                    onChange={(e) => { setConfirmPassword(e.target.value); setFieldErrors(p => { const { confirmPassword, ...rest } = p; return rest; }); }}
-                                    placeholder="******"
-                                    leftIcon={<Lock className="h-5 w-5" />}
-                                    error={fieldErrors.confirmPassword}
-                                    required
-                                />
+                                <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-400 leading-relaxed font-medium">
+                                    {approvalHint}
+                                </div>
                             </div>
 
-                            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-400 mt-4 leading-relaxed font-medium">
-                                {approvalHint}
-                            </div>
-
-                            <div className="pt-6">
-                                <Button
-                                    type="submit"
-                                    isLoading={isLoading}
-                                    className="w-full relative overflow-hidden group/btn bg-gradient-to-r from-gray-200 to-white !text-black py-6 rounded-xl font-semibold tracking-wide border-0 shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_30px_rgba(255,255,255,0.25)] transition-all"
-                                >
-                                    <span className="relative z-10">Complete Registration</span>
-                                </Button>
+                            {/* ── Navigation Buttons ── */}
+                            <div className="flex gap-3 pt-4 border-t border-white/10">
+                                {step > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setStep(step - 1); setFieldErrors({}); }}
+                                        className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border border-white/20 text-white/70 hover:bg-white/10 font-medium transition-all"
+                                    >
+                                        <ChevronLeft className="w-5 h-5" /> Back
+                                    </button>
+                                )}
+                                {step < 3 ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (step === 1 && validateStep1()) setStep(2);
+                                            else if (step === 2 && validateStep2()) setStep(3);
+                                        }}
+                                        className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl bg-gradient-to-r from-gray-100 to-white text-black font-semibold hover:opacity-90 shadow-lg transition-all"
+                                    >
+                                        Continue <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                ) : (
+                                    <Button
+                                        type="submit"
+                                        isLoading={isLoading}
+                                        className="flex-1 bg-gradient-to-r from-gray-200 to-white !text-black py-6 rounded-xl font-semibold tracking-wide border-0 shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_30px_rgba(255,255,255,0.25)] transition-all"
+                                    >
+                                        <span>Complete Registration</span>
+                                    </Button>
+                                )}
                             </div>
                         </form>
 

@@ -1,5 +1,7 @@
 'use client';
 
+import jsQR from 'jsqr';
+
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE_URL, getTokens } from '@/lib/api';
@@ -76,17 +78,14 @@ export default function ScanPatientQRPage() {
         };
     }, [mode]);
 
-    // Frame-by-frame QR scanning using BarcodeDetector API
+    // Frame-by-frame QR scanning using jsQR
     const scanFrame = async () => {
         if (!videoRef.current || !canvasRef.current) return;
 
-        // Check if BarcodeDetector is available
-        if (!('BarcodeDetector' in window)) {
-            setCameraError('QR scanning not supported in this browser. Please use manual entry or try Chrome/Edge.');
-            return;
-        }
-
-        const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        if (!context) return;
 
         const loop = async () => {
             if (!videoRef.current || videoRef.current.readyState !== 4) {
@@ -95,13 +94,22 @@ export default function ScanPatientQRPage() {
             }
 
             try {
-                const barcodes = await detector.detect(videoRef.current);
-                if (barcodes.length > 0) {
-                    const url = barcodes[0].rawValue;
-                    // Extract token from URL like https://domain/health-card/TOKEN
+                if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                }
+                
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+                
+                if (code) {
+                    const url = code.data;
                     const token = extractHealthCardToken(String(url || ''));
                     if (token) {
-                        // Stop scanning
                         if (streamRef.current) {
                             streamRef.current.getTracks().forEach((t: MediaStreamTrack) => t.stop());
                         }
@@ -113,11 +121,9 @@ export default function ScanPatientQRPage() {
             } catch {
                 // Ignore detection errors, keep scanning
             }
-
             animationRef.current = requestAnimationFrame(loop);
         };
-
-        loop();
+        animationRef.current = requestAnimationFrame(loop);
     };
 
     // Validate token and navigate
@@ -218,26 +224,49 @@ export default function ScanPatientQRPage() {
 
             {/* Manual Mode */}
             {mode === 'manual' && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Enter Health Card Token</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                            Paste the health card URL or token shared by the patient
-                        </p>
-                        <div className="flex gap-2">
-                            <input type="text" value={manualToken} onChange={e => setManualToken(e.target.value.toUpperCase())}
-                                placeholder="https://vaididea.in/health-card/A2B9X1 or 6-character Link ID"
-                                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
-                            />
-                            <Button onClick={handleManualSubmit} disabled={!manualToken.trim() || validating}>
-                                {validating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'View Records'}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                <div className="max-w-md mx-auto mt-8">
+                    <Card className="border-purple-100 dark:border-purple-900/30 shadow-lg shadow-purple-500/5 overflow-hidden relative">
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/20 dark:to-gray-900 pointer-events-none" />
+                        <CardContent className="p-8 relative z-10">
+                            <div className="flex flex-col items-center text-center mb-6">
+                                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 rounded-2xl flex items-center justify-center mb-4 text-purple-600 dark:text-purple-400">
+                                    <Keyboard className="w-6 h-6" />
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Manual Link ID</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    Enter the 6-character Link ID or paste the full health card URL shared by the patient.
+                                </p>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <div className="relative">
+                                    <input 
+                                        type="text" 
+                                        value={manualToken} 
+                                        onChange={e => setManualToken(e.target.value.toUpperCase())}
+                                        placeholder="e.g. A2B9X1"
+                                        className="w-full py-4 text-xl font-mono tracking-widest uppercase border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all placeholder:normal-case placeholder:tracking-normal placeholder:font-sans placeholder:text-base text-center"
+                                        onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
+                                    />
+                                </div>
+                                <Button 
+                                    onClick={handleManualSubmit} 
+                                    disabled={!manualToken.trim() || validating}
+                                    className="w-full py-6 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-lg shadow-md shadow-purple-500/20 transition-all"
+                                >
+                                    {validating ? (
+                                        <>
+                                            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                                            Validating...
+                                        </>
+                                    ) : (
+                                        'View Patient Records'
+                                    )}
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
             )}
 
             {/* Result */}

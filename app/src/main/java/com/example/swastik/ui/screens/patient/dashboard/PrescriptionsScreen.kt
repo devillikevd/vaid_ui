@@ -241,18 +241,25 @@ fun PrescriptionsScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            if (prescriptions.isEmpty()) "No Prescriptions Yet" else "No Prescriptions in This Filter",
+                            if (initialAppointmentId != null && filteredPrescriptions.isEmpty()) 
+                                "No prescription for this consultation"
+                            else if (prescriptions.isEmpty()) 
+                                "No Prescriptions Yet" 
+                            else 
+                                "No Prescriptions in This Filter",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            stringResource(R.string.your_real_prescriptions_from_completed),
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
+                        if (initialAppointmentId == null) {
+                            Text(
+                                stringResource(R.string.your_real_prescriptions_from_completed),
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
                 else -> {

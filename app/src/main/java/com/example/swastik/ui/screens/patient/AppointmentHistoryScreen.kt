@@ -566,6 +566,36 @@ private fun AppointmentCard(
 
             if (isUpcoming) {
                 Spacer(modifier = Modifier.height(16.dp))
+                
+                if (isInProgress && !appointment.completionOtp.isNullOrEmpty()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                        color = Color(0xFFF0FDF4),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFF86EFAC).copy(alpha = 0.5f))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Share this OTP with Doctor to complete",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF166534)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = appointment.completionOtp,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFF14532D),
+                                letterSpacing = 8.sp
+                            )
+                        }
+                    }
+                }
+
                 if (isVideo) {
                     val rejoinColor = if (isInProgress) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
                     Button(

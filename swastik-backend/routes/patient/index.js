@@ -785,7 +785,7 @@ router.get('/doctors/:id/slots',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const slots = await doctorService.getAvailableSlots(req.params.id, req.query.date);
+    const slots = await doctorService.getAvailableSlots(req.params.id, req.query.date, req.query.type || 'all');
     // Wrap as { date, slots } to match Android SlotsResponse DTO
     res.json({ success: true, data: { date: req.query.date, slots } });
   })

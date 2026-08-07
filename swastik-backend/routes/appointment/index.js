@@ -3,6 +3,7 @@ const { body, query } = require('express-validator');
 const { validate } = require('../../middleware/validate');
 const { authenticate } = require('../../middleware/auth');
 const appointmentService = require('../../services/appointmentService');
+const consultationService = require('../../services/consultationService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { recordHealthEvent } = require('../../services/outbreakService');
 
@@ -88,7 +89,7 @@ router.get('/:id',
 // Update appointment status (doctor only)
 router.put('/:id/status',
   [
-    body('status').isIn(['confirmed', 'cancelled', 'completed', 'no_show']).withMessage('Invalid status'),
+    body('status').isIn(['confirmed', 'cancelled', 'completed', 'no_show', 'in_progress']).withMessage('Invalid status'),
     body('otp').optional().isString().isLength({ min: 6, max: 6 }).withMessage('Invalid OTP format'),
   ],
   validate,
@@ -105,6 +106,20 @@ router.put('/:id/status',
       otp
     );
     res.json({ success: true, data: appointment });
+  })
+);
+
+// Resend completion OTP (doctor only)
+router.post('/:id/resend-otp',
+  asyncHandler(async (req, res) => {
+    if (req.user.role !== 'doctor') {
+      return res.status(403).json({ success: false, message: 'Only doctors can resend OTP' });
+    }
+    const result = await appointmentService.resendCompletionOtp(
+      req.user.id,
+      req.params.id
+    );
+    res.json(result);
   })
 );
 
@@ -163,6 +178,50 @@ router.post('/:id/reschedule',
       timeSlot
     );
     res.json({ success: true, data: appointment });
+  })
+);
+// Add prescription for appointment (doctor only)
+router.post('/:id/prescription',
+  [
+    body('items').isArray().withMessage('Prescription items are required'),
+    body('items.*.medicineName').notEmpty().withMessage('Medicine name is required').trim().escape(),
+    body('items.*.dosage').notEmpty().withMessage('Dosage is required').trim().escape(),
+    body('items.*.frequency').notEmpty().withMessage('Frequency is required').trim().escape(),
+    body('items.*.duration').notEmpty().withMessage('Duration is required').trim().escape(),
+    body('items.*.instructions').optional().isString().trim().escape(),
+    body('items.*.quantity').optional().isInt({ min: 1 }),
+    body('items.*.beforeFood').optional().isBoolean(),
+    body('items.*.isCritical').optional().isBoolean(),
+    body('diagnosis').optional().isString().trim().escape(),
+    body('notes').optional().isString().trim().escape(),
+    body('followUpDate').optional().isString(),
+    body('dietaryAdvice').optional().isString().trim().escape(),
+    body('lifestyleAdvice').optional().isString().trim().escape(),
+    body('instructions').optional().isString().trim().escape(),
+    body('validityDays').optional().isInt({ min: 1, max: 365 }),
+    body('allowMultiplePrescriptions').optional().isBoolean(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    if (req.user.role !== 'doctor') {
+      return res.status(403).json({ success: false, message: 'Only doctors can add prescriptions' });
+    }
+    const prescription = await consultationService.addPrescription(
+      req.user.id,
+      { appointmentId: req.params.id },
+      req.body
+    );
+
+    if (prescription.diagnosis || req.body.diagnosis) {
+      recordHealthEvent({
+        source: 'prescription', sourceId: prescription.id,
+        diagnosisText: prescription.diagnosis || req.body.diagnosis,
+        rawText: [prescription.diagnosis, req.body.diagnosis, req.body.notes].filter(Boolean).join(' '),
+        patientId: prescription.patient_id,
+      }).catch(() => {});
+    }
+
+    res.status(201).json({ success: true, data: prescription });
   })
 );
 

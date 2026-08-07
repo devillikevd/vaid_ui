@@ -709,7 +709,7 @@ router.get('/:id/slots',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const slots = await doctorService.getAvailableSlots(req.params.id, req.query.date);
+    const slots = await doctorService.getAvailableSlots(req.params.id, req.query.date, req.query.type || 'all');
     res.json({ success: true, data: slots });
   })
 );

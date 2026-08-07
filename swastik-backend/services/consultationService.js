@@ -5,6 +5,7 @@
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const eventEmitter = require('./eventEmitter');
+const notificationService = require('./notificationService');
 const config = require('../config');
 const crypto = require('crypto');
 
@@ -339,6 +340,22 @@ const startConsultation = async (doctorUserId, appointmentId) => {
   }) || consultation;
 
   await emitConsultationStartedSync(consultation, doctorUserId, doctor.name);
+
+  // Send push notification with OTP to patient
+  const { data: patient } = await supabaseAdmin
+    .from('patients')
+    .select('user_id')
+    .eq('id', consultation.patient_id)
+    .single();
+
+  if (patient?.user_id) {
+    notificationService.sendNotification(patient.user_id, {
+      title: '🎥 Video Consultation Started',
+      message: `Your video consultation has started. Your completion OTP is ${completionOtp}.`,
+      type: 'appointment_update',
+      data: { appointmentId: appointmentId, status: 'in_progress', completion_otp: completionOtp },
+    }).catch(err => console.error('[ConsultationService] Failed to send OTP notification:', err));
+  }
 
   // Invalidate the patient's dashboard cache so the card updates immediately
   await invalidatePatientDashboardCaches(consultation);
@@ -900,48 +917,113 @@ const createMedicineRemindersFromPrescription = async (patientId, prescriptionId
 };
 
 // Add prescription
-const addPrescription = async (doctorUserId, consultationId, prescriptionData) => {
+const addPrescription = async (doctorUserId, options, prescriptionData) => {
+  const { consultationId, appointmentId } = options;
+  
+  if (!consultationId && !appointmentId) {
+    throw new ApiError(400, 'Either consultationId or appointmentId must be provided');
+  }
+
   const { data: doctor } = await supabaseAdmin
     .from('doctors')
     .select('id, name')
     .eq('user_id', doctorUserId)
     .single();
 
-  // Verify consultation belongs to doctor AND is in valid status
-  const { data: consultation } = await supabaseAdmin
-    .from('consultations')
-    .select('id, patient_id, status')
-    .eq('id', consultationId)
-    .eq('doctor_id', doctor?.id)
-    .single();
-
-  if (!consultation) {
-    throw new ApiError(404, 'Consultation not found or unauthorized');
+  if (!doctor) {
+    throw new ApiError(404, 'Doctor profile not found');
   }
 
-  // Allow prescriptions only during active or recently completed consultations
-  const allowedStatuses = ['in_progress', 'completed'];
-  if (!allowedStatuses.includes(consultation.status)) {
-    throw new ApiError(400, `Cannot add prescription to a ${consultation.status} consultation`);
+  let finalConsultationId = consultationId;
+  let finalPatientId = null;
+
+  if (consultationId) {
+    // Verify consultation belongs to doctor AND is in valid status
+    const { data: consultation } = await supabaseAdmin
+      .from('consultations')
+      .select('id, patient_id, status')
+      .eq('id', consultationId)
+      .eq('doctor_id', doctor?.id)
+      .single();
+
+    if (!consultation) {
+      throw new ApiError(404, 'Consultation not found or unauthorized');
+    }
+
+    const allowedStatuses = ['in_progress', 'completed'];
+    if (!allowedStatuses.includes(consultation.status)) {
+      throw new ApiError(400, `Cannot add prescription to a ${consultation.status} consultation`);
+    }
+    finalPatientId = consultation.patient_id;
+  } else if (appointmentId) {
+    // Fetch appointment and check if consultation exists
+    const { data: appointment } = await supabaseAdmin
+      .from('appointments')
+      .select('id, patient_id, status')
+      .eq('id', appointmentId)
+      .eq('doctor_id', doctor?.id)
+      .single();
+
+    if (!appointment) {
+      throw new ApiError(404, 'Appointment not found or unauthorized');
+    }
+
+    const allowedStatuses = ['in_progress', 'completed'];
+    if (!allowedStatuses.includes(appointment.status)) {
+      throw new ApiError(400, `Cannot add prescription to a ${appointment.status} appointment`);
+    }
+
+    finalPatientId = appointment.patient_id;
+
+    // Check if consultation exists
+    const { data: existingConsultation } = await supabaseAdmin
+      .from('consultations')
+      .select('id')
+      .eq('appointment_id', appointmentId)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingConsultation) {
+      finalConsultationId = existingConsultation.id;
+    } else {
+      // Create a dummy consultation for this in-person appointment so we can attach a prescription
+      const { data: newConsultation } = await supabaseAdmin
+        .from('consultations')
+        .insert({
+          appointment_id: appointmentId,
+          doctor_id: doctor.id,
+          patient_id: finalPatientId,
+          status: appointment.status === 'completed' ? 'completed' : 'in_progress',
+          type: 'in_person'
+        })
+        .select('id')
+        .single();
+        
+      if (newConsultation) {
+        finalConsultationId = newConsultation.id;
+      }
+    }
   }
 
   // Prevent accidental duplicate writes (double-click/retry). Allow override when explicitly requested.
   if (!prescriptionData.allowMultiplePrescriptions) {
-    const { data: existingPrescription, error: existingError } = await supabaseAdmin
-      .from('prescriptions')
-      .select('id, created_at, prescription_number')
-      .eq('consultation_id', consultationId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    if (finalConsultationId) {
+      const { data: existingPrescription, error: existingError } = await supabaseAdmin
+        .from('prescriptions')
+        .select('id, created_at, prescription_number')
+        .eq('consultation_id', finalConsultationId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (existingError) throw existingError;
+      if (existingError) throw existingError;
 
-    if (existingPrescription) {
-      throw new ApiError(
-        409,
-        `Prescription already exists for this consultation (${existingPrescription.prescription_number || existingPrescription.id})`
-      );
+      if (existingPrescription) {
+        throw new ApiError(
+          409,
+          `Prescription already exists for this consultation (${existingPrescription.prescription_number || existingPrescription.id})`
+        );
+      }
     }
   }
 
@@ -984,9 +1066,9 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
   const { data: prescription, error } = await supabaseAdmin
     .from('prescriptions')
     .insert({
-      consultation_id: consultationId,
+      consultation_id: finalConsultationId,
       doctor_id: doctor.id,
-      patient_id: consultation.patient_id,
+      patient_id: finalPatientId,
       diagnosis: prescriptionData.diagnosis,
       notes: prescriptionData.notes,
       prescription_number: prescriptionNumber,
@@ -1031,7 +1113,7 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
   const { data: patientProfile } = await supabaseAdmin
     .from('patients')
     .select('user_id, name')
-    .eq('id', consultation.patient_id)
+    .eq('id', finalPatientId)
     .single();
 
   let patient = patientProfile ? {
@@ -1056,7 +1138,7 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
       prescription,
       doctor,
       patient,
-      consultationPatientId: consultation.patient_id,
+      consultationPatientId: finalPatientId,
       enrichedItems,
     });
     if (pdfUrl) prescription.pdf_url = pdfUrl;
@@ -1079,7 +1161,7 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
       type: 'prescription_created',
       data: {
         prescriptionId: prescription.id,
-        consultationId,
+        consultationId: finalConsultationId,
         doctorName: doctor.name,
         idempotencyKey: `prescription-created:${prescription.id}`,
       },
@@ -1087,7 +1169,7 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
   }
 
   // Auto-create medicine reminders in background so API response is not blocked by DB latency
-  createMedicineRemindersFromPrescription(consultation.patient_id, prescription.id, enrichedItems)
+  createMedicineRemindersFromPrescription(finalPatientId, prescription.id, enrichedItems)
     .catch((reminderErr) => {
       console.warn('[ConsultationService] Reminder auto-create failed (non-blocking):', reminderErr.message);
     });

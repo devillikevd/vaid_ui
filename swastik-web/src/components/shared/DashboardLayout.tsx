@@ -540,7 +540,7 @@ export default function DashboardLayout({
                 ref={sidebarRef}
                 className={cn(
                     'fixed top-0 left-0 z-50 h-full text-white transition-all duration-300 lg:translate-x-0 flex flex-col',
-                    desktopCollapsed ? 'w-20' : 'w-64',
+                    desktopCollapsed ? 'w-64 lg:w-20' : 'w-64',
                     colors.sidebar,
                     sidebarOpen ? 'translate-x-0' : '-translate-x-full'
                 )}
@@ -550,7 +550,7 @@ export default function DashboardLayout({
             >
                 {/* Logo */}
                 <div className={cn('flex-none flex items-center h-16 px-4 border-b', colors.border, desktopCollapsed ? 'justify-center' : 'justify-between')}>
-                    <div className={cn("flex items-center gap-3 overflow-hidden", desktopCollapsed && "hidden")}>
+                    <div className={cn("flex items-center gap-3 overflow-hidden", desktopCollapsed ? "lg:hidden" : "")}>
                         <div className={cn('p-2 rounded-lg shrink-0', colors.logoBg)}>
                             <PortalIcon className="h-5 w-5" />
                         </div>
@@ -560,7 +560,7 @@ export default function DashboardLayout({
                         </div>
                     </div>
                     {desktopCollapsed && (
-                        <div className={cn('p-2 rounded-lg shrink-0', colors.logoBg)}>
+                        <div className={cn('p-2 rounded-lg shrink-0 hidden lg:block', colors.logoBg)}>
                             <PortalIcon className="h-5 w-5" />
                         </div>
                     )}
@@ -594,13 +594,17 @@ export default function DashboardLayout({
 
                         return Object.entries(sections).map(([sectionName, items]) => (
                             <div key={sectionName || 'default'} className="space-y-1">
-                                {sectionName && !desktopCollapsed && (
-                                    <div className={cn("px-3 mb-2 text-xs font-semibold uppercase tracking-wider opacity-60 whitespace-nowrap", colors.text)}>
+                                {sectionName && (
+                                    <div className={cn(
+                                        "px-3 mb-2 text-xs font-semibold uppercase tracking-wider opacity-60 whitespace-nowrap",
+                                        colors.text,
+                                        desktopCollapsed ? "lg:hidden" : ""
+                                    )}>
                                         {sectionName}
                                     </div>
                                 )}
                                 {sectionName && desktopCollapsed && (
-                                    <div className="h-4" /> 
+                                    <div className="h-4 hidden lg:block" /> 
                                 )}
                                 {items.map((item) => {
                                     const isActive = pathname === item.href ||
@@ -615,19 +619,23 @@ export default function DashboardLayout({
                                             title={desktopCollapsed ? item.name : undefined}
                                             className={cn(
                                                 'flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative',
-                                                desktopCollapsed ? 'justify-center px-0' : 'px-3',
+                                                desktopCollapsed ? 'lg:justify-center px-3 lg:px-0' : 'px-3',
                                                 isActive ? colors.active : cn(colors.text, colors.hover)
                                             )}
                                         >
                                             <Icon className="h-5 w-5 shrink-0" />
-                                            {!desktopCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
-                                            {!desktopCollapsed && item.badge != null && item.badge > 0 && (
-                                                <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 min-w-[20px] flex items-center justify-center px-1">
+                                            <span className={cn("whitespace-nowrap", desktopCollapsed ? "lg:hidden" : "")}>{item.name}</span>
+                                            
+                                            {item.badge != null && item.badge > 0 && (
+                                                <span className={cn(
+                                                    "bg-red-500 text-white text-xs font-bold rounded-full h-5 min-w-[20px] flex items-center justify-center px-1 ml-auto",
+                                                    desktopCollapsed ? "lg:hidden" : ""
+                                                )}>
                                                     {item.badge > 99 ? '99+' : item.badge}
                                                 </span>
                                             )}
                                             {desktopCollapsed && item.badge != null && item.badge > 0 && (
-                                                <span className="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                                                <span className="hidden lg:flex absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 items-center justify-center">
                                                     {item.badge > 99 ? '!' : item.badge}
                                                 </span>
                                             )}
@@ -644,10 +652,8 @@ export default function DashboardLayout({
             <div 
                 className={cn("transition-all duration-300 min-h-screen flex flex-col", desktopCollapsed ? "lg:pl-20" : "lg:pl-64")}
                 onClick={() => {
-                    if (!desktopCollapsed) {
-                        setDesktopCollapsed(true);
-                    }
-                }}
+                                                    // Removed auto-collapse since it applies incorrectly to mobile state
+                                                }}
             >
                 {/* Header */}
                 <header className="sticky top-0 z-30 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">

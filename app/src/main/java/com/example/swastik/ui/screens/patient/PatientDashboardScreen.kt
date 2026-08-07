@@ -440,7 +440,7 @@ fun PatientDashboardScreen(
                                                             onJoinVideoConsultation(
                                                                 activeBooking.id, 
                                                                 activeBooking.doctor?.name ?: "Doctor"
-                                                            ) 
+                                                            )
                                                         },
                                                         modifier = Modifier.fillMaxWidth().height(36.dp),
                                                         shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
@@ -450,6 +450,24 @@ fun PatientDashboardScreen(
                                                         Icon(Icons.Default.VideoCall, contentDescription = null, modifier = Modifier.size(16.dp))
                                                         Spacer(modifier = Modifier.width(6.dp))
                                                         Text("Join Consultation", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                }
+                                                
+                                                if (isInProgress && !activeBooking.completionOtp.isNullOrEmpty()) {
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Surface(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        color = Color(0xFFDCFCE7),
+                                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                                    ) {
+                                                        Row(
+                                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Text("Completion OTP", fontSize = 12.sp, color = Color(0xFF166534))
+                                                            Text(activeBooking.completionOtp!!, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF14532D), letterSpacing = 2.sp)
+                                                        }
                                                     }
                                                 } else {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {

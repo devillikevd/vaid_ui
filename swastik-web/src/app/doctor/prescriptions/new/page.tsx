@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { consultationsApi, uploadApi } from '@/lib/api';
+import { consultationsApi, uploadApi, appointmentsApi } from '@/lib/api';
 import {
     ArrowLeft,
     Plus,
@@ -71,6 +71,7 @@ export default function NewPrescriptionPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const consultationId = searchParams.get('consultation') || '';
+    const appointmentId = searchParams.get('appointmentId') || '';
 
     const [items, setItems] = useState<PrescriptionItem[]>([{ ...emptyItem }]);
     const [diagnosis, setDiagnosis] = useState('');
@@ -97,8 +98,19 @@ export default function NewPrescriptionPage() {
                     setConsultationData(res.data as Record<string, unknown>);
                 }
             });
+        } else if (appointmentId) {
+            appointmentsApi.getById(appointmentId).then((res) => {
+                if (res.success && res.data) {
+                    const data = res.data as Record<string, unknown>;
+                    setConsultationData({
+                        ...data,
+                        patient: data.patient,
+                        type: data.type
+                    } as Record<string, unknown>);
+                }
+            });
         }
-    }, [consultationId]);
+    }, [consultationId, appointmentId]);
 
     const addItem = () => {
         setItems((prev) => [...prev, { ...emptyItem }]);
@@ -116,13 +128,13 @@ export default function NewPrescriptionPage() {
     };
 
     const isValid = useCallback(() => {
-        if (!consultationId) return false;
+        if (!consultationId && !appointmentId) return false;
         if (entryMode === 'upload') return !!selectedFile;
         return (
             items.length > 0 &&
             items.every((item) => item.medicineName.trim() && item.dosage.trim() && item.frequency && item.duration)
         );
-    }, [consultationId, items, entryMode, selectedFile]);
+    }, [consultationId, appointmentId, items, entryMode, selectedFile]);
 
     const handleSubmit = async () => {
         if (!isValid()) return;
@@ -149,7 +161,7 @@ export default function NewPrescriptionPage() {
                 notes ? `Additional Notes:\n${notes}` : ''
             ].filter(Boolean).join('\n\n');
 
-            const response = await consultationsApi.addPrescription(consultationId, {
+            const payload = {
                 items: entryMode === 'digital' ? items.map((item) => ({
                     medicineName: item.medicineName,
                     dosage: item.dosage,
@@ -166,12 +178,20 @@ export default function NewPrescriptionPage() {
                 dietaryAdvice: dietaryAdvice || undefined,
                 lifestyleAdvice: lifestyleAdvice || undefined,
                 fileUrl: fileUrl || undefined,
-            });
+            };
+
+            const response = appointmentId 
+                ? await appointmentsApi.addPrescription(appointmentId, payload)
+                : await consultationsApi.addPrescription(consultationId, payload);
 
             if (response.success) {
                 setSuccess(true);
                 setTimeout(() => {
-                    router.push('/doctor/prescriptions');
+                    if (appointmentId) {
+                        router.push('/doctor/appointments');
+                    } else {
+                        router.push('/doctor/appointments');
+                    }
                 }, 1500);
             } else {
                 setError(response.error || 'Failed to create prescription');
@@ -479,6 +499,18 @@ export default function NewPrescriptionPage() {
 
             {/* Submit */}
             <div className="flex items-center justify-end gap-3 pb-8">
+                <button
+                    onClick={() => {
+                        if (appointmentId) {
+                            router.push('/doctor/appointments');
+                        } else {
+                            router.push('/doctor/appointments');
+                        }
+                    }}
+                    className="px-6 py-2.5 border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 font-medium"
+                >
+                    Skip (No Prescription)
+                </button>
                 <button
                     onClick={() => router.back()}
                     className="px-6 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 font-medium"

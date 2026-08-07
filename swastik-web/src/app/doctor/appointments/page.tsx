@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Calendar, CalendarClock, Clock, User, Video, Search, RefreshCw, Loader2, AlertCircle, Play, XCircle as XCircleIcon, CheckCircle, Bell } from 'lucide-react';
+import { Calendar, CalendarClock, Clock, User, Video, Search, RefreshCw, Loader2, AlertCircle, Play, XCircle as XCircleIcon, CheckCircle, Bell, UserCheck } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -14,7 +14,7 @@ import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 export default function DoctorAppointmentsPage() {
     const router = useRouter();
-    const { appointments, isLoading, error, fetchAppointments, startConsultation, completeAppointment, confirmAppointment, cancelAppointment, rescheduleAppointment, clearError } = useDoctorStore();
+    const { appointments, isLoading, error, fetchAppointments, startConsultation, completeAppointment, resendOtp, confirmAppointment, cancelAppointment, rescheduleAppointment, checkInAppointment, clearError } = useDoctorStore();
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('active');
     
@@ -41,6 +41,8 @@ export default function DoctorAppointmentsPage() {
     const [otpModal, setOtpModal] = useState<{ appointmentId: string } | null>(null);
     const [otpInput, setOtpInput] = useState('');
     const [otpError, setOtpError] = useState('');
+    const [resendCooldown, setResendCooldown] = useState(0);
+    const [resendSuccess, setResendSuccess] = useState('');
     const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const selectedStatus = statusFilter === 'all' ? undefined : statusFilter;
@@ -68,6 +70,15 @@ export default function DoctorAppointmentsPage() {
     useEffect(() => {
         fetchAppointments(selectedStatus, undefined, 1);
     }, [fetchAppointments, selectedStatus]);
+
+    useEffect(() => {
+        if (resendCooldown > 0) {
+            const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+            return () => clearTimeout(timer);
+        } else {
+            setResendSuccess('');
+        }
+    }, [resendCooldown]);
 
     // Auto-refresh polling fallback so the list stays fresh even if a socket
     // event is missed (tab visible → refetch every 30s).
@@ -100,6 +111,31 @@ export default function DoctorAppointmentsPage() {
         setOtpInput('');
         setOtpError('');
         setOtpModal({ appointmentId });
+        setResendCooldown(0);
+        setResendSuccess('');
+    };
+
+    useEffect(() => {
+        if (resendCooldown > 0) {
+            const timer = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [resendCooldown]);
+
+    const handleResendOtp = async () => {
+        if (!otpModal || resendCooldown > 0) return;
+        setResendSuccess('');
+        setOtpError('');
+        setActionLoading('resend_otp');
+        const success = await resendOtp(otpModal.appointmentId);
+        setActionLoading(null);
+        if (success) {
+            setOtpError('');
+            setResendSuccess('Successfully sent OTP to patient');
+            setResendCooldown(60);
+        } else {
+            setOtpError('Failed to resend OTP. Please try again.');
+        }
     };
 
     const submitOtp = async () => {
@@ -112,7 +148,9 @@ export default function DoctorAppointmentsPage() {
         const success = await completeAppointment(otpModal.appointmentId, otpInput);
         setActionLoading(null);
         if (success) {
+            const appointmentId = otpModal.appointmentId;
             setOtpModal(null);
+            router.push(`/doctor/prescriptions/new?appointmentId=${appointmentId}`);
         } else {
             setOtpError('Invalid OTP. Please check with the patient.');
         }
@@ -144,6 +182,12 @@ export default function DoctorAppointmentsPage() {
         
         setActionLoading(appointmentId);
         await confirmAppointment(appointmentId);
+        setActionLoading(null);
+    };
+
+    const handleCheckIn = async (appointmentId: string) => {
+        setActionLoading(appointmentId);
+        await checkInAppointment(appointmentId);
         setActionLoading(null);
     };
 
@@ -332,6 +376,17 @@ export default function DoctorAppointmentsPage() {
                                                         {isOverdue ? 'Reschedule First!' : (apt.status === 'in_progress' || consultationId ? 'Rejoin' : 'Start')}
                                                     </Button>
                                                 )}
+                                                {apt.type !== 'video' && apt.type !== 'Video' && apt.status === 'confirmed' && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="primary"
+                                                        onClick={() => handleCheckIn(apt.id)}
+                                                        disabled={isActing || isOverdue}
+                                                        leftIcon={isActing ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserCheck className="h-3 w-3" />}
+                                                    >
+                                                        Check-In
+                                                    </Button>
+                                                )}
                                                 {apt.status !== 'scheduled' && apt.status !== 'completed' && apt.status !== 'cancelled' && (
                                                     <Button size="sm" variant="outline" onClick={() => handleComplete(apt.id)} disabled={isActing || apt.status !== 'in_progress'} leftIcon={<CheckCircle className="h-3 w-3" />}>
                                                         Complete
@@ -383,26 +438,46 @@ export default function DoctorAppointmentsPage() {
                                 Ask the patient for the 6-digit OTP shown on their screen and enter it below to complete the consultation.
                             </p>
                         </div>
-                        <div className="flex justify-center gap-2">
+                        <div className="relative flex justify-center gap-2 mt-4 mb-2">
                             {Array.from({ length: 6 }).map((_, i) => (
                                 <div
                                     key={i}
-                                    className="w-10 h-12 flex items-center justify-center rounded-lg border-2 border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 text-xl font-bold text-emerald-700 dark:text-emerald-300"
+                                    className={`w-12 h-14 flex items-center justify-center rounded-lg border-2 text-2xl font-bold transition-all ${
+                                        otpInput.length === i
+                                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 ring-4 ring-emerald-500/20'
+                                            : otpInput.length > i
+                                                ? 'border-emerald-600 bg-emerald-100 dark:bg-emerald-800/40 text-emerald-800 dark:text-emerald-200'
+                                                : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-400'
+                                    }`}
                                 >
                                     {otpInput[i] || ''}
                                 </div>
                             ))}
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                maxLength={6}
+                                value={otpInput}
+                                onChange={(e) => { setOtpError(''); setOtpInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 6)); }}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-text"
+                                autoFocus
+                            />
                         </div>
-                        <input
-                            type="number"
-                            maxLength={6}
-                            placeholder="Enter 6-digit OTP"
-                            value={otpInput}
-                            onChange={(e) => { setOtpError(''); setOtpInput(e.target.value.slice(0, 6)); }}
-                            className="w-full text-center text-2xl font-bold tracking-widest border rounded-lg p-3 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            autoFocus
-                        />
                         {otpError && <p className="text-sm text-red-500 text-center">{otpError}</p>}
+                        {resendSuccess && <p className="text-sm text-emerald-500 text-center">{resendSuccess}</p>}
+                        <div className="flex justify-center pt-1">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleResendOtp}
+                                disabled={resendCooldown > 0 || actionLoading === 'resend_otp'}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                            >
+                                {actionLoading === 'resend_otp' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                                {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP to Patient'}
+                            </Button>
+                        </div>
                         <div className="flex gap-3 pt-2">
                             <Button
                                 variant="outline"

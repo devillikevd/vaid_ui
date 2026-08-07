@@ -17,7 +17,8 @@ import {
     Loader2,
     Star,
     MessageCircleQuestion,
-    MessageSquare
+    MessageSquare,
+    PenLine
 } from 'lucide-react';
 import { formatDoctorName } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -216,7 +217,7 @@ export default function DoctorDashboard() {
     // Stats configuration using real data
     const STATS = [
         { label: "Today's Appointments", value: stats?.todaysAppointments ?? 0, icon: Calendar, change: '', color: 'text-blue-600', bg: 'bg-blue-100', href: '/doctor/appointments' },
-        { label: "Today's Completed Consultations", value: stats?.completed ?? 0, icon: CheckCircle, change: '', color: 'text-green-600', bg: 'bg-green-100', href: '/doctor/consultations' },
+        { label: "Today's Completed Consultations", value: stats?.completed ?? 0, icon: CheckCircle, change: '', color: 'text-green-600', bg: 'bg-green-100', href: '/doctor/appointments?status=completed' },
         { label: 'Pending', value: stats?.pending ?? 0, icon: Clock, change: '', color: 'text-yellow-600', bg: 'bg-yellow-100', href: '/doctor/appointments?status=pending' },
         { label: "Today's Earnings", value: `₹${(stats?.todaysEarnings ?? 0).toLocaleString('en-IN')}`, icon: TrendingUp, change: '', color: 'text-emerald-600', bg: 'bg-emerald-100', href: '/doctor/earnings' },
     ];
@@ -469,11 +470,11 @@ export default function DoctorDashboard() {
                         <CardContent>
                             <div className="grid grid-cols-2 gap-3">
                                 <Link
-                                    href="/doctor/consultations"
+                                    href="/doctor/prescriptions/new"
                                     className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-center"
                                 >
-                                    <FileText className="h-6 w-6 text-emerald-600 mx-auto mb-2" />
-                                    <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Consultations</p>
+                                    <PenLine className="h-6 w-6 text-emerald-600 mx-auto mb-2" />
+                                    <p className="text-xs font-medium text-gray-900 dark:text-gray-100">New Prescription</p>
                                 </Link>
                                 <Link
                                     href="/doctor/patients"
@@ -490,11 +491,11 @@ export default function DoctorDashboard() {
                                     <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Edit Schedule</p>
                                 </Link>
                                 <Link
-                                    href="/doctor/settings"
+                                    href="/doctor/appointments?status=completed"
                                     className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-center"
                                 >
-                                    <Settings className="h-6 w-6 text-gray-600 dark:text-gray-400 mx-auto mb-2" />
-                                    <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Settings</p>
+                                    <CheckCircle className="h-6 w-6 text-gray-600 dark:text-gray-400 mx-auto mb-2" />
+                                    <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Past Appts</p>
                                 </Link>
                                 <Link
                                     href="/doctor/scan-patient"

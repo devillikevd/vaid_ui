@@ -351,11 +351,25 @@ const bookAppointment = async (patientId, appointmentData) => {
   const seq = String((existingCount || 0) + 1).padStart(4, '0');
   const appointmentNumber = `VD-${yyyy}-${mm}${dd}-${seq}`;
 
+  // For in-person, timeSlot represents the window (e.g. 09:00-12:00). We append Token Number to bypass unique constraint and provide a token.
+  let finalTimeSlot = timeSlot;
+  if (normalizedType === 'in_person') {
+    const { count: windowCount } = await supabaseAdmin
+      .from('appointments')
+      .select('id', { count: 'exact', head: true })
+      .eq('doctor_id', doctorId)
+      .eq('appointment_date', date)
+      .eq('type', 'in_person')
+      .like('time_slot', `${timeSlot}%`);
+    const tokenNumber = (windowCount || 0) + 1;
+    finalTimeSlot = `${timeSlot} (Token ${tokenNumber})`;
+  }
+
   const insertPayload = {
     patient_id: patient.id,
     doctor_id: doctorId,
     appointment_date: date,
-    time_slot: timeSlot,
+    time_slot: finalTimeSlot,
     type: normalizedType,
     notes: notes || null,
     hospital_id: resolvedHospitalId,
@@ -523,7 +537,7 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
   // Fetch current status first to validate transition
   const { data: current, error: currentError } = await supabaseAdmin
     .from('appointments')
-    .select('status, type')
+    .select('status, type, completion_otp')
     .eq('id', appointmentId)
     .eq('doctor_id', doctor?.id)
     .single();
@@ -538,21 +552,27 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
     throw new ApiError(400, `Cannot transition from '${current.status}' to '${status}'`);
   }
 
-  // Validate OTP if completing a video consultation
-  if (status === 'completed' && current.type === 'video' && current.completion_otp) {
+  // Validate OTP if completing a consultation
+  if (status === 'completed' && current.completion_otp) {
     if (current.completion_otp !== otp) {
-      throw new ApiError(400, 'Invalid completion OTP. Please ask the patient for the 6-digit OTP.');
+      throw new ApiError(400, 'Invalid completion OTP. Please ask the patient for the correct 6-digit OTP.');
     }
+  }
+
+  let updateData = {
+    status,
+    cancellation_reason: reason || null,
+    cancelled_by: status === 'cancelled' ? doctor?.id : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (status === 'in_progress' && !current.completion_otp) {
+    updateData.completion_otp = Math.floor(100000 + Math.random() * 900000).toString();
   }
 
   const { data: appointment, error } = await supabaseAdmin
     .from('appointments')
-    .update({
-      status,
-      cancellation_reason: reason || null,
-      cancelled_by: status === 'cancelled' ? doctor?.id : null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('id', appointmentId)
     .eq('doctor_id', doctor?.id)
     .select(APPOINTMENT_SELECT)
@@ -569,6 +589,16 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
     .eq('id', appointment.patient_id)
     .single();
 
+  // If appointment was completed or cancelled, also complete/cancel any active consultation
+  if (['completed', 'cancelled', 'no_show'].includes(status)) {
+    await supabaseAdmin
+      .from('consultations')
+      .update({ status: 'completed', ended_at: new Date().toISOString() })
+      .eq('appointment_id', appointmentId)
+      .eq('doctor_id', doctor?.id)
+      .eq('status', 'in_progress');
+  }
+
   // Invalidate dashboard caches so both patient and doctor see the change immediately
   await invalidateDashboardCaches(patientUser?.user_id, doctorUserId);
 
@@ -578,12 +608,17 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
     patient_id: patientUser?.user_id || appointment.patient_id,
   });
 
+  let notificationMessage = `Your appointment status is now ${status.replace('_', ' ')}.`;
+  if (status === 'in_progress' && appointment.completion_otp) {
+    notificationMessage = `Your consultation has started. Your completion OTP is ${appointment.completion_otp}.`;
+  }
+
   await Promise.allSettled([
     patientUser?.user_id ? notificationService.sendNotification(patientUser.user_id, {
       title: '🩺 Appointment Status Updated',
-      message: `Your appointment status is now ${status.replace('_', ' ')}.`,
+      message: notificationMessage,
       type: 'appointment_status_changed',
-      data: { appointmentId: appointment.id, status },
+      data: { appointmentId: appointment.id, status, completion_otp: appointment.completion_otp },
     }) : Promise.resolve(),
   ]);
   return (await attachConsultationContext([appointment]))[0] || appointment;
@@ -753,6 +788,50 @@ const rescheduleAppointment = async (userId, role, appointmentId, date, timeSlot
   return (await attachConsultationContext([appointment]))[0] || appointment;
 };
 
+const resendCompletionOtp = async (doctorUserId, appointmentId) => {
+  const { data: doctor } = await supabaseAdmin
+    .from('doctors')
+    .select('id')
+    .eq('user_id', doctorUserId)
+    .single();
+
+  const { data: appointment, error } = await supabaseAdmin
+    .from('appointments')
+    .select('id, status, completion_otp, patient_id')
+    .eq('id', appointmentId)
+    .eq('doctor_id', doctor?.id)
+    .single();
+
+  if (error || !appointment) {
+    throw new ApiError(404, 'Appointment not found or unauthorized');
+  }
+
+  if (appointment.status !== 'in_progress') {
+    throw new ApiError(400, 'OTP can only be resent for appointments in progress');
+  }
+
+  if (!appointment.completion_otp) {
+    throw new ApiError(400, 'No completion OTP generated for this appointment');
+  }
+
+  const { data: patientUser } = await supabaseAdmin
+    .from('patients')
+    .select('user_id')
+    .eq('id', appointment.patient_id)
+    .single();
+
+  if (patientUser?.user_id) {
+    await notificationService.sendNotification(patientUser.user_id, {
+      title: '🔐 Your Completion OTP',
+      message: `Your consultation completion OTP is ${appointment.completion_otp}. Please share this with your doctor.`,
+      type: 'otp_resend',
+      data: { appointmentId: appointment.id, completion_otp: appointment.completion_otp },
+    });
+  }
+
+  return { success: true, message: 'OTP resent successfully' };
+};
+
 module.exports = {
   getAppointments,
   bookAppointment,
@@ -760,4 +839,5 @@ module.exports = {
   updateAppointmentStatus,
   cancelAppointment,
   rescheduleAppointment,
+  resendCompletionOtp,
 };

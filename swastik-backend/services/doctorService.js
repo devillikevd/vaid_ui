@@ -747,14 +747,22 @@ class DoctorService {
   }
 
   // Get doctor's available slots for a specific date
-  async getAvailableSlots(doctorId, date) {
+  async getAvailableSlots(doctorId, date, type = 'all') {
     // Get doctor's slot configuration
-    const { data: slotConfig } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('doctor_slots')
       .select('*')
       .eq('doctor_id', doctorId)
       .eq('is_active', true)
       .eq('slot_date', date);
+
+    if (type === 'video') {
+      query = query.eq('is_video_enabled', true);
+    } else if (type === 'in_person') {
+      query = query.eq('is_clinic_enabled', true);
+    }
+
+    const { data: slotConfig } = await query;
 
     if (!slotConfig || slotConfig.length === 0) {
       return [];
@@ -782,6 +790,27 @@ class DoctorService {
       const [startHour, startMin] = config.start_time.split(':').map(Number);
       const [endHour, endMin] = config.end_time.split(':').map(Number);
       const duration = config.slot_duration || 15;
+
+      // If it's an in-person slot (window) and we are requesting in-person slots, we don't break it into 15m intervals
+      // Instead, we return the entire window as a single slot.
+      if (type === 'in_person' && config.is_clinic_enabled && !config.is_video_enabled) {
+        const timeSlot = `${config.start_time.slice(0, 5)}-${config.end_time.slice(0, 5)}`;
+        const period = startHour < 12 ? 'Morning' : startHour < 17 ? 'Afternoon' : 'Evening';
+        const slotDateStr = `${date}T${config.end_time.slice(0, 5)}:00+05:30`;
+        const slotTimeMs = Date.parse(slotDateStr);
+        const isPast = !isNaN(slotTimeMs) && slotTimeMs < Date.now();
+        
+        if (isPast) {
+          pastSlots.push({ time: timeSlot, period, is_available: false });
+        } else {
+          availableSlots.push({
+            time: timeSlot,
+            period: period,
+            is_available: true, // We allow multiple bookings per window
+          });
+        }
+        return; // Skip 15-min breakdown
+      }
 
       let currentTotalMins = startHour * 60 + (startMin || 0);
       const endTotalMins = endHour * 60 + (endMin || 0);
@@ -867,6 +896,8 @@ class DoctorService {
       const start_time = normalizeTime24(slot.startTime ?? slot.start_time);
       const end_time = normalizeTime24(slot.endTime ?? slot.end_time);
       const is_active = normalizeBoolean(slot.isAvailable ?? slot.is_active ?? slot.isActive, true);
+      const is_video_enabled = normalizeBoolean(slot.isVideoEnabled ?? slot.is_video_enabled, true);
+      const is_clinic_enabled = normalizeBoolean(slot.isClinicEnabled ?? slot.is_clinic_enabled, true);
 
       if (!slot_date || !start_time || !end_time) {
         throw new ApiError(400, 'Invalid slot format. Provide valid slot_date, startTime, and endTime.');
@@ -885,7 +916,9 @@ class DoctorService {
           slot_date,
           start_time,
           end_time: '23:59:00',
-          is_active
+          is_active,
+          is_video_enabled,
+          is_clinic_enabled
         });
 
         // Calculate next day date
@@ -898,20 +931,22 @@ class DoctorService {
           slot_date: nextDateString,
           start_time: '00:00:00',
           end_time,
-          is_active
+          is_active,
+          is_video_enabled,
+          is_clinic_enabled
         });
       } else {
-        slotsJson.push({ slot_date, start_time, end_time, is_active });
+        slotsJson.push({ slot_date, start_time, end_time, is_active, is_video_enabled, is_clinic_enabled });
       }
     });
 
-    const canUseRpc = slotsJson.every((slot) => slot.is_active === true);
+    const canUseRpc = false; // Bypass RPC to ensure custom fields are handled
     const { error: rpcError } = canUseRpc
       ? await supabaseAdmin.rpc('rpc_replace_doctor_slots', {
         p_doctor_id: doctor.id,
         p_slots: slotsJson,
       })
-      : { error: new Error('Slot replacement RPC cannot preserve inactive slots') };
+      : { error: new Error('Slot replacement RPC cannot preserve custom slots correctly') };
 
     if (rpcError) {
       // Backward-compatible fallback for environments where RPC is missing/outdated
@@ -929,9 +964,9 @@ class DoctorService {
         slot_date: slot.slot_date,
         start_time: slot.start_time,
         end_time: slot.end_time,
-        slot_duration: 15,
-        is_video_enabled: true,
-        is_clinic_enabled: true,
+        slot_duration: (slot.is_clinic_enabled && !slot.is_video_enabled) ? null : 15,
+        is_video_enabled: slot.is_video_enabled,
+        is_clinic_enabled: slot.is_clinic_enabled,
         is_active: slot.is_active,
       }));
 

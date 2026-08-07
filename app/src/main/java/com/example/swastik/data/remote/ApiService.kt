@@ -278,7 +278,8 @@ interface ApiService {
     @GET("patients/doctors/{id}/slots")
     suspend fun getDoctorSlots(
         @Path("id") id: String,
-        @Query("date") date: String
+        @Query("date") date: String,
+        @Query("type") type: String? = null
     ): Response<ApiResponse<SlotsResponse>>
 
     // ==================== HOSPITALS ====================

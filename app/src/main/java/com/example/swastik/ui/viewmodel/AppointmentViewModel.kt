@@ -156,7 +156,8 @@ class AppointmentViewModel @Inject constructor(
     fun loadTimeSlots(
         doctorId: String,
         date: String,
-        fallbackDates: List<String> = emptyList()
+        fallbackDates: List<String> = emptyList(),
+        type: String? = null
     ) {
         if (currentSubscribedDoctorId != doctorId) {
             currentSubscribedDoctorId?.let { socketManager.unsubscribeFromDoctorSlots(it) }
@@ -174,7 +175,7 @@ class AppointmentViewModel @Inject constructor(
                 isSearchingNextAvailable = false
             )
 
-            when (val result = repository.getDoctorTimeSlots(doctorId, date)) {
+            when (val result = repository.getDoctorTimeSlots(doctorId, date, type)) {
                 is Result.Success -> {
                     val slots = result.data
                     val hasAvailableSlots = slots.any { it.isAvailable }
@@ -183,7 +184,7 @@ class AppointmentViewModel @Inject constructor(
                         timeSlots = slots
                     )
                     if (!hasAvailableSlots && fallbackDates.isNotEmpty()) {
-                        scanNextAvailableDate(doctorId, fallbackDates)
+                        scanNextAvailableDate(doctorId, fallbackDates, type)
                     }
                 }
                 is Result.Error -> {
@@ -200,7 +201,8 @@ class AppointmentViewModel @Inject constructor(
 
     private suspend fun scanNextAvailableDate(
         doctorId: String,
-        fallbackDates: List<String>
+        fallbackDates: List<String>,
+        type: String? = null
     ) {
         uiState = uiState.copy(
             isSearchingNextAvailable = true,
@@ -209,7 +211,7 @@ class AppointmentViewModel @Inject constructor(
 
         var suggestion: NextAvailableSlotSuggestion? = null
         for (candidateDate in fallbackDates) {
-            when (val result = repository.getDoctorTimeSlots(doctorId, candidateDate)) {
+            when (val result = repository.getDoctorTimeSlots(doctorId, candidateDate, type)) {
                 is Result.Success -> {
                     val availableSlots = result.data.filter { it.isAvailable }
                     if (availableSlots.isNotEmpty()) {

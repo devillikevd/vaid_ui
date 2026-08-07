@@ -74,6 +74,10 @@ export interface TimeSlot {
     startTime: string;
     endTime: string;
     isAvailable: boolean;
+    isVideoEnabled?: boolean;
+    isClinicEnabled?: boolean;
+    is_video_enabled?: boolean;
+    is_clinic_enabled?: boolean;
 }
 
 export interface Prescription {
@@ -170,7 +174,9 @@ interface DoctorState {
     startConsultation: (appointmentId: string) => Promise<string | false>;
     endConsultation: (appointmentId: string, consultationId?: string) => Promise<boolean>;
     completeAppointment: (appointmentId: string, otp: string) => Promise<boolean>;
+    resendOtp: (appointmentId: string) => Promise<boolean>;
     confirmAppointment: (appointmentId: string) => Promise<boolean>;
+    checkInAppointment: (appointmentId: string) => Promise<boolean>;
     rescheduleAppointment: (appointmentId: string, date: string, timeSlot: string) => Promise<boolean>;
     cancelAppointment: (appointmentId: string, reason?: string) => Promise<boolean>;
     updateAvailability: (isAvailable: boolean) => Promise<boolean>;
@@ -680,6 +686,28 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         }
     },
 
+    resendOtp: async (appointmentId) => {
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}/resend-otp`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${localStorage.getItem('token')}`,
+                },
+            });
+            const data = await response.json();
+            if (data.success) {
+                return true;
+            }
+            set({ error: data.error || data.message || 'Failed to resend OTP' });
+            return false;
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Failed to resend OTP';
+            set({ error: message });
+            return false;
+        }
+    },
+
     confirmAppointment: async (appointmentId) => {
         try {
             const response = await appointmentsApi.updateStatus(appointmentId, 'confirmed');
@@ -692,6 +720,22 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
             return false;
         } catch (error) {
             console.error('Error confirming appointment:', error);
+            return false;
+        }
+    },
+
+    checkInAppointment: async (appointmentId) => {
+        try {
+            const response = await appointmentsApi.updateStatus(appointmentId, 'in_progress');
+            if (response.success) {
+                get().fetchAppointments();
+                get().fetchDashboardData();
+                return true;
+            }
+            set({ error: response.error || 'Failed to check in appointment' });
+            return false;
+        } catch (error) {
+            console.error('Error checking in appointment:', error);
             return false;
         }
     },

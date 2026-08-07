@@ -32,7 +32,7 @@ function generateSubSlots(start: string, end: string, intervalMinutes: number = 
 export default function DoctorSchedulePage() {
     const { schedule, blockedSlots, bookedSlots, loadingSchedule, error, fetchSchedule, updateSchedule, clearError, toggleSlotBlock } = useDoctorStore();
     const [showAddModal, setShowAddModal] = useState(false);
-    const [newSlot, setNewSlot] = useState({ slot_date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '17:00' });
+    const [newSlot, setNewSlot] = useState({ slot_date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '17:00', isVideoEnabled: true, isClinicEnabled: true });
     const [saving, setSaving] = useState(false);
     const [expandedSlots, setExpandedSlots] = useState<Set<number>>(new Set());
     const [optimisticBlocks, setOptimisticBlocks] = useState<Set<string>>(new Set());
@@ -86,7 +86,7 @@ export default function DoctorSchedulePage() {
         const success = await updateSchedule(updatedSlots as unknown as Record<string, unknown>[]);
         if (success) {
             setShowAddModal(false);
-            setNewSlot({ slot_date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '17:00' });
+            setNewSlot({ slot_date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '17:00', isVideoEnabled: true, isClinicEnabled: true });
         }
         setSaving(false);
     };
@@ -198,6 +198,8 @@ export default function DoctorSchedulePage() {
                                                 <Clock className={`h-4 w-4 ${slot.isAvailable ? 'text-emerald-600' : 'text-gray-400'}`} />
                                                 <span className={`font-medium ${slot.isAvailable ? 'text-emerald-800 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>{slot.startTime} – {slot.endTime}</span>
                                                 {!slot.isAvailable && <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-full text-gray-600 dark:text-gray-300 font-medium">Paused</span>}
+                                                {slot.is_video_enabled && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">Video</span>}
+                                                {slot.is_clinic_enabled && <span className="text-[10px] bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">In-Person</span>}
                                             </div>
                                             <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                                                 <button onClick={() => handleToggleSlot(slot._idx)} className={`p-1.5 rounded-lg transition-colors ${slot.isAvailable ? 'text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/50' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`} title={slot.isAvailable ? 'Pause Slot' : 'Resume Slot'}>
@@ -209,9 +211,13 @@ export default function DoctorSchedulePage() {
                                             </div>
                                         </div>
                                         {isExpanded && (
-                                            <div className="px-3 pb-3 pt-1 border-t border-black/5 dark:border-white/5">
-                                                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium uppercase tracking-wider">Generated Appointments (30m)</div>
-                                                <div className="flex flex-wrap gap-2">
+
+                                            <div className="px-3 pb-3 pt-2 border-t border-black/5 dark:border-white/5">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <div className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest">Generated Slots (30m)</div>
+                                                    <div className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">{subSlots.length} slots total</div>
+                                                </div>
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-[260px] overflow-y-auto pr-1 pb-1" style={{ scrollbarWidth: 'thin' }}>
                                                     {subSlots.map(timeRange => {
                                                         const timeSlot = timeRange.split(' - ')[0];
                                                         const slotKey = `${date}_${timeSlot}`;
@@ -227,21 +233,30 @@ export default function DoctorSchedulePage() {
                                                                 key={timeRange} 
                                                                 onClick={() => !isBooked && handleToggleBlock(date, timeRange)}
                                                                 disabled={isBooked}
-                                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5
+                                                                className={`px-1.5 py-1 rounded border text-[11px] font-semibold tracking-tight transition-all flex items-center justify-center relative overflow-hidden
                                                                     ${isBooked 
-                                                                        ? 'bg-blue-50 text-blue-700 border border-blue-200 cursor-not-allowed dark:bg-blue-900/20 dark:border-blue-800/30 dark:text-blue-400'
+                                                                        ? 'bg-blue-50 text-blue-700 border-blue-200 cursor-not-allowed dark:bg-blue-900/20 dark:border-blue-800/50 dark:text-blue-300'
                                                                         : isBlocked 
-                                                                        ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 line-through dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20 dark:hover:bg-red-500/20' 
-                                                                        : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 dark:bg-gray-900 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/30'
+                                                                        ? 'bg-red-50 text-red-500 border-red-200 hover:bg-red-100 line-through dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/50 dark:hover:bg-red-900/40 opacity-70' 
+                                                                        : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 shadow-sm dark:bg-gray-800 dark:border-emerald-800/60 dark:text-emerald-400 dark:hover:bg-gray-700 dark:hover:border-emerald-700'
                                                                     }`}
                                                                 title={isBooked ? "Booked by a patient" : isBlocked ? "Click to Unblock" : "Click to Block"}
                                                             >
-                                                                {timeRange}
-                                                                {isBooked && <span className="ml-1 px-1.5 py-0.5 rounded-md bg-blue-100 dark:bg-blue-800 text-[10px] font-bold text-blue-700 dark:text-blue-100 uppercase tracking-wider">Booked</span>}
+                                                                <span className="z-10">{timeSlot}</span>
+                                                                {isBooked && (
+                                                                    <div className="absolute inset-0 bg-blue-100/50 dark:bg-blue-900/30 flex items-center justify-center">
+                                                                        <span className="text-[9px] uppercase tracking-widest font-bold text-blue-800 dark:text-blue-200 rotate-[-15deg] opacity-90">Booked</span>
+                                                                    </div>
+                                                                )}
                                                             </button>
                                                         );
                                                     })}
                                                 </div>
+                                            </div>
+                                        )}
+                                        {isExpanded && slot.is_clinic_enabled && !slot.is_video_enabled && (
+                                            <div className="px-3 pb-3 pt-1 border-t border-black/5 dark:border-white/5">
+                                                <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">This is an In-Person Clinic window. Patients will book tokens within this time range.</div>
                                             </div>
                                         )}
                                     </div>
@@ -313,6 +328,26 @@ export default function DoctorSchedulePage() {
                                         className="w-full px-4 py-3 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:focus:border-emerald-500/50 rounded-xl text-sm text-gray-900 dark:text-gray-100 transition-all shadow-sm outline-none"
                                     />
                                 </div>
+                            </div>
+                            <div className="flex gap-4 p-4 bg-gray-50 dark:bg-black/20 border border-gray-100 dark:border-white/10 rounded-xl">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={newSlot.isVideoEnabled}
+                                        onChange={e => setNewSlot(s => ({ ...s, isVideoEnabled: e.target.checked }))}
+                                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                    />
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Video Consult</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={newSlot.isClinicEnabled}
+                                        onChange={e => setNewSlot(s => ({ ...s, isClinicEnabled: e.target.checked }))}
+                                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                    />
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">In-Person Clinic</span>
+                                </label>
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 p-5 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-black/20">

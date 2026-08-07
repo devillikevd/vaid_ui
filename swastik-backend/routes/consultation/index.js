@@ -124,7 +124,7 @@ router.post('/:id/prescription',
   asyncHandler(async (req, res) => {
     const prescription = await consultationService.addPrescription(
       req.user.id,
-      req.params.id,
+      { consultationId: req.params.id },
       req.body
     );
 
