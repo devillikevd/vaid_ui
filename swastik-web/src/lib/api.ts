@@ -591,6 +591,7 @@ export const adminApi = {
 export const doctorApi = {
     getJourneyStats: () => fetchWithAuth('/doctors/me/journey'),
     getDashboard: () => fetchWithAuth('/doctors/me/dashboard'),
+    getPatientAlerts: () => fetchWithAuth<any[]>('/doctors/me/patient-alerts'),
 
     getProfile: () => fetchWithAuth('/doctors/me/profile'),
 

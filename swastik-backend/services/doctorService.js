@@ -1521,6 +1521,105 @@ class DoctorService {
 
     return await signStorageUrlsInPayload(payload);
   }
+
+  async getPatientAlerts(userId) {
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!doctor) throw new ApiError(404, 'Doctor profile not found');
+
+    const { data: appointments } = await supabaseAdmin
+      .from('appointments')
+      .select('patient_id')
+      .eq('doctor_id', doctor.id);
+
+    const patientIds = [...new Set((appointments || []).map(a => a.patient_id))];
+    if (patientIds.length === 0) return [];
+
+    const { data: vitals, error } = await supabaseAdmin
+      .from('patient_vitals')
+      .select('*, patients!inner(id, name, date_of_birth, gender, blood_group)')
+      .in('patient_id', patientIds)
+      .order('recorded_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw new ApiError(500, error.message);
+
+    const alerts = [];
+    const processedPatients = new Set();
+    let idCounter = 1;
+
+    for (const vital of vitals || []) {
+      if (processedPatients.has(vital.patient_id)) continue;
+      processedPatients.add(vital.patient_id);
+
+      const { blood_pressure_systolic, blood_pressure_diastolic, heart_rate, temperature, oxygen_level } = vital;
+      let severity = null;
+      let trigger = [];
+
+      if (blood_pressure_systolic >= 180 || blood_pressure_systolic <= 80 || blood_pressure_diastolic >= 110 || blood_pressure_diastolic <= 50) {
+        severity = 'critical';
+        trigger.push(`Blood Pressure: ${blood_pressure_systolic}/${blood_pressure_diastolic} mmHg`);
+      } else if (blood_pressure_systolic >= 140 || blood_pressure_systolic <= 90 || blood_pressure_diastolic >= 90 || blood_pressure_diastolic <= 60) {
+        severity = severity || 'warning';
+        trigger.push(`Blood Pressure: ${blood_pressure_systolic}/${blood_pressure_diastolic} mmHg`);
+      }
+
+      if (heart_rate >= 120 || heart_rate <= 50) {
+        severity = 'critical';
+        trigger.push(`Heart Rate: ${heart_rate} bpm`);
+      } else if (heart_rate >= 100 || heart_rate <= 60) {
+        severity = severity || 'warning';
+        trigger.push(`Heart Rate: ${heart_rate} bpm`);
+      }
+
+      if (temperature >= 103 || temperature <= 95) {
+        severity = 'critical';
+        trigger.push(`Temperature: ${temperature}°F`);
+      } else if (temperature >= 100) {
+        severity = severity || 'warning';
+        trigger.push(`Temperature: ${temperature}°F`);
+      }
+
+      if (oxygen_level && oxygen_level < 90) {
+        severity = 'critical';
+        trigger.push(`SpO2: ${oxygen_level}%`);
+      } else if (oxygen_level && oxygen_level < 95) {
+        severity = severity || 'warning';
+        trigger.push(`SpO2: ${oxygen_level}%`);
+      }
+
+      if (severity) {
+        const patient = vital.patients;
+        const age = patient.date_of_birth ? calculateAge(patient.date_of_birth) : 'N/A';
+        
+        alerts.push({
+          id: idCounter++,
+          patientId: vital.patient_id,
+          patientName: patient.name || 'Unknown Patient',
+          age: age,
+          gender: patient.gender ? (patient.gender.toLowerCase() === 'male' ? 'M' : (patient.gender.toLowerCase() === 'female' ? 'F' : 'O')) : 'U',
+          bloodGroup: patient.blood_group || 'N/A',
+          severity: severity,
+          trigger: trigger.join(', '),
+          timestamp: 'Recent',
+          isRead: false,
+          recordedAt: vital.recorded_at
+        });
+      }
+    }
+
+    alerts.sort((a, b) => {
+      if (a.severity === 'critical' && b.severity !== 'critical') return -1;
+      if (a.severity !== 'critical' && b.severity === 'critical') return 1;
+      return new Date(b.recordedAt) - new Date(a.recordedAt);
+    });
+
+    return alerts;
+  }
 }
 
 module.exports = new DoctorService();

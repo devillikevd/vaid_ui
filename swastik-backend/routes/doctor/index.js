@@ -173,6 +173,17 @@ router.get('/me/dashboard',
   })
 );
 
+// Get patient health alerts
+router.get('/me/patient-alerts',
+  authenticate,
+  authorize('doctor'),
+  requireApproval,
+  asyncHandler(async (req, res) => {
+    const alerts = await doctorService.getPatientAlerts(req.user.id);
+    res.json({ success: true, data: alerts });
+  })
+);
+
 // Update availability
 router.put('/me/availability',
   authenticate,

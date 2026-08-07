@@ -16,6 +16,7 @@ import {
     Sun,
     Moon,
     Monitor,
+    ArrowLeft,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
@@ -488,10 +489,23 @@ export default function DashboardLayout({
     const rawName = user?.name || config.userDisplayName || 'User';
     const displayName = user?.role === 'doctor' ? formatDoctorName(rawName) : rawName;
 
-    // Determine active nav item
-    const activeNavItem = config.navItems.find(item =>
-        pathname === item.href || (item.href !== baseRoute && pathname.startsWith(item.href))
-    );
+    const baseRoleStr = Array.isArray(config.role) ? config.role[0] : config.role;
+    const basePath = `/${baseRoleStr?.replace(/_owner|_manager/, '')}`;
+
+    const activeNavItem = config.navItems.find(item => item.href === pathname);
+    
+    // Find parent nav item for nested pages to show correct title
+    const parentNavItem = !activeNavItem 
+        ? config.navItems.find(item => 
+            pathname.startsWith(item.href + '/') && 
+            item.href !== basePath
+          )
+        : null;
+
+    const navItemToDisplay = activeNavItem || parentNavItem;
+    
+    const isRootPage = pathname === basePath;
+    const showBackButton = !activeNavItem && !isRootPage;
 
     // #40: Pending doctor enforcement — block pages when not approved
     const isNotApproved = config.showApprovalBanner &&
@@ -590,7 +604,7 @@ export default function DashboardLayout({
                                 )}
                                 {items.map((item) => {
                                     const isActive = pathname === item.href ||
-                                        (item.href !== baseRoute && pathname.startsWith(item.href));
+                                        (item.href !== basePath && pathname?.startsWith(item.href));
                                     const Icon = item.icon;
 
                                     return (
@@ -648,13 +662,23 @@ export default function DashboardLayout({
                         </button>
                         {/* Active page icon + name */}
                         <div className="min-w-0 flex items-center gap-2.5">
-                            {activeNavItem && (() => { const Icon = activeNavItem.icon; return (
+                            {showBackButton && (
+                                <button
+                                    onClick={() => router.back()}
+                                    className="shrink-0 p-1.5 sm:p-2 -ml-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300 transition-colors"
+                                    aria-label="Go back"
+                                >
+                                    <ArrowLeft className="h-5 w-5" />
+                                </button>
+                            )}
+                            {navItemToDisplay && (() => { const Icon = navItemToDisplay.icon; return (
                                 <span className={cn('hidden sm:flex items-center justify-center h-8 w-8 rounded-lg shrink-0', colors.logoBg)}>
                                     <Icon className="h-4 w-4 text-white" />
                                 </span>
                             ); })()}
-                            <h2 className="truncate text-sm font-bold text-gray-900 dark:text-gray-100 sm:text-base">
-                                {activeNavItem?.name || 'Dashboard'}
+                            <h2 className="truncate text-sm font-bold text-gray-900 dark:text-gray-100 sm:text-base capitalize">
+                                {navItemToDisplay?.name || 'Dashboard'}
+                                {showBackButton && ' Details'}
                             </h2>
                         </div>
                     </div>

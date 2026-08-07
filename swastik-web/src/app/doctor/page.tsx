@@ -15,7 +15,9 @@ import {
     RefreshCw,
     QrCode,
     Loader2,
-    Star
+    Star,
+    MessageCircleQuestion,
+    MessageSquare
 } from 'lucide-react';
 import { formatDoctorName } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -45,6 +47,8 @@ export default function DoctorDashboard() {
     const [newScheduleDate, setNewScheduleDate] = useState('');
     const [newScheduleTime, setNewScheduleTime] = useState('');
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+    const [recentQuestions, setRecentQuestions] = useState<any[]>([]);
+    const [loadingQuestions, setLoadingQuestions] = useState(true);
 
     const shortcuts = useMemo(() => [
         { key: 'a', description: 'Go to Appointments', action: () => router.push('/doctor/appointments') },
@@ -79,6 +83,23 @@ export default function DoctorDashboard() {
 
     useEffect(() => {
         fetchDashboardData();
+        const fetchQuestions = async () => {
+            setLoadingQuestions(true);
+            try {
+                const response = await api.community.getQuestions(1, 5);
+                if (response.success) {
+                    const data = response.data as any;
+                    const allQs = data.questions || data.data || [];
+                    const unanswered = allQs.filter((q: any) => !q.answers || q.answers.length === 0);
+                    setRecentQuestions(unanswered.slice(0, 3));
+                }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoadingQuestions(false);
+            }
+        };
+        fetchQuestions();
     }, [fetchDashboardData]);
 
     // Auto-refresh polling fallback so the dashboard stays fresh even if a
@@ -488,8 +509,11 @@ export default function DoctorDashboard() {
 
                     {/* Recent Reviews */}
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle>Recent Reviews</CardTitle>
+                            <Link href="/doctor/reviews">
+                                <Button variant="ghost" size="sm" className="text-xs text-emerald-600 hover:text-emerald-700">View All</Button>
+                            </Link>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-3">
@@ -506,7 +530,7 @@ export default function DoctorDashboard() {
                                         <div key={review.id} className="p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
                                             <div className="flex items-center justify-between mb-2">
                                                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                    {review.is_anonymous ? 'Anonymous' : (review.patient?.name || 'Patient')}
+                                                    {review.is_anonymous ? 'Anonymous Patient' : 'Verified Patient'}
                                                 </span>
                                                 <div className="flex">
                                                     {Array.from({ length: 5 }).map((_, i) => (
@@ -517,6 +541,60 @@ export default function DoctorDashboard() {
                                             {review.comment && (
                                                 <p className="text-xs text-gray-600 dark:text-gray-400 italic line-clamp-2">&quot;{review.comment}&quot;</p>
                                             )}
+                                        </div>
+                                    ));
+                                })()}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+
+                    {/* Recent Community Questions */}
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="flex items-center gap-2">
+                                <MessageCircleQuestion className="w-5 h-5 text-indigo-600" />
+                                Community Q&A
+                            </CardTitle>
+                            <Link href="/doctor/community">
+                                <Button variant="ghost" size="sm" className="text-xs text-indigo-600 hover:text-indigo-700">View All</Button>
+                            </Link>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3 mt-2">
+                                {(() => {
+                                    if (loadingQuestions) {
+                                        return <div className="text-center py-4"><span className="text-indigo-600">Loading questions...</span></div>;
+                                    }
+                                    
+                                    if (recentQuestions.length === 0) {
+                                        return (
+                                            <div className="text-center py-6 px-4 bg-gray-50 dark:bg-gray-800/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                                                <MessageSquare className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">All caught up!</p>
+                                                <p className="text-xs text-gray-500 mt-1">No unanswered questions in the community.</p>
+                                            </div>
+                                        );
+                                    }
+                                    
+                                    return recentQuestions.map((q) => (
+                                        <div key={q.id} className="p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 group">
+                                            <div className="flex items-start justify-between gap-2 mb-2">
+                                                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 line-clamp-1 flex-1">
+                                                    {q.title}
+                                                </h4>
+                                            </div>
+                                            <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">{q.content}</p>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                                                    <User className="w-3 h-3" /> {q.patient?.name || 'Anonymous'}
+                                                </span>
+                                                <Link href="/doctor/community">
+                                                    <Button size="sm" className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3">
+                                                        Reply
+                                                    </Button>
+                                                </Link>
+                                            </div>
                                         </div>
                                     ));
                                 })()}
