@@ -367,10 +367,10 @@ fun AskQuestionScreen(
                         Text("Community Tips", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        TipItem("Don't share\nphone numbers")
-                        TipItem("Mention age\n& gender")
-                        TipItem("Include symptoms\nduration")
+                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        TipItem("Don't share personal contact details like phone numbers")
+                        TipItem("Mention your age and gender for better context")
+                        TipItem("Include the exact duration of your symptoms")
                     }
                 }
             }
@@ -405,13 +405,25 @@ fun AskQuestionScreen(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                Text("1. Be respectful to others. No abusive language.", fontSize = 14.sp)
+                Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
+                    Text("1.", fontSize = 14.sp, modifier = Modifier.width(20.dp), fontWeight = FontWeight.Medium)
+                    Text("Be respectful to others. No abusive language.", fontSize = 14.sp, modifier = Modifier.weight(1f), lineHeight = 20.sp)
+                }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("2. Do not share personal contact details like phone numbers.", fontSize = 14.sp)
+                Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
+                    Text("2.", fontSize = 14.sp, modifier = Modifier.width(20.dp), fontWeight = FontWeight.Medium)
+                    Text("Do not share personal contact details like phone numbers.", fontSize = 14.sp, modifier = Modifier.weight(1f), lineHeight = 20.sp)
+                }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("3. Provide clear details (age, gender, duration of symptoms).", fontSize = 14.sp)
+                Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
+                    Text("3.", fontSize = 14.sp, modifier = Modifier.width(20.dp), fontWeight = FontWeight.Medium)
+                    Text("Provide clear details (age, gender, duration of symptoms).", fontSize = 14.sp, modifier = Modifier.weight(1f), lineHeight = 20.sp)
+                }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("4. This community is for general advice, not for emergencies.", fontSize = 14.sp)
+                Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
+                    Text("4.", fontSize = 14.sp, modifier = Modifier.width(20.dp), fontWeight = FontWeight.Medium)
+                    Text("This community is for general advice, not for emergencies.", fontSize = 14.sp, modifier = Modifier.weight(1f), lineHeight = 20.sp)
+                }
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 Button(
@@ -429,10 +441,10 @@ fun AskQuestionScreen(
 }
 
 @Composable
-fun TipItem(text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(text, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 14.sp)
+fun TipItem(text: String, modifier: Modifier = Modifier) {
+    Row(verticalAlignment = Alignment.Top, modifier = modifier) {
+        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(text, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 18.sp)
     }
 }

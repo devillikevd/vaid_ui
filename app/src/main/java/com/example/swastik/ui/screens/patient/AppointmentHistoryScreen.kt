@@ -40,6 +40,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.R
 import com.example.swastik.data.model.Appointment
 import com.example.swastik.ui.screens.consultation.ConsultationCompletionDialog
+import com.example.swastik.ui.screens.patient.booking.formatTimeSlot
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.AppointmentViewModel
 
@@ -236,7 +237,7 @@ fun AppointmentHistoryScreen(
                                                         Text("Status: ${selectedBookingStatusAppointment?.status?.replaceFirstChar { it.uppercase() }}", fontWeight = FontWeight.Bold)
                                                         Spacer(modifier = Modifier.height(8.dp))
                                                         Text("Date: ${selectedBookingStatusAppointment?.date}")
-                                                        Text("Time: ${selectedBookingStatusAppointment?.timeSlot}")
+                                                        Text("Time: ${formatTimeSlot(selectedBookingStatusAppointment?.timeSlot)}")
                                                         if (selectedBookingStatusAppointment?.doctor != null) {
                                                             Spacer(modifier = Modifier.height(8.dp))
                                                             Text("Doctor: ${selectedBookingStatusAppointment?.doctor?.name}")
@@ -516,7 +517,7 @@ private fun AppointmentCard(
                 Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.AccessTime, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = appointment.timeSlot, fontSize = 13.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = formatTimeSlot(appointment.timeSlot), fontSize = 13.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
 

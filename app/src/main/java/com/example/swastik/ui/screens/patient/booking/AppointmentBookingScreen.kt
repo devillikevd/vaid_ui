@@ -107,6 +107,9 @@ fun AppointmentBookingScreen(
     var selectedTimeSlot by remember { mutableStateOf<String?>(null) }
     var selectedType by remember { mutableStateOf(consultationMode ?: "video") }
     var notes by remember { mutableStateOf("") }
+    var reasonForVisit by remember { mutableStateOf("") }
+    var symptomsInput by remember { mutableStateOf("") }
+    var patientMedicalNotes by remember { mutableStateOf("") }
     var showDuplicateBookingDialog by remember { mutableStateOf(false) }
     val availableDates = remember { (0..13).map { LocalDate.now().plusDays(it.toLong()) } }
 
@@ -175,10 +178,10 @@ fun AppointmentBookingScreen(
         }
     }
 
-    // Handle successful booking → go to Step 6 instead of navigating away
+    // Handle successful booking → go to Step 8 instead of navigating away
     LaunchedEffect(appointmentState.bookingSuccess) {
         if (appointmentState.bookingSuccess) {
-            currentStep = 6
+            currentStep = 8
         }
     }
 
@@ -186,7 +189,7 @@ fun AppointmentBookingScreen(
     val context = LocalContext.current
     LaunchedEffect(appointmentState.error) {
         val error = appointmentState.error
-        if (currentStep == 5 && error != null && 
+        if (currentStep == 7 && error != null && 
             (error.contains("already booked", ignoreCase = true) || error.contains("conflict", ignoreCase = true))) {
             
             // Show toast to user
@@ -214,9 +217,11 @@ fun AppointmentBookingScreen(
         1 -> "Select Doctor"
         2 -> "Consultation Details"
         3 -> "Pick Date & Time"
-        4 -> "Review Booking"
-        5 -> stringResource(R.string.confirm_booking)
-        6 -> "Appointment Confirmed"
+        4 -> "Pre-Consultation Form"
+        5 -> "Why Choose Swastik"
+        6 -> "Review Booking"
+        7 -> stringResource(R.string.confirm_booking)
+        8 -> "Appointment Confirmed"
         else -> "Book Appointment"
     }
 
@@ -224,13 +229,12 @@ fun AppointmentBookingScreen(
         targetValue = 0.dp, label = ""
     )
 
-    // Determine which visual stepper step we're on (map 6-step to 4-visual-step)
+    // Determine which visual stepper step we're on (map 8-step to 4-visual-step)
     val visualStep = when (currentStep) {
-        0, 1 -> 1
-        2 -> 1
+        0, 1, 2 -> 1
         3 -> 2
-        4 -> 3
-        5, 6 -> 4
+        4, 5, 6 -> 3
+        7, 8 -> 4
         else -> 1
     }
 
@@ -238,11 +242,11 @@ fun AppointmentBookingScreen(
 
     androidx.activity.compose.BackHandler {
         when {
-            currentStep == 6 -> onBackClick()
-            currentStep == 5 -> currentStep = 4
-            currentStep == 4 -> currentStep = 3
+            currentStep == 8 -> onBackClick()
+            currentStep > 3 && preselectedDoctorId.isNullOrBlank() -> currentStep--
+            currentStep > 3 && !preselectedDoctorId.isNullOrBlank() -> currentStep--
             currentStep == 3 -> currentStep = 2
-            currentStep > 1 && preselectedDoctorId.isNullOrBlank() -> currentStep--
+            currentStep == 2 && preselectedDoctorId.isNullOrBlank() -> currentStep--
             currentStep == 2 && !preselectedDoctorId.isNullOrBlank() -> onBackClick()
             else -> onBackClick()
         }
@@ -250,16 +254,16 @@ fun AppointmentBookingScreen(
 
     Scaffold(
         topBar = {
-            if (currentStep != 6) {
+            if (currentStep != 8) {
                 TopAppBar(
                     title = { Text(if (consultationMode == "recommended" && currentStep == 1) "Recommended Doctors" else stepTitle, fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
                     navigationIcon = {
                         IconButton(onClick = {
                             when {
-                                currentStep == 5 -> currentStep = 4
-                                currentStep == 4 -> currentStep = 3
+                                currentStep > 3 && preselectedDoctorId.isNullOrBlank() -> currentStep--
+                                currentStep > 3 && !preselectedDoctorId.isNullOrBlank() -> currentStep--
                                 currentStep == 3 -> currentStep = 2
-                                currentStep > 1 && preselectedDoctorId.isNullOrBlank() -> currentStep--
+                                currentStep == 2 && preselectedDoctorId.isNullOrBlank() -> currentStep--
                                 currentStep == 2 && !preselectedDoctorId.isNullOrBlank() -> onBackClick()
                                 else -> onBackClick()
                             }
@@ -430,15 +434,28 @@ fun AppointmentBookingScreen(
                             onTimeSlotSelected = { slot -> selectedTimeSlot = slot },
                             onContinue = { currentStep = 4 }
                         )
-                        4 -> ReviewBookingStep(
+                        4 -> PreConsultationFormStep(
+                            specialization = selectedDoctor?.specialization ?: "",
+                            reasonForVisit = reasonForVisit,
+                            onReasonChange = { reasonForVisit = it },
+                            symptoms = symptomsInput,
+                            onSymptomsChange = { symptomsInput = it },
+                            medicalNotes = patientMedicalNotes,
+                            onNotesChange = { patientMedicalNotes = it },
+                            onContinue = { currentStep = 5 }
+                        )
+                        5 -> InformationalStep(
+                            onContinue = { currentStep = 6 }
+                        )
+                        6 -> ReviewBookingStep(
                             doctor = selectedDoctor!!,
                             date = selectedDate!!,
                             timeSlot = selectedTimeSlot!!,
                             selectedType = selectedType,
                             notes = notes,
-                            onContinue = { currentStep = 5 }
+                            onContinue = { currentStep = 7 }
                         )
-                        5 -> ConfirmBookingStep(
+                        7 -> ConfirmBookingStep(
                             doctor = selectedDoctor!!,
                             date = selectedDate!!,
                             timeSlot = selectedTimeSlot!!,
@@ -453,11 +470,14 @@ fun AppointmentBookingScreen(
                                     type = selectedType,
                                     notes = notes,
                                     hospitalId = preselectedHospitalId,
-                                    clinicId = preselectedClinicId
+                                    clinicId = preselectedClinicId,
+                                    reason = reasonForVisit.ifBlank { null },
+                                    symptoms = if (symptomsInput.isNotBlank()) symptomsInput.split(",").map { it.trim() } else null,
+                                    patientNotes = patientMedicalNotes.ifBlank { null }
                                 )
                             }
                         )
-                        6 -> BookingConfirmedStep(
+                        8 -> BookingConfirmedStep(
                             appointment = appointmentState.newAppointment,
                             doctor = selectedDoctor!!,
                             date = selectedDate!!,
@@ -1259,13 +1279,28 @@ private fun DateTimeSelectionStep(
                             CircularProgressIndicator(color = SwastikPrimary, modifier = Modifier.size(32.dp))
                         }
                     }
-                    appointmentState.timeSlots.isEmpty() || !hasAvailableSlots -> {
+                    appointmentState.timeSlots.isEmpty() -> {
                         NoSlotsAvailableCard(
                             selectedDate = selectedDate,
                             bookedSlotCount = bookedSlotCount,
                             suggestion = appointmentState.nextAvailableSuggestion,
                             isSearchingNextAvailable = appointmentState.isSearchingNextAvailable,
                             onJumpToSuggestedDate = { suggested -> onDateSelected(LocalDate.parse(suggested.date)) }
+                        )
+                    }
+                    !hasAvailableSlots -> {
+                        NoSlotsAvailableCard(
+                            selectedDate = selectedDate,
+                            bookedSlotCount = bookedSlotCount,
+                            suggestion = appointmentState.nextAvailableSuggestion,
+                            isSearchingNextAvailable = appointmentState.isSearchingNextAvailable,
+                            onJumpToSuggestedDate = { suggested -> onDateSelected(LocalDate.parse(suggested.date)) }
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        TimeSlotGrid(
+                            slots = appointmentState.timeSlots,
+                            selectedSlot = selectedTimeSlot,
+                            onSlotSelected = onTimeSlotSelected
                         )
                     }
                     else -> {
@@ -1942,5 +1977,293 @@ private fun ConfirmedDetailRow(
 private fun SummaryRow(icon: String, label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(icon, fontSize = 18.sp); Spacer(modifier = Modifier.width(10.dp)); Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(80.dp)); Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+fun getPredefinedOptions(specialization: String): Pair<List<String>, List<String>> {
+    val cleanSpec = specialization.lowercase().trim()
+    
+    val reasons = when {
+        cleanSpec.contains("cardio") -> listOf("Chest Pain", "High BP", "Palpitations", "Shortness of Breath")
+        cleanSpec.contains("derma") -> listOf("Skin Rash", "Acne / Pimples", "Hair Fall", "Itching", "Pigmentation", "Fungal Infection")
+        cleanSpec.contains("pediatric") || cleanSpec.contains("child") -> listOf("Child Fever", "Vaccination", "Cough & Cold", "Stomach Ache", "Growth Check")
+        cleanSpec.contains("gyneco") || cleanSpec.contains("obste") -> listOf("Irregular Periods", "Pregnancy Checkup", "PCOD/PCOS", "Vaginal Infection", "Pelvic Pain")
+        cleanSpec.contains("ortho") || cleanSpec.contains("bone") -> listOf("Joint Pain", "Back Pain", "Knee Pain", "Fracture/Injury", "Muscle Spasm", "Arthritis")
+        cleanSpec.contains("neuro") -> listOf("Headache / Migraine", "Dizziness", "Numbness / Tingling", "Seizures", "Memory Issues")
+        cleanSpec.contains("psychi") || cleanSpec.contains("psychol") -> listOf("Anxiety", "Depression", "Sleep Issues", "Stress", "Panic Attacks")
+        cleanSpec.contains("dent") -> listOf("Toothache", "Bleeding Gums", "Cavity", "Scaling/Cleaning", "Root Canal")
+        cleanSpec.contains("ophthalmo") || cleanSpec.contains("eye") -> listOf("Blurry Vision", "Eye Pain", "Redness / Itching", "Watering Eyes", "Cataract")
+        cleanSpec.contains("ent") || cleanSpec.contains("ear") -> listOf("Ear Ache", "Hearing Loss", "Blocked Nose", "Sinus", "Sore Throat", "Vertigo")
+        cleanSpec.contains("gastro") || cleanSpec.contains("stomach") -> listOf("Acidity / Reflux", "Constipation", "Diarrhea", "Stomach Pain", "Liver Issues")
+        cleanSpec.contains("pulmono") || cleanSpec.contains("lung") -> listOf("Asthma / Wheezing", "Chronic Cough", "Shortness of Breath", "COPD")
+        cleanSpec.contains("endo") || cleanSpec.contains("diabet") -> listOf("Diabetes / High Sugar", "Thyroid Issues", "Weight Gain/Loss", "Hormonal Imbalance")
+        cleanSpec.contains("urolo") || cleanSpec.contains("kidney") || cleanSpec.contains("nephro") -> listOf("UTI / Burning Urine", "Kidney Stones", "Frequent Urination", "Prostate Issues")
+        cleanSpec.contains("oncolo") || cleanSpec.contains("cancer") -> listOf("Cancer Screening", "Chemo Follow-up", "Tumor Check", "Second Opinion")
+        cleanSpec.contains("surger") || cleanSpec.contains("surgeon") -> listOf("Piles/Hemorrhoids", "Hernia", "Appendicitis", "Varicose Veins")
+        cleanSpec.contains("physio") -> listOf("Post-surgery Rehab", "Muscle Stiffness", "Frozen Shoulder", "Sports Injury")
+        cleanSpec.contains("ayurveda") -> listOf("Ayurvedic Consultation", "Chronic Pain", "Digestion Issue", "Panchakarma")
+        cleanSpec.contains("homeo") -> listOf("Homeopathic Consult", "Allergies", "Skin Issue", "Chronic Cold")
+        cleanSpec.contains("diet") || cleanSpec.contains("nutrition") -> listOf("Diet Plan", "Weight Loss", "Weight Gain", "PCOS Diet", "Diabetes Diet")
+        cleanSpec.contains("allergy") || cleanSpec.contains("immuno") -> listOf("Food Allergy", "Skin Allergy", "Dust Allergy", "Immunity Check")
+        cleanSpec.contains("rheumato") -> listOf("Arthritis", "Joint Swelling", "Autoimmune Issue", "Gout")
+        cleanSpec.contains("pain") -> listOf("Chronic Back Pain", "Nerve Pain", "Joint Pain", "Spine Issue")
+        cleanSpec.contains("sport") -> listOf("Sports Injury", "Ligament Tear", "Sprain", "Fitness Consultation")
+        cleanSpec.contains("infect") -> listOf("Viral Fever", "Dengue/Malaria", "Typhoid", "Chronic Infection")
+        else -> listOf("General Checkup", "Fever", "Cold & Cough", "Body Ache", "Follow Up")
+    }
+    
+    val commonSymptoms = when {
+        cleanSpec.contains("cardio") -> listOf("Chest Tightness", "Sweating", "Dizziness", "Fatigue")
+        cleanSpec.contains("derma") -> listOf("Redness", "Bumps", "Flaky Skin", "Dryness", "Dandruff")
+        cleanSpec.contains("pediatric") -> listOf("High Fever", "Vomiting", "Not Eating", "Crying", "Rash")
+        cleanSpec.contains("gyneco") -> listOf("Heavy Bleeding", "Cramps", "Missed Period", "Hot Flashes")
+        cleanSpec.contains("ortho") -> listOf("Swelling", "Stiffness", "Inability to Move", "Redness")
+        cleanSpec.contains("ent") -> listOf("Discharge", "Ringing in Ear", "Nasal Congestion", "Loss of Smell/Taste")
+        cleanSpec.contains("gastro") -> listOf("Nausea", "Vomiting", "Bloating", "Loss of Appetite", "Blood in Stool")
+        cleanSpec.contains("psychi") -> listOf("Restlessness", "Low Mood", "Racing Thoughts", "Fatigue")
+        cleanSpec.contains("diet") || cleanSpec.contains("nutrition") -> listOf("Lethargy", "Hair Fall", "Weight Issues", "Indigestion")
+        cleanSpec.contains("allergy") -> listOf("Sneezing", "Itching", "Hives", "Swelling", "Red Eyes")
+        else -> listOf("Fever", "Headache", "Cough", "Weakness", "Nausea", "Pain")
+    }
+    
+    return Pair(reasons, commonSymptoms)
+}
+
+@Composable
+fun PreConsultationFormStep(
+    specialization: String,
+    reasonForVisit: String,
+    onReasonChange: (String) -> Unit,
+    symptoms: String,
+    onSymptomsChange: (String) -> Unit,
+    medicalNotes: String,
+    onNotesChange: (String) -> Unit,
+    onContinue: () -> Unit
+) {
+    val options = remember(specialization) { getPredefinedOptions(specialization) }
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Text(
+            text = "Tell the doctor a bit about your health",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Please select or type your health details.",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text("Select Primary Reason:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(modifier = Modifier.height(8.dp))
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(options.first.size) { index ->
+                val reason = options.first[index]
+                val selected = reasonForVisit == reason
+                androidx.compose.material3.FilterChip(
+                    selected = selected,
+                    onClick = { onReasonChange(reason) },
+                    label = { Text(reason) }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        OutlinedTextField(
+            value = reasonForVisit,
+            onValueChange = onReasonChange,
+            label = { Text("Or Type Reason for Visit *") },
+            placeholder = { Text("e.g. Follow up, Fever") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text("Select Symptoms:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(modifier = Modifier.height(8.dp))
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(options.second.size) { index ->
+                val symp = options.second[index]
+                val selectedList = symptoms.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                val selected = selectedList.contains(symp)
+                androidx.compose.material3.FilterChip(
+                    selected = selected,
+                    onClick = { 
+                        if (selected) {
+                            onSymptomsChange(selectedList.filter { it != symp }.joinToString(", "))
+                        } else {
+                            val newList = selectedList + symp
+                            onSymptomsChange(newList.joinToString(", "))
+                        }
+                    },
+                    label = { Text(symp) }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        OutlinedTextField(
+            value = symptoms,
+            onValueChange = onSymptomsChange,
+            label = { Text("Or Type Symptoms") },
+            placeholder = { Text("e.g. Headache, Cough, Nausea") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        OutlinedTextField(
+            value = medicalNotes,
+            onValueChange = onNotesChange,
+            label = { Text("Existing Medical Conditions / History") },
+            placeholder = { Text("e.g. Diabetic, allergic to penicillin") },
+            modifier = Modifier.fillMaxWidth().height(120.dp),
+            shape = RoundedCornerShape(12.dp),
+            maxLines = 5
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(14.dp),
+            enabled = reasonForVisit.isNotBlank()
+        ) {
+            Text("Continue", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(modifier = Modifier.height(20.dp))
+    }
+}
+
+@Composable
+fun InformationalStep(
+    onContinue: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Text(
+            text = "Why Choose Vaididea Consultations?",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        InfoBullet(
+            icon = Icons.Outlined.VerifiedUser,
+            title = "Verified Professionals",
+            description = "Only certified and thoroughly vetted doctors"
+        )
+        InfoBullet(
+            icon = Icons.Outlined.Security,
+            title = "Secure & Private",
+            description = "Your health data and video consultations are fully encrypted"
+        )
+        InfoBullet(
+            icon = Icons.Outlined.Receipt,
+            title = "Instant Digital Prescriptions",
+            description = "Get your valid Rx instantly after the consultation ends"
+        )
+        InfoBullet(
+            icon = Icons.Outlined.Schedule,
+            title = "Convenient Scheduling",
+            description = "Book slots exactly when you need them"
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "How it's done?",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        HowItWorksStep(number = "1", title = "Plan the Work", desc = "Book your consultation and provide basic health details.")
+        HowItWorksStep(number = "2", title = "Doctor Reviews", desc = "The doctor reviews your details and approves the appointment.")
+        HowItWorksStep(number = "3", title = "Consultation", desc = "Connect via secure video or visit the clinic as scheduled.")
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Text("Proceed to Review", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(modifier = Modifier.height(20.dp))
+    }
+}
+
+@Composable
+fun InfoBullet(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(SwastikPrimary.copy(alpha = 0.1f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(description, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 20.sp)
+        }
+    }
+}
+
+@Composable
+fun HowItWorksStep(number: String, title: String, desc: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(number, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(desc, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 20.sp)
+        }
     }
 }

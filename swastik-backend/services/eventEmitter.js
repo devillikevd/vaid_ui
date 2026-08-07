@@ -272,6 +272,18 @@ class AppEventEmitter extends EventEmitter {
   emitConsultationStarted(consultation) {
     const normalized = this.normalizeConsultationEventPayload(consultation);
     const { doctor_id, patient_id } = normalized;
+
+    // Invalidate patient's dashboard cache so the card updates immediately
+    try {
+      if (patient_id) {
+        const cacheService = require('./cacheService');
+        cacheService.delPattern(`patient:dashboard:${patient_id}*`);
+        cacheService.delPattern(`dashboard:${patient_id}:*`);
+      }
+    } catch (e) {
+      console.error('Failed to invalidate dashboard cache', e);
+    }
+
     // BUG-13 Fix: Notify both doctor (multi-tab sync) and patient
     if (doctor_id) this.notifyUser(doctor_id, 'consultation:started', normalized);
     if (patient_id) {

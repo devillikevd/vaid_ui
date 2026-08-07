@@ -76,6 +76,7 @@ router.put('/:id/end',
     body('diagnosis').optional().isString().trim().escape(),
     body('notes').optional().isString().trim().escape(),
     body('followUpDate').optional().isDate(),
+    body('otp').optional().isString().isLength({ min: 6, max: 6 }).withMessage('Invalid OTP format'),
   ],
   validate,
   asyncHandler(async (req, res) => {

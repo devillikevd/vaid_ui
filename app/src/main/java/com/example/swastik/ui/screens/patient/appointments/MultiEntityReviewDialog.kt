@@ -32,8 +32,8 @@ fun MultiEntityReviewDialog(
     onSubmitReview: (targetType: String, rating: Int, comment: String) -> Unit
 ) {
     var selectedTarget by remember { mutableStateOf("doctor") } // "doctor", "hospital", "clinic"
-    var rating by remember { mutableIntStateOf(initialRating) }
-    var comment by remember { mutableStateOf(initialComment) }
+    var rating by remember(initialRating) { mutableIntStateOf(initialRating) }
+    var comment by remember(initialComment) { mutableStateOf(initialComment) }
     
     val accentBlue = Color(0xFF4C8DFF)
     

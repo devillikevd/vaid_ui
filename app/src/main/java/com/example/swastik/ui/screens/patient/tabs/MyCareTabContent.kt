@@ -34,6 +34,7 @@ import com.example.swastik.data.model.Reminder
 import com.example.swastik.data.model.ReminderType
 import com.example.swastik.data.model.Appointment
 import com.example.swastik.data.model.ConsultationRecord
+import com.example.swastik.ui.screens.patient.booking.formatTimeSlot
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.RecordsViewModel
 
@@ -203,70 +204,70 @@ fun MyCareCardsView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .padding(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Health Score
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(
-                            progress = { 92f / 100f },
-                            modifier = Modifier.size(60.dp),
-                            color = SwastikPrimary,
-                            trackColor = Color(0xFFE2E8F0),
-                            strokeWidth = 6.dp
-                        )
-                        Icon(Icons.Filled.Favorite, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Health Score \u24D8", fontSize = 10.sp, color = Color(0xFF64748B))
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text("92", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFF1E293B))
-                        Text("/100", fontSize = 12.sp, color = Color(0xFF64748B), modifier = Modifier.padding(bottom = 2.dp))
-                    }
-                    Text("Excellent", fontSize = 11.sp, color = SwastikPrimary, fontWeight = FontWeight.SemiBold)
-                }
-                
-                // Divider removed
-                
                 // Next Appointment
-                Column(modifier = Modifier.align(Alignment.Top)) {
+                Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Event, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Next Appointment", fontSize = 11.sp, color = Color(0xFF64748B))
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .background(SwastikPrimary.copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.Event, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Next Appointment", fontSize = 12.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Medium)
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     val nextAppt = upcomingAppointments.firstOrNull()
                     if (nextAppt != null) {
-                        Text(nextAppt.date, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF1E293B), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(nextAppt.timeSlot, fontSize = 12.sp, color = Color(0xFF1E293B))
-                        Text("Dr. ${nextAppt.doctor?.name ?: "Unknown"}", fontSize = 11.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(nextAppt.date, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF1E293B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(formatTimeSlot(nextAppt.timeSlot), fontSize = 13.sp, color = Color(0xFF475569))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Dr. ${nextAppt.doctor?.name ?: "Unknown"}", fontSize = 13.sp, color = SwastikPrimary, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     } else {
-                        Text("None Scheduled", fontSize = 13.sp, color = Color(0xFF475569), fontWeight = FontWeight.Medium)
+                        Text("None Scheduled", fontSize = 14.sp, color = Color(0xFF475569), fontWeight = FontWeight.Medium)
                     }
                 }
                 
-                // Divider removed
+                Box(
+                    modifier = Modifier
+                        .height(70.dp)
+                        .width(1.dp)
+                        .background(Color(0xFFE2E8F0))
+                )
                 
                 // Medicine Reminder
-                Column(modifier = Modifier.align(Alignment.Top)) {
+                Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Medication, contentDescription = null, tint = Color(0xFFF97316), modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Medicine Reminder", fontSize = 11.sp, color = Color(0xFF64748B))
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .background(Color(0xFFF97316).copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.Medication, contentDescription = null, tint = Color(0xFFF97316), modifier = Modifier.size(16.dp))
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Medicine Reminder", fontSize = 12.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Medium)
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     val medReminders = reminders.filter { it.type == ReminderType.MEDICINE }
                     val nextMed = medReminders.firstOrNull { !it.isCompleted } ?: medReminders.firstOrNull()
                     if (nextMed != null) {
-                        Text(nextMed.time, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF1E293B))
-                        Text(nextMed.title, fontSize = 12.sp, color = Color(0xFF1E293B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(nextMed.time, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF1E293B))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(nextMed.title, fontSize = 13.sp, color = Color(0xFF475569), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(modifier = Modifier.height(4.dp))
                         val medCount = medReminders.size
-                        Text("$medCount Medicines", fontSize = 11.sp, color = Color(0xFF64748B))
+                        Text("$medCount Medicines", fontSize = 13.sp, color = Color(0xFFF97316), fontWeight = FontWeight.SemiBold)
                     } else {
-                        Text("None Active", fontSize = 13.sp, color = Color(0xFF475569), fontWeight = FontWeight.Medium)
+                        Text("None Active", fontSize = 14.sp, color = Color(0xFF475569), fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -420,7 +421,7 @@ fun MyCareCardsView(
                         ActivityCard(
                             title = "Appointment Booked", 
                             subtitle = "Dr. ${appointment.doctor?.name ?: "Unknown"}", 
-                            time = "${appointment.date} • ${appointment.timeSlot}", 
+                            time = "${appointment.date} • ${formatTimeSlot(appointment.timeSlot)}", 
                             icon = Icons.Outlined.Event, 
                             iconTint = Color(0xFF3B82F6), 
                             bgColor = Color(0xFFEFF6FF),

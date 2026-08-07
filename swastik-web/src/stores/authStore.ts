@@ -6,6 +6,7 @@ import {
     clearTokens as syncClearTokens,
     resolveAccessToken,
     resolveRefreshToken,
+    getTokens,
 } from '@/lib/api';
 import { decodeJwtPayload } from '@/lib/jwt';
 import { useDoctorStore } from './doctorStore';
@@ -67,6 +68,7 @@ interface AuthState {
     refreshAuth: () => Promise<boolean>;
     setLoading: (loading: boolean) => void;
     setHasHydrated: (state: boolean) => void;
+    restoreTokens: (accessToken: string | null, refreshToken: string | null) => void;
 }
 
 interface RegisterData {
@@ -119,6 +121,8 @@ export const useAuthStore = create<AuthState>()(
             _hasHydrated: false,
 
             setHasHydrated: (state) => set({ _hasHydrated: state }),
+
+            restoreTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
 
             login: async (email, password, expectedRole, rememberMe = false) => {
                 try {
@@ -305,12 +309,25 @@ export const useAuthStore = create<AuthState>()(
                 isAuthenticated: state.isAuthenticated,
             }),
             onRehydrateStorage: () => (state) => {
+                // NOTE: This callback runs synchronously during create() (before the
+                // `useAuthStore` const is initialized), so NEVER reference useAuthStore
+                // here (TDZ error). Use only methods on the passed `state`.
                 state?.setHasHydrated(true);
-                // H12: Check if persisted access token is expired on rehydration
-                if (state?.accessToken && isJwtExpired(state.accessToken)) {
+                // The store only persists { user, isAuthenticated }. Restore the
+                // real tokens from api.ts (cookie/localStorage) so consumers that
+                // read accessToken from the store (e.g. the socket singleton)
+                // keep working after a full page reload instead of a null token.
+                const storedTokens = getTokens();
+                const restoredAccess = state?.accessToken || storedTokens.accessToken;
+                const restoredRefresh = state?.refreshToken || storedTokens.refreshToken;
+                if (restoredAccess) {
+                    state?.restoreTokens?.(restoredAccess, restoredRefresh || null);
+                }
+                // H12: Check if restored access token is expired on rehydration
+                if (restoredAccess && isJwtExpired(restoredAccess)) {
                     // Token expired — attempt a background refresh
-                    state.refreshAuth().then(() => {
-                        state.setLoading(false);
+                    state?.refreshAuth().then(() => {
+                        state?.setLoading(false);
                     });
                 } else {
                     state?.setLoading(false);

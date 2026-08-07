@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Star, MessageSquare, Search } from 'lucide-react';
+import { Star, MessageSquare, Search, FileText, X, Clock, User } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { consultationsApi } from '@/lib/api';
 
 export interface Review {
     id: string;
@@ -11,6 +12,7 @@ export interface Review {
     comment?: string;
     is_anonymous: boolean;
     created_at: string;
+    consultation_id?: string;
     patient?: {
         full_name: string;
         profile_image_url?: string;
@@ -91,6 +93,28 @@ const themeStyles = {
 export default function ReviewManager({ reviews, loadingReviews, error, fetchReviews, themeColor }: ReviewManagerProps) {
     const [filter, setFilter] = useState<'all' | 'verified' | 'anonymous'>('all');
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedReview, setSelectedReview] = useState<Review | null>(null);
+    const [consultationDetails, setConsultationDetails] = useState<any>(null);
+    const [loadingConsultation, setLoadingConsultation] = useState(false);
+
+    const handleReviewClick = async (review: Review) => {
+        if (!review.consultation_id) return;
+        
+        setSelectedReview(review);
+        setLoadingConsultation(true);
+        setConsultationDetails(null);
+        
+        try {
+            const res = await consultationsApi.getById(review.consultation_id);
+            if (res.success) {
+                setConsultationDetails(res.data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch consultation details:', error);
+        } finally {
+            setLoadingConsultation(false);
+        }
+    };
 
     const filteredReviews = useMemo(() => {
         return reviews.filter(review => {
@@ -205,7 +229,15 @@ export default function ReviewManager({ reviews, loadingReviews, error, fetchRev
                     ) : (
                         <div className="space-y-4">
                             {filteredReviews.map((review) => (
-                                <div key={review.id} className="p-5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm hover:shadow-md transition-shadow">
+                                <div 
+                                    key={review.id} 
+                                    onClick={() => handleReviewClick(review)}
+                                    className={`p-5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm transition-all ${
+                                        review.consultation_id 
+                                            ? 'cursor-pointer hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600' 
+                                            : 'hover:shadow-md'
+                                    }`}
+                                >
                                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                                         <div className="flex gap-4">
                                             <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
@@ -225,6 +257,12 @@ export default function ReviewManager({ reviews, loadingReviews, error, fetchRev
                                                     {!review.is_anonymous && (
                                                         <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">
                                                             Verified
+                                                        </span>
+                                                    )}
+                                                    {review.consultation_id && (
+                                                        <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 flex items-center gap-1">
+                                                            <FileText className="h-3 w-3" />
+                                                            Consultation
                                                         </span>
                                                     )}
                                                 </div>
@@ -258,6 +296,101 @@ export default function ReviewManager({ reviews, loadingReviews, error, fetchRev
                     )}
                 </CardContent>
             </Card>
+
+            {/* Consultation Details Modal */}
+            {selectedReview && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedReview(null)} />
+                    <div className="relative bg-white dark:bg-gray-900 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
+                            <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                <FileText className={`h-5 w-5 ${style.text}`} />
+                                Consultation Context
+                            </h3>
+                            <button 
+                                onClick={() => setSelectedReview(null)}
+                                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-5 overflow-y-auto">
+                            {loadingConsultation ? (
+                                <div className="flex flex-col items-center justify-center py-10">
+                                    <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${style.spinner}`}></div>
+                                    <p className="text-gray-500 mt-4 text-sm">Fetching consultation details...</p>
+                                </div>
+                            ) : consultationDetails ? (
+                                <div className="space-y-6">
+                                    <div className="flex items-start gap-4">
+                                        <div className={`p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700`}>
+                                            <User className={`h-6 w-6 ${style.text}`} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Patient</h4>
+                                            <p className="font-semibold text-gray-900 dark:text-white text-lg">
+                                                {selectedReview.is_anonymous ? 'Anonymous' : selectedReview.patient?.full_name || 'Patient'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                                            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-1">
+                                                <Clock className="h-4 w-4" />
+                                                <span className="text-xs font-medium uppercase tracking-wider">Date & Time</span>
+                                            </div>
+                                            <p className="font-medium text-gray-900 dark:text-white">
+                                                {new Date(consultationDetails.created_at || consultationDetails.start_time).toLocaleDateString('en-IN', {
+                                                    day: 'numeric', month: 'short', year: 'numeric'
+                                                })}
+                                            </p>
+                                        </div>
+                                        <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                                            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-1">
+                                                <FileText className="h-4 w-4" />
+                                                <span className="text-xs font-medium uppercase tracking-wider">Status</span>
+                                            </div>
+                                            <p className="font-medium text-gray-900 dark:text-white capitalize">
+                                                {consultationDetails.status || 'Completed'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {consultationDetails.diagnosis && (
+                                        <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800/30">
+                                            <h4 className="text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider mb-2">Diagnosis / Impression</h4>
+                                            <p className="text-gray-800 dark:text-gray-200 text-sm leading-relaxed">
+                                                {consultationDetails.diagnosis}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {consultationDetails.notes && (
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Consultation Notes</h4>
+                                            <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                                                {consultationDetails.notes}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {!consultationDetails.diagnosis && !consultationDetails.notes && (
+                                        <div className="text-center py-6 bg-gray-50 dark:bg-gray-800/30 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                                            <p className="text-sm text-gray-500">No diagnosis or notes were recorded for this consultation.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="text-center py-10">
+                                    <p className="text-red-500">Could not load consultation details.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

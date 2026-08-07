@@ -57,6 +57,9 @@ sealed class Screen(val route: String) {
             return if (params.isEmpty()) "appointment_booking" else "appointment_booking?${params.joinToString("&")}"
         }
     }
+    object ActiveBookingStatus : Screen("active_booking_status/{appointmentId}") {
+        fun createRoute(appointmentId: String): String = "active_booking_status/$appointmentId"
+    }
     object MedicineFinder : Screen("medicine_finder")
     object FavoriteMedicines : Screen("favorite_medicines")
     object FavoriteDoctors : Screen("favorite_doctors")

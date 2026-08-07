@@ -497,9 +497,9 @@ class PatientService {
           clinic:clinics(id, name, address, city)
         `)
         .eq('patient_id', patient.id)
-        .in('status', ['scheduled', 'confirmed'])
-        .gte('appointment_date', new Date().toISOString().split('T')[0])
-        .order('appointment_date', { ascending: true })
+        .in('status', ['scheduled', 'confirmed', 'in_progress'])
+        .gte('appointment_date', (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().split('T')[0]; })())
+        .order('appointment_date', { ascending: false })
         .limit(5),
       supabaseAdmin
         .from('reminders')

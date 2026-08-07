@@ -26,13 +26,15 @@ export interface Appointment {
     type: 'In-Person' | 'Video' | 'video' | 'clinic';
     status: string;
     reason?: string;
+    symptoms?: string[];
+    patient_notes?: string;
     consultation_id?: string;
     consultation_status?: string | null;
     consultation_room_id?: string | null;
     has_prescription?: boolean;
     fee?: number;
     notes?: string;
-    patient?: { id: string; name: string; phone?: string };
+    patient?: { id: string; name: string; phone?: string; date_of_birth?: string; gender?: string; blood_group?: string; weight?: number; height?: number };
     doctor?: { id: string; name: string; specialization?: string };
 }
 
@@ -112,6 +114,7 @@ export interface DoctorReview {
     comment?: string;
     is_anonymous: boolean;
     created_at: string;
+    consultation_id?: string;
     patient?: {
         name: string;
     };
@@ -125,6 +128,8 @@ interface DoctorState {
     consultations: Consultation[];
     patients: DoctorPatient[];
     schedule: TimeSlot[];
+    blockedSlots: { date: string; time: string; }[];
+    bookedSlots: { date: string; time: string; }[];
     prescriptions: Prescription[];
     vitals: PatientVitals[];
     reviews: DoctorReview[];
@@ -155,7 +160,7 @@ interface DoctorState {
     fetchSchedule: () => Promise<void>;
     fetchPrescriptions: (page?: number) => Promise<void>;
     fetchVitals: (page?: number, patientId?: string) => Promise<void>;
-    fetchReviews: (doctorId: string, page?: number) => Promise<void>;
+    fetchReviews: (page?: number) => Promise<void>;
     loadMoreAppointments: (status?: string, date?: string) => Promise<void>;
     loadMorePrescriptions: () => Promise<void>;
     loadMoreVitals: (patientId?: string) => Promise<void>;
@@ -164,25 +169,36 @@ interface DoctorState {
     updateSchedule: (slots: Record<string, unknown>[]) => Promise<boolean>;
     startConsultation: (appointmentId: string) => Promise<string | false>;
     endConsultation: (appointmentId: string, consultationId?: string) => Promise<boolean>;
-    completeAppointment: (appointmentId: string) => Promise<boolean>;
+    completeAppointment: (appointmentId: string, otp: string) => Promise<boolean>;
+    confirmAppointment: (appointmentId: string) => Promise<boolean>;
+    rescheduleAppointment: (appointmentId: string, date: string, timeSlot: string) => Promise<boolean>;
     cancelAppointment: (appointmentId: string, reason?: string) => Promise<boolean>;
     updateAvailability: (isAvailable: boolean) => Promise<boolean>;
+    toggleSlotBlock: (date: string, timeSlot: string, action: 'block' | 'unblock') => Promise<boolean>;
 }
 
 // ==================== Store ====================
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapAppointment(raw: any): Appointment {
+    let rawTime = raw.time || raw.time_slot || raw.timeSlot || '';
+    if (typeof rawTime === 'string' && rawTime.split(':').length === 3) {
+        rawTime = rawTime.substring(0, 5); // Convert "10:30:00" to "10:30"
+    }
+
     return {
         ...raw,
         patientName: raw.patientName || raw.patient?.name || 'Patient',
         patientId: raw.patientId || raw.patient_id || raw.patient?.id || '',
-        time: raw.time || raw.time_slot || raw.timeSlot || '',
+        time: rawTime,
         date: raw.date || raw.appointment_date || '',
         appointment_date: raw.appointment_date || raw.date || '',
-        timeSlot: raw.timeSlot || raw.time_slot || raw.time || '',
+        timeSlot: rawTime,
         type: raw.type || 'clinic',
         status: raw.status || 'scheduled',
+        patient: raw.patient || undefined,
+        symptoms: raw.symptoms || undefined,
+        reason: raw.symptoms || raw.reason || undefined,
     };
 }
 
@@ -243,6 +259,8 @@ const doctorInitialState = {
     consultations: [] as Consultation[],
     patients: [] as DoctorPatient[],
     schedule: [] as TimeSlot[],
+    blockedSlots: [] as { date: string; time: string; }[],
+    bookedSlots: [] as { date: string; time: string; }[],
     prescriptions: [] as Prescription[],
     vitals: [] as PatientVitals[],
     reviews: [] as DoctorReview[],
@@ -409,7 +427,11 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
                 if (dateDelta !== 0) return dateDelta;
                 return a.startTime.localeCompare(b.startTime);
             }) : [];
-            set({ schedule, loadingSchedule: false });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const blockedSlots = ((result as any).blocked || []) as { date: string; time: string; }[];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const bookedSlots = ((result as any).booked || []) as { date: string; time: string; }[];
+            set({ schedule, blockedSlots, bookedSlots, loadingSchedule: false });
         } catch (error) {
             console.error('Error fetching schedule:', error);
             set({ error: 'Failed to load schedule.', loadingSchedule: false });
@@ -474,10 +496,10 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         }
     },
 
-    fetchReviews: async (doctorId: string, page = 1) => {
+    fetchReviews: async (page = 1) => {
         set({ loadingReviews: true, error: null });
         try {
-            const response = await doctorApi.getReviews(doctorId, page);
+            const response = await doctorApi.getReviews(page);
             if (!response.success) {
                 set({ error: response.error || 'Failed to load reviews', loadingReviews: false });
                 return;
@@ -558,6 +580,23 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         }
     },
 
+    toggleSlotBlock: async (date, timeSlot, action) => {
+        try {
+            const response = await doctorApi.toggleSlotBlock(date, timeSlot, action);
+            if (response.success) {
+                // Optimistically fetch again to reflect block state
+                await get().fetchSchedule();
+                return true;
+            }
+            set({ error: response.error || `Failed to ${action} slot` });
+            return false;
+        } catch (error) {
+            console.error(`Error toggling slot block:`, error);
+            set({ error: `Failed to ${action} slot.` });
+            return false;
+        }
+    },
+
     startConsultation: async (appointmentId) => {
         try {
             const response = await consultationsApi.start(appointmentId);
@@ -624,18 +663,56 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         }
     },
 
-    completeAppointment: async (appointmentId) => {
+    completeAppointment: async (appointmentId, otp) => {
         try {
-            const response = await appointmentsApi.updateStatus(appointmentId, 'completed');
+            const response = await appointmentsApi.updateStatus(appointmentId, 'completed', undefined, otp);
             if (response.success) {
                 get().fetchAppointments();
                 get().fetchDashboardData();
                 return true;
             }
-            set({ error: response.error || 'Failed to complete appointment' });
+            set({ error: response.error || response.message || 'Failed to complete appointment' });
+            return false;
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Failed to complete appointment';
+            set({ error: message });
+            return false;
+        }
+    },
+
+    confirmAppointment: async (appointmentId) => {
+        try {
+            const response = await appointmentsApi.updateStatus(appointmentId, 'confirmed');
+            if (response.success) {
+                get().fetchAppointments();
+                get().fetchDashboardData();
+                return true;
+            }
+            set({ error: response.error || 'Failed to confirm appointment' });
             return false;
         } catch (error) {
-            console.error('Error completing appointment:', error);
+            console.error('Error confirming appointment:', error);
+            return false;
+        }
+    },
+
+    rescheduleAppointment: async (appointmentId, date, timeSlot) => {
+        try {
+            const response = await appointmentsApi.reschedule(appointmentId, date, timeSlot);
+            if (response.success) {
+                // Backend already preserves the existing status during reschedule
+                // (scheduled stays scheduled, confirmed stays confirmed)
+                // So no extra updateStatus call needed here
+                await Promise.all([
+                    get().fetchAppointments(),
+                    get().fetchDashboardData(),
+                ]);
+                return true;
+            }
+            set({ error: response.error || 'Failed to reschedule appointment' });
+            return false;
+        } catch (error) {
+            console.error('Error rescheduling appointment:', error);
             return false;
         }
     },

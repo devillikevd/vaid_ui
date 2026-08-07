@@ -232,7 +232,7 @@ export function useSocket() {
 
     // Initialize socket connection (singleton)
     useEffect(() => {
-        if (!isAuthenticated || !accessToken) {
+        if (!isAuthenticated) {
             if (socketRef.current) {
                 socketRef.current = null;
                 setIsConnected(false);
@@ -240,7 +240,21 @@ export function useSocket() {
             return;
         }
 
-        const socket = getOrCreateSocket(accessToken);
+        // After a full page refresh the zustand store only restores
+        // user + isAuthenticated (accessToken is not persisted), so fall back
+        // to the token held by api.ts (cookie/localStorage). Without this the
+        // socket would never connect after a refresh and the header would stay
+        // "Offline" until the user logs in again.
+        const resolvedToken = accessToken || getTokens().accessToken;
+        if (!resolvedToken) {
+            if (socketRef.current) {
+                socketRef.current = null;
+                setIsConnected(false);
+            }
+            return;
+        }
+
+        const socket = getOrCreateSocket(resolvedToken);
         socketRef.current = socket;
         socketRefCount++;
         if (disconnectTimer) {
@@ -708,11 +722,11 @@ export function useVideoConsultation(
             setParticipants((prev) => [...new Set([...prev, ...roomParticipants])]);
         };
 
-        const handleOffer = (data: { offer: RTCSessionDescriptionInit }) => setOffer(data.offer);
-        const handleAnswer = (data: { answer: RTCSessionDescriptionInit }) => setAnswer(data.answer);
-        const handleIceCandidate = (data: { candidate: RTCIceCandidateInit }) => {
+        const handleOffer = (data: { sdp: string; type: string }) => setOffer({ sdp: data.sdp, type: data.type as any });
+        const handleAnswer = (data: { sdp: string; type: string }) => setAnswer({ sdp: data.sdp, type: data.type as any });
+        const handleIceCandidate = (data: { candidate: string; sdpMid: string; sdpMLineIndex: number }) => {
             // FIX: Use an array to avoid dropping rapid candidates due to React state batching
-            setIceCandidates((prev) => [...prev, data.candidate]);
+            setIceCandidates((prev) => [...prev, { candidate: data.candidate, sdpMid: data.sdpMid, sdpMLineIndex: data.sdpMLineIndex }]);
         };
         const handleMode = (data: ConsultationModeUpdate) => {
             if (!data?.roomId || data.roomId !== roomId) return;
@@ -761,21 +775,21 @@ export function useVideoConsultation(
 
     const sendOffer = useCallback(
         (offerData: RTCSessionDescriptionInit) => {
-            emit('video:offer', { roomId, offer: offerData });
+            emit('video:offer', { roomId, sdp: offerData.sdp, type: offerData.type });
         },
         [roomId, emit]
     );
 
     const sendAnswer = useCallback(
         (answerData: RTCSessionDescriptionInit) => {
-            emit('video:answer', { roomId, answer: answerData });
+            emit('video:answer', { roomId, sdp: answerData.sdp, type: answerData.type });
         },
         [roomId, emit]
     );
 
     const sendIceCandidate = useCallback(
         (candidate: RTCIceCandidateInit) => {
-            emit('video:ice-candidate', { roomId, candidate });
+            emit('video:ice-candidate', { roomId, candidate: candidate.candidate, sdpMid: candidate.sdpMid, sdpMLineIndex: candidate.sdpMLineIndex });
         },
         [roomId, emit]
     );

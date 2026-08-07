@@ -34,6 +34,7 @@ import java.time.ZoneId
 import com.example.swastik.navigation.Screen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 
 import com.example.swastik.data.repository.VitalsRepository
@@ -193,9 +194,7 @@ class PatientDashboardViewModel @Inject constructor(
         fetchDashboardData()
         fetchTotalQuestions()
         collectRealtimeNotifications()
-        collectProviderCatalogUpdates()
-        collectPrescriptionUpdates()
-        observeSocketReconnects()
+        observeRealtimeDashboardUpdates()
         scheduleAlarms()
     }
 
@@ -245,17 +244,112 @@ class PatientDashboardViewModel @Inject constructor(
         }
     }
 
-    private fun collectProviderCatalogUpdates() {
-        // Disabled automatic refresh to prevent rate-limiting loops.
-        // Dashboard will refresh on next manual pull-to-refresh or app restart.
+    /**
+     * Listen to all real-time socket events that affect dashboard data and
+     * trigger a silent (spinner-less) rate-limited refresh so the home screen
+     * updates automatically without requiring manual pull-to-refresh or restart.
+     * The shared MIN_REQUEST_INTERVAL guard prevents rate-limiting loops when
+     * several events arrive in quick succession.
+     */
+    private fun observeRealtimeDashboardUpdates() {
+        viewModelScope.launch {
+            socketManager.appointmentUpdates.collect {
+                silentRefreshDashboard("appointment:${it.status}")
+            }
+        }
+        viewModelScope.launch {
+            socketManager.consultationStarted.collect {
+                // Consultation started — force-fetch the dashboard straight from
+                // the network (bypassing the rate limiter) so the card flips to
+                // Live/Join without relying on local/room caching.
+                forceRefreshDashboardFromNetwork("consultation:started")
+            }
+        }
+        viewModelScope.launch {
+            socketManager.consultationEnded.collect {
+                silentRefreshDashboard("consultation:ended")
+            }
+        }
+        viewModelScope.launch {
+            socketManager.prescriptionNew.collect {
+                silentRefreshDashboard("prescription:new")
+            }
+        }
+        viewModelScope.launch {
+            socketManager.providerCatalogUpdates.collect {
+                silentRefreshDashboard("catalog:refresh")
+            }
+        }
+        viewModelScope.launch {
+            socketManager.diagnosticUpdates.collect {
+                silentRefreshDashboard("diagnostic:${it.status}")
+            }
+        }
+        viewModelScope.launch {
+            socketManager.orderUpdates.collect {
+                silentRefreshDashboard("order:${it.status}")
+            }
+        }
+        viewModelScope.launch {
+            // Replay(1) emits the current connection state on subscribe; at that
+            // point init already triggered loadDashboard(), so the rate limiter
+            // absorbs the duplicate. Later reconnects refresh to recover any
+            // events missed while offline.
+            socketManager.connectionState.collect { connected ->
+                if (connected) {
+                    silentRefreshDashboard("socket:reconnect")
+                }
+            }
+        }
     }
 
-    private fun collectPrescriptionUpdates() {
-        // Disabled automatic refresh to prevent rate-limiting loops.
+    /**
+     * Refresh dashboard data silently (without toggling the full-screen loading spinner),
+     * so real-time socket updates apply without flicker on active screens.
+     */
+    private fun silentRefreshDashboard(reason: String) {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastRequestTime < MIN_REQUEST_INTERVAL) {
+            return
+        }
+        lastRequestTime = currentTime
+
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            try {
+                Log.d("PatientDashboard", "Realtime event: $reason — refreshing dashboard")
+                fetchDashboardIntoState()
+            } catch (e: Exception) {
+                Log.e("DashboardVM", "Silent dashboard refresh failed", e)
+                _uiState.value = _uiState.value.copy(error = "Refresh failed. Server might be unreachable.")
+            }
+        }
     }
 
-    private fun observeSocketReconnects() {
-        // Disabled automatic refresh on socket reconnect to prevent rate-limiting loops
+    /**
+     * Force-fetch the dashboard from the network, bypassing the rate limiter.
+     * Used for high-priority realtime events (e.g. consultation:started) where
+     * a skipped refresh would leave the patient card stale.
+     */
+    private fun forceRefreshDashboardFromNetwork(reason: String) {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            try {
+                Log.d("PatientDashboard", "Force realtime refresh: $reason — fetching from network")
+                fetchDashboardIntoState()
+            } catch (e: Exception) {
+                Log.e("DashboardVM", "Force dashboard refresh failed", e)
+            }
+        }
+    }
+
+    /**
+     * Triggered when the dashboard screen returns to the foreground, so events
+     * missed while the app was backgrounded (socket disconnect, paused socket)
+     * are picked up without a manual pull-to-refresh.
+     */
+    fun refreshOnResume() {
+        silentRefreshDashboard("onResume")
     }
 
     fun loadDashboard() {
@@ -269,43 +363,48 @@ class PatientDashboardViewModel @Inject constructor(
         loadJob = viewModelScope.launch {
             try {
                 _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-                
-                val suggestionsJob = async { 
-                    try { patientRepository.getSearchSuggestions() } catch (e: Exception) { Result.Error("Failed") }
-                }
-                
-                when (val result = patientRepository.getDashboard()) {
-                    is Result.Success -> {
-                        val suggestionsResult = suggestionsJob.await()
-                        val newSuggestions = if (suggestionsResult is Result.Success<*>) {
-                            @Suppress("UNCHECKED_CAST")
-                            val list = suggestionsResult.data as? List<String>
-                            if (!list.isNullOrEmpty()) list else _uiState.value.searchSuggestions
-                        } else {
-                            _uiState.value.searchSuggestions
-                        }
-
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            dashboard = result.data,
-                            activeEmergency = result.data.activeEmergency,
-                            searchSuggestions = newSuggestions
-                        )
-                    }
-                    is Result.Error -> {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            error = result.message
-                        )
-                    }
-                    is Result.Loading -> {}
-                }
+                fetchDashboardIntoState()
             } catch (e: Exception) {
                 Log.e("DashboardVM", "Load dashboard failed", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Connection failed. Please check your internet or server."
                 )
+            }
+        }
+    }
+
+    private suspend fun fetchDashboardIntoState() {
+        coroutineScope {
+            val suggestionsJob = async {
+                try { patientRepository.getSearchSuggestions() } catch (e: Exception) { Result.Error("Failed") }
+            }
+
+            when (val result = patientRepository.getDashboard()) {
+                is Result.Success -> {
+                    val suggestionsResult = suggestionsJob.await()
+                    val newSuggestions = if (suggestionsResult is Result.Success<*>) {
+                        @Suppress("UNCHECKED_CAST")
+                        val list = suggestionsResult.data as? List<String>
+                        if (!list.isNullOrEmpty()) list else _uiState.value.searchSuggestions
+                    } else {
+                        _uiState.value.searchSuggestions
+                    }
+
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        dashboard = result.data,
+                        activeEmergency = result.data.activeEmergency,
+                        searchSuggestions = newSuggestions
+                    )
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message
+                    )
+                }
+                is Result.Loading -> {}
             }
         }
     }
@@ -323,37 +422,7 @@ class PatientDashboardViewModel @Inject constructor(
             try {
                 _isRefreshing.value = true
                 _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-
-                val suggestionsJob = async { 
-                    try { patientRepository.getSearchSuggestions() } catch (e: Exception) { Result.Error("Failed") }
-                }
-
-                when (val result = patientRepository.getDashboard()) {
-                    is Result.Success -> {
-                        val suggestionsResult = suggestionsJob.await()
-                        val newSuggestions = if (suggestionsResult is Result.Success<*>) {
-                            @Suppress("UNCHECKED_CAST")
-                            val list = suggestionsResult.data as? List<String>
-                            if (!list.isNullOrEmpty()) list else _uiState.value.searchSuggestions
-                        } else {
-                            _uiState.value.searchSuggestions
-                        }
-
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            dashboard = result.data,
-                            activeEmergency = result.data.activeEmergency,
-                            searchSuggestions = newSuggestions
-                        )
-                    }
-                    is Result.Error -> {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            error = result.message
-                        )
-                    }
-                    is Result.Loading -> { }
-                }
+                fetchDashboardIntoState()
             } catch (e: Exception) {
                 Log.e("DashboardVM", "Refresh failed", e)
                 _uiState.value = _uiState.value.copy(

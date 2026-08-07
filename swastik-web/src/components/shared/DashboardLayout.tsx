@@ -6,12 +6,15 @@ import Link from 'next/link';
 import {
     LogOut,
     ChevronDown,
+    ChevronLeft,
+    ChevronRight,
     Menu,
     X,
+    Search,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
-import { cn, getInitials } from '@/lib/utils';
+import { cn, getInitials, formatDoctorName } from '@/lib/utils';
 import { ApprovalBanner } from '@/components/shared/ApprovalBanner';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { NotificationBell, NotificationPanel } from '@/components/ui/Toast';
@@ -32,6 +35,8 @@ export interface NavItem {
     allowedRoles?: string[];
     /** Callback when this nav item is clicked */
     onClick?: () => void;
+    /** Optional section heading to group items */
+    section?: string;
 }
 
 export interface DashboardTheme {
@@ -256,8 +261,32 @@ export default function DashboardLayout({
     const { user, isAuthenticated, _hasHydrated, logout } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [desktopCollapsed, setDesktopCollapsed] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
-    const { notifications, unreadCount, clearNotifications, markRead } = useNotifications();
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchOpen, setSearchOpen] = useState(false);
+    const searchRef = useRef<HTMLDivElement>(null);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+    const { notifications, unreadCount, clearNotifications, markRead, markAllRead } = useNotifications();
+
+    // Close search on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+                setSearchOpen(false);
+                setSearchQuery('');
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    // Build searchable nav pages list from config
+    const searchResults = searchQuery.trim().length > 0
+        ? config.navItems.filter(item =>
+            item.name.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+        : [];
 
     const sidebarRef = useRef<HTMLDivElement>(null);
     const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -378,7 +407,8 @@ export default function DashboardLayout({
     };
 
     const PortalIcon = config.portalIcon;
-    const displayName = user?.name || config.userDisplayName || 'User';
+    const rawName = user?.name || config.userDisplayName || 'User';
+    const displayName = user?.role === 'doctor' ? formatDoctorName(rawName) : rawName;
 
     // Determine active nav item
     const activeNavItem = config.navItems.find(item =>
@@ -417,7 +447,8 @@ export default function DashboardLayout({
             <div
                 ref={sidebarRef}
                 className={cn(
-                    'fixed top-0 left-0 z-50 h-full w-64 text-white transition-transform lg:translate-x-0 flex flex-col',
+                    'fixed top-0 left-0 z-50 h-full text-white transition-all duration-300 lg:translate-x-0 flex flex-col',
+                    desktopCollapsed ? 'w-20' : 'w-64',
                     colors.sidebar,
                     sidebarOpen ? 'translate-x-0' : '-translate-x-full'
                 )}
@@ -426,72 +457,106 @@ export default function DashboardLayout({
                 aria-label="Dashboard sidebar"
             >
                 {/* Logo */}
-                <div className={cn('flex-none flex items-center justify-between h-16 px-4 border-b', colors.border)}>
-                    <div className="flex items-center gap-3">
-                        <div className={cn('p-2 rounded-lg', colors.logoBg)}>
+                <div className={cn('flex-none flex items-center h-16 px-4 border-b', colors.border, desktopCollapsed ? 'justify-center' : 'justify-between')}>
+                    <div className={cn("flex items-center gap-3 overflow-hidden", desktopCollapsed && "hidden")}>
+                        <div className={cn('p-2 rounded-lg shrink-0', colors.logoBg)}>
                             <PortalIcon className="h-5 w-5" />
                         </div>
-                        <div>
+                        <div className="whitespace-nowrap">
                             <h1 className="font-bold text-lg">{config.portalTitle}</h1>
                             <p className={cn('text-xs', subtitleColor)}>{config.portalSubtitle}</p>
                         </div>
                     </div>
-                    <button
-                        onClick={closeSidebar}
-                        className={cn('lg:hidden p-1 rounded', colors.hover)}
-                        aria-label="Close sidebar"
-                    >
-                        <X className="h-5 w-5" />
-                    </button>
+                    {desktopCollapsed && (
+                        <div className={cn('p-2 rounded-lg shrink-0', colors.logoBg)}>
+                            <PortalIcon className="h-5 w-5" />
+                        </div>
+                    )}
+                    <div className="flex shrink-0 items-center gap-1">
+                        <button
+                            onClick={() => setDesktopCollapsed(!desktopCollapsed)}
+                            className={cn('hidden lg:flex p-1.5 rounded-lg', colors.hover)}
+                            title={desktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                        >
+                            {desktopCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+                        </button>
+                        <button
+                            onClick={closeSidebar}
+                            className={cn('lg:hidden p-1 rounded-lg', colors.hover)}
+                            aria-label="Close sidebar"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-1">
-                    {visibleNavItems.map((item) => {
-                        const isActive = pathname === item.href ||
-                            (item.href !== baseRoute && pathname.startsWith(item.href));
-                        const Icon = item.icon;
+                <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6">
+                    {(() => {
+                        const sections: Record<string, typeof visibleNavItems> = {};
+                        visibleNavItems.forEach(item => {
+                            const section = item.section || '';
+                            if (!sections[section]) sections[section] = [];
+                            sections[section].push(item);
+                        });
 
-                        return (
-                            <Link
-                                key={item.name}
-                                href={item.href}
-                                onClick={item.onClick}
-                                className={cn(
-                                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative',
-                                    isActive ? colors.active : cn(colors.text, colors.hover)
+                        return Object.entries(sections).map(([sectionName, items]) => (
+                            <div key={sectionName || 'default'} className="space-y-1">
+                                {sectionName && !desktopCollapsed && (
+                                    <div className={cn("px-3 mb-2 text-xs font-semibold uppercase tracking-wider opacity-60 whitespace-nowrap", colors.text)}>
+                                        {sectionName}
+                                    </div>
                                 )}
-                            >
-                                <Icon className="h-5 w-5" />
-                                {item.name}
-                                {item.badge != null && item.badge > 0 && (
-                                    <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 min-w-[20px] flex items-center justify-center px-1">
-                                        {item.badge > 99 ? '99+' : item.badge}
-                                    </span>
+                                {sectionName && desktopCollapsed && (
+                                    <div className="h-4" /> 
                                 )}
-                            </Link>
-                        );
-                    })}
+                                {items.map((item) => {
+                                    const isActive = pathname === item.href ||
+                                        (item.href !== baseRoute && pathname.startsWith(item.href));
+                                    const Icon = item.icon;
+
+                                    return (
+                                        <Link
+                                            key={item.name}
+                                            href={item.href}
+                                            onClick={item.onClick}
+                                            title={desktopCollapsed ? item.name : undefined}
+                                            className={cn(
+                                                'flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative',
+                                                desktopCollapsed ? 'justify-center px-0' : 'px-3',
+                                                isActive ? colors.active : cn(colors.text, colors.hover)
+                                            )}
+                                        >
+                                            <Icon className="h-5 w-5 shrink-0" />
+                                            {!desktopCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
+                                            {!desktopCollapsed && item.badge != null && item.badge > 0 && (
+                                                <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 min-w-[20px] flex items-center justify-center px-1">
+                                                    {item.badge > 99 ? '99+' : item.badge}
+                                                </span>
+                                            )}
+                                            {desktopCollapsed && item.badge != null && item.badge > 0 && (
+                                                <span className="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                                                    {item.badge > 99 ? '!' : item.badge}
+                                                </span>
+                                            )}
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+                        ));
+                    })()}
                 </nav>
-
-                {/* Sign Out at bottom */}
-                <div className={cn('flex-none p-4 border-t mt-auto', colors.border)}>
-                    <button
-                        onClick={handleLogout}
-                        className={cn(
-                            'flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                            colors.text,
-                            colors.hover
-                        )}
-                    >
-                        <LogOut className="h-5 w-5" />
-                        Sign Out
-                    </button>
-                </div>
             </div>
 
             {/* Main content */}
-            <div className="lg:pl-64">
+            <div 
+                className={cn("transition-all duration-300 min-h-screen flex flex-col", desktopCollapsed ? "lg:pl-20" : "lg:pl-64")}
+                onClick={() => {
+                    if (!desktopCollapsed) {
+                        setDesktopCollapsed(true);
+                    }
+                }}
+            >
                 {/* Header */}
                 <header className="sticky top-0 z-30 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
                     <div className="flex min-w-0 items-center gap-2 sm:gap-4">
@@ -508,6 +573,75 @@ export default function DashboardLayout({
                                 {activeNavItem?.name || 'Dashboard'}
                             </h2>
                         </div>
+                    </div>
+
+                    {/* Search Bar */}
+                    <div ref={searchRef} className="relative hidden md:block flex-1 max-w-xs lg:max-w-sm mx-4">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                placeholder="Search pages..."
+                                value={searchQuery}
+                                onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+                                onFocus={() => setSearchOpen(true)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(''); }
+                                    if (e.key === 'Enter' && searchResults.length > 0) {
+                                        router.push(searchResults[0].href);
+                                        setSearchOpen(false);
+                                        setSearchQuery('');
+                                    }
+                                }}
+                                className="w-full pl-9 pr-8 py-1.5 text-sm rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => { setSearchQuery(''); setSearchOpen(false); searchInputRef.current?.focus(); }}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Dropdown Results */}
+                        {searchOpen && searchQuery.trim().length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden z-50">
+                                {searchResults.length > 0 ? (
+                                    <ul className="py-1">
+                                        {searchResults.map((item) => {
+                                            const Icon = item.icon;
+                                            return (
+                                                <li key={item.href}>
+                                                    <button
+                                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors text-left"
+                                                        onClick={() => {
+                                                            router.push(item.href);
+                                                            setSearchOpen(false);
+                                                            setSearchQuery('');
+                                                        }}
+                                                    >
+                                                        <Icon className="h-4 w-4 shrink-0 text-gray-400" />
+                                                        <span className="font-medium">{item.name}</span>
+                                                        {(item as any).section && (
+                                                            <span className="ml-auto text-[10px] text-gray-400 uppercase tracking-wider">{(item as any).section}</span>
+                                                        )}
+                                                    </button>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
+                                        <Search className="h-7 w-7 text-gray-300 mb-2" />
+                                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No pages found</p>
+                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Try a different keyword</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex shrink-0 items-center gap-1 sm:gap-2 lg:gap-4">
@@ -535,6 +669,7 @@ export default function DashboardLayout({
                                 isOpen={notifOpen}
                                 onClose={() => setNotifOpen(false)}
                                 onClear={clearNotifications}
+                                onMarkAllRead={markAllRead}
                                 onNotificationClick={handleNotificationClick}
                             />
                         </div>
@@ -573,8 +708,8 @@ export default function DashboardLayout({
                                         {config.showFullDropdown && (
                                             <>
                                                 <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700">
-                                                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user?.name}</p>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
+                                                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{displayName}</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
                                                 </div>
                                                 {config.settingsHref && (
                                                     <Link

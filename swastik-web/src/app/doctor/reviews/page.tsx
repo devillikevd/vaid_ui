@@ -12,16 +12,12 @@ export default function DoctorReviewsPage() {
     const { reviews, loadingReviews, error, fetchReviews } = useDoctorStore();
 
     const loadReviews = useCallback(async (page: number = 1) => {
-        if (userId) {
-            await fetchReviews(userId, page);
-        }
-    }, [userId, fetchReviews]);
+        await fetchReviews(page);
+    }, [fetchReviews]);
 
     useEffect(() => {
-        if (userId) {
-            loadReviews();
-        }
-    }, [userId, loadReviews]);
+        loadReviews();
+    }, [loadReviews]);
 
     if (!user) {
         return <DashboardSkeleton />;

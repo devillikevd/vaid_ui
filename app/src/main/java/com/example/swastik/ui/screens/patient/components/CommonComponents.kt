@@ -37,7 +37,9 @@ import androidx.compose.material3.MaterialTheme
 @Composable
 fun PatientBottomNavigation(
     selectedTab: Int,
-    onTabSelected: (Int) -> Unit
+    onTabSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    shape: androidx.compose.ui.graphics.Shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
 ) {
     val haptic = LocalHapticFeedback.current
     val items = listOf(
@@ -76,15 +78,14 @@ fun PatientBottomNavigation(
     Surface(
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
-        modifier = Modifier
+        shape = shape,
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp) // Adding padding for floating effect
             .navigationBarsPadding()
             .height(68.dp)
             .shadow(
                 elevation = 12.dp,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                shape = shape,
                 spotColor = Color.Black.copy(alpha = 0.1f),
                 ambientColor = Color.Transparent
             )

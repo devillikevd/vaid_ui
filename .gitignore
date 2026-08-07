@@ -70,6 +70,78 @@ Thumbs.db
 *.tfvars
 !*.auto.tfvars.example
 
+# ==================== Android ====================
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/captures
+.externalNativeBuild/
+.cxx/
+local.properties
+
+# Android app build outputs
+app/build/
+app/release/
+app/local.properties
+ambulance-app/build/
+dist/apk/
+google-services.json
+app/google-services.json
+ambulance-app/google-services.json
+
+# Generated / duplicated folders
+app/generated 2/
+app/generated 4/
+app/intermediates 2/
+app/intermediates 4/
+app/intermediates 6/
+app/kspCaches 3/
+app/kspCaches 4/
+app/kspCaches 5/
+app/outputs 3/
+app/outputs 4/
+app/outputs 5/
+app/snapshot/
+
+# ==================== Node.js ====================
+node_modules/
+.env
+.env.local
+.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==================== Next.js / Web ====================
+swastik-web/.next/
+swastik-web/out/
+
+# ==================== IDE ====================
+.vscode/
+*.swp
+*.swo
+*~
+.idea/
+
+# ==================== OS ====================
+.DS_Store
+Thumbs.db
+*.log
+
+# ==================== Python ====================
+.venv/
+**/__pycache__/
+*.pyc
+*.apk
+
+# Terraform secrets
+*.tfvars
+!*.auto.tfvars.example
+
 # ECS secrets
 taskdef.json
 new_taskdef.json
@@ -77,3 +149,21 @@ updated_taskdef.json
 
 # Local scripts
 generate_icon.py
+convert_image.py
+
+# ==================== Local Test / Debug Scripts ====================
+build_log.txt
+swastik-backend/_check_upcoming.js
+swastik-backend/_check_upcoming2.js
+swastik-backend/check-conn.js
+swastik-backend/check_schema.js
+swastik-backend/clear_blocked.js
+swastik-backend/test_api.js
+swastik-backend/test_cols.js
+swastik-backend/test_consultations.js
+swastik-backend/test_db.js
+swastik-backend/test_dup.js
+swastik-backend/test_get_slots.js
+swastik-backend/test_insert.js
+swastik-backend/test_journey.js
+swastik-backend/test_schema.js
