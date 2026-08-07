@@ -72,7 +72,7 @@ export default function DiagnosticReelsPage() {
         <div className="space-y-6">
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pharmacy Reels</h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">Upload short 15-30 second video reels to showcase your pharmacy's authentic medicine stock, facilities, and staff.</p>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">Upload short 15-30 second video reels to showcase your diagnostic center&apos;s infrastructure, services, and patient care.</p>
             </div>
 
             <Card>

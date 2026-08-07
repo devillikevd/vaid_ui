@@ -79,7 +79,7 @@ export default function DoctorJourneyPage() {
             <div className="h-screen w-full flex flex-col items-center justify-center bg-gray-950 text-white p-6 text-center">
                 <Heart className="h-16 w-16 text-gray-700 mb-4" />
                 <h1 className="text-2xl font-bold mb-2">Oops!</h1>
-                <p className="text-gray-400 max-w-md mb-8">We couldn't retrieve your journey stats right now. Please try again later.</p>
+                <p className="text-gray-400 max-w-md mb-8">We couldn&apos;t retrieve your journey stats right now. Please try again later.</p>
                 <Button onClick={() => router.push('/doctor')} variant="outline" className="border-gray-700 hover:bg-gray-800">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
                 </Button>
@@ -154,7 +154,7 @@ export default function DoctorJourneyPage() {
                         </motion.div>
                     </div>
                     
-                    <h2 className="text-3xl md:text-5xl font-bold mb-6">You've touched lives.</h2>
+                    <h2 className="text-3xl md:text-5xl font-bold mb-6">You&apos;ve touched lives.</h2>
                     <p className="text-xl md:text-2xl text-gray-400 leading-relaxed font-light">
                         Since you joined, you have treated <span className="text-blue-400 font-bold text-3xl"><Counter to={stats.totalPatients} /></span> unique patients and completed <span className="text-emerald-400 font-bold text-3xl"><Counter to={stats.totalConsultations} /></span> successful consultations.
                     </p>
@@ -237,7 +237,7 @@ export default function DoctorJourneyPage() {
                     <Heart className="h-16 w-16 text-emerald-500 mx-auto mb-8 fill-emerald-500/20" />
                     <h2 className="text-3xl md:text-5xl font-bold mb-6">Thank You.</h2>
                     <p className="text-xl md:text-2xl text-gray-400 leading-relaxed font-light mb-12">
-                        For being a pillar of Vaididea. Here's to healing more lives together.
+                        For being a pillar of Vaididea. Here&apos;s to healing more lives together.
                     </p>
                     
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>

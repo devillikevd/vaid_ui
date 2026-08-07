@@ -11,10 +11,10 @@ import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDial
 
 function generateSubSlots(start: string, end: string, intervalMinutes: number = 30) {
     const slots = [];
-    let [h, m] = start.split(':').map(Number);
+    const [h, m] = start.split(':').map(Number);
     let current = h * 60 + (m || 0);
-    let [eh, em] = end.split(':').map(Number);
-    let endMinutes = eh * 60 + (em || 0);
+    const [eh, em] = end.split(':').map(Number);
+    const endMinutes = eh * 60 + (em || 0);
 
     while (current < endMinutes) {
         const startH = Math.floor(current / 60).toString().padStart(2, '0');

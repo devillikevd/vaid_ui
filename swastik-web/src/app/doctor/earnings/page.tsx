@@ -48,7 +48,7 @@ export default function EarningsPage() {
                     <ArrowLeft size={20} />
                 </button>
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Today's Earnings Breakdown</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Today&apos;s Earnings Breakdown</h1>
                     <p className="text-sm text-gray-500 dark:text-gray-400">View detailed earnings per consultation</p>
                 </div>
             </div>
@@ -192,7 +192,7 @@ export default function EarningsPage() {
                                                                             <span className="text-xs ml-1 text-gray-900 dark:text-gray-100 font-medium">{consultation.rating}/5</span>
                                                                         </div>
                                                                         {consultation.review && (
-                                                                            <p className="text-xs text-gray-600 dark:text-gray-400 italic">"{consultation.review}"</p>
+                                                                            <p className="text-xs text-gray-600 dark:text-gray-400 italic">&quot;{consultation.review}&quot;</p>
                                                                         )}
                                                                     </div>
                                                                 ) : (
