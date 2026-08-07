@@ -123,7 +123,7 @@ export default function PrescriptionDetailsPage() {
                         </div>
                         {prescription.notes && (
                             <div>
-                                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Doctor's Notes</h4>
+                                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Doctor&apos;s Notes</h4>
                                 <p className="text-gray-700 dark:text-gray-300 bg-emerald-50 dark:bg-emerald-900/10 p-3 rounded-lg text-sm border border-emerald-100 dark:border-emerald-900/20">
                                     {prescription.notes}
                                 </p>
