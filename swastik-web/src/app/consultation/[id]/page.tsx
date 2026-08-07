@@ -237,6 +237,11 @@ export default function VideoConsultation() {
     const [isPeerReady, setIsPeerReady] = useState(false);
     const [remoteStreamReady, setRemoteStreamReady] = useState(false);
     const [remotePlaybackBlocked, setRemotePlaybackBlocked] = useState(false);
+    // OTP modal for doctor end call
+    const [showOtpModal, setShowOtpModal] = useState(false);
+    const [otpInput, setOtpInput] = useState('');
+    const [otpError, setOtpError] = useState('');
+    const [isEndingCall, setIsEndingCall] = useState(false);
 
     // ── Network degradation state ──────────────────────────────────
     const [connectionMode, setConnectionMode] = useState<ConnectionMode>('video');
@@ -1006,13 +1011,26 @@ export default function VideoConsultation() {
         }
     };
 
-    const endCall = async () => {
+    const endCall = async (otp?: string) => {
         try {
             if (user?.role === 'doctor') {
-                await api.consultations.end(consultationId, {
+                setIsEndingCall(true);
+                const result = await api.consultations.end(consultationId, {
                     duration: callDurationRef.current,
                     notes: '',
+                    otp: otp || undefined,
                 });
+                if (!result.success) {
+                    const errMsg = (result as any).error || 'Failed to end consultation';
+                    // OTP invalid — show error in modal
+                    if (errMsg.toLowerCase().includes('otp')) {
+                        setOtpError(errMsg);
+                        setIsEndingCall(false);
+                        return;
+                    }
+                    // Other error — still exit
+                    console.error('End consultation error:', errMsg);
+                }
             } else {
                 // Patients leave — they can't end the consultation
                 await api.consultations.leave(consultationId).catch(() => {});
@@ -1021,10 +1039,37 @@ export default function VideoConsultation() {
         } catch (err) {
             console.error('Failed to end/leave consultation:', err);
         } finally {
+            setShowOtpModal(false);
+            setIsEndingCall(false);
             cleanup();
             router.push(user?.role === 'doctor' ? '/doctor/consultations' : '/');
         }
     };
+
+    const handleEndCallClick = () => {
+        if (user?.role === 'doctor') {
+            // Check if this is a video appointment that requires OTP
+            const appointmentType = consultationData?.appointment?.type || consultationData?.type;
+            const hasOtp = consultationData?.appointment?.completion_otp;
+            if (appointmentType === 'video' || hasOtp) {
+                // Show OTP modal
+                setOtpInput('');
+                setOtpError('');
+                setShowOtpModal(true);
+                return;
+            }
+        }
+        endCall();
+    };
+
+    const submitOtp = () => {
+        if (otpInput.trim().length !== 6) {
+            setOtpError('Please enter the 6-digit OTP from the patient.');
+            return;
+        }
+        endCall(otpInput.trim());
+    };
+
 
     // BUG-A1: cleanup is now declared above via useCallback for stable reference
 
@@ -1161,7 +1206,7 @@ export default function VideoConsultation() {
                                     </button>
                                 )}
                                 <button
-                                    onClick={endCall}
+                                    onClick={handleEndCallClick}
                                     className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-xl text-white text-sm font-medium transition-colors flex items-center gap-2"
                                 >
                                     <Phone className="w-4 h-4 rotate-[135deg]" /> End Call
@@ -1233,6 +1278,14 @@ export default function VideoConsultation() {
                                         {isConnecting ? 'Preparing secure call' : `Waiting for ${counterpartName}`}
                                     </h2>
                                     <p className="text-slate-300">The room is ready and we will connect as soon as both sides finish joining.</p>
+                                    {/* Patient: show OTP for doctor verification */}
+                                    {user?.role === 'patient' && consultationData?.appointment?.completion_otp && (
+                                        <div className="mt-6 inline-block bg-slate-800/90 border border-emerald-500/40 rounded-2xl px-6 py-4 text-center">
+                                            <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-2">Your Completion OTP</p>
+                                            <p className="text-4xl font-bold tracking-[0.4em] text-white font-mono">{consultationData.appointment.completion_otp}</p>
+                                            <p className="text-xs text-slate-400 mt-2">Share this with your doctor to end the session</p>
+                                        </div>
+                                    )}
                                     <div className="mt-4 flex items-center justify-center gap-2">
                                         <span className="rounded-full bg-white/8 px-3 py-1 text-xs text-slate-200">{consultationData?.type || 'Video consultation'}</span>
                                         <span className="rounded-full bg-white/8 px-3 py-1 text-xs text-slate-200">Chat fallback ready</span>
@@ -1384,7 +1437,7 @@ export default function VideoConsultation() {
 
                     {/* End Call */}
                     <button
-                        onClick={endCall}
+                        onClick={handleEndCallClick}
                         className="p-4 bg-red-500 hover:bg-red-600 rounded-full transition-colors"
                     >
                         <Phone className="w-6 h-6 text-white rotate-[135deg]" />
@@ -1439,7 +1492,7 @@ export default function VideoConsultation() {
             ) : (
                 /* Chat-mode end call bar */
                 <div className="flex items-center justify-center gap-4 border-t border-white/10 bg-slate-950/70 px-4 py-3 backdrop-blur-xl">
-                    <button onClick={endCall} className="flex items-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 rounded-full text-white font-medium">
+                    <button onClick={handleEndCallClick} className="flex items-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 rounded-full text-white font-medium">
                         <Phone className="w-5 h-5 rotate-[135deg]" /> End Consultation
                     </button>
                     {user?.role === 'doctor' && (
@@ -1467,6 +1520,61 @@ export default function VideoConsultation() {
                     onClose={() => setShowHistoryDrawer(false)} 
                     patientId={consultationData.patient_id} 
                 />
+            )}
+
+            {/* OTP Modal for Doctor End Call */}
+            {showOtpModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+                    onClick={(e) => { if (e.target === e.currentTarget && !isEndingCall) setShowOtpModal(false); }}
+                >
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl p-6 w-full max-w-sm mx-4 shadow-2xl">
+                        <div className="text-center mb-5">
+                            <div className="w-14 h-14 bg-emerald-500/15 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <Phone className="w-7 h-7 text-emerald-400" />
+                            </div>
+                            <h2 className="text-lg font-bold text-white">Enter Completion OTP</h2>
+                            <p className="text-sm text-slate-400 mt-1">Ask the patient for their 6-digit OTP shown on their screen</p>
+                        </div>
+                        <div className="flex justify-center gap-2 mb-4">
+                            {Array.from({ length: 6 }, (_, i) => (
+                                <div key={i} className={`w-10 h-12 flex items-center justify-center rounded-xl text-xl font-bold text-white border-2 ${
+                                    otpInput[i] ? 'bg-emerald-600/30 border-emerald-500' : 'bg-white/5 border-white/10'
+                                }`}>{otpInput[i] || ''}</div>
+                            ))}
+                        </div>
+                        <input
+                            type="tel"
+                            inputMode="numeric"
+                            maxLength={6}
+                            value={otpInput}
+                            onChange={e => { setOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6)); setOtpError(''); }}
+                            onKeyDown={e => { if (e.key === 'Enter') submitOtp(); }}
+                            placeholder="Type OTP here"
+                            autoFocus
+                            className="w-full text-center text-lg font-mono bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 mb-3"
+                        />
+                        {otpError && <p className="text-red-400 text-sm text-center mb-3">{otpError}</p>}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowOtpModal(false)}
+                                disabled={isEndingCall}
+                                className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={submitOtp}
+                                disabled={isEndingCall || otpInput.length !== 6}
+                                className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isEndingCall ? (
+                                    <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Ending...</>
+                                ) : 'End Consultation'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

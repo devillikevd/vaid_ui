@@ -1304,7 +1304,7 @@ export const consultationsApi = {
     join: (consultationId: string) =>
         fetchWithAuth(`/consultations/${consultationId}/join`, { method: 'POST' }),
 
-    end: (consultationId: string, data?: { notes?: string; diagnosis?: string; followUpDate?: string; duration?: number }) =>
+    end: (consultationId: string, data?: { notes?: string; diagnosis?: string; followUpDate?: string; duration?: number; otp?: string }) =>
         fetchWithAuth(`/consultations/${consultationId}/end`, {
             method: 'PUT',
             body: JSON.stringify(data || {}),
