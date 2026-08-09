@@ -97,8 +97,13 @@ const getFirebaseApp = () => {
   try {
     const admin = require('firebase-admin');
     const serviceAccount = loadFirebaseServiceAccount();
+    // firebase-admin v14 moved cert() from admin.credential.cert() to admin.cert()
+    const certFn = admin.credential?.cert || admin.cert;
+    if (!certFn) {
+      throw new Error('firebase-admin does not expose cert() — check version compatibility');
+    }
     firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+      credential: certFn(serviceAccount),
     });
     console.log('[FCM] Firebase Admin initialized successfully');
     return firebaseApp;
