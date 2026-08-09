@@ -214,6 +214,12 @@ export default function WellnessDashboard() {
     const searchParams = useSearchParams();
     const toast = useToast();
     const inviteToken = searchParams.get('invite');
+    // L018: never leave the invite token in the URL — strip it once read so it
+    // can't leak via Referer headers or browser history.
+    if (typeof window !== 'undefined' && inviteToken && window.location.search.includes('invite=')) {
+        const stripped = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, '', stripped);
+    }
     const [profile, setProfile] = useState<CoachProfile | null>(null);
     const [sessions, setSessions] = useState<WellnessSession[]>([]);
     const [plans, setPlans] = useState<WorkoutPlan[]>([]);

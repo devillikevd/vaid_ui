@@ -19,7 +19,11 @@ const auditLogSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now, index: true },
 });
 
-// Chat Message Schema - high volume, append-only
+// M007: compound indexes for the most common audit-log query patterns
+// (admin audit log page filters by action/entityType/userId and sorts by createdAt desc).
+auditLogSchema.index({ action: 1, createdAt: -1 });
+auditLogSchema.index({ entityType: 1, entityId: 1, createdAt: -1 });
+auditLogSchema.index({ userId: 1, createdAt: -1 });
 const chatMessageSchema = new mongoose.Schema({
     sessionId: { type: String, required: true, index: true },
     userId: { type: String, required: true, index: true },
@@ -31,6 +35,8 @@ const chatMessageSchema = new mongoose.Schema({
 
 // Compound index so wellness-chat history pages resolve on (session, createdAt) only
 chatMessageSchema.index({ sessionId: 1, createdAt: -1 });
+// M007: recent-chat list per user (chatbotServiceV2 session aggregation, patientService history)
+chatMessageSchema.index({ userId: 1, role: 1, createdAt: -1 });
 
 // Analytics Event Schema - for tracking user behavior
 const analyticsEventSchema = new mongoose.Schema({
@@ -52,6 +58,10 @@ const analyticsEventSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now, index: true },
 });
 
+// M007: analytics event queries filter by eventType/userId and sort by createdAt desc
+analyticsEventSchema.index({ eventType: 1, createdAt: -1 });
+analyticsEventSchema.index({ userId: 1, createdAt: -1 });
+
 // Ambulance Location Ping Schema - very high volume
 const ambulanceLocationSchema = new mongoose.Schema({
     ambulanceId: { type: String, required: true, index: true },
@@ -64,6 +74,9 @@ const ambulanceLocationSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now, index: true, expires: 86400 }, // TTL 24 hours
 });
 
+// M007: recent pings per ambulance (tracking) resolve on (ambulanceId, createdAt desc)
+ambulanceLocationSchema.index({ ambulanceId: 1, createdAt: -1 });
+
 // Search Log Schema - for improving search
 const searchLogSchema = new mongoose.Schema({
     userId: String,
@@ -75,7 +88,9 @@ const searchLogSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now, index: true },
 });
 
-// Meal Log Schema - diet & nutrition tracker
+// M007: search-log history per user + recent searches per type
+searchLogSchema.index({ userId: 1, createdAt: -1 });
+searchLogSchema.index({ searchType: 1, createdAt: -1 });
 const mealLogSchema = new mongoose.Schema({
     userId: { type: String, required: true, index: true },
     items: [{
@@ -100,12 +115,17 @@ const mealLogSchema = new mongoose.Schema({
     },
     advice: mongoose.Schema.Types.Mixed,
     mealType: { type: String, enum: ['breakfast', 'lunch', 'dinner', 'snack', 'unknown'], default: 'unknown' },
+    // L010: canonical field (written by the AI service). Reads still tolerate
+    // the legacy camelCase `medicalConditions` shape via dietService fallback.
     medical_conditions: [String],
-    medicalConditions: [String],
     latencyMs: Number,
     timestamp: { type: Date, index: true },
     createdAt: { type: Date, default: Date.now, index: true },
 }, { collection: 'meal_logs' });
+
+// M007: meal history per user is fetched by (userId) sorted by createdAt/timestamp desc
+mealLogSchema.index({ userId: 1, createdAt: -1 });
+mealLogSchema.index({ userId: 1, timestamp: -1 });
 
 
 // Disease Schema - Health Library
@@ -144,10 +164,13 @@ const categorySchema = new mongoose.Schema({
 
 // Health Search Stat Schema - Health Library
 const healthSearchStatSchema = new mongoose.Schema({
-    query: { type: String, required: true },
+    query: { type: String, required: true, index: true },
     result_count: { type: Number, default: 0 },
-    searched_at: { type: Date, default: Date.now },
+    searched_at: { type: Date, default: Date.now, index: true },
 });
+
+// M007: trending-search aggregation filters by result_count/searched_at
+healthSearchStatSchema.index({ searched_at: -1, result_count: -1 });
 
 
 // Create models only if mongoose is connected

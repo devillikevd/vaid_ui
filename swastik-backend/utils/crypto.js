@@ -12,8 +12,9 @@ function getEncryptionKey() {
   const keyHex = process.env.PHI_ENCRYPTION_KEY;
   if (!keyHex) {
     if (process.env.NODE_ENV === 'production') {
-      console.error('CRITICAL WARNING: PHI_ENCRYPTION_KEY environment variable is missing in production! Falling back to default key. This is a security risk.');
+      throw new Error('FATAL: PHI_ENCRYPTION_KEY environment variable is required in production! Cannot safely encrypt/decrypt PHI without it.');
     }
+    console.error('WARNING: PHI_ENCRYPTION_KEY is missing. Using fallback key. THIS IS ONLY SAFE FOR DEVELOPMENT.');
     // Fallback key
     return crypto.createHash('sha256').update('development-fallback-phi-key-do-not-use-in-prod').digest();
   }
@@ -143,8 +144,9 @@ function getBlindIndexKey() {
   const keyHex = process.env.PHI_BLIND_INDEX_KEY;
   if (!keyHex) {
     if (process.env.NODE_ENV === 'production') {
-      console.error('CRITICAL WARNING: PHI_BLIND_INDEX_KEY environment variable is missing in production! Falling back to default key.');
+      throw new Error('FATAL: PHI_BLIND_INDEX_KEY environment variable is required in production!');
     }
+    console.error('WARNING: PHI_BLIND_INDEX_KEY is missing. Using fallback key. THIS IS ONLY SAFE FOR DEVELOPMENT.');
     return 'development-fallback-blind-index-key';
   }
   return keyHex;
@@ -177,11 +179,25 @@ function encryptPHIArray(arr) {
   return arr.map(item => encryptPHI(item));
 }
 
+/**
+ * Generate blind-index values for an array of plaintext strings.
+ * Used to keep `*_idx` companion columns in sync with encrypted `text[]` PHI
+ * fields (M009). Returns the same length array, null values preserved for
+ * elements that produce no index.
+ * @param {string[]} arr
+ * @returns {Array<string|null>|null}
+ */
+function generateBlindIndexArray(arr) {
+  if (!Array.isArray(arr)) return null;
+  return arr.map(item => generateBlindIndex(item));
+}
+
 module.exports = {
   encryptPHI,
   decryptPHI,
   deepDecrypt,
   generateBlindIndex,
+  generateBlindIndexArray,
   encryptPHIArray,
   PREFIX
 };

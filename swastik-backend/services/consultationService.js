@@ -9,6 +9,10 @@ const notificationService = require('./notificationService');
 const config = require('../config');
 const crypto = require('crypto');
 
+// CVE-002: short-lived token for the FastAPI AI service (dedicated AI secret
+// when configured, access secret + backend audience in legacy deployments).
+const { mintAiServiceToken } = require('../utils/aiServiceToken');
+
 // Redis client for doctor AI rate limiting and cache invalidation
 let cacheIncr, cacheDel;
 try {
@@ -1270,13 +1274,8 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
   };
 
   try {
-    // Get the doctor's JWT token to forward to FastAPI
-    const jwt = require('jsonwebtoken');
-    const tempToken = jwt.sign(
-      { userId: doctorUserId, id: doctorUserId, role: 'doctor' },
-      config.jwt.accessSecret,
-      { expiresIn: '1m' }
-    );
+    // Get the doctor's JWT token to forward to FastAPI (CVE-002 aware)
+    const tempToken = mintAiServiceToken(doctorUserId, 'doctor');
 
     const response = await axios.post(`${AI_SERVICE_URL}/api/ai/consult`, requestPayload, {
       headers: {
@@ -1371,11 +1370,7 @@ const generateClinicalSummary = async (doctorUserId, consultationId, clientVital
   };
 
   try {
-    const tempToken = jwt.sign(
-      { userId: doctorUserId, id: doctorUserId, role: 'doctor' },
-      config.jwt.accessSecret,
-      { expiresIn: '1m' }
-    );
+    const tempToken = mintAiServiceToken(doctorUserId, 'doctor');
 
     const response = await axios.post(`${AI_SERVICE_URL}/api/ai/summarize`, requestPayload, {
       headers: {

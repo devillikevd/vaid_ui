@@ -73,6 +73,8 @@ const buildUploadResponseData = async (result, rawVariants = null) => {
 
 // Global upload availability guard
 router.use((req, res, next) => {
+    // L012: defense-in-depth — never let a browser sniff uploaded content as HTML
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     if (!isStorageAvailable()) {
         return res.status(503).json({
             success: false,
@@ -551,13 +553,22 @@ router.delete('/:fileName(*)', authenticateToken, async (req, res, next) => {
         // Fix #8: Verify user owns this file using path prefix match (not includes)
         // Prevent path traversal attacks where attacker crafts a filename containing the user's ID
         const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
-        const normalizedPath = fileName.replace(/\.\./g, '');
-        const userPathSegment = `/${req.user.id}/`;
-        if (!isAdmin && !normalizedPath.includes(userPathSegment)) {
+        
+        // Strict path validation: resolve path to prevent any trickery
+        const path = require('path');
+        const normalizedPath = path.posix.normalize(fileName);
+        
+        // Block path traversal attempts explicitly
+        if (normalizedPath.includes('..') || normalizedPath.startsWith('/')) {
+            throw new ApiError(400, 'Invalid file path');
+        }
+
+        const userPathSegment = `${req.user.id}/`;
+        if (!isAdmin && !normalizedPath.startsWith(userPathSegment)) {
             throw new ApiError(403, 'You do not have permission to delete this file');
         }
 
-        await deleteFile(fileName);
+        await deleteFile(normalizedPath);
 
         res.json({
             success: true,

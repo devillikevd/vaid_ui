@@ -12,6 +12,30 @@ try {
 }
 
 /**
+ * L016: sanitize any value before it reaches PDFKit's text pipeline.
+ * Strips C0 control characters (notably ESC \x1b, which can trigger PDFKit's
+ * vulnerable postscript interpreter — CVE-2021-30490), removes non-printable
+ * Unicode, collapses whitespace, and caps length to prevent runaway layouts.
+ * @param {*} value
+ * @param {number} maxLen
+ * @returns {string}
+ */
+const sanitizeText = (value, maxLen = 200) => {
+  if (value === null || value === undefined) return '';
+  let text = String(value).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+  text = text.replace(/[\u0080-\u009f]/g, ''); // C1 control chars
+  text = text.replace(/\s+/g, ' ').trim();
+  return text.slice(0, maxLen);
+};
+
+const sanitizeMultiline = (value, maxLen = 2000) => {
+  if (value === null || value === undefined) return '';
+  let text = String(value).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+  text = text.replace(/[\u0080-\u009f]/g, '');
+  return text.trim().slice(0, maxLen);
+};
+
+/**
  * Generate a prescription PDF buffer.
  * @param {Object} prescription - Full prescription object with doctor, patient, medicines
  * @returns {Promise<Buffer>} PDF buffer ready for upload
@@ -54,7 +78,7 @@ const generatePrescriptionPdf = async (prescription) => {
       doc.moveDown(0.5);
 
       // ==================== Prescription Info ====================
-      const rxNumber = prescription.prescription_number || 'N/A';
+      const rxNumber = sanitizeText(prescription.prescription_number || 'N/A', 64) || 'N/A';
       const createdAt = prescription.created_at
         ? new Date(prescription.created_at).toLocaleDateString('en-IN', {
             day: '2-digit', month: 'short', year: 'numeric',
@@ -72,20 +96,20 @@ const generatePrescriptionPdf = async (prescription) => {
 
       // ==================== Doctor Info ====================
       if (prescription.doctor) {
-        doc.fontSize(11).font('Helvetica-Bold').text(`Dr. ${prescription.doctor.name || 'Unknown'}`);
+        doc.fontSize(11).font('Helvetica-Bold').text(`Dr. ${sanitizeText(prescription.doctor.name, 120) || 'Unknown'}`);
         if (prescription.doctor.specialization) {
-          doc.fontSize(9).font('Helvetica').text(prescription.doctor.specialization);
+          doc.fontSize(9).font('Helvetica').text(sanitizeText(prescription.doctor.specialization, 200));
         }
         doc.moveDown(0.3);
       }
 
       // ==================== Patient Info ====================
       if (prescription.patient) {
-        doc.fontSize(10).font('Helvetica').text(`Patient: ${prescription.patient.name || 'Unknown'}`, {
+        doc.fontSize(10).font('Helvetica').text(`Patient: ${sanitizeText(prescription.patient.name, 120) || 'Unknown'}`, {
           continued: prescription.patient.phone ? true : false,
         });
         if (prescription.patient.phone) {
-          doc.text(`    Phone: ${prescription.patient.phone}`);
+          doc.text(`    Phone: ${sanitizeText(prescription.patient.phone, 40)}`);
         }
         doc.moveDown(0.3);
       }
@@ -93,7 +117,7 @@ const generatePrescriptionPdf = async (prescription) => {
       // ==================== Diagnosis ====================
       if (prescription.diagnosis) {
         doc.fontSize(10).font('Helvetica-Bold').text('Diagnosis: ', { continued: true });
-        doc.font('Helvetica').text(prescription.diagnosis);
+        doc.font('Helvetica').text(sanitizeText(prescription.diagnosis, 500));
         doc.moveDown(0.3);
       }
 
@@ -109,12 +133,12 @@ const generatePrescriptionPdf = async (prescription) => {
         doc.moveDown(0.3);
 
         medicines.forEach((med, index) => {
-          const name = med.medicine_name || med.medicineName || 'Unknown';
-          const dosage = med.dosage || '';
-          const frequency = med.frequency || '';
-          const duration = med.duration || '';
-          const qty = med.quantity ? `Qty: ${med.quantity}` : '';
-          const instructions = med.instructions || '';
+          const name = sanitizeText(med.medicine_name || med.medicineName, 120) || 'Unknown';
+          const dosage = sanitizeText(med.dosage, 100);
+          const frequency = sanitizeText(med.frequency, 100);
+          const duration = sanitizeText(med.duration, 100);
+          const qty = med.quantity ? `Qty: ${sanitizeText(med.quantity, 20)}` : '';
+          const instructions = sanitizeMultiline(med.instructions, 500);
           const beforeFood = med.before_food ? '🍽 Before food' : '';
           const isCritical = med.is_critical ? '⚠️ CRITICAL' : '';
 
@@ -134,7 +158,7 @@ const generatePrescriptionPdf = async (prescription) => {
           }
 
           if (med.generic_name) {
-            doc.fontSize(8).font('Helvetica').fillColor('#6b7280').text(`   Generic: ${med.generic_name}`).fillColor('#000000');
+            doc.fontSize(8).font('Helvetica').fillColor('#6b7280').text(`   Generic: ${sanitizeText(med.generic_name, 120)}`).fillColor('#000000');
           }
 
           doc.moveDown(0.2);
@@ -146,19 +170,19 @@ const generatePrescriptionPdf = async (prescription) => {
       // ==================== Advice Sections ====================
       if (prescription.dietary_advice) {
         doc.fontSize(10).font('Helvetica-Bold').text('Dietary Advice:');
-        doc.fontSize(9).font('Helvetica').text(prescription.dietary_advice);
+        doc.fontSize(9).font('Helvetica').text(sanitizeMultiline(prescription.dietary_advice, 2000));
         doc.moveDown(0.3);
       }
 
       if (prescription.lifestyle_advice) {
         doc.fontSize(10).font('Helvetica-Bold').text('Lifestyle Advice:');
-        doc.fontSize(9).font('Helvetica').text(prescription.lifestyle_advice);
+        doc.fontSize(9).font('Helvetica').text(sanitizeMultiline(prescription.lifestyle_advice, 2000));
         doc.moveDown(0.3);
       }
 
       if (prescription.notes) {
         doc.fontSize(10).font('Helvetica-Bold').text('Notes:');
-        doc.fontSize(9).font('Helvetica').text(prescription.notes);
+        doc.fontSize(9).font('Helvetica').text(sanitizeMultiline(prescription.notes, 2000));
         doc.moveDown(0.3);
       }
 

@@ -6,7 +6,7 @@ import { PUBLIC_API_URL } from './env';
  * Every store MUST use these functions instead of raw fetch().
  */
 
-export const API_BASE_URL = PUBLIC_API_URL;
+export const API_BASE_URL = '/api/proxy';
 
 // ==================== Types ====================
 
@@ -39,6 +39,7 @@ export interface PaginatedResponse<T> {
 
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
+let aiServiceToken: string | null = null;
 
 const DEFAULT_AUTH_COOKIE_MAX_AGE = 60 * 60 * 24;
 
@@ -48,6 +49,8 @@ type TokenLike = {
     token?: string | null;
     refreshToken?: string | null;
     refresh_token?: string | null;
+    aiServiceToken?: string | null;
+    ai_service_token?: string | null;
 };
 
 export function resolveAccessToken(payload: TokenLike | null | undefined): string | null {
@@ -58,6 +61,10 @@ export function resolveRefreshToken(payload: TokenLike | null | undefined): stri
     return normalizeStoredToken(payload?.refreshToken || payload?.refresh_token || null);
 }
 
+export function resolveAIServiceToken(payload: TokenLike | null | undefined): string | null {
+    return normalizeStoredToken(payload?.aiServiceToken || payload?.ai_service_token || null);
+}
+
 function normalizeStoredToken(token: string | null | undefined): string | null {
     if (!token || token === 'undefined' || token === 'null') {
         return null;
@@ -66,7 +73,7 @@ function normalizeStoredToken(token: string | null | undefined): string | null {
     return token;
 }
 
-function syncCookie(name: 'swastik-role' | 'swastik-token', value: string | null, maxAge: number = DEFAULT_AUTH_COOKIE_MAX_AGE) {
+function syncCookie(name: 'swastik-role' | 'swastik-token' | 'swastik-ai-token', value: string | null, maxAge: number = DEFAULT_AUTH_COOKIE_MAX_AGE) {
     if (typeof document === 'undefined') {
         return;
     }
@@ -76,19 +83,35 @@ function syncCookie(name: 'swastik-role' | 'swastik-token', value: string | null
         return;
     }
 
-    document.cookie = `${name}=${value}; path=/; max-age=${maxAge}; SameSite=Strict`;
+    // L002: Secure flag is on by default for HTTPS. Set
+    // NEXT_PUBLIC_COOKIE_SECURE=true to force it in non-prod (e.g. behind an
+    // https terminator where location.protocol may still report http), or
+    // =false to disable it explicitly (http dev on loopback only).
+    const secureOverride = process.env.NEXT_PUBLIC_COOKIE_SECURE;
+    const isSecure =
+        secureOverride === 'true' ? true
+            : secureOverride === 'false' ? false
+                : typeof location !== 'undefined' && location.protocol === 'https:';
+    const secureFlag = isSecure ? '; Secure' : '';
+    document.cookie = `${name}=${value}; path=/; max-age=${maxAge}; SameSite=Strict${secureFlag}`;
 }
 
 export const setTokens = (
     access: string | null | undefined,
     refresh: string | null | undefined,
-    options: { cookieMaxAge?: number; role?: string | null } = {}
+    options: { cookieMaxAge?: number; role?: string | null; aiServiceToken?: string | null } = {}
 ) => {
     accessToken = normalizeStoredToken(access);
     refreshToken = normalizeStoredToken(refresh);
+    aiServiceToken = normalizeStoredToken(options.aiServiceToken);
 
     if (typeof window !== 'undefined') {
         syncCookie('swastik-token', accessToken, options.cookieMaxAge);
+        if (options.aiServiceToken) {
+            syncCookie('swastik-ai-token', aiServiceToken, 60 * 15);
+        } else {
+            syncCookie('swastik-ai-token', null);
+        }
         if (options.role) {
             syncCookie('swastik-role', options.role, options.cookieMaxAge);
         }
@@ -101,18 +124,30 @@ export const getTokens = () => {
             const match = document.cookie.match(new RegExp('(^| )swastik-token=([^;]+)'));
             if (match) accessToken = match[2];
         }
+        if (!aiServiceToken) {
+            const match = document.cookie.match(new RegExp('(^| )swastik-ai-token=([^;]+)'));
+            if (match) aiServiceToken = match[2];
+        }
         accessToken = normalizeStoredToken(accessToken);
         refreshToken = normalizeStoredToken(refreshToken);
+        aiServiceToken = normalizeStoredToken(aiServiceToken);
     }
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, aiServiceToken };
+};
+
+export const getAIServiceToken = () => {
+    const { aiServiceToken: token } = getTokens();
+    return token;
 };
 
 export const clearTokens = () => {
     accessToken = null;
     refreshToken = null;
+    aiServiceToken = null;
     if (typeof window !== 'undefined') {
         syncCookie('swastik-role', null);
         syncCookie('swastik-token', null);
+        syncCookie('swastik-ai-token', null);
     }
 };
 
@@ -135,10 +170,15 @@ function getHttpErrorMessage(status: number): string {
 
 // ==================== Core Fetch with Auth ====================
 
+// L009: request timeout is configurable via NEXT_PUBLIC_API_TIMEOUT_MS instead
+// of a hardcoded 30s (defaults to 30s for backward compatibility).
+const DEFAULT_FETCH_TIMEOUT_MS = Math.max(1000, Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS || 30000));
+
 export async function fetchWithAuth<T>(
     endpoint: string,
     options: RequestInit = {},
-    _isRetry: boolean = false
+    _isRetry: boolean = false,
+    timeoutMs: number = DEFAULT_FETCH_TIMEOUT_MS
 ): Promise<ApiResponse<T>> {
     const { accessToken: token } = getTokens();
 
@@ -151,19 +191,29 @@ export async function fetchWithAuth<T>(
         headers['Content-Type'] = headers['Content-Type'] || 'application/json';
     }
 
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
+    // We no longer manually attach Authorization header. 
+    // The browser attaches the HttpOnly 'accessToken' cookie automatically 
+    // because the request goes to the Next.js proxy (/api/proxy/...), 
+    // and the proxy server extracts it and adds the Authorization header before forwarding to the backend.
 
     try {
-        // Add timeout to prevent hanging requests (30s default)
+        // Abort the request after the (configurable) timeout to prevent hanging calls.
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        let signal: AbortSignal = controller.signal;
+        if (options.signal) {
+            // Combine a caller-provided abort signal with the timeout signal.
+            if (typeof AbortSignal.any === 'function') {
+                signal = AbortSignal.any([options.signal, controller.signal]);
+            } else {
+                options.signal.addEventListener('abort', () => controller.abort());
+            }
+        }
 
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             ...options,
             headers,
-            signal: controller.signal,
+            signal,
         });
 
         clearTimeout(timeout);
@@ -223,14 +273,19 @@ async function refreshAccessToken(): Promise<boolean> {
 
     _refreshPromise = (async () => {
         try {
-            // Read refreshToken from getTokens
+            // Read refreshToken from getTokens (module memory only — never
+            // persisted to localStorage/sessionStorage; M001). The HttpOnly
+            // `swastik-refresh-token` cookie set by the backend is the primary
+            // source; `credentials: 'include'` sends it automatically.
             const { refreshToken: currentRefreshToken } = getTokens();
-            if (!currentRefreshToken) return false;
 
             const response = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refreshToken: currentRefreshToken }),
+                body: JSON.stringify(
+                    currentRefreshToken ? { refreshToken: currentRefreshToken } : {}
+                ),
             });
 
             if (response.ok) {
@@ -239,7 +294,7 @@ async function refreshAccessToken(): Promise<boolean> {
                 const newAccess = resolveAccessToken(tokenPayload);
                 const newRefresh = resolveRefreshToken(tokenPayload) || refreshToken;
                 if (newAccess) {
-                    setTokens(newAccess, newRefresh!);
+                    setTokens(newAccess, newRefresh!, { aiServiceToken: resolveAIServiceToken(tokenPayload) });
                     return true;
                 }
             }
@@ -269,7 +324,10 @@ export const authApi = {
         const rToken = resolveRefreshToken(tokenPayload);
         const userRole = data.data?.user?.role || data.user?.role || role || null;
         if (response.ok && token) {
-            setTokens(token, rToken, { role: userRole });
+            setTokens(token, rToken, {
+                role: userRole,
+                aiServiceToken: resolveAIServiceToken(tokenPayload),
+            });
         }
         return data;
     },
@@ -429,11 +487,13 @@ export const adminApi = {
     getAnalytics: (period: string = '30d') =>
         fetchWithAuth(`/admin/analytics?period=${period}`),
 
-    getAuditLogs: (filters?: Record<string, unknown>, page: number = 1, limit: number = 50) => {
+    getAuditLogs: (filters?: Record<string, unknown>, page: number = 1, limit: number = 50, before?: string | null) => {
         const params = new URLSearchParams({
             page: page.toString(),
             limit: limit.toString(),
         });
+        // M012: pass the cursor for keyset pagination instead of deep offsets.
+        if (before) params.set('before', before);
         if (filters?.search) params.set('search', String(filters.search));
         if (filters?.action) params.set('action', String(filters.action));
         if (filters?.resourceType) params.set('resourceType', String(filters.resourceType));
@@ -1565,7 +1625,10 @@ export const wellnessApi = {
     cancelTrainerInvite: (inviteId: string) =>
         fetchWithAuth(`/wellness/owner/trainer-invites/${inviteId}/cancel`, { method: 'POST' }),
     getTrainerInvite: (token: string) =>
-        fetchWithAuth(`/wellness/trainer-invites/${encodeURIComponent(token)}`),
+        fetchWithAuth('/wellness/trainer-invites/preview', {
+            method: 'POST',
+            body: JSON.stringify({ token }),
+        }),
     getCoachCenterInvites: (status?: string) =>
         fetchWithAuth(`/wellness/coaches/me/center-invites${wellnessQuery({ status })}`),
     respondCoachCenterInvite: (inviteIdOrToken: string, decision: 'accept' | 'reject') =>
@@ -1574,9 +1637,9 @@ export const wellnessApi = {
             body: JSON.stringify({ decision }),
         }),
     respondTrainerInviteToken: (token: string, decision: 'accept' | 'reject') =>
-        fetchWithAuth(`/wellness/trainer-invites/${encodeURIComponent(token)}/respond`, {
+        fetchWithAuth('/wellness/trainer-invites/respond', {
             method: 'POST',
-            body: JSON.stringify({ decision }),
+            body: JSON.stringify({ token, decision }),
         }),
     getWorkoutPlans: (filters?: Record<string, unknown>, page: number = 1, limit: number = 12) =>
         fetchWithAuth(`/wellness/plans${wellnessQuery({ ...filters, page, limit })}`),

@@ -12,6 +12,7 @@ const { authenticate } = require('../../middleware/auth');
 const { requireRole, ROLES } = require('../../middleware/rbac');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const dietService = require('../../services/dietService');
+const { mintAiServiceToken } = require('../../utils/aiServiceToken');
 
 const router = express.Router();
 
@@ -77,7 +78,8 @@ router.post(
     }
 
     // Step 3: Forward to AI Service
-    const authToken = req.headers.authorization?.split(' ')[1];
+    // CVE-002: use a dedicated short-lived AI token, not the user's access token.
+    const authToken = mintAiServiceToken(req.user.id, req.user.role);
     try {
       const result = await dietService.analyzeFood(base64Image, mimeType, authToken);
 
@@ -112,7 +114,7 @@ router.post(
       });
     }
 
-    const authToken = req.headers.authorization?.split(' ')[1];
+    const authToken = mintAiServiceToken(req.user.id, req.user.role);
     const result = await dietService.calculateNutrition(
       items,
       additional_notes,

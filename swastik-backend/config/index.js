@@ -112,6 +112,16 @@ const config = {
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   },
 
+  // CVE-001: When true, authenticated requests run through a per-user
+  // Supabase client bound to the caller's JWT so Row Level Security is
+  // enforced at the database layer instead of relying solely on the
+  // service-role client (which bypasses RLS). Requires the Supabase
+  // project JWT secret to be set to JWT_ACCESS_SECRET and the RLS
+  // policies from database/production/059_security_rls_hardening.sql
+  // to be applied. Defaults to false so existing deployments keep
+  // working until the DB migration + Supabase config are in place.
+  usePerRequestSupabase: parseBoolean(process.env.USE_PER_REQUEST_SUPABASE, false),
+
   // JWT — I12: Separate secrets for access & refresh tokens
   jwt: {
     secret: (() => {
@@ -130,9 +140,22 @@ const config = {
     get refreshSecret() {
       return process.env.JWT_REFRESH_SECRET || this.secret;
     },
+    // CVE-002: Dedicated secret for the FastAPI AI service so a compromise
+    // of the smaller AI attack surface cannot forge backend access tokens.
+    // If unset, the AI service falls back to the access secret (legacy mode).
+    get aiServiceSecret() {
+      return process.env.JWT_AI_SERVICE_SECRET || null;
+    },
+    audience: process.env.JWT_AUDIENCE || 'swastik-backend',
+    aiServiceAudience: process.env.JWT_AI_SERVICE_AUDIENCE || 'swastik-ai-service',
+    issuer: process.env.JWT_ISSUER || 'swastik-backend',
     expiresIn: process.env.JWT_EXPIRES_IN || '1h', // Fix #35: Reduced from 7d to 1h
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
   },
+
+  // H007: Optional shared secret that gates verbose /health diagnostics.
+  // When set, detailed health output requires `x-healthcheck-secret`.
+  healthCheckSecret: process.env.HEALTHCHECK_SECRET || '',
 
   // MongoDB
   mongodb: {
@@ -184,7 +207,7 @@ const config = {
     bucketName: storageBucketName,
     publicUrl: storagePublicUrl,
     signedUrlExpirySeconds: parseInt(process.env.STORAGE_SIGNED_URL_EXPIRY_SECONDS || process.env.S3_SIGNED_URL_EXPIRY_SECONDS || '3600', 10),
-    signedReadUrlExpirySeconds: parseInt(process.env.STORAGE_SIGNED_READ_URL_EXPIRY_SECONDS || process.env.S3_SIGNED_READ_URL_EXPIRY_SECONDS || '86400', 10),
+    signedReadUrlExpirySeconds: parseInt(process.env.STORAGE_SIGNED_READ_URL_EXPIRY_SECONDS || process.env.S3_SIGNED_READ_URL_EXPIRY_SECONDS || '300', 10),
     signedUploadUrlExpirySeconds: parseInt(process.env.STORAGE_SIGNED_UPLOAD_URL_EXPIRY_SECONDS || process.env.S3_SIGNED_UPLOAD_URL_EXPIRY_SECONDS || process.env.STORAGE_SIGNED_URL_EXPIRY_SECONDS || '3600', 10),
     autoCreateBucket: parseBoolean(process.env.STORAGE_AUTO_CREATE_BUCKET, storageProvider !== 's3'),
     forcePathStyle: parseBoolean(process.env.STORAGE_FORCE_PATH_STYLE || process.env.S3_FORCE_PATH_STYLE, storageProvider !== 's3'),

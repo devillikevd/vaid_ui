@@ -1,4 +1,4 @@
-const { encryptPHI, deepDecrypt } = require('./crypto');
+const { encryptPHI, deepDecrypt, generateBlindIndexArray } = require('./crypto');
 
 const PHI_REGISTRY = {
   patients: ['medical_conditions', 'allergies', 'chronic_conditions', 'current_medications', 'medical_history', 'blood_group'],
@@ -10,7 +10,18 @@ const PHI_REGISTRY = {
   reminders: ['notes'],
 };
 
-function wrapQueryBuilder(qb, phiFields) {
+// M009: fields whose encrypted value has a companion blind-index column.
+// The idx column is written in the SAME payload as the encrypted field so the
+// pair updates atomically in one UPDATE — a separate read-modify-write would
+// race with concurrent writers and leave a stale (missed-search) index.
+const BLIND_INDEX_FIELDS = {
+  patients: {
+    medical_conditions: 'medical_conditions_idx',
+    chronic_conditions: 'chronic_conditions_idx',
+  },
+};
+
+function wrapQueryBuilder(qb, phiFields, blindIndexMap) {
   return new Proxy(qb, {
     get(target, prop) {
       if (prop === 'then') {
@@ -32,14 +43,14 @@ function wrapQueryBuilder(qb, phiFields) {
           let encryptedData;
           
           if (Array.isArray(data)) {
-            encryptedData = data.map(item => encryptPayload(item, phiFields));
+            encryptedData = data.map(item => encryptPayload(item, phiFields, blindIndexMap));
           } else if (typeof data === 'object' && data !== null) {
-            encryptedData = encryptPayload(data, phiFields);
+            encryptedData = encryptPayload(data, phiFields, blindIndexMap);
           } else {
             encryptedData = data;
           }
           
-          return wrapQueryBuilder(target[prop](encryptedData, options), phiFields);
+          return wrapQueryBuilder(target[prop](encryptedData, options), phiFields, blindIndexMap);
         };
       }
 
@@ -49,7 +60,7 @@ function wrapQueryBuilder(qb, phiFields) {
         return (...args) => {
           const result = originalMethod.apply(target, args);
           if (result && typeof result.then === 'function') {
-            return wrapQueryBuilder(result, phiFields);
+            return wrapQueryBuilder(result, phiFields, blindIndexMap);
           }
           return result;
         };
@@ -60,7 +71,7 @@ function wrapQueryBuilder(qb, phiFields) {
   });
 }
 
-function encryptPayload(data, phiFields) {
+function encryptPayload(data, phiFields, blindIndexMap) {
   const newPayload = { ...data };
   for (const field of phiFields) {
     if (newPayload[field] !== undefined && newPayload[field] !== null) {
@@ -69,6 +80,19 @@ function encryptPayload(data, phiFields) {
         newPayload[field] = newPayload[field].map(item => encryptPHI(item));
       } else {
         newPayload[field] = encryptPHI(newPayload[field]);
+      }
+    }
+  }
+  // M009: keep blind-index companion columns in sync atomically. The idx is
+  // computed from the plaintext input (same array position) and included in the
+  // same insert/update/upsert payload, so no separate UPDATE (and no race).
+  if (blindIndexMap) {
+    for (const [field, idxColumn] of Object.entries(blindIndexMap)) {
+      if (data[field] !== undefined && data[field] !== null) {
+        const idxValues = generateBlindIndexArray(data[field]);
+        if (idxValues) {
+          newPayload[idxColumn] = idxValues;
+        }
       }
     }
   }
@@ -81,12 +105,13 @@ function createSupabasePHIProxy(supabaseClient) {
       if (prop === 'from') {
         return (tableName) => {
           const queryBuilder = target.from(tableName);
+          const blindIndexMap = BLIND_INDEX_FIELDS[tableName];
           if (!PHI_REGISTRY[tableName]) {
             // For tables without PHI, we still wrap it so we can deepDecrypt any nested joined data
             // (e.g., `doctors` joining `patients`)
-            return wrapQueryBuilder(queryBuilder, []);
+            return wrapQueryBuilder(queryBuilder, [], blindIndexMap);
           }
-          return wrapQueryBuilder(queryBuilder, PHI_REGISTRY[tableName]);
+          return wrapQueryBuilder(queryBuilder, PHI_REGISTRY[tableName], blindIndexMap);
         };
       }
       return target[prop];

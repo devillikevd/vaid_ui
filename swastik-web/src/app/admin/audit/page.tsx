@@ -89,9 +89,14 @@ export default function AuditPage() {
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
     const [sourceStatus, setSourceStatus] = useState<'available' | 'unavailable'>('available');
     const [sourceMessage, setSourceMessage] = useState<string | null>(null);
+    // M012: keyset pagination — `beforeCursor` is the last row's createdAt,
+    // `cursorStack` lets the user page backwards without deep offsets.
+    const [beforeCursor, setBeforeCursor] = useState<string | null>(null);
+    const [cursorStack, setCursorStack] = useState<string[]>([]);
+    const [hasNext, setHasNext] = useState(false);
+    const [hasPrev, setHasPrev] = useState(false);
 
     const fetchAuditLogs = useCallback(async () => {
         setIsLoading(true);
@@ -100,7 +105,8 @@ export default function AuditPage() {
             const result = await adminApi.getAuditLogs(
                 searchQuery.trim() ? { search: searchQuery.trim() } : undefined,
                 page,
-                25
+                25,
+                beforeCursor
             );
             if (!result.success) throw new Error('Failed to fetch audit logs');
 
@@ -133,7 +139,8 @@ export default function AuditPage() {
             });
 
             setLogs(normalized);
-            setTotalPages(result.pagination?.totalPages || 1);
+            setHasNext(Boolean((result as { pagination?: { hasNext?: boolean } }).pagination?.hasNext));
+            setHasPrev(cursorStack.length > 0);
             setSourceStatus((result as { sourceStatus?: 'available' | 'unavailable' }).sourceStatus || 'available');
             setSourceMessage((result as { message?: string }).message || null);
         } catch (err) {
@@ -142,10 +149,29 @@ export default function AuditPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [page, searchQuery]);
+    }, [page, searchQuery, beforeCursor, cursorStack]);
 
     useEffect(() => { fetchAuditLogs(); }, [fetchAuditLogs]);
-    useEffect(() => { setPage(1); }, [searchQuery]);
+    useEffect(() => {
+        setPage(1);
+        setBeforeCursor(null);
+        setCursorStack([]);
+    }, [searchQuery]);
+
+    const goNext = () => {
+        const lastLog = logs[logs.length - 1];
+        if (!lastLog) return;
+        setCursorStack(stack => [...stack, beforeCursor ?? '']);
+        setBeforeCursor(lastLog.timestamp);
+        setPage(p => p + 1);
+    };
+
+    const goPrev = () => {
+        const prevCursor = cursorStack[cursorStack.length - 1];
+        setCursorStack(stack => stack.slice(0, -1));
+        setBeforeCursor(prevCursor || null);
+        setPage(p => Math.max(1, p - 1));
+    };
 
     const formatTime = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -235,13 +261,13 @@ export default function AuditPage() {
                         })}
                     </div>
                 )}
-                {totalPages > 1 && (
+                {hasNext || hasPrev ? (
                     <div className="flex items-center justify-center gap-2 p-4 border-t border-gray-100 dark:border-gray-800">
-                        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Previous</Button>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Page {page} of {totalPages}</span>
-                        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
+                        <Button variant="outline" size="sm" disabled={!hasPrev} onClick={goPrev}>Previous</Button>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Page {page}</span>
+                        <Button variant="outline" size="sm" disabled={!hasNext} onClick={goNext}>Next</Button>
                     </div>
-                )}
+                ) : null}
             </Card>
         </div>
     );

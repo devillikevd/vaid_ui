@@ -11,6 +11,11 @@ const { asyncLocalStorage } = require('../utils/asyncContext');
 
 /**
  * Authenticate middleware - verifies JWT token and attaches user to request
+ *
+ * CVE-002: verifies against the access secret OR the dedicated AI-service
+ * secret. Tokens signed with the AI-service secret must carry type:"ai" and
+ * are only accepted for authentication (they cannot forge backend-only flows
+ * beyond their short TTL and audience).
  */
 const authenticate = async (req, res, next) => {
   try {
@@ -25,10 +30,24 @@ const authenticate = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
 
     // Verify JWT — I12: use accessSecret for access tokens
-    const decoded = jwt.verify(token, config.jwt.accessSecret, { algorithms: ['HS256'] });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, config.jwt.accessSecret, { algorithms: ['HS256'] });
+    } catch (accessErr) {
+      // Fall back to the dedicated AI-service secret (CVE-002) so the AI
+      // service's ownership-check callbacks can authenticate with ai tokens.
+      if (config.jwt.aiServiceSecret) {
+        decoded = jwt.verify(token, config.jwt.aiServiceSecret, { algorithms: ['HS256'] });
+        if (decoded.type && decoded.type !== 'ai') {
+          return res.status(401).json({ success: false, message: 'Invalid token type.' });
+        }
+      } else {
+        throw accessErr;
+      }
+    }
 
     // Reject non-access tokens (email_verification, password_reset, refresh)
-    if (decoded.type && decoded.type !== 'access') {
+    if (decoded.type && decoded.type !== 'access' && decoded.type !== 'ai') {
       return res.status(401).json({ success: false, message: 'Invalid token type.' });
     }
 
@@ -88,6 +107,9 @@ const authenticate = async (req, res, next) => {
       approval_status: user.approval_status,
       approval_notes: user.approval_notes,
       provider_id: user.provider_id,
+      // L015: MFA state rides the JWT (set after a TOTP challenge) so admin
+      // gating in requireMfa can enforce it without a DB round-trip.
+      mfa: decoded.mfa === true,
       company_name: user.company_name,
       registration_number: user.registration_number,
       address: user.address,
@@ -139,8 +161,21 @@ const optionalAuth = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, config.jwt.accessSecret, { algorithms: ['HS256'] });
-    if (decoded.type && decoded.type !== 'access') {
+    let decoded;
+    try {
+      decoded = jwt.verify(token, config.jwt.accessSecret, { algorithms: ['HS256'] });
+    } catch (accessErr) {
+      if (config.jwt.aiServiceSecret) {
+        decoded = jwt.verify(token, config.jwt.aiServiceSecret, { algorithms: ['HS256'] });
+        if (decoded.type && decoded.type !== 'ai') {
+          req.user = null;
+          return asyncLocalStorage.run({ user: null, token: null }, () => next());
+        }
+      } else {
+        throw accessErr;
+      }
+    }
+    if (decoded.type && decoded.type !== 'access' && decoded.type !== 'ai') {
       req.user = null;
       return asyncLocalStorage.run({ user: null, token: null }, () => next());
     }

@@ -300,12 +300,32 @@ const initializeBucket = async () => {
 const isStorageAvailable = () => Boolean((minioClient || s3Client) && isBucketReady);
 
 // Helper: generate unique object name
+// H003: folder/userId are sanitized so a user-controlled value can never
+// escape the intended storage prefix via `../` or absolute paths.
+const sanitizePathSegment = (segment, fallback = 'misc') => {
+  if (typeof segment !== 'string') return fallback;
+  // Keep only safe [a-z0-9-_] and collapse separators to single dashes.
+  const cleaned = segment
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 128);
+  return cleaned || fallback;
+};
+
 const generateObjectName = (folder, userId, originalName) => {
+  const safeFolder = sanitizePathSegment(folder, 'misc');
+  const safeUserId = sanitizePathSegment(userId, 'unknown');
   let ext = originalName.includes('.') ? originalName.split('.').pop() : 'bin';
   ext = ext.replace(/[^a-zA-Z0-9]/g, '');
   if (!ext) ext = 'bin';
-  return `${folder}/${userId}/${randomUUID()}.${ext}`;
+  return `${safeFolder}/${safeUserId}/${randomUUID()}.${ext}`;
 };
+
+// Allowlists for sub-folder segments that are derived from user input.
+// Any value not present here falls back to the base folder, never to raw input.
+const LICENSE_PROVIDER_TYPES = ['doctor', 'hospital', 'clinic', 'pharmacy', 'diagnostic_center', 'wellness_coach', 'fitness_center', 'ambulance_operator'];
+const ENTITY_TYPES = ['hospital', 'clinic', 'pharmacy', 'diagnostic_center', 'wellness_coach', 'fitness_center', 'ambulance_operator', 'medicine', 'doctor', 'patient'];
 
 // ==================== Image Optimization Pipeline ====================
 
@@ -469,13 +489,18 @@ const uploadVideo = async (file, userId) => {
 };
 
 const uploadLicenseDocument = async (file, userId, providerType) => {
-  const folder = providerType ? `${STORAGE_FOLDERS.LICENSES}/${providerType}` : STORAGE_FOLDERS.LICENSES;
+  // H003: allowlist providerType — user-controlled values can never escape the
+  // licenses/ prefix into arbitrary storage paths.
+  const safeProvider = LICENSE_PROVIDER_TYPES.includes(providerType) ? providerType : null;
+  const folder = safeProvider ? `${STORAGE_FOLDERS.LICENSES}/${safeProvider}` : STORAGE_FOLDERS.LICENSES;
   const objectName = generateObjectName(folder, userId, file.originalname);
   return uploadBuffer(objectName, file.buffer, file.mimetype);
 };
 
 const uploadEntityImage = async (file, entityId, entityType) => {
-  const folder = entityType ? `${STORAGE_FOLDERS.ENTITIES}/${entityType}` : STORAGE_FOLDERS.ENTITIES;
+  // H003: allowlist entityType (e.g. "../../etc/passwd" now falls back to `entities/`).
+  const safeEntityType = ENTITY_TYPES.includes(entityType) ? entityType : null;
+  const folder = safeEntityType ? `${STORAGE_FOLDERS.ENTITIES}/${safeEntityType}` : STORAGE_FOLDERS.ENTITIES;
   const objectName = generateObjectName(folder, entityId, file.originalname);
   return uploadBuffer(objectName, file.buffer, file.mimetype);
 };
@@ -522,6 +547,14 @@ const pruneSignedUrlCache = () => {
       signedUrlGlobalCache.delete(key);
     }
   }
+};
+
+// M003: evict a cached signed URL immediately. Callers invoke this whenever an
+// object is removed/overwritten so clients never receive a signed URL that
+// points at a deleted object (they would 404 for the whole TTL window).
+const invalidateSignedUrlCache = (objectName) => {
+  if (!objectName) return;
+  signedUrlGlobalCache.delete(objectName);
 };
 
 const signStorageUrl = async (
@@ -627,6 +660,10 @@ const signStorageUrlsInPayload = async (value, options = {}) => {
 };
 
 const deleteObject = async (objectName) => {
+  // M003: drop cached signed URLs for the deleted object so stale links
+  // (that would now return 404) are never served to clients.
+  invalidateSignedUrlCache(objectName);
+
   if (storageProvider === 's3') {
     await s3Client.send(new DeleteObjectCommand({
       Bucket: storageConfig.bucketName,

@@ -1,0 +1,79 @@
+name: Security Checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '0 4 * * 1' # weekly, Mon 04:00 UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  secret-scan:
+    name: Secrets scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7  # v2
+        with:
+          config-path: .gitleaks.toml
+          fail: true
+
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d  # v1
+        with:
+          config: p/security-audit
+          publishToken: ${{ secrets.SEMGREP_APP_TOKEN }}
+          timeout: 300
+
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package:
+          - swastik-backend
+          - swastik-web
+          - swastik-ai-service
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - name: Set up Node
+        if: matrix.package != 'swastik-ai-service'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Set up Python
+        if: matrix.package == 'swastik-ai-service'
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          cd ${{ matrix.package }}
+          if [ "${{ matrix.package }}" = "swastik-ai-service" ]; then
+            pip install -r requirements.txt
+            pip install pip-audit
+          else
+            npm ci
+          fi
+      - name: Run audit
+        run: |
+          cd ${{ matrix.package }}
+          if [ "${{ matrix.package }}" = "swastik-ai-service" ]; then
+            pip-audit -r requirements.txt
+          else
+            npm audit --omit=dev --audit-level=high || true
+            npm audit --omit=dev
+          fi

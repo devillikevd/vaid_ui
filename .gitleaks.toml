@@ -1,0 +1,28 @@
+# L025: gitleaks configuration for secrets scanning.
+# Used by .github/workflows/security.yml and the pre-commit hook.
+
+title = "swastik-secrets-policy"
+
+[extend]
+# Reuse gitleaks' built-in ruleset (AWS keys, generic API keys, JWTs, etc.).
+useDefault = true
+
+[allowlist]
+  description = "Example/test fixture values that are not real credentials."
+  paths = [
+    ".env.example",
+    "terraform.tfvars.example",
+    "env.production.example",
+    "test/fixtures/",
+    "__tests__/",
+  ]
+  # Permit placeholder values in example env files so CI doesn't flag the
+  # documented sample secrets. Real production secrets must never appear here.
+  regexes = [
+    "(JWT_ACCESS_SECRET=ci-test-.*)",
+    "(JWT_REFRESH_SECRET=ci-test-.*)",
+    "(JWT_AI_SERVICE_SECRET=ci-test-.*)",
+    "(SUPABASE_ANON_KEY=your-supabase-anon-key)",
+    "(SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key)",
+    "(GEMINI_API_KEY=your-gemini-api-key)",
+  ]

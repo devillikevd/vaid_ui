@@ -248,17 +248,30 @@ export const useAuthStore = create<AuthState>()(
                 if (refreshPromise) return refreshPromise;
 
                 const { refreshToken } = get();
-                if (!refreshToken) {
+                // M001: allow the attempt even when the in-memory refresh token is
+                // empty — the HttpOnly `swastik-refresh-token` cookie may still be
+                // present after a reload. Only skip when there is no session at all.
+                const { accessToken: restoredAccess } = getTokens();
+                if (!refreshToken && !restoredAccess) {
                     set({ isLoading: false });
                     return false;
                 }
 
                 refreshPromise = (async () => {
                     try {
+                        // M001: The refresh token lives in the backend's HttpOnly
+                        // `swastik-refresh-token` cookie (sent automatically with
+                        // credentials:'include'). The in-memory value is a fallback
+                        // for non-HTTPS/localhost where Secure cookies are not set.
+                        const { refreshToken } = get();
+
                         const response = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
                             method: 'POST',
+                            credentials: 'include',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ refreshToken }),
+                            body: JSON.stringify(
+                                refreshToken ? { refreshToken } : {}
+                            ),
                         });
 
                         const data = await response.json();
@@ -365,6 +378,11 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
     const authChannel = new BroadcastChannel('swastik-auth-sync');
 
     authChannel.onmessage = (event) => {
+        // L013: BroadcastChannel is same-origin by spec, but defense-in-depth —
+        // ignore any message that isn't from the current origin.
+        if (event.origin && event.origin !== window.location.origin) {
+            return;
+        }
         const { type, payload } = event.data || {};
         const store = useAuthStore.getState();
 

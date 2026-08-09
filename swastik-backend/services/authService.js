@@ -148,15 +148,15 @@ const validateRoleRegistrationPayload = (role, data) => {
 
 const OTP_PURPOSE_EMAIL_VERIFICATION = 'login';
 const OTP_PURPOSE_PASSWORD_RESET = 'password_reset';
-const OTP_EXPIRY_MINUTES = 10;
+const OTP_EXPIRY_MINUTES = 5; // H002: reduced from 10 min to shrink the brute-force window
 const OTP_MAX_ATTEMPTS = 5;
 
 const normalizeEmail = (value) => value?.toLowerCase().trim();
 
-const hashOtp = (otp) => crypto
-  .createHash('sha256')
-  .update(`${otp}:${config.jwt.secret}`)
-  .digest('hex');
+// H002: OTPs are stored as bcrypt hashes (salted, adaptive) instead of plain
+// SHA256(secret+otp), which was crackable offline if the DB ever leaked.
+const hashOtp = (otp) => bcrypt.hash(otp, 12);
+const verifyOtpHash = (otp, storedHash) => bcrypt.compare(otp, storedHash);
 
 const generateEmailOtp = () => crypto.randomInt(0, 1000000).toString().padStart(6, '0');
 
@@ -198,7 +198,7 @@ const issueEmailOtp = async ({ userId = null, email, purpose, sender, name }) =>
     .insert({
       user_id: userId,
       email,
-      otp: hashOtp(otp),
+      otp: await hashOtp(otp),
       purpose,
       expires_at: expiresAt,
       is_verified: false,
@@ -245,7 +245,8 @@ const consumeOtpRecord = async ({ email, purpose, otp }) => {
     throw createOtpError('OTP_LOCKED', 'Too many incorrect attempts. Please request a new code.');
   }
 
-  if (record.otp !== hashOtp(otp)) {
+  const otpMatches = await verifyOtpHash(otp, record.otp);
+  if (!otpMatches) {
     const nextAttempts = (record.attempts || 0) + 1;
     await supabaseAdmin
       .from('otp_verifications')
@@ -311,19 +312,62 @@ const toUserFacingRegistrationError = (error, fallbackMessage = 'Failed to compl
 // Generate JWT tokens
 const generateTokens = (user) => {
   const expiresInStr = config.jwt.expiresIn || '7d';
+  const now = Math.floor(Date.now() / 1000);
+  const userId = String(user.id);
+
+  // CVE-002: bind tokens to the issuing service via aud/iss/sub claims so a
+  // token minted for one audience is not silently valid in another.
   const accessToken = jwt.sign(
-    { userId: user.id, role: user.role, email: user.email, type: 'access', tokenVersion: Number(user.token_version || 0) },
+    {
+      userId: user.id,
+      sub: userId,
+      role: user.role,
+      email: user.email,
+      type: 'access', tokenVersion: Number(user.token_version || 0),
+      aud: config.jwt.audience,
+      iss: config.jwt.issuer,
+      iat: now,
+    },
     config.jwt.accessSecret,
     { expiresIn: expiresInStr }
   );
-
   const refreshToken = jwt.sign(
-    { userId: user.id, type: 'refresh' },
+    {
+      userId: user.id,
+      sub: userId,
+      type: 'refresh',
+      aud: config.jwt.audience,
+      iss: config.jwt.issuer,
+      iat: now,
+    },
     config.jwt.refreshSecret,
     { expiresIn: config.jwt.refreshExpiresIn || '30d' }
   );
 
-  return { accessToken, refreshToken, expiresIn: parseExpiresIn(expiresInStr) };
+  const tokens = { accessToken, refreshToken, expiresIn: parseExpiresIn(expiresInStr) };
+
+  // CVE-002: when a dedicated AI-service secret is configured, mint a separate,
+  // short-lived token for the FastAPI microservice. The AI service verifies it
+  // with JWT_AI_SERVICE_SECRET — a compromise of the AI service can no longer
+  // forge backend access tokens.
+  if (config.jwt.aiServiceSecret) {
+    tokens.aiServiceToken = jwt.sign(
+      {
+        userId: user.id,
+        sub: userId,
+        role: user.role,
+        type: 'ai',
+        aud: config.jwt.aiServiceAudience,
+        iss: config.jwt.issuer,
+        tokenVersion: Number(user.token_version || 0),
+        iat: now,
+      },
+      config.jwt.aiServiceSecret,
+      { expiresIn: process.env.JWT_AI_SERVICE_EXPIRES_IN || '15m' }
+    );
+  }
+
+  return tokens;
 };
 
 const revokeAccessTokens = async (userId) => {
@@ -915,7 +959,9 @@ const verifyEmailOtp = async (rawEmail, otp) => {
       await supabaseAdmin.from('refresh_tokens').insert({
         user_id: user.id,
         token: tokens.refreshToken,
+        family_id: require('crypto').randomUUID(),
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        is_revoked: false,
       });
     } catch (err) {
       console.error('Error storing refresh token during email verification:', err);
@@ -1045,6 +1091,7 @@ const login = async (rawEmail, password, expectedRole = null) => {
     await supabaseAdmin.from('refresh_tokens').insert({
       user_id: user.id,
       token: tokens.refreshToken,
+      family_id: require('crypto').randomUUID(),
       expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       is_revoked: false,
     });
@@ -1078,7 +1125,7 @@ const refreshToken = async (token) => {
 
     const { data: storedToken } = await supabaseAdmin
       .from('refresh_tokens')
-      .select('id, is_revoked')
+      .select('id, is_revoked, family_id')
       .eq('token', token)
       .eq('user_id', decoded.userId)
       .single();
@@ -1089,7 +1136,17 @@ const refreshToken = async (token) => {
     }
 
     if (storedToken.is_revoked) {
-      throw new ApiError(401, 'Refresh token has been revoked');
+      // B-07: Token Reuse Detected!
+      // If a revoked token is used, it means either a compromised token is being used 
+      // or a legitimate user has a stale token due to network issues. 
+      // Security requires we invalidate the ENTIRE token family.
+      if (storedToken.family_id) {
+        await supabaseAdmin
+          .from('refresh_tokens')
+          .update({ is_revoked: true, revoked_at: new Date().toISOString() })
+          .eq('family_id', storedToken.family_id);
+      }
+      throw new ApiError(401, 'Security Alert: Refresh token reuse detected. You have been logged out of all devices for your protection.');
     }
 
     const { data: user } = await supabaseAdmin
@@ -1108,19 +1165,26 @@ const refreshToken = async (token) => {
       throw err;
     }
 
+    const tokens = generateTokens(user);
+
     if (storedToken) {
       await supabaseAdmin
         .from('refresh_tokens')
-        .update({ is_revoked: true, revoked_at: new Date().toISOString() })
+        .update({ 
+          is_revoked: true, 
+          revoked_at: new Date().toISOString(),
+          replaced_by_token: tokens.refreshToken
+        })
         .eq('id', storedToken.id);
     }
 
-    const tokens = generateTokens(user);
+    const familyId = storedToken.family_id || require('crypto').randomUUID();
 
     try {
       await supabaseAdmin.from('refresh_tokens').insert({
         user_id: user.id,
         token: tokens.refreshToken,
+        family_id: familyId,
         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         is_revoked: false,
       });
@@ -1389,8 +1453,26 @@ const updateProfile = async (userId, role, updates) => {
     if (!/^\+?[1-9]\d{6,14}$/.test(phoneStr)) {
       throw new ApiError(400, 'Invalid phone number format. Use E.164 format (e.g., +919876543210)');
     }
+    const { data: existingUser } = await supabaseAdmin
+      .from('users')
+      .select('phone')
+      .eq('id', userId)
+      .single();
+
     const { error } = await supabaseAdmin.from('users').update({ phone: phoneStr }).eq('id', userId);
     if (error) throw error;
+
+    // CVE-005: phone is a security-sensitive identifier (used for OTP flows).
+    // Rotate token_version + revoke refresh tokens so existing sessions are
+    // invalidated the moment the account's phone changes.
+    if (existingUser && existingUser.phone !== phoneStr) {
+      await supabaseAdmin
+        .from('refresh_tokens')
+        .update({ is_revoked: true, revoked_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('is_revoked', false);
+      await revokeAccessTokens(userId);
+    }
   }
 
   // Update name in role-specific table (and always on users table for consistency)

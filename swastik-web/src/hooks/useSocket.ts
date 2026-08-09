@@ -182,23 +182,25 @@ function removeGlobalEventListener(event: string, listener?: SocketListener) {
     globalEventListeners.delete(event);
 }
 
-function getOrCreateSocket(token: string): Socket {
-    // BUG-02 Fix: If token changed, disconnect old socket and create new one
-    // This handles token refresh — the socket must re-auth with the new JWT
-    if (globalSocket && globalSocketToken === token) {
+function getOrCreateSocket(isAuthenticated: boolean, tokenFallback?: string): Socket {
+    // BUG-02 Fix: If auth state changed, disconnect old socket and create new one
+    // This handles token refresh or login/logout
+    const currentState = isAuthenticated ? 'auth' : 'unauth';
+    if (globalSocket && globalSocketToken === currentState) {
         return globalSocket;
     }
 
-    // Token changed or no socket — disconnect old and create new
+    // Auth state changed or no socket — disconnect old and create new
     if (globalSocket) {
         globalSocket.removeAllListeners();
         globalSocket.disconnect();
         globalSocket = null;
     }
 
-    globalSocketToken = token;
+    globalSocketToken = currentState;
     globalSocket = io(SOCKET_URL, {
-        auth: { token },
+        withCredentials: true,
+        auth: { token: tokenFallback || '' },
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: Infinity,
@@ -240,21 +242,12 @@ export function useSocket() {
             return;
         }
 
-        // After a full page refresh the zustand store only restores
-        // user + isAuthenticated (accessToken is not persisted), so fall back
-        // to the token held by api.ts (cookie/localStorage). Without this the
-        // socket would never connect after a refresh and the header would stay
-        // "Offline" until the user logs in again.
-        const resolvedToken = accessToken || getTokens().accessToken;
-        if (!resolvedToken) {
-            if (socketRef.current) {
-                socketRef.current = null;
-                setIsConnected(false);
-            }
-            return;
-        }
+        // Because we moved to HttpOnly cookies, we don't pass the token explicitly.
+        // We set withCredentials: true so the browser automatically sends the cookie.
+        // We just need to know the user is authenticated.
+        const tokenFallback = accessToken || getTokens().accessToken || '';
 
-        const socket = getOrCreateSocket(resolvedToken);
+        const socket = getOrCreateSocket(true, tokenFallback);
         socketRef.current = socket;
         socketRefCount++;
         if (disconnectTimer) {
