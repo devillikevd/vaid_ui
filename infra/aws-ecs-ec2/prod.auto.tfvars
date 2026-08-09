@@ -21,7 +21,7 @@ supabase_url            = "https://fzbdticlmxbxeektckst.supabase.co"
 # Low-cost coturn server for video consultation fallback.
 # TURN relay bandwidth can become expensive, so keep it as fallback only.
 turn_enabled       = true
-turn_instance_type = "t4g.micro"
+turn_instance_type = "t4g.small"
 turn_realm         = "vaididea.in"
 # Set turn_username and turn_password in terraform.tfvars which is gitignored
 turn_total_quota   = 500
