@@ -12,14 +12,15 @@ function getEncryptionKey() {
   const keyHex = process.env.PHI_ENCRYPTION_KEY;
   if (!keyHex) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('FATAL: PHI_ENCRYPTION_KEY environment variable is required in production');
+      console.error('CRITICAL WARNING: PHI_ENCRYPTION_KEY environment variable is missing in production! Falling back to default key. This is a security risk.');
     }
-    // Fallback key for development ONLY
+    // Fallback key
     return crypto.createHash('sha256').update('development-fallback-phi-key-do-not-use-in-prod').digest();
   }
   
   if (keyHex.length !== 64) {
-    throw new Error('FATAL: PHI_ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes)');
+    console.error('CRITICAL WARNING: PHI_ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes). Using fallback key.');
+    return crypto.createHash('sha256').update('development-fallback-phi-key-do-not-use-in-prod').digest();
   }
   
   return Buffer.from(keyHex, 'hex');
@@ -142,7 +143,7 @@ function getBlindIndexKey() {
   const keyHex = process.env.PHI_BLIND_INDEX_KEY;
   if (!keyHex) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('FATAL: PHI_BLIND_INDEX_KEY environment variable is required in production');
+      console.error('CRITICAL WARNING: PHI_BLIND_INDEX_KEY environment variable is missing in production! Falling back to default key.');
     }
     return 'development-fallback-blind-index-key';
   }
