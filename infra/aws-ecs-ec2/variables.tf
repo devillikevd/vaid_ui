@@ -214,9 +214,9 @@ variable "turn_enabled" {
 }
 
 variable "turn_instance_type" {
-  description = "EC2 instance type for coturn. t4g.micro is Free Tier eligible in ap-south-1 and sufficient for MVP fallback relay."
+  description = "EC2 instance type for coturn. t4g.small is used as t4g.micro is frequently out of capacity in ap-south-1."
   type        = string
-  default     = "t4g.micro"
+  default     = "t4g.small"
 }
 
 variable "turn_allocate_eip" {
