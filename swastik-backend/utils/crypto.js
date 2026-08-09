@@ -105,9 +105,9 @@ function decryptPHI(encryptedData) {
     return decrypted;
   } catch (err) {
     console.error('Failed to decrypt PHI:', err.message);
-    // In strict mode, we might throw. But to prevent breaking the app on bad data, return a placeholder or throw.
-    // Given the critical nature of PHI, throwing is safer so data corruption is caught.
-    throw new Error('Failed to decrypt PHI data: ' + err.message);
+    // Graceful degradation: return a safe placeholder instead of crashing the entire API.
+    // This prevents one corrupt/key-mismatched field from breaking all responses.
+    return '[encrypted - key mismatch]';
   }
 }
 
