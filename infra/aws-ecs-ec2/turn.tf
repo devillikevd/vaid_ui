@@ -75,7 +75,7 @@ resource "aws_instance" "turn" {
 
   ami                         = data.aws_ssm_parameter.al2023_arm64[0].value
   instance_type               = var.turn_instance_type
-  subnet_id                   = aws_subnet.public[0].id
+  subnet_id                   = aws_subnet.public[1].id
   vpc_security_group_ids      = [aws_security_group.turn[0].id]
   associate_public_ip_address = true
   iam_instance_profile        = aws_iam_instance_profile.turn_instance.name
