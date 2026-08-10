@@ -38,6 +38,8 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
         const responseHeaders = new Headers(response.headers);
         // Remove backend cookies if any to prevent conflicts, or we can handle auth cookies specifically
         responseHeaders.delete('set-cookie');
+        responseHeaders.delete('content-encoding');
+        responseHeaders.delete('content-length');
 
         let responseBody: any = response.body;
         let data: any = null;
