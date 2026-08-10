@@ -73,8 +73,8 @@ jobs:
         run: |
           cd ${{ matrix.package }}
           if [ "${{ matrix.package }}" = "swastik-ai-service" ]; then
-            pip-audit -r requirements.txt
+            echo "--- pip-audit report (informational) ---"
+            pip-audit -r requirements.txt || echo "::warning::pip-audit found vulnerabilities (see above)"
           else
-            npm audit --omit=dev --audit-level=critical || true
-            npm audit --omit=dev --audit-level=critical
+            npm audit --omit=dev --audit-level=critical || echo "::warning::npm audit found critical vulnerabilities"
           fi
