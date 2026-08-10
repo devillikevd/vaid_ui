@@ -64,24 +64,25 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
             headers: responseHeaders,
         });
 
-        if (data && data.success && data.accessToken && data.refreshToken) {
+        const tokens = data?.data || data;
+        if (data && data.success && tokens && tokens.accessToken && tokens.refreshToken) {
             // Set HttpOnly cookies
-            nextResponse.cookies.set('accessToken', data.accessToken, {
+            nextResponse.cookies.set('accessToken', tokens.accessToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax',
                 path: '/',
                 maxAge: 30 * 24 * 60 * 60 // 30 days
             });
-            nextResponse.cookies.set('refreshToken', data.refreshToken, {
+            nextResponse.cookies.set('refreshToken', tokens.refreshToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax',
                 path: '/',
                 maxAge: 30 * 24 * 60 * 60 // 30 days
             });
-            if (data.aiServiceToken) {
-                nextResponse.cookies.set('aiServiceToken', data.aiServiceToken, {
+            if (tokens.aiServiceToken) {
+                nextResponse.cookies.set('aiServiceToken', tokens.aiServiceToken, {
                     httpOnly: true,
                     secure: process.env.NODE_ENV === 'production',
                     sameSite: 'lax',
