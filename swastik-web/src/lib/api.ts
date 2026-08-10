@@ -231,7 +231,7 @@ export async function fetchWithAuth<T>(
 
         if (!response.ok) {
             if (response.status === 401) {
-                if (!_isRetry && getTokens().refreshToken) {
+                if (!_isRetry) {
                     const refreshed = await refreshAccessToken();
                     if (refreshed) {
                         return fetchWithAuth(endpoint, options, true);

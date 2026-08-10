@@ -23,6 +23,12 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
     if (accessToken) {
         headers.set('authorization', `Bearer ${accessToken}`);
     }
+    
+    // Forward the refreshToken cookie using the name the backend expects
+    const refreshToken = req.cookies.get('refreshToken')?.value;
+    if (refreshToken) {
+        headers.append('cookie', `swastik-refresh-token=${refreshToken}`);
+    }
 
     try {
         const fetchOptions: RequestInit = {
