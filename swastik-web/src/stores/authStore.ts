@@ -467,3 +467,13 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
         authChannel.close();
     });
 }
+
+// Global listener for 401 Unauthorized API responses to clear zombie sessions
+if (typeof window !== 'undefined') {
+    window.addEventListener('swastik-unauthorized', () => {
+        // Prevent infinite loops if already logged out
+        if (useAuthStore.getState().isAuthenticated) {
+            useAuthStore.getState().logout();
+        }
+    });
+}

@@ -230,12 +230,18 @@ export async function fetchWithAuth<T>(
         }
 
         if (!response.ok) {
-            if (response.status === 401 && getTokens().refreshToken && !_isRetry) {
-                const refreshed = await refreshAccessToken();
-                if (refreshed) {
-                    return fetchWithAuth(endpoint, options, true);
+            if (response.status === 401) {
+                if (!_isRetry && getTokens().refreshToken) {
+                    const refreshed = await refreshAccessToken();
+                    if (refreshed) {
+                        return fetchWithAuth(endpoint, options, true);
+                    }
                 }
+                // If it's a retry and it failed, or we have no refresh token, or refresh failed:
                 clearTokens();
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new Event('swastik-unauthorized'));
+                }
             }
             // Return server message if present, otherwise a human-readable fallback
             const serverMsg = data?.message || data?.error;
