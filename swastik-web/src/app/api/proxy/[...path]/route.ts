@@ -28,6 +28,7 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
         const fetchOptions: RequestInit = {
             method: req.method,
             headers,
+            cache: 'no-store', // Prevent aggressive Next.js caching
             // Next.js requires body to be null for GET/HEAD
             body: ['GET', 'HEAD'].includes(req.method) ? null : await req.arrayBuffer(),
         };
@@ -38,8 +39,6 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
         const responseHeaders = new Headers(response.headers);
         // Remove backend cookies if any to prevent conflicts, or we can handle auth cookies specifically
         responseHeaders.delete('set-cookie');
-        responseHeaders.delete('content-encoding');
-        responseHeaders.delete('content-length');
 
         let responseBody: any = response.body;
         let data: any = null;
@@ -48,6 +47,11 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
         if (path.includes('auth/login') || path.includes('auth/refresh') || path.includes('auth/register')) {
             const dataText = await response.text();
             responseBody = dataText;
+            
+            // Delete content-encoding and content-length since we buffered it as a string
+            responseHeaders.delete('content-encoding');
+            responseHeaders.delete('content-length');
+            
             try {
                 data = JSON.parse(dataText);
             } catch (e) {}
