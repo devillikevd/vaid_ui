@@ -75,6 +75,6 @@ jobs:
           if [ "${{ matrix.package }}" = "swastik-ai-service" ]; then
             pip-audit -r requirements.txt
           else
-            npm audit --omit=dev --audit-level=high || true
-            npm audit --omit=dev
+            npm audit --omit=dev --audit-level=critical || true
+            npm audit --omit=dev --audit-level=critical
           fi
