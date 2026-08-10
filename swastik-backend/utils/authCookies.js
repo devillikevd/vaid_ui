@@ -5,7 +5,7 @@
  * access). The `Secure` attribute is applied in production so it is only
  * transmitted over HTTPS.
  */
-const config = require('./index');
+const config = require('../config');
 
 const REFRESH_COOKIE = 'swastik-refresh-token';
 
