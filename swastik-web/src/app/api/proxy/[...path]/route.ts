@@ -43,8 +43,13 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
         
         // Handle response
         const responseHeaders = new Headers(response.headers);
-        // Remove backend cookies if any to prevent conflicts, or we can handle auth cookies specifically
+        // Remove backend cookies if any to prevent conflicts
         responseHeaders.delete('set-cookie');
+        
+        // fetch() automatically decompresses the body. Forwarding these headers would cause
+        // the browser to attempt to decompress an already-decompressed stream, leading to decoding errors.
+        responseHeaders.delete('content-encoding');
+        responseHeaders.delete('content-length');
 
         let responseBody: any = response.body;
         let data: any = null;
@@ -53,10 +58,6 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
         if (path.includes('auth/login') || path.includes('auth/refresh') || path.includes('auth/register')) {
             const dataText = await response.text();
             responseBody = dataText;
-            
-            // Delete content-encoding and content-length since we buffered it as a string
-            responseHeaders.delete('content-encoding');
-            responseHeaders.delete('content-length');
             
             try {
                 data = JSON.parse(dataText);
