@@ -39,51 +39,59 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
         // Remove backend cookies if any to prevent conflicts, or we can handle auth cookies specifically
         responseHeaders.delete('set-cookie');
 
+        let responseBody: any = response.body;
+        let data: any = null;
+
+        // If the route was an auth route (login/refresh), intercept the JSON to set the HttpOnly cookies
+        if (path.includes('auth/login') || path.includes('auth/refresh') || path.includes('auth/register')) {
+            const dataText = await response.text();
+            responseBody = dataText;
+            try {
+                data = JSON.parse(dataText);
+            } catch (e) {}
+        }
+
         // Create the Next.js response
-        const nextResponse = new NextResponse(response.body, {
+        const nextResponse = new NextResponse(responseBody, {
             status: response.status,
             statusText: response.statusText,
             headers: responseHeaders,
         });
 
-        // If the route was an auth route (login/refresh), we should intercept the JSON to set the HttpOnly cookies
-        if (path.includes('auth/login') || path.includes('auth/refresh') || path.includes('auth/register')) {
-            const data = await response.clone().json();
-            if (data.success && data.accessToken && data.refreshToken) {
-                // Set HttpOnly cookies
-                nextResponse.cookies.set('accessToken', data.accessToken, {
+        if (data && data.success && data.accessToken && data.refreshToken) {
+            // Set HttpOnly cookies
+            nextResponse.cookies.set('accessToken', data.accessToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+                maxAge: 30 * 24 * 60 * 60 // 30 days
+            });
+            nextResponse.cookies.set('refreshToken', data.refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+                maxAge: 30 * 24 * 60 * 60 // 30 days
+            });
+            if (data.aiServiceToken) {
+                nextResponse.cookies.set('aiServiceToken', data.aiServiceToken, {
                     httpOnly: true,
                     secure: process.env.NODE_ENV === 'production',
                     sameSite: 'lax',
                     path: '/',
-                    maxAge: 30 * 24 * 60 * 60 // 30 days
-                });
-                nextResponse.cookies.set('refreshToken', data.refreshToken, {
-                    httpOnly: true,
-                    secure: process.env.NODE_ENV === 'production',
-                    sameSite: 'lax',
-                    path: '/',
-                    maxAge: 30 * 24 * 60 * 60 // 30 days
-                });
-                if (data.aiServiceToken) {
-                    nextResponse.cookies.set('aiServiceToken', data.aiServiceToken, {
-                        httpOnly: true,
-                        secure: process.env.NODE_ENV === 'production',
-                        sameSite: 'lax',
-                        path: '/',
-                        maxAge: 15 * 60 // 15 mins
-                    });
-                }
-                
-                // Set a readable cookie for frontend state
-                nextResponse.cookies.set('isAuthenticated', 'true', {
-                    httpOnly: false,
-                    secure: process.env.NODE_ENV === 'production',
-                    sameSite: 'lax',
-                    path: '/',
-                    maxAge: 30 * 24 * 60 * 60 // 30 days
+                    maxAge: 15 * 60 // 15 mins
                 });
             }
+            
+            // Set a readable cookie for frontend state
+            nextResponse.cookies.set('isAuthenticated', 'true', {
+                httpOnly: false,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+                maxAge: 30 * 24 * 60 * 60 // 30 days
+            });
         }
 
         // Handle logout
