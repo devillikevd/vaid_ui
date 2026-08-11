@@ -21,7 +21,7 @@ import DashboardLayout, { type DashboardConfig } from '@/components/shared/Dashb
 import { IncomingAppointmentAlert } from '@/components/shared/IncomingAppointmentAlert';
 
 const DOCTOR_CONFIG: DashboardConfig = {
-    role: 'doctor',
+    role: ['doctor', 'doctor_pending'],
     loginPath: '/login/doctor',
     portalTitle: 'Doctor Portal',
     portalSubtitle: 'Clinical Workstation',

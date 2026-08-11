@@ -58,6 +58,7 @@ export interface PendingProvider {
     longitude?: number | null;
     contact_name?: string | null;
     status?: string;
+    verification_checklist?: any;
     can_approve?: boolean;
     approval_block_reason?: string | null;
     created_at: string;
@@ -66,6 +67,11 @@ export interface PendingProvider {
     license_number?: string;
     specialization?: string;
     experience_years?: number;
+    degree_certificate_url?: string;
+    license_document_url?: string;
+    government_id_url?: string;
+    government_id_type?: string;
+    live_selfie_url?: string;
     qualifications?: string[];
     coach_types?: string[];
     specialties?: string[];
@@ -140,7 +146,7 @@ interface AdminState {
     error: string | null;
 
     fetchDashboardData: () => Promise<void>;
-    fetchPendingApprovals: (type?: string) => Promise<void>;
+    fetchPendingApprovals: (type?: string, filters?: Record<string, unknown>) => Promise<void>;
     fetchProviderDetails: (type: string, id: string) => Promise<PendingProvider | null>;
     approveProvider: (id: string, type: string, notes?: string) => Promise<boolean>;
     rejectProvider: (id: string, type: string, reason: string) => Promise<boolean>;
@@ -216,10 +222,11 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         }
     },
 
-    fetchPendingApprovals: async (type = 'all') => {
+    fetchPendingApprovals: async (type = 'all', filters = {}) => {
         set({ loadingApprovals: true, currentApprovalsFilter: type, error: null });
         try {
-            const response = await adminApi.getPendingApprovals(normalizeProviderTypeForApi(type));
+            const normalizedType = normalizeProviderTypeForApi(type);
+            const response = await adminApi.getPendingApprovals(normalizedType, 1, filters);
             if (response.success) {
                 const rawData = response.data as any;
 

@@ -33,6 +33,7 @@ import { Card } from '@/components/ui/Card';
 import { useAuthStore, type UserRole } from '@/stores/authStore';
 import { authApi } from '@/lib/api';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
+import DoctorRegistrationWizard from '@/components/registration/DoctorRegistrationWizard';
 
 // Standardized specialization list — must match backend utils/specializations.js
 const SPECIALIZATIONS = [
@@ -183,6 +184,10 @@ export default function RegisterPage({ params }: RegisterPageProps) {
         const timer = window.setTimeout(() => setResendCooldown((current) => current - 1), 1000);
         return () => window.clearTimeout(timer);
     }, [resendCooldown]);
+
+    if (role === 'doctor') {
+        return <DoctorRegistrationWizard />;
+    }
 
     const config = ROLE_CONFIG[role];
 

@@ -537,7 +537,7 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
   // Fetch current status first to validate transition
   const { data: current, error: currentError } = await supabaseAdmin
     .from('appointments')
-    .select('status, type, completion_otp')
+    .select('status, type, completion_otp, status_history')
     .eq('id', appointmentId)
     .eq('doctor_id', doctor?.id)
     .single();
@@ -559,8 +559,13 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
     }
   }
 
+  let history = current.status_history || [];
+  if (!Array.isArray(history)) history = [];
+  history.push({ status, timestamp: new Date().toISOString() });
+
   let updateData = {
     status,
+    status_history: history,
     cancellation_reason: reason || null,
     cancelled_by: status === 'cancelled' ? doctor?.id : null,
     updated_at: new Date().toISOString(),

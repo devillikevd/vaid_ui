@@ -62,11 +62,13 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
  * @desc Get all pending approvals (or by type)
  */
 router.get('/approvals/pending', asyncHandler(async (req, res) => {
-    const { type = 'all', page = 1, limit = 20 } = req.query;
+    const { type = 'all', page = 1, limit = 20, sort, dateRange, minCompletion } = req.query;
+    const filters = { sort, dateRange, minCompletion };
     const result = await enhancedAdminService.getPendingApprovals(
         type,
         parseInt(page),
-        parseInt(limit)
+        parseInt(limit),
+        filters
     );
     res.json({ success: true, ...result });
 }));
@@ -76,11 +78,14 @@ router.get('/approvals/pending', asyncHandler(async (req, res) => {
  * @desc Get normalized provider entities across all provider tables
  */
 router.get('/providers', asyncHandler(async (req, res) => {
-    const { type = 'all', status, search, page = 1, limit = 20 } = req.query;
+    const { type = 'all', status, search, page = 1, limit = 20, sort, dateRange, minCompletion } = req.query;
     const filters = {};
     if (type) filters.type = type;
     if (status) filters.status = status;
     if (search) filters.search = search;
+    if (sort) filters.sort = sort;
+    if (dateRange) filters.dateRange = dateRange;
+    if (minCompletion) filters.minCompletion = minCompletion;
 
     const result = await enhancedAdminService.getProviders(
         filters,
@@ -99,9 +104,24 @@ router.get('/providers/:type/:id', [
     param('id').isUUID('loose').withMessage('Invalid provider ID'),
     validate,
 ], asyncHandler(async (req, res) => {
-    const { type, id } = req.params;
-    const provider = await enhancedAdminService.getProviderDetails(type, id);
-    res.json({ success: true, data: provider });
+    const result = await enhancedAdminService.getProviderDetails(
+        req.params.type,
+        req.params.id
+    );
+    if (!result) throw new ApiError(404, 'Provider not found');
+    res.json({ success: true, data: result });
+}));
+
+/**
+ * @route GET /api/admin/providers/:type/:id/documents/zip
+ * @desc Get all documents of a provider as a ZIP
+ */
+router.get('/providers/:type/:id/documents/zip', [
+    param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'wellness_coach', 'fitness_center', 'ambulance']).withMessage('Invalid provider type'),
+    param('id').isUUID('loose').withMessage('Invalid provider ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    await enhancedAdminService.generateDocumentsZip(req.params.type, req.params.id, res);
 }));
 
 /**
@@ -135,6 +155,47 @@ router.post('/providers/:type/:id/reject', [
     const result = await enhancedAdminService.rejectProvider(type, id, req.user.id, reason);
     res.json({ success: true, ...result });
 }));
+
+/**
+ * @route PUT /api/admin/providers/:type/:id/verification
+ * @desc Update provider verification checklist and notes
+ */
+router.put('/providers/:type/:id/verification', [
+    param('type').isIn(['doctor']).withMessage('Only doctor supported for now'),
+    param('id').isUUID('loose').withMessage('Invalid provider ID'),
+    body('verification_checklist').optional().isObject(),
+    body('admin_notes').optional().isString().trim(),
+    body('approval_status').optional().isIn(['pending', 'under_review', 'needs_info']),
+    validate,
+], asyncHandler(async (req, res) => {
+    const { type, id } = req.params;
+    const { verification_checklist, admin_notes, approval_status } = req.body;
+    
+    // We only support doctors in this V1 checklist engine
+    const supabaseAdmin = require('../config/supabase-admin');
+    const updatePayload = { updated_at: new Date().toISOString() };
+    
+    if (verification_checklist !== undefined) updatePayload.verification_checklist = verification_checklist;
+    if (admin_notes !== undefined) updatePayload.admin_notes = admin_notes;
+    if (approval_status !== undefined) {
+        updatePayload.approval_status = approval_status;
+        if (approval_status === 'needs_info' && admin_notes) {
+            updatePayload.approval_notes = admin_notes; // Expose notes to user if needs_info
+        }
+    }
+    
+    const { data, error } = await supabaseAdmin
+        .from('doctors')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .single();
+        
+    if (error) throw new Error('Failed to update verification data');
+    
+    res.json({ success: true, data });
+}));
+
 
 /**
  * @route POST /api/admin/providers/:type/:id/suspend

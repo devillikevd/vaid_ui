@@ -387,6 +387,7 @@ module.exports = {
   sendPasswordResetEmail,
   sendVerificationOtpEmail,
   sendPasswordResetOtpEmail,
+  sendOtpEmail,
   sendNotificationEmail,
   sendApprovalEmail,
   getTransporter,

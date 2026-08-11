@@ -125,6 +125,7 @@ describe('doctor patient records from consultations', () => {
     });
     const appointmentsBuilder = makeQueryBuilder({ data: [], error: null });
     const reportsBuilder = makeQueryBuilder({ data: [], error: null });
+    const notesBuilder = makeQueryBuilder({ data: { notes: '' }, error: null });
 
     supabaseAdmin.from
       .mockReturnValueOnce(doctorBuilder)
@@ -134,7 +135,8 @@ describe('doctor patient records from consultations', () => {
       .mockReturnValueOnce(patientBuilder)
       .mockReturnValueOnce(consultationsBuilder)
       .mockReturnValueOnce(appointmentsBuilder)
-      .mockReturnValueOnce(reportsBuilder);
+      .mockReturnValueOnce(reportsBuilder)
+      .mockReturnValueOnce(notesBuilder);
 
     const result = await doctorService.getPatientDetails('doctor-user-1', 'patient-1');
 

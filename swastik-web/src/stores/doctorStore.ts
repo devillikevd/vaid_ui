@@ -124,8 +124,53 @@ export interface DoctorReview {
     };
 }
 
+export interface DoctorProfile {
+    id: string;
+    name: string;
+    specialization?: string;
+    experience_years?: number;
+    qualifications?: string;
+    bio?: string;
+    consultation_fee?: number;
+    video_consultation_fee?: number;
+    profile_image_url?: string;
+    registration_number?: string;
+    license_number?: string;
+    is_available?: boolean;
+    is_approved?: boolean;
+    approval_status?: string;
+    approval_block_reason?: string;
+    degree_certificate_url?: string;
+    license_document_url?: string;
+    government_id_url?: string;
+    live_selfie_url?: string;
+    hospital_id?: string;
+    profile_completion_percentage?: number;
+    intro_video_url?: string;
+    rejected_documents?: string[];
+    rejection_reason?: string;
+    bank_penny_verified?: boolean;
+    clinic_license_url?: string;
+    compliance_documents?: Record<string, any>;
+    user?: {
+        email: string;
+        phone: string;
+        is_verified: boolean;
+        created_at: string;
+    };
+}
+
+export interface DoctorLeave {
+    id: string;
+    start_date: string;
+    end_date: string;
+    reason?: string;
+    created_at?: string;
+}
+
 interface DoctorState {
     stats: DoctorDashboardStats | null;
+    doctorProfile: DoctorProfile | null;
     todaysAppointments: Appointment[];
     upcomingAppointments: Appointment[];
     appointments: Appointment[];
@@ -137,6 +182,7 @@ interface DoctorState {
     prescriptions: Prescription[];
     vitals: PatientVitals[];
     reviews: DoctorReview[];
+    leaves: DoctorLeave[];
     isLoading: boolean;
     loadingDashboard: boolean;
     loadingAppointments: boolean;
@@ -146,6 +192,7 @@ interface DoctorState {
     loadingPrescriptions: boolean;
     loadingVitals: boolean;
     loadingReviews: boolean;
+    loadingLeaves: boolean;
     error: string | null;
 
     // Pagination state
@@ -158,6 +205,7 @@ interface DoctorState {
     clearError: () => void;
     reset: () => void;
     fetchDashboardData: () => Promise<void>;
+    fetchDoctorProfile: () => Promise<void>;
     fetchAppointments: (status?: string, date?: string, page?: number) => Promise<void>;
     fetchConsultations: () => Promise<void>;
     fetchPatients: (page?: number, search?: string, limit?: number, filter?: string, sort?: string) => Promise<void>;
@@ -165,6 +213,9 @@ interface DoctorState {
     fetchPrescriptions: (page?: number) => Promise<void>;
     fetchVitals: (page?: number, patientId?: string) => Promise<void>;
     fetchReviews: (page?: number) => Promise<void>;
+    fetchLeaves: () => Promise<void>;
+    addLeave: (start_date: string, end_date: string, reason?: string) => Promise<boolean>;
+    deleteLeave: (id: string) => Promise<boolean>;
     loadMoreAppointments: (status?: string, date?: string) => Promise<void>;
     loadMorePrescriptions: () => Promise<void>;
     loadMoreVitals: (patientId?: string) => Promise<void>;
@@ -258,7 +309,9 @@ function mapTimeSlot(raw: any): TimeSlot {
 const defaultPagination = { page: 1, totalPages: 1, total: 0, hasMore: false };
 
 const doctorInitialState = {
+    error: null as string | null,
     stats: null as DoctorDashboardStats | null,
+    doctorProfile: null as DoctorProfile | null,
     todaysAppointments: [] as Appointment[],
     upcomingAppointments: [] as Appointment[],
     appointments: [] as Appointment[],
@@ -270,6 +323,7 @@ const doctorInitialState = {
     prescriptions: [] as Prescription[],
     vitals: [] as PatientVitals[],
     reviews: [] as DoctorReview[],
+    leaves: [] as DoctorLeave[],
     isLoading: false,
     loadingDashboard: false,
     loadingAppointments: false,
@@ -279,7 +333,7 @@ const doctorInitialState = {
     loadingPrescriptions: false,
     loadingVitals: false,
     loadingReviews: false,
-    error: null as string | null,
+    loadingLeaves: false,
     appointmentsPagination: { ...defaultPagination },
     prescriptionsPagination: { ...defaultPagination },
     vitalsPagination: { ...defaultPagination },
@@ -319,6 +373,8 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
                 loadingDashboard: false,
                 isLoading: false,
             });
+            // Fetch profile separately so stats are independent
+            get().fetchDoctorProfile();
         } catch (error) {
             console.error('Error fetching doctor dashboard:', error);
             set({
@@ -326,6 +382,66 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
                 loadingDashboard: false,
                 isLoading: false,
             });
+        }
+    },
+
+    fetchDoctorProfile: async () => {
+        try {
+            const response = await doctorApi.getProfile();
+            if (response.success) {
+                set({ doctorProfile: response.data as DoctorProfile });
+            }
+        } catch (error: any) {
+            console.error('Failed to fetch doctor profile', error);
+        }
+    },
+
+    fetchLeaves: async () => {
+        set({ loadingLeaves: true, error: null });
+        try {
+            const response = await doctorApi.getLeaves();
+            if (response.success) {
+                set({ leaves: (response.data as DoctorLeave[]) || [], loadingLeaves: false });
+            } else {
+                set({ error: response.error || 'Failed to load leaves', loadingLeaves: false });
+            }
+        } catch (error) {
+            console.error('Error fetching leaves:', error);
+            set({ error: 'Failed to connect to server.', loadingLeaves: false });
+        }
+    },
+
+    addLeave: async (start_date: string, end_date: string, reason?: string) => {
+        try {
+            const response = await doctorApi.addLeave({ start_date, end_date, reason });
+            if (response.success) {
+                get().fetchLeaves();
+                get().fetchSchedule();
+                return true;
+            }
+            set({ error: response.error || 'Failed to add leave' });
+            return false;
+        } catch (error) {
+            console.error('Error adding leave:', error);
+            set({ error: 'Network error while adding leave.' });
+            return false;
+        }
+    },
+
+    deleteLeave: async (id: string) => {
+        try {
+            const response = await doctorApi.deleteLeave(id);
+            if (response.success) {
+                set({ leaves: get().leaves.filter(l => l.id !== id) });
+                get().fetchSchedule();
+                return true;
+            }
+            set({ error: response.error || 'Failed to delete leave' });
+            return false;
+        } catch (error) {
+            console.error('Error deleting leave:', error);
+            set({ error: 'Network error while deleting leave.' });
+            return false;
         }
     },
 

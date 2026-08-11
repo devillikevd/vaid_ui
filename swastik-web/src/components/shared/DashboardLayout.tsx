@@ -456,9 +456,17 @@ export default function DashboardLayout({
 
     useEffect(() => {
         if (_hasHydrated && (!isAuthenticated || !roleMatches)) {
+            console.error('Redirecting to login:', {
+                _hasHydrated,
+                isAuthenticated,
+                roleMatches,
+                userRole: user?.role,
+                allowedRoles,
+                loginPath: config.loginPath
+            });
             router.push(config.loginPath);
         }
-    }, [isAuthenticated, _hasHydrated, roleMatches, router, config.loginPath]);
+    }, [isAuthenticated, _hasHydrated, roleMatches, router, config.loginPath, user?.role, allowedRoles]);
 
     if (!isMounted || !_hasHydrated || !isAuthenticated || !roleMatches) {
         return (

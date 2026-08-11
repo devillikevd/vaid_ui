@@ -28,15 +28,20 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useDoctorStore, type Appointment } from '@/stores/doctorStore';
+import { formatCurrency } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
+import { useDoctorStore, type Appointment } from '@/stores/doctorStore';
+import { VerificationProgressCard } from '@/components/doctor/VerificationProgressCard';
+import { RejectionBanner } from '@/components/doctor/RejectionBanner';
+import { OnboardingChecklist } from '@/components/doctor/OnboardingChecklist';
+import { WelcomeTour } from '@/components/doctor/WelcomeTour';
 import { useAppointmentUpdates, type AppointmentUpdate } from '@/hooks/useSocket';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { KeyboardShortcutHelp, usePageShortcuts } from '@/components/shared/KeyboardShortcutHelp';
 import { api } from '@/lib/api';
 
 export default function DoctorDashboard() {
-    const { stats, todaysAppointments, upcomingAppointments, isLoading, fetchDashboardData, startConsultation, endConsultation, fetchReviews, reviews, loadingReviews, confirmAppointment, rescheduleAppointment } = useDoctorStore();
+    const { stats, doctorProfile, todaysAppointments, upcomingAppointments, isLoading, fetchDashboardData, startConsultation, endConsultation, fetchReviews, reviews, loadingReviews, confirmAppointment, rescheduleAppointment } = useDoctorStore();
     const { user } = useAuthStore();
     const router = useRouter();
     const [newApptAlert, setNewApptAlert] = useState<string | null>(null);
@@ -230,6 +235,7 @@ export default function DoctorDashboard() {
     return (
         <>
         <div className="space-y-6">
+            <WelcomeTour />
             {/* Real-time Appointment Alert */}
             {newApptAlert && (
                 <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg flex items-center gap-3 animate-pulse">
@@ -287,6 +293,18 @@ export default function DoctorDashboard() {
                     </div>
                 </div>
             </div>
+
+            {doctorProfile && doctorProfile.approval_status === 'rejected' && (
+                <RejectionBanner profile={doctorProfile} onReupload={fetchDashboardData} />
+            )}
+
+            {doctorProfile && doctorProfile.approval_status !== 'approved' && (
+                <VerificationProgressCard profile={doctorProfile} />
+            )}
+
+            {doctorProfile && doctorProfile.approval_status === 'approved' && (
+                <OnboardingChecklist profile={doctorProfile} />
+            )}
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

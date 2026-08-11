@@ -8,8 +8,7 @@ import { api } from '@/lib/api';
 import DoctorVitalsPanel from '@/components/consultation/DoctorVitalsPanel';
 import DoctorPatientHistoryDrawer from '@/components/consultation/DoctorPatientHistoryDrawer';
 
-import {
-    Video,
+import { Star, Loader2, Video,
     VideoOff,
     Mic,
     MicOff,
@@ -245,6 +244,10 @@ export default function VideoConsultation() {
     const [isEndingCall, setIsEndingCall] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(0);
     const [resendSuccess, setResendSuccess] = useState('');
+
+    const [callPhase, setCallPhase] = useState<'LOBBY' | 'CONNECTING' | 'IN_CALL' | 'COMPLETED'>('LOBBY');
+    const chosenVideoDeviceId = useRef<string | undefined>(undefined);
+    const chosenAudioDeviceId = useRef<string | undefined>(undefined);
 
     useEffect(() => {
         if (resendCooldown > 0) {

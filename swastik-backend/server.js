@@ -520,6 +520,8 @@ const startServer = async () => {
       if (isEnvEnabled('BACKGROUND_JOBS_ENABLED', true)) {
         // Start consultation timeout cron
         startConsultationTimeoutCron();
+        // Start consultation lifecycle sweep cron (no-show / expire / interruption)
+        startConsultationLifecycleCron();
         // Start patient reminder notification cron
         startReminderNotificationCron();
         // Start appointment expire cron
@@ -581,6 +583,57 @@ let reminderNotificationInterval;
 let appointmentExpireInterval;
 let wellnessBadgesInterval;
 let wellnessChatCleanupInterval;
+let consultationLifecycleInterval;
+
+const startConsultationLifecycleCron = () => {
+  if (String(process.env.CONSULTATION_LIFECYCLE_CRON_ENABLED || 'true').toLowerCase() === 'false') {
+    logger.info('[Cron] Consultation lifecycle scheduler is disabled by CONSULTATION_LIFECYCLE_CRON_ENABLED=false');
+    return;
+  }
+
+  const intervalMs = Number(process.env.CONSULTATION_LIFECYCLE_CRON_INTERVAL_MS || 60 * 1000);
+  const lockTtlSec = Math.max(20, Math.ceil(intervalMs / 1000) - 2);
+
+  consultationLifecycleInterval = setInterval(async () => {
+    const startedAt = Date.now();
+    try {
+      try {
+        const { cacheSetIfNotExists } = require('./config/redis');
+        const lockAcquired = await cacheSetIfNotExists('cron:consultation-lifecycle:lock', process.pid, lockTtlSec);
+        if (!lockAcquired) return;
+      } catch (lockErr) {
+        logger.warn('[Cron] Consultation lifecycle lock unavailable; running without lock:', lockErr.message);
+      }
+
+      const lifecycleService = require('./services/consultationLifecycleService');
+      const result = await lifecycleService.runLifecycleSweep();
+      logger.info(`[Cron] Consultation lifecycle sweep result: ${JSON.stringify(result)}`);
+      if (String(process.env.CRON_ALERT_ON_SUCCESS || 'false').toLowerCase() === 'true') {
+        const { notifyCronAlert } = require('./services/cronAlert');
+        await notifyCronAlert({
+          job: 'consultation-lifecycle',
+          ok: true,
+          message: 'Consultation lifecycle sweep completed',
+          durationMs: Date.now() - startedAt,
+          context: result,
+        });
+      }
+    } catch (err) {
+      logger.error('[Cron] Consultation lifecycle error:', err.message);
+      try {
+        const { notifyCronAlert } = require('./services/cronAlert');
+        await notifyCronAlert({
+          job: 'consultation-lifecycle',
+          ok: false,
+          message: err.message,
+          durationMs: Date.now() - startedAt,
+        });
+      } catch (alertErr) {
+        logger.warn('[Cron] Failed to send consultation-lifecycle alert:', alertErr.message);
+      }
+    }
+  }, intervalMs);
+};
 
 const startAppointmentExpireCron = () => {
   if (String(process.env.APPOINTMENT_EXPIRE_CRON_ENABLED || 'true').toLowerCase() === 'false') {
@@ -838,6 +891,7 @@ process.on('unhandledRejection', (err) => {
   logger.error('Unhandled Rejection:', err);
   // Clear cron interval to prevent stale timers
   if (consultationTimeoutInterval) clearInterval(consultationTimeoutInterval);
+  if (consultationLifecycleInterval) clearInterval(consultationLifecycleInterval);
   if (reminderNotificationInterval) clearInterval(reminderNotificationInterval);
   if (appointmentExpireInterval) clearInterval(appointmentExpireInterval);
   if (wellnessBadgesInterval) clearInterval(wellnessBadgesInterval);
@@ -867,6 +921,7 @@ const gracefulShutdown = async (signal) => {
     try {
       // Stop cron
       if (consultationTimeoutInterval) clearInterval(consultationTimeoutInterval);
+      if (consultationLifecycleInterval) clearInterval(consultationLifecycleInterval);
       if (reminderNotificationInterval) clearInterval(reminderNotificationInterval);
       if (appointmentExpireInterval) clearInterval(appointmentExpireInterval);
       if (wellnessBadgesInterval) clearInterval(wellnessBadgesInterval);

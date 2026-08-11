@@ -152,6 +152,8 @@ class DoctorService {
         languages, awards, registration_number, license_number,
         consultation_types, education, certifications, rating, total_reviews,
         is_available, is_approved, approval_status,
+        degree_certificate_url, license_document_url, government_id_url, live_selfie_url, compliance_documents,
+        hospital_id,
         user:users!doctors_user_id_fkey(email, phone, is_verified, created_at),
         hospital:hospitals(id, name, address, city)
       `)
@@ -192,7 +194,7 @@ class DoctorService {
   async updateProfile(userId, updateData) {
     const { data: doctor } = await supabaseAdmin
       .from('doctors')
-      .select('id, approval_status')
+      .select('*')
       .eq('user_id', userId)
       .single();
 
@@ -239,6 +241,53 @@ class DoctorService {
     }
     if (updateData.education !== undefined) updatePayload.education = updateData.education;
     if (updateData.certifications !== undefined) updatePayload.certifications = updateData.certifications;
+
+    // Registration Overhaul Fields
+    if (updateData.registration_date !== undefined) updatePayload.registration_date = updateData.registration_date;
+    if (updateData.registration_valid_till !== undefined) updatePayload.registration_valid_till = updateData.registration_valid_till;
+    if (updateData.medical_council !== undefined) updatePayload.medical_council = updateData.medical_council;
+    if (updateData.government_id_type !== undefined) updatePayload.government_id_type = updateData.government_id_type;
+    if (updateData.government_id_url !== undefined) updatePayload.government_id_url = updateData.government_id_url;
+    if (updateData.live_selfie_url !== undefined) updatePayload.live_selfie_url = updateData.live_selfie_url;
+    if (updateData.qualification_details !== undefined) updatePayload.qualification_details = updateData.qualification_details;
+    if (updateData.experience_months !== undefined) updatePayload.experience_months = updateData.experience_months;
+    if (updateData.home_visit_consultation_fee !== undefined) updatePayload.home_visit_consultation_fee = updateData.home_visit_consultation_fee;
+    if (updateData.emergency_consultation_fee !== undefined) updatePayload.emergency_consultation_fee = updateData.emergency_consultation_fee;
+    if (updateData.is_emergency_available !== undefined) updatePayload.is_emergency_available = updateData.is_emergency_available;
+    
+    // Clinic Fields
+    if (updateData.clinic_name !== undefined) updatePayload.clinic_name = updateData.clinic_name;
+    if (updateData.clinic_address !== undefined) updatePayload.clinic_address = updateData.clinic_address;
+    if (updateData.clinic_pincode !== undefined) updatePayload.clinic_pincode = updateData.clinic_pincode;
+    if (updateData.clinic_map_url !== undefined) updatePayload.clinic_map_url = updateData.clinic_map_url;
+    if (updateData.clinic_photo_url !== undefined) updatePayload.clinic_photo_url = updateData.clinic_photo_url;
+    if (updateData.clinic_lat !== undefined) updatePayload.clinic_lat = updateData.clinic_lat;
+    if (updateData.clinic_lng !== undefined) updatePayload.clinic_lng = updateData.clinic_lng;
+    if (updateData.multiple_clinics !== undefined) updatePayload.multiple_clinics = updateData.multiple_clinics;
+
+    // Document Categories
+    if (updateData.pan_card_url !== undefined) updatePayload.pan_card_url = updateData.pan_card_url;
+    if (updateData.cancelled_cheque_url !== undefined) updatePayload.cancelled_cheque_url = updateData.cancelled_cheque_url;
+    if (updateData.gst_certificate_url !== undefined) updatePayload.gst_certificate_url = updateData.gst_certificate_url;
+    if (updateData.clinic_license_url !== undefined) updatePayload.clinic_license_url = updateData.clinic_license_url;
+    if (updateData.digital_signature_url !== undefined) updatePayload.digital_signature_url = updateData.digital_signature_url;
+
+    // Bank Details
+    if (updateData.bank_account_number !== undefined) updatePayload.bank_account_number = updateData.bank_account_number;
+    if (updateData.bank_ifsc !== undefined) updatePayload.bank_ifsc = updateData.bank_ifsc;
+    if (updateData.bank_upi !== undefined) updatePayload.bank_upi = updateData.bank_upi;
+
+    // Professional Rich Data
+    if (updateData.publications !== undefined) updatePayload.publications = updateData.publications;
+    if (updateData.experience_timeline !== undefined) updatePayload.experience_timeline = updateData.experience_timeline;
+    if (updateData.insurance_accepted !== undefined) updatePayload.insurance_accepted = updateData.insurance_accepted;
+    if (updateData.languages_spoken !== undefined) updatePayload.languages_spoken = updateData.languages_spoken;
+
+    // Emergency Contact
+    if (updateData.emergency_contact_name !== undefined) updatePayload.emergency_contact_name = updateData.emergency_contact_name;
+    if (updateData.emergency_contact_phone !== undefined) updatePayload.emergency_contact_phone = updateData.emergency_contact_phone;
+    if (updateData.emergency_contact_relation !== undefined) updatePayload.emergency_contact_relation = updateData.emergency_contact_relation;
+
     
     Object.assign(updatePayload, buildProviderResubmissionFields('doctor', doctor.approval_status));
     
@@ -247,16 +296,43 @@ class DoctorService {
       'registrationNo', 'registration_number',
       'licenseNumber', 'license_number',
       'licenseDocumentUrl', 'license_document_url',
-      'degreeCertificateUrl', 'degree_certificate_url'
+      'degreeCertificateUrl', 'degree_certificate_url',
+      'government_id_url', 'live_selfie_url'
     ].some(field => updateData[field] !== undefined);
 
-    if (credentialFieldsUpdated) {
+    if (credentialFieldsUpdated && doctor.approval_status !== 'draft') {
       updatePayload.approval_status = 'pending';
       updatePayload.is_approved = false;
       updatePayload.approval_notes = 'Credential fields updated by provider. Re-verification required.';
       updatePayload.approved_by = null;
       updatePayload.approved_at = null;
     }
+
+    // 🌟 Phase 2: Compute Profile Completion Score
+    const mergedDoctor = { ...doctor, ...updatePayload };
+    let score = 0;
+    let totalWeights = 0;
+    const addWeight = (field, weight) => {
+      totalWeights += weight;
+      if (Array.isArray(field) ? field.length > 0 : !!field) score += weight;
+    };
+    
+    addWeight(mergedDoctor.name, 10);
+    addWeight(mergedDoctor.profile_image_url, 10);
+    addWeight(mergedDoctor.specialization, 5);
+    addWeight(mergedDoctor.experience_years, 5);
+    addWeight(mergedDoctor.bio, 5);
+    addWeight(mergedDoctor.languages, 5);
+    
+    addWeight(mergedDoctor.registration_number, 10);
+    addWeight(mergedDoctor.degree_certificate_url, 15);
+    addWeight(mergedDoctor.license_document_url, 15);
+    addWeight(mergedDoctor.government_id_url, 10);
+    addWeight(mergedDoctor.live_selfie_url, 10);
+    
+    updatePayload.profile_completion_percentage = Math.round((score / totalWeights) * 100);
+    // Backward compatibility if needed:
+    updatePayload.profile_completion_score = updatePayload.profile_completion_percentage;
 
     const { data: updatedDoctor, error } = await supabaseAdmin
       .from('doctors')
@@ -273,6 +349,57 @@ class DoctorService {
 
     return updatedDoctor;
   }
+
+  // Update verification documents
+  async updateVerificationDocuments(userId, data) {
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id, approval_status')
+      .eq('user_id', userId)
+      .single();
+
+    if (!doctor) {
+      throw new ApiError(404, 'Doctor profile not found');
+    }
+
+    const allowedFields = [
+      'degree_certificate_url',
+      'license_document_url',
+      'government_id_url',
+      'live_selfie_url'
+    ];
+
+    let updatePayload = {};
+    for (const field of allowedFields) {
+      if (data[field] !== undefined) {
+        updatePayload[field] = data[field];
+      }
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      throw new ApiError(400, 'No valid verification documents provided');
+    }
+
+    // If they were rejected, put them back under review automatically
+    if (doctor.approval_status === 'rejected') {
+      updatePayload.approval_status = 'under_review';
+      // No-op for approval_block_reason as column doesn't exist
+    }
+
+    const { data: updatedDoctor, error } = await supabaseAdmin
+      .from('doctors')
+      .update(updatePayload)
+      .eq('id', doctor.id)
+      .select('approval_status')
+      .single();
+
+    if (error) {
+      throw new ApiError(400, 'Failed to update verification documents');
+    }
+
+    return updatedDoctor;
+  }
+
 
   // Get doctor dashboard
   async getDashboard(userId) {
@@ -748,6 +875,20 @@ class DoctorService {
 
   // Get doctor's available slots for a specific date
   async getAvailableSlots(doctorId, date, type = 'all') {
+    // 1. Check if date falls in doctor_leaves
+    const { data: leaves } = await supabaseAdmin
+      .from('doctor_leaves')
+      .select('id')
+      .eq('doctor_id', doctorId)
+      .lte('start_date', date)
+      .gte('end_date', date)
+      .limit(1);
+      
+    if (leaves && leaves.length > 0) {
+      // Doctor is on leave, no slots available
+      return [];
+    }
+
     // Get doctor's slot configuration
     let query = supabaseAdmin
       .from('doctor_slots')
@@ -760,6 +901,8 @@ class DoctorService {
       query = query.eq('is_video_enabled', true);
     } else if (type === 'in_person') {
       query = query.eq('is_clinic_enabled', true);
+    } else if (type === 'home') {
+      query = query.eq('is_home_enabled', true);
     }
 
     const { data: slotConfig } = await query;
@@ -790,10 +933,11 @@ class DoctorService {
       const [startHour, startMin] = config.start_time.split(':').map(Number);
       const [endHour, endMin] = config.end_time.split(':').map(Number);
       const duration = config.slot_duration || 15;
+      const buffer = config.buffer_time || 0;
 
       // If it's an in-person slot (window) and we are requesting in-person slots, we don't break it into 15m intervals
       // Instead, we return the entire window as a single slot.
-      if (type === 'in_person' && config.is_clinic_enabled && !config.is_video_enabled) {
+      if (type === 'in_person' && config.is_clinic_enabled && !config.is_video_enabled && !config.is_home_enabled) {
         const timeSlot = `${config.start_time.slice(0, 5)}-${config.end_time.slice(0, 5)}`;
         const period = startHour < 12 ? 'Morning' : startHour < 17 ? 'Afternoon' : 'Evening';
         const slotDateStr = `${date}T${config.end_time.slice(0, 5)}:00+05:30`;
@@ -838,7 +982,7 @@ class DoctorService {
             is_available: !bookedSlots.has(timeSlot),
           });
         }
-        currentTotalMins += duration;
+        currentTotalMins += (duration + buffer);
       }
     });
 
@@ -898,6 +1042,9 @@ class DoctorService {
       const is_active = normalizeBoolean(slot.isAvailable ?? slot.is_active ?? slot.isActive, true);
       const is_video_enabled = normalizeBoolean(slot.isVideoEnabled ?? slot.is_video_enabled, true);
       const is_clinic_enabled = normalizeBoolean(slot.isClinicEnabled ?? slot.is_clinic_enabled, true);
+      const is_home_enabled = normalizeBoolean(slot.isHomeEnabled ?? slot.is_home_enabled, false);
+      const slot_duration = parseInt(slot.slotDuration ?? slot.slot_duration ?? 15, 10);
+      const buffer_time = parseInt(slot.bufferTime ?? slot.buffer_time ?? 0, 10);
 
       if (!slot_date || !start_time || !end_time) {
         throw new ApiError(400, 'Invalid slot format. Provide valid slot_date, startTime, and endTime.');
@@ -918,7 +1065,10 @@ class DoctorService {
           end_time: '23:59:00',
           is_active,
           is_video_enabled,
-          is_clinic_enabled
+          is_clinic_enabled,
+          is_home_enabled,
+          slot_duration,
+          buffer_time
         });
 
         // Calculate next day date
@@ -933,10 +1083,13 @@ class DoctorService {
           end_time,
           is_active,
           is_video_enabled,
-          is_clinic_enabled
+          is_clinic_enabled,
+          is_home_enabled,
+          slot_duration,
+          buffer_time
         });
       } else {
-        slotsJson.push({ slot_date, start_time, end_time, is_active, is_video_enabled, is_clinic_enabled });
+        slotsJson.push({ slot_date, start_time, end_time, is_active, is_video_enabled, is_clinic_enabled, is_home_enabled, slot_duration, buffer_time });
       }
     });
 
@@ -964,10 +1117,12 @@ class DoctorService {
         slot_date: slot.slot_date,
         start_time: slot.start_time,
         end_time: slot.end_time,
-        slot_duration: (slot.is_clinic_enabled && !slot.is_video_enabled) ? null : 15,
+        slot_duration: (slot.is_clinic_enabled && !slot.is_video_enabled && !slot.is_home_enabled) ? null : slot.slot_duration,
         is_video_enabled: slot.is_video_enabled,
         is_clinic_enabled: slot.is_clinic_enabled,
+        is_home_enabled: slot.is_home_enabled,
         is_active: slot.is_active,
+        buffer_time: slot.buffer_time,
       }));
 
       const { error: insertFallbackError } = await supabaseAdmin
@@ -992,6 +1147,83 @@ class DoctorService {
     }
 
     return newSlots;
+  }
+  
+  // ============================
+  // LEAVE MANAGEMENT (Phase 6)
+  // ============================
+  
+  async getLeaves(userId) {
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!doctor) {
+      throw new ApiError(404, 'Doctor profile not found');
+    }
+    
+    const { data: leaves, error } = await supabaseAdmin
+      .from('doctor_leaves')
+      .select('*')
+      .eq('doctor_id', doctor.id)
+      .gte('end_date', new Date().toISOString().split('T')[0])
+      .order('start_date', { ascending: true });
+      
+    if (error) throw error;
+    return leaves || [];
+  }
+  
+  async addLeave(userId, leaveData) {
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!doctor) {
+      throw new ApiError(404, 'Doctor profile not found');
+    }
+    
+    if (!leaveData.start_date || !leaveData.end_date) {
+        throw new ApiError(400, 'Start date and end date are required');
+    }
+    
+    const { data: leave, error } = await supabaseAdmin
+      .from('doctor_leaves')
+      .insert({
+        doctor_id: doctor.id,
+        start_date: leaveData.start_date,
+        end_date: leaveData.end_date,
+        reason: leaveData.reason || null
+      })
+      .select()
+      .single();
+      
+    if (error) throw new ApiError(400, 'Failed to add leave');
+    return leave;
+  }
+  
+  async deleteLeave(userId, leaveId) {
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!doctor) {
+      throw new ApiError(404, 'Doctor profile not found');
+    }
+    
+    const { error } = await supabaseAdmin
+      .from('doctor_leaves')
+      .delete()
+      .eq('id', leaveId)
+      .eq('doctor_id', doctor.id);
+      
+    if (error) throw new ApiError(400, 'Failed to delete leave');
+    return { success: true };
   }
 
   // Get patients list (for doctor)
@@ -1453,6 +1685,7 @@ class DoctorService {
       { data: sharedPrescriptions },
       fullHistoryReportsResult,
       explicitlySharedReports,
+      { data: internalNotes },
     ] = await Promise.all([
       supabaseAdmin
         .from('patients')
@@ -1521,6 +1754,12 @@ class DoctorService {
           .limit(10)
         : Promise.resolve({ data: [] }),
       grant ? Promise.resolve([]) : getExplicitlySharedReports(patientId, doctor.id),
+      supabaseAdmin
+        .from('doctor_patient_notes')
+        .select('notes')
+        .eq('doctor_id', doctor.id)
+        .eq('patient_id', patientId)
+        .maybeSingle(),
     ]);
 
     const totalVisits = Math.max(appointments?.length || 0, consultations?.length || 0);
@@ -1552,9 +1791,67 @@ class DoctorService {
         reportVisibility: grant ? 'all' : ((visibleReports || []).length > 0 ? 'shared_only' : 'none'),
         guardianAnalytics: guardianAnalytics,
       },
+      internalNotes: internalNotes?.notes || '',
     };
 
     return await signStorageUrlsInPayload(payload);
+  }
+
+  async updatePatientMedicalHistory(userId, patientId, { allergies, chronic_conditions, current_medications }) {
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!doctor) throw new ApiError(404, 'Doctor profile not found');
+
+    const [{ data: hasAppt }, { data: hasConsult }] = await Promise.all([
+      supabaseAdmin.from('appointments').select('id').eq('doctor_id', doctor.id).eq('patient_id', patientId).limit(1).maybeSingle(),
+      supabaseAdmin.from('consultations').select('id').eq('doctor_id', doctor.id).eq('patient_id', patientId).limit(1).maybeSingle(),
+    ]);
+
+    if (!hasAppt && !hasConsult) {
+      throw new ApiError(403, 'You can only update details of your patients');
+    }
+
+    const { data: patient, error } = await supabaseAdmin
+      .from('patients')
+      .update({
+        allergies: allergies || [],
+        chronic_conditions: chronic_conditions || [],
+        current_medications: current_medications || [],
+      })
+      .eq('id', patientId)
+      .select()
+      .single();
+
+    if (error) throw new ApiError(500, error.message);
+    return patient;
+  }
+
+  async updatePatientInternalNotes(userId, patientId, notes) {
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!doctor) throw new ApiError(404, 'Doctor profile not found');
+
+    const { data, error } = await supabaseAdmin
+      .from('doctor_patient_notes')
+      .upsert({
+        doctor_id: doctor.id,
+        patient_id: patientId,
+        notes: notes || '',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'doctor_id,patient_id' })
+      .select()
+      .single();
+
+    if (error) throw new ApiError(500, error.message);
+    return data;
   }
 
   async getPatientAlerts(userId) {
@@ -1654,6 +1951,66 @@ class DoctorService {
     });
 
     return alerts;
+  }
+
+  async submitForApproval(userId) {
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id, approval_status, name, specialization, registration_number, government_id_type, government_id_url, degree_certificate_url, license_document_url, live_selfie_url')
+      .eq('user_id', userId)
+      .single();
+
+    if (!doctor) {
+      throw new ApiError(404, 'Doctor profile not found');
+    }
+
+    if (doctor.approval_status !== 'draft' && doctor.approval_status !== 'needs_info') {
+      throw new ApiError(400, 'Profile is already submitted or in a state that cannot be submitted.');
+    }
+
+    // Validate mandatory fields before submission
+    const requiredFields = [
+      { key: 'name', label: 'Name' },
+      { key: 'specialization', label: 'Specialization' },
+      { key: 'registration_number', label: 'Registration Number' },
+      { key: 'government_id_type', label: 'Government ID Type' },
+      { key: 'government_id_url', label: 'Government ID Document' },
+      { key: 'degree_certificate_url', label: 'Medical Degree Document' },
+      { key: 'license_document_url', label: 'Medical Registration Certificate' },
+      { key: 'live_selfie_url', label: 'Live Selfie Verification' }
+    ];
+
+    const missingFields = requiredFields.filter(f => !doctor[f.key]);
+
+    if (missingFields.length > 0) {
+      throw new ApiError(400, `Cannot submit. Missing required fields: ${missingFields.map(f => f.label).join(', ')}`);
+    }
+
+    const { data: updatedDoctor, error } = await supabaseAdmin
+      .from('doctors')
+      .update({
+        approval_status: 'pending',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', doctor.id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new ApiError(400, 'Failed to submit profile for approval');
+    }
+
+    await cacheDel(`auth_user:${userId}`);
+
+    // Optional: Log to audit trail
+    await supabaseAdmin.from('doctor_profile_audits').insert({
+      doctor_id: doctor.id,
+      changed_by: userId,
+      action: 'submitted_for_approval',
+      remarks: 'Doctor submitted profile via registration wizard'
+    });
+
+    return { message: 'Profile submitted for review successfully', data: updatedDoctor };
   }
 }
 

@@ -304,6 +304,14 @@ const startConsultation = async (doctorUserId, appointmentId) => {
     // original notification and the doctor retries opening the same session.
     await emitConsultationStartedSync(consultation, doctorUserId, doctor.name);
 
+    // Lifecycle engine: ensure the state machine exists (guarded + idempotent).
+    try {
+      const lifecycle = require('./consultationLifecycleService');
+      await lifecycle.initLifecycleForStart(consultation);
+    } catch (lifecycleErr) {
+      console.warn('[ConsultationService] Lifecycle init skipped (existing):', lifecycleErr.message);
+    }
+
     // Invalidate the patient's dashboard cache so the card updates immediately
     await invalidatePatientDashboardCaches(consultation);
     return consultation;
@@ -340,6 +348,14 @@ const startConsultation = async (doctorUserId, appointmentId) => {
   }) || consultation;
 
   await emitConsultationStartedSync(consultation, doctorUserId, doctor.name);
+
+  // Lifecycle engine: initialize the state machine (guarded + idempotent).
+  try {
+    const lifecycle = require('./consultationLifecycleService');
+    consultation = await lifecycle.initLifecycleForStart(consultation) || consultation;
+  } catch (lifecycleErr) {
+    console.warn('[ConsultationService] Lifecycle init skipped:', lifecycleErr.message);
+  }
 
   // Send push notification with OTP to patient
   const { data: patient } = await supabaseAdmin
@@ -410,6 +426,14 @@ const joinConsultation = async (patientUserId, idParam) => {
       roomId: consultation.room_id || consultation.id,
       patientJoinedAt: consultation.patient_joined_at || nowIso,
     }) || consultation;
+  }
+
+  // Lifecycle engine: mark the session live once the patient joins.
+  try {
+    const lifecycle = require('./consultationLifecycleService');
+    consultation = await lifecycle.initLifecycleForJoin(consultation) || consultation;
+  } catch (lifecycleErr) {
+    console.warn('[ConsultationService] Lifecycle join-init skipped:', lifecycleErr.message);
   }
 
   return consultation;
@@ -1107,6 +1131,22 @@ const addPrescription = async (doctorUserId, options, prescriptionData) => {
       await supabaseAdmin.from('prescriptions').delete().eq('id', prescription.id);
       throw medError;
     }
+  }
+
+  // Mark the consultation as having a generated prescription (lifecycle field).
+  try {
+    if (finalConsultationId) {
+      await supabaseAdmin
+        .from('consultations')
+        .update({
+          prescription_generated: true,
+          prescription_generated_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', finalConsultationId);
+    }
+  } catch (flagErr) {
+    console.warn('[ConsultationService] prescription_generated flag failed (non-blocking):', flagErr.message);
   }
 
   // Get patient user_id

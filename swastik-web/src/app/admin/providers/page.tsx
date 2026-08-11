@@ -1,9 +1,10 @@
+import React from 'react';
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
 import {
     Search, Stethoscope, Building2, Building, Pill, Siren, Microscope, Dumbbell,
-    Loader2, RefreshCw, Store
+    Loader2, RefreshCw, Store, ShieldAlert, X
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +13,9 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Pagination } from '@/components/ui/Pagination';
 import { useAdminStore } from '@/stores/adminStore';
 import { adminApi } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
+import { Download } from 'lucide-react';
+import SuperAdminActions from '@/components/admin/SuperAdminActions';
 
 type ProviderType = 'all' | 'doctors' | 'hospitals' | 'clinics' | 'pharmacies' | 'diagnostic_centers' | 'wellness_coaches' | 'fitness_centers' | 'ambulances';
 
@@ -40,10 +44,16 @@ const PROVIDER_COLORS: Record<string, string> = {
 export default function ProvidersPage() {
     const [activeFilter, setActiveFilter] = useState<ProviderType>('all');
     const [searchQuery, setSearchQuery] = useState('');
+    const [sort, setSort] = useState('date_desc');
+    const [dateRange, setDateRange] = useState('');
+    const [minCompletion, setMinCompletion] = useState('');
     const [providers, setProviders] = useState<Provider[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isDownloadingZip, setIsDownloadingZip] = useState<string | null>(null);
+    const [expandedProvider, setExpandedProvider] = useState<Provider | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [page, setPage] = useState(1);
+    const toast = useToast();
     const [pagination, setPagination] = useState({ page: 1, limit: 15, total: 0, totalPages: 1 });
     const { stats, providerCounts, fetchDashboardData } = useAdminStore();
 
@@ -59,6 +69,9 @@ export default function ProvidersPage() {
             if (searchQuery.trim()) {
                 filters.search = searchQuery.trim();
             }
+            if (sort) filters.sort = sort;
+            if (dateRange) filters.dateRange = dateRange;
+            if (minCompletion) filters.minCompletion = minCompletion;
 
             const result = await adminApi.getProviders(filters, page, 15);
             if (!result.success) throw new Error(result.error || 'Failed to fetch providers');
@@ -80,7 +93,7 @@ export default function ProvidersPage() {
     useEffect(() => { fetchProviders(); }, [fetchProviders]);
 
     // Reset page when filters change
-    useEffect(() => { setPage(1); }, [searchQuery, activeFilter]);
+    useEffect(() => { setPage(1); }, [searchQuery, activeFilter, sort, dateRange, minCompletion]);
 
     const FILTER_TABS = [
         { id: 'all', label: 'All Providers', count: stats?.totalProviders ?? 0 },
@@ -119,10 +132,34 @@ export default function ProvidersPage() {
             </div>
 
             <Card padding="sm">
-                <div className="flex items-center gap-4">
-                    <div className="flex-1">
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                    <div className="flex-1 w-full">
                         <Input placeholder="Search providers..." value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)} leftIcon={<Search className="h-5 w-5" />} />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                        <select 
+                            className="text-sm border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-800"
+                            value={sort} onChange={(e) => setSort(e.target.value)}>
+                            <option value="date_desc">Newest First</option>
+                            <option value="date_asc">Oldest First</option>
+                            <option value="score_desc">Highest Completion</option>
+                        </select>
+                        <select 
+                            className="text-sm border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-800"
+                            value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
+                            <option value="">All Time</option>
+                            <option value="7">Last 7 Days</option>
+                            <option value="30">Last 30 Days</option>
+                        </select>
+                        <select 
+                            className="text-sm border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-800"
+                            value={minCompletion} onChange={(e) => setMinCompletion(e.target.value)}>
+                            <option value="">Any Score</option>
+                            <option value="50">&gt; 50%</option>
+                            <option value="80">&gt; 80%</option>
+                            <option value="100">100%</option>
+                        </select>
                     </div>
                 </div>
             </Card>
@@ -148,6 +185,7 @@ export default function ProvidersPage() {
                                     <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400 hidden md:table-cell">Contact</th>
                                     <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400 hidden sm:table-cell">Status</th>
                                     <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400 hidden lg:table-cell">Joined</th>
+                                    <th className="text-right py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -159,31 +197,79 @@ export default function ProvidersPage() {
                                         const Icon = PROVIDER_ICONS[providerType] || Stethoscope;
                                         const colorClass = PROVIDER_COLORS[providerType] || 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
                                         return (
-                                            <tr key={provider.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                                <td className="py-3 px-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`p-2 rounded-lg ${colorClass}`}><Icon className="h-4 w-4" /></div>
-                                                        <span className="font-medium text-gray-900 dark:text-gray-100">{provider.name}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 capitalize">
-                                                    {providerType.replace(/_/g, ' ')}
-                                                </td>
-                                                <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
-                                                    <div className="flex flex-col">
-                                                        <span>{provider.email || provider.phone || '—'}</span>
-                                                        {provider.contact_name && (
-                                                            <span className="text-xs text-gray-400 dark:text-gray-500">{provider.contact_name}</span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="py-3 px-4 hidden sm:table-cell">
-                                                    <StatusBadge status={provider.status as any} size="sm" />
-                                                </td>
-                                                <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 hidden lg:table-cell">
-                                                    {provider.created_at ? new Date(provider.created_at).toLocaleDateString('en-IN') : '—'}
-                                                </td>
-                                            </tr>
+                                            <React.Fragment key={provider.id}>
+                                                <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                                    <td className="py-3 px-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`p-2 rounded-lg ${colorClass}`}><Icon className="h-4 w-4" /></div>
+                                                            <span className="font-medium text-gray-900 dark:text-gray-100">{provider.name}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 capitalize">
+                                                        {providerType.replace(/_/g, ' ')}
+                                                    </td>
+                                                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                                                        <div className="flex flex-col">
+                                                            <span>{provider.email || provider.phone || '—'}</span>
+                                                            {provider.contact_name && (
+                                                                <span className="text-xs text-gray-400 dark:text-gray-500">{provider.contact_name}</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-3 px-4 hidden sm:table-cell">
+                                                        <StatusBadge status={provider.status as any} size="sm" />
+                                                    </td>
+                                                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 hidden lg:table-cell">
+                                                        {provider.created_at ? new Date(provider.created_at).toLocaleDateString('en-IN') : '—'}
+                                                    </td>
+                                                    <td className="py-3 px-4 text-right">
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                disabled={isDownloadingZip === provider.id}
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    setIsDownloadingZip(provider.id);
+                                                                    const res = await adminApi.downloadDocumentsZip(provider.provider_type || 'doctor', provider.id);
+                                                                    if (!res.success) {
+                                                                        toast.error('Download Failed', res.error || 'Failed to download ZIP');
+                                                                    }
+                                                                    setIsDownloadingZip(null);
+                                                                }}
+                                                            >
+                                                                {isDownloadingZip === provider.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 text-gray-500" />}
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => setExpandedProvider(expandedProvider?.id === provider.id ? null : provider)}
+                                                            >
+                                                                <ShieldAlert className={`h-4 w-4 ${expandedProvider?.id === provider.id ? 'text-red-500' : 'text-gray-500'}`} />
+                                                            </Button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {expandedProvider?.id === provider.id && (
+                                                    <tr>
+                                                        <td colSpan={6} className="p-0 border-b border-gray-100 dark:border-gray-800">
+                                                            <div className="p-4 bg-gray-50/50 dark:bg-gray-800/30">
+                                                                <div className="flex justify-between items-start">
+                                                                    <SuperAdminActions 
+                                                                        providerId={provider.id} 
+                                                                        providerType={provider.provider_type || 'doctor'} 
+                                                                        currentStatus={provider.status} 
+                                                                        onStatusChange={fetchProviders} 
+                                                                    />
+                                                                    <Button variant="ghost" size="sm" onClick={() => setExpandedProvider(null)}>
+                                                                        <X className="h-4 w-4 text-gray-500" />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
                                         );
                                     })
                                 )}

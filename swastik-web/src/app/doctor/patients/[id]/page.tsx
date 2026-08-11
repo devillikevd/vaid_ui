@@ -23,6 +23,7 @@ import {
 import { doctorApi } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { PatientMedicalHistory } from '@/components/doctor/PatientMedicalHistory';
 
 interface AppointmentRecord {
     id: string;
@@ -140,6 +141,10 @@ interface PatientRecord {
     sharedPrescriptions?: SharedPrescriptionRecord[];
     reports?: ReportRecord[];
     recordAccess?: RecordAccessMeta;
+    allergies?: string[];
+    chronic_conditions?: string[];
+    current_medications?: any[];
+    internalNotes?: string;
 }
 
 function formatDate(value?: string, includeTime = false) {
@@ -181,7 +186,7 @@ export default function DoctorPatientRecordPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'overview' | 'timeline' | 'vault' | 'reports'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'timeline' | 'vault' | 'reports'>('overview');
 
     const loadRecord = useCallback(async (refresh = false) => {
         if (!patientId) return;
@@ -311,6 +316,7 @@ export default function DoctorPatientRecordPage() {
                 <div className="flex overflow-x-auto border-t border-gray-100 dark:border-gray-800 px-4 scrollbar-hide">
                     {[
                         { id: 'overview', label: 'Overview & Vitals', icon: Activity },
+                        { id: 'history', label: 'Medical History', icon: User },
                         { id: 'timeline', label: 'Consultations', icon: Clock3 },
                         { id: 'vault', label: 'Shared Vault', icon: Lock },
                         { id: 'reports', label: 'Lab Reports', icon: FileText }
@@ -395,6 +401,20 @@ export default function DoctorPatientRecordPage() {
                                 </div>
                             </CardContent>
                         </Card>
+                    </div>
+                )}
+
+                {activeTab === 'history' && (
+                    <div className="space-y-6">
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Medical History</h2>
+                        <PatientMedicalHistory 
+                            patientId={patientId as string}
+                            allergies={record.allergies || []}
+                            chronicConditions={record.chronic_conditions || []}
+                            currentMedications={record.current_medications || []}
+                            internalNotes={record.internalNotes || ''}
+                            onUpdate={loadRecord}
+                        />
                     </div>
                 )}
 

@@ -115,11 +115,49 @@ router.post('/login',
   validate,
   asyncHandler(async (req, res) => {
     const { email, password, role } = req.body;
-    const result = await authService.login(email, password, role);
+    const reqMeta = {
+      ipAddress: req.ip || req.headers['x-forwarded-for'],
+      deviceInfo: req.headers['user-agent']
+    };
+    const result = await authService.login(email, password, role, reqMeta);
     res.json({
       success: true,
       message: 'Login successful',
       data: result,
+    });
+  })
+);
+
+// Send registration OTP
+router.post('/send-registration-otp',
+  authRateLimit(5, 600, 'send-reg-otp'),
+  [
+    body('email').trim().isEmail().toLowerCase().withMessage('Valid email is required'),
+    body('name').optional().trim().escape(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await authService.sendRegistrationOtp(req.body.email, req.body.name);
+    res.json({
+      success: true,
+      ...result,
+    });
+  })
+);
+
+// Verify registration OTP
+router.post('/verify-registration-otp',
+  authRateLimit(10, 600, 'verify-reg-otp'),
+  [
+    body('email').trim().isEmail().toLowerCase().withMessage('Valid email is required'),
+    body('otp').trim().matches(/^\d{6}$/).withMessage('A valid 6-digit OTP is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await authService.verifyRegistrationOtp(req.body.email, req.body.otp);
+    res.json({
+      success: true,
+      ...result,
     });
   })
 );
@@ -323,6 +361,60 @@ router.put('/me',
   validate,
   asyncHandler(async (req, res) => {
     const result = await authService.updateProfile(req.user.id, req.user.role, req.body);
+    res.json({ success: true, ...result });
+  })
+);
+
+// ==================== Phase 3: Security & Sessions ====================
+
+// Get Active Sessions
+router.get('/sessions',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const sessions = await authService.getActiveSessions(req.user.id);
+    res.json({ success: true, data: sessions });
+  })
+);
+
+// Logout Specific Device
+router.delete('/sessions/:sessionId',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const result = await authService.logoutDevice(req.user.id, req.params.sessionId);
+    res.json({ success: true, ...result });
+  })
+);
+
+// Logout All Devices
+router.delete('/sessions',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    // Optionally exclude current session if passed in body
+    const { exceptSessionId } = req.body || {};
+    const result = await authService.logoutAllDevices(req.user.id, exceptSessionId);
+    res.json({ success: true, ...result });
+  })
+);
+
+// Get Login History
+router.get('/login-history',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const history = await authService.getLoginHistory(req.user.id);
+    res.json({ success: true, data: history });
+  })
+);
+
+// Change Password
+router.post('/change-password',
+  authenticate,
+  [
+    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await authService.changePassword(req.user.id, req.body.currentPassword, req.body.newPassword);
     res.json({ success: true, ...result });
   })
 );

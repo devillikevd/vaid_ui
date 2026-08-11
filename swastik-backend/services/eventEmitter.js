@@ -727,6 +727,65 @@ class AppEventEmitter extends EventEmitter {
       data: { requestId: requestData.id },
     });
   }
+
+  // ── Consultation lifecycle events (Part 8-12) ──────────────────
+  // Every lifecycle transition fans out to both participants so multi-tab
+  // and cross-platform clients stay in sync without polling.
+  emitConsultationStage(payload) {
+    const { consultationId, doctorUserId, patientUserId } = payload || {};
+    if (doctorUserId) this.notifyUser(doctorUserId, 'consultation:stage', payload);
+    if (patientUserId) this.notifyUser(patientUserId, 'consultation:stage', payload);
+    if (consultationId) {
+      this.notifyRoom(`video:${consultationId}`, 'consultation:stage', payload);
+      this.notifyRoom(`consultation:${consultationId}`, 'consultation:stage', payload);
+    }
+    this.emitDistributed('consultation:stage', payload);
+  }
+
+  emitConsultationEndRequest(payload) {
+    const { consultationId, doctorUserId, patientUserId } = payload || {};
+    if (patientUserId) this.notifyUser(patientUserId, 'consultation:end-request', payload);
+    if (doctorUserId) this.notifyUser(doctorUserId, 'consultation:end-request', payload);
+    if (consultationId) this.notifyRoom(`video:${consultationId}`, 'consultation:end-request', payload);
+    this.emitDistributed('consultation:end-request', payload);
+  }
+
+  emitConsultationEndResponse(payload) {
+    const { consultationId, doctorUserId, patientUserId } = payload || {};
+    if (doctorUserId) this.notifyUser(doctorUserId, 'consultation:end-response', payload);
+    if (patientUserId) this.notifyUser(patientUserId, 'consultation:end-response', payload);
+    if (consultationId) this.notifyRoom(`video:${consultationId}`, 'consultation:end-response', payload);
+    this.emitDistributed('consultation:end-response', payload);
+  }
+
+  emitConsultationForceCompleted(payload) {
+    const { consultationId, doctorUserId, patientUserId } = payload || {};
+    if (doctorUserId) this.notifyUser(doctorUserId, 'consultation:force-completed', payload);
+    if (patientUserId) this.notifyUser(patientUserId, 'consultation:force-completed', payload);
+    if (consultationId) this.notifyRoom(`video:${consultationId}`, 'consultation:force-completed', payload);
+    this.emitDistributed('consultation:force-completed', payload);
+  }
+
+  emitConsultationNetworkEvent(payload) {
+    const { consultationId, doctorUserId, patientUserId } = payload || {};
+    if (doctorUserId) this.notifyUser(doctorUserId, 'consultation:network', payload);
+    if (patientUserId) this.notifyUser(patientUserId, 'consultation:network', payload);
+    if (consultationId) this.notifyRoom(`video:${consultationId}`, 'consultation:network', payload);
+    this.emitDistributed('consultation:network', payload);
+  }
+
+  emitConsultationLog(payload) {
+    const { consultationId, actorId } = payload || {};
+    if (consultationId) this.notifyRoom(`video:${consultationId}`, 'consultation:log', payload);
+    if (actorId) this.notifyUser(actorId, 'consultation:log', payload);
+    this.emitDistributed('consultation:log', payload);
+  }
+
+  emitConsultationPolicyChanged(payload) {
+    this.notifyRoom('role:super_admin', 'consultation:policy-changed', payload);
+    this.notifyRoom('role:admin', 'consultation:policy-changed', payload);
+    this.emitDistributed('consultation:policy-changed', payload);
+  }
 }
 
 const eventEmitter = new AppEventEmitter();

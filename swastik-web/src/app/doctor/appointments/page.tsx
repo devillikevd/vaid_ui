@@ -43,6 +43,7 @@ export default function DoctorAppointmentsPage() {
     const [otpError, setOtpError] = useState('');
     const [resendCooldown, setResendCooldown] = useState(0);
     const [resendSuccess, setResendSuccess] = useState('');
+    const [auditTrailModal, setAuditTrailModal] = useState<any>(null);
     const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const selectedStatus = statusFilter === 'all' ? undefined : statusFilter;
@@ -409,6 +410,9 @@ export default function DoctorAppointmentsPage() {
                                                 </Button>
                                             </div>
                                         )}
+                                        <Button size="sm" variant="outline" onClick={() => setAuditTrailModal(apt)} title="View Lifecycle Audit Trail">
+                                            <Clock className="h-4 w-4" />
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
@@ -629,6 +633,53 @@ export default function DoctorAppointmentsPage() {
                                 {actionLoading === newScheduleAppt.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save New Schedule'}
                             </Button>
                         </div>
+                    </div>
+                </Card>
+            </div>
+        )}
+        
+        {auditTrailModal && (
+            <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                onClick={(event) => {
+                    if (event.target === event.currentTarget) {
+                        setAuditTrailModal(null);
+                    }
+                }}
+            >
+                <Card className="w-full max-w-md max-h-[80vh] overflow-y-auto">
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Appointment Lifecycle</h2>
+                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    Audit trail for {auditTrailModal.patientName}
+                                </p>
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={() => setAuditTrailModal(null)}><XCircleIcon className="w-5 h-5"/></Button>
+                        </div>
+                        
+                        <div className="space-y-4 mt-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
+                            {(auditTrailModal.status_history || [{ status: auditTrailModal.status, timestamp: auditTrailModal.created_at || new Date().toISOString() }]).map((historyItem: any, index: number) => (
+                                <div key={index} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-300 group-[.is-active]:bg-emerald-500 text-slate-500 group-[.is-active]:text-emerald-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                                        <Clock className="w-4 h-4" />
+                                    </div>
+                                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded border border-slate-200 bg-white shadow">
+                                        <div className="flex items-center justify-between space-x-2 mb-1">
+                                            <div className="font-bold text-slate-900 uppercase text-xs">{historyItem.status}</div>
+                                            <time className="font-caveat font-medium text-emerald-500 text-xs">{new Date(historyItem.timestamp).toLocaleString()}</time>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        {(!auditTrailModal.status_history || auditTrailModal.status_history.length === 0) && (
+                            <p className="text-sm text-center text-amber-600 bg-amber-50 p-2 rounded">
+                                Status history tracking is not fully available for older appointments.
+                            </p>
+                        )}
                     </div>
                 </Card>
             </div>

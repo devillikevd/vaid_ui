@@ -267,6 +267,36 @@ const consumeOtpRecord = async ({ email, purpose, otp }) => {
   return record;
 };
 
+// Universal OTP engine (Part 10) — reuses the existing otp_verifications
+// table + hash/attempt/expiry logic for any business purpose. Additive:
+// does not touch the existing auth OTP flows.
+const issueUniversalOtp = async ({ userId = null, email, purpose, name, title, intro }) => {
+  if (!email || !purpose) {
+    throw createOtpError('OTP_INVALID_REQUEST', 'Email and purpose are required');
+  }
+  const { emailService } = require('./emailService');
+  const sender = async (targetEmail, displayName, otp) => {
+    await emailService.sendOtpEmail({
+      email: targetEmail,
+      name: displayName || 'there',
+      otp,
+      title: title || 'Verification Code',
+      intro: intro || 'use the verification code below to continue.',
+      subject: `Your ${title || 'Verification'} Code — VAIDIDEA Healthcare`,
+      accentColor: '#059669',
+      expiryMinutes: OTP_EXPIRY_MINUTES,
+    });
+  };
+  return issueEmailOtp({ userId, email, purpose, sender, name });
+};
+
+const verifyUniversalOtp = async ({ email, purpose, otp }) => {
+  if (!email || !purpose || !otp) {
+    throw createOtpError('OTP_INVALID_REQUEST', 'Email, purpose and OTP are required');
+  }
+  return consumeOtpRecord({ email, purpose, otp });
+};
+
 const resolveFacilityName = (data) =>
   data.facilityName ||
   data.facility_name ||
@@ -1476,4 +1506,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   updateProfile,
+  issueUniversalOtp,
+  verifyUniversalOtp,
 };

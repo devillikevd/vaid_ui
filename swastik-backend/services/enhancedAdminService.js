@@ -11,6 +11,7 @@ const { geocodeProvider } = require('../utils/geocoding');
 const notificationService = require('./notificationService');
 const { sendApprovalEmail } = require('./emailService');
 const eventEmitter = require('./eventEmitter');
+const archiver = require('archiver');
 
 const revokeProviderAuthSessions = async (userId) => {
   if (!userId) return;
@@ -908,7 +909,7 @@ const getDashboard = async () => {
 };
 
 // Get pending approvals
-const getPendingApprovals = async (type = 'all', page = 1, limit = 20) => {
+const getPendingApprovals = async (type = 'all', page = 1, limit = 20, filters = {}) => {
   const offset = (page - 1) * limit;
   const results = {};
   const normalizedType = normalizeAdminProviderType(type);
@@ -916,12 +917,37 @@ const getPendingApprovals = async (type = 'all', page = 1, limit = 20) => {
   // Use approval_status = 'pending' as the canonical field across all provider tables
   const fetchPending = async (providerType) => {
     const table = PROVIDER_TABLES[providerType];
-    const { data, count, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from(table)
       .select('*', { count: 'exact' })
-      .eq('approval_status', 'pending')
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .eq('approval_status', 'pending');
+      
+    // Apply Phase 4 filters for Pending Approvals
+    if (filters.dateRange) {
+      const now = new Date();
+      const rangeInDays = parseInt(filters.dateRange, 10);
+      if (!isNaN(rangeInDays)) {
+        const pastDate = new Date(now.getTime() - rangeInDays * 24 * 60 * 60 * 1000);
+        query = query.gte('created_at', pastDate.toISOString());
+      }
+    }
+    if (filters.minCompletion) {
+      const minScore = parseInt(filters.minCompletion, 10);
+      if (!isNaN(minScore) && providerType === 'doctor') {
+         // Assuming only doctors have profile_completion_score right now
+        query = query.gte('profile_completion_score', minScore);
+      }
+    }
+
+    if (filters.sort === 'date_asc') {
+      query = query.order('created_at', { ascending: true });
+    } else if (filters.sort === 'score_desc' && providerType === 'doctor') {
+      query = query.order('profile_completion_score', { ascending: false });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    const { data, count, error } = await query.range(offset, offset + limit - 1);
     if (error) throw error;
 
     const enriched = await enrichProvidersForAdmin(providerType, data || []);
@@ -987,6 +1013,9 @@ const getProviders = async (filters = {}, page = 1, limit = 20) => {
     type: normalizedType,
     status: normalizedStatus,
     search: normalizedSearch,
+    sort: filters.sort || '',
+    dateRange: filters.dateRange || '',
+    minCompletion: filters.minCompletion || '',
     page,
     limit,
     version: providerCacheVersion,
@@ -1034,7 +1063,32 @@ const getProviders = async (filters = {}, page = 1, limit = 20) => {
     ));
   }
 
+  // Phase 4 filters
+  if (filters.dateRange) {
+    const now = new Date();
+    const rangeInDays = parseInt(filters.dateRange, 10);
+    if (!isNaN(rangeInDays)) {
+      const pastDate = new Date(now.getTime() - rangeInDays * 24 * 60 * 60 * 1000);
+      providers = providers.filter(provider => new Date(provider.created_at) >= pastDate);
+    }
+  }
+
+  if (filters.minCompletion) {
+    const minScore = parseInt(filters.minCompletion, 10);
+    if (!isNaN(minScore)) {
+      providers = providers.filter(provider => (provider.profile_completion_score || 0) >= minScore);
+    }
+  }
+
+  // Phase 4 Sort
   providers.sort((left, right) => {
+    if (filters.sort === 'date_asc') {
+      return (left.created_at || '').localeCompare(right.created_at || '');
+    }
+    if (filters.sort === 'score_desc') {
+      return (right.profile_completion_score || 0) - (left.profile_completion_score || 0);
+    }
+    // Default: date_desc
     const leftCreatedAt = left.created_at || '';
     const rightCreatedAt = right.created_at || '';
     return rightCreatedAt.localeCompare(leftCreatedAt);
@@ -1387,6 +1441,8 @@ const updateUserStatus = async (adminUserId, userId, isActive, reason) => {
 
   // If deactivating, invalidate their auth cache
   if (!isActive) {
+    const { deleteOldImageUrl } = require('../config/minio');
+    const archiver = require('archiver');
     const { cacheDel } = require('../config/redis');
     await cacheDel(`auth_user:${userId}`);
   }
@@ -1542,7 +1598,7 @@ const getComplianceDocuments = async (filters = {}, page = 1, limit = 20) => {
       contact_name: provider.contact_name,
       approval_notes: provider.approval_notes || null,
       can_approve_provider: provider.can_approve,
-      provider_approval_block_reason: provider.approval_block_reason || null,
+      // approval_block_reason not currently in schema
       provider_missing_compliance_documents: provider.missing_compliance_documents || [],
     }))
   ));
@@ -1996,6 +2052,65 @@ const updateEmergencyStatus = async (emergencyId, status, adminId) => {
   });
 
   return { data, message: `Emergency status updated to '${nextStatus}'` };
+};
+
+// Generate ZIP of provider documents
+const generateDocumentsZip = async (type, id, res) => {
+  const provider = await getProviderDetails(type, id);
+  if (!provider) {
+    throw new ApiError(404, 'Provider not found');
+  }
+
+  const docFields = [
+    'license_document_url', 
+    'degree_certificate_url', 
+    'government_id_url', 
+    'registration_certificate_url',
+    'medical_registration_url',
+    'certification_document_url',
+    'clinic_photos_url'
+  ];
+
+  const urls = [];
+  docFields.forEach(field => {
+    if (provider[field] && typeof provider[field] === 'string') {
+      urls.push({ name: field, url: provider[field] });
+    }
+  });
+
+  if (urls.length === 0) {
+    throw new ApiError(404, 'No documents found for this provider');
+  }
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename=${type}_${id}_documents.zip`);
+
+  const archive = archiver('zip', {
+    zlib: { level: 9 }
+  });
+
+  archive.on('error', function(err) {
+    throw err;
+  });
+
+  archive.pipe(res);
+
+  for (const doc of urls) {
+    try {
+      const extension = doc.url.split('?')[0].split('.').pop() || 'pdf';
+      const filename = `${doc.name}.${extension}`;
+      
+      const response = await fetch(doc.url);
+      if (response.ok) {
+         const arrayBuffer = await response.arrayBuffer();
+         archive.append(Buffer.from(arrayBuffer), { name: filename });
+      }
+    } catch (e) {
+      console.warn(`Failed to fetch document ${doc.name} for zip`, e);
+    }
+  }
+
+  await archive.finalize();
 };
 
 module.exports = {

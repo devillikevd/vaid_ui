@@ -290,6 +290,24 @@ export const authApi = {
         return response.json();
     },
 
+    sendRegistrationOtp: async (email: string, name?: string) => {
+        const response = await fetch(`${API_BASE_URL}/auth/send-registration-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, name }),
+        });
+        return response.json();
+    },
+
+    verifyRegistrationOtp: async (email: string, otp: string) => {
+        const response = await fetch(`${API_BASE_URL}/auth/verify-registration-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, otp }),
+        });
+        return response.json();
+    },
+
     resendVerification: async (email: string) => {
         const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
             method: 'POST',
@@ -327,6 +345,20 @@ export const authApi = {
             body: JSON.stringify({ currentPassword, newPassword }),
         }),
 
+    // Phase 3: Session Management
+    getSessions: () => fetchWithAuth('/auth/sessions'),
+    
+    logoutDevice: (sessionId: string) => 
+        fetchWithAuth(`/auth/sessions/${sessionId}`, { method: 'DELETE' }),
+        
+    logoutAllDevices: (exceptSessionId?: string) =>
+        fetchWithAuth('/auth/sessions', {
+            method: 'DELETE',
+            body: exceptSessionId ? JSON.stringify({ exceptSessionId }) : undefined,
+        }),
+        
+    getLoginHistory: () => fetchWithAuth('/auth/login-history'),
+
     forgotPassword: async (email: string, role?: string) => {
         const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
             method: 'POST',
@@ -361,8 +393,16 @@ export const authApi = {
 export const adminApi = {
     getDashboard: () => fetchWithAuth('/admin/dashboard'),
 
-    getPendingApprovals: (type: string = 'all', page: number = 1) =>
-        fetchWithAuth(`/admin/approvals/pending?type=${type}&page=${page}`),
+    getPendingApprovals: (type: string = 'all', page: number = 1, filters?: Record<string, unknown>) => {
+        const params = new URLSearchParams({
+            type,
+            page: page.toString(),
+        });
+        if (filters?.sort) params.set('sort', String(filters?.sort));
+        if (filters?.dateRange) params.set('dateRange', String(filters?.dateRange));
+        if (filters?.minCompletion) params.set('minCompletion', String(filters?.minCompletion));
+        return fetchWithAuth(`/admin/approvals/pending?${params}`);
+    },
 
     getProviders: (filters?: Record<string, unknown>, page: number = 1, limit: number = 20) => {
         const params = new URLSearchParams({
@@ -372,16 +412,54 @@ export const adminApi = {
         if (filters?.type) params.set('type', String(filters.type));
         if (filters?.status) params.set('status', String(filters.status));
         if (filters?.search) params.set('search', String(filters.search));
+        if (filters?.sort) params.set('sort', String(filters.sort));
+        if (filters?.dateRange) params.set('dateRange', String(filters.dateRange));
+        if (filters?.minCompletion) params.set('minCompletion', String(filters.minCompletion));
         return fetchWithAuth(`/admin/providers?${params}`);
     },
 
     getProviderDetails: (type: string, id: string) =>
         fetchWithAuth(`/admin/providers/${type}/${id}`),
 
-    approveProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic' | 'wellness_coach' | 'fitness_center' | 'ambulance', id: string, notes?: string) =>
+    downloadDocumentsZip: async (type: string, id: string) => {
+        const token = getTokens().accessToken;
+        if (!token) return { success: false, error: 'No auth token found' };
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/admin/providers/${type}/${id}/documents/zip`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (!response.ok) {
+                return { success: false, error: 'Failed to download documents' };
+            }
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `${type}_${id}_documents.zip`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            return { success: true };
+        } catch (e) {
+            return { success: false, error: 'Network error during download' };
+        }
+    },
+
+    approveProvider: (type: string, id: string, notes?: string) =>
         fetchWithAuth(`/admin/providers/${type}/${id}/approve`, {
             method: 'POST',
             body: JSON.stringify({ notes }),
+        }),
+
+    updateProviderVerification: (type: string, id: string, payload: { verification_checklist?: any; admin_notes?: string; approval_status?: string }) =>
+        fetchWithAuth(`/admin/providers/${type}/${id}/verification`, {
+            method: 'PUT',
+            body: JSON.stringify(payload),
         }),
 
     rejectProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic' | 'wellness_coach' | 'fitness_center' | 'ambulance', id: string, reason: string) =>
@@ -589,6 +667,15 @@ export const adminApi = {
 // Backend: routes/doctor/index.js
 
 export const doctorApi = {
+    getPublicDoctorById: async (id: string) => {
+        const response = await fetch(`${API_BASE_URL}/doctors/${id}`);
+        return response.json();
+    },
+
+    getAvailableSlots: async (doctorId: string, date: string, type: string = 'all') => {
+        const response = await fetch(`${API_BASE_URL}/doctors/${doctorId}/slots?date=${date}&type=${type}`);
+        return response.json();
+    },
     getJourneyStats: () => fetchWithAuth('/doctors/me/journey'),
     getDashboard: () => fetchWithAuth('/doctors/me/dashboard'),
     getPatientAlerts: () => fetchWithAuth<any[]>('/doctors/me/patient-alerts'),
@@ -597,6 +684,17 @@ export const doctorApi = {
 
     updateProfile: (data: Record<string, unknown>) =>
         fetchWithAuth('/doctors/me/profile', {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+
+    submitForApproval: () =>
+        fetchWithAuth('/doctors/me/submit-for-approval', {
+            method: 'POST',
+        }),
+
+    updateVerificationDocuments: (data: Record<string, unknown>) =>
+        fetchWithAuth('/doctors/me/verification-documents', {
             method: 'PUT',
             body: JSON.stringify(data),
         }),
@@ -613,6 +711,20 @@ export const doctorApi = {
         fetchWithAuth('/doctors/me/slots/block', {
             method: 'POST',
             body: JSON.stringify({ date, timeSlot, action }),
+        }),
+
+    // Leave Management
+    getLeaves: () => fetchWithAuth('/doctors/me/leaves'),
+
+    addLeave: (data: { start_date: string; end_date: string; reason?: string }) =>
+        fetchWithAuth('/doctors/me/leaves', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    deleteLeave: (id: string) =>
+        fetchWithAuth(`/doctors/me/leaves/${id}`, {
+            method: 'DELETE',
         }),
 
     getAppointments: (status?: string, date?: string, page: number = 1) => {
@@ -636,6 +748,18 @@ export const doctorApi = {
 
     getPatientHistory: (patientId: string) =>
         fetchWithAuth(`/doctors/me/patients/${patientId}`),
+    
+    updatePatientMedicalHistory: (patientId: string, data: { allergies?: string[], chronic_conditions?: string[], current_medications?: any[] }) =>
+        fetchWithAuth(`/doctors/me/patients/${patientId}/medical-history`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+    
+    updatePatientInternalNotes: (patientId: string, notes: string) =>
+        fetchWithAuth(`/doctors/me/patients/${patientId}/internal-notes`, {
+            method: 'PUT',
+            body: JSON.stringify({ notes }),
+        }),
 
     getPrescriptions: (page: number = 1) =>
         fetchWithAuth(`/doctors/me/prescriptions?page=${page}`),
@@ -1286,6 +1410,12 @@ export const appointmentsApi = {
             body: JSON.stringify({ reason }),
         }),
 
+    updateAppointmentNotes: (id: string, reason: string, symptoms: string[]) => 
+        fetchWithAuth(`/appointments/${id}/notes`, {
+            method: 'PUT',
+            body: JSON.stringify({ reason, symptoms }),
+        }),
+
     reschedule: (id: string, date: string, timeSlot: string) =>
         fetchWithAuth(`/appointments/${id}/reschedule`, {
             method: 'POST',
@@ -1343,6 +1473,83 @@ export const consultationsApi = {
         fetchWithAuth(`/consultations/${consultationId}/summarize`, {
             method: 'POST',
             body: JSON.stringify({ vitalsHistory }),
+        }),
+
+    // ── Consultation lifecycle engine (Part 8-16) ────────────────────
+    lifecycle: (consultationId: string) =>
+        fetchWithAuth(`/consultations/${consultationId}/lifecycle`),
+
+    consent: (consultationId: string, consent: Record<string, unknown>) =>
+        fetchWithAuth(`/consultations/${consultationId}/consent`, {
+            method: 'POST',
+            body: JSON.stringify(consent),
+        }),
+
+    captureNetworkEvent: (consultationId: string, event: string, metadata?: Record<string, unknown>) =>
+        fetchWithAuth(`/consultations/${consultationId}/network`, {
+            method: 'POST',
+            body: JSON.stringify({ event, metadata }),
+        }),
+
+    captureDeviceEvent: (consultationId: string, event: string, metadata?: Record<string, unknown>) =>
+        fetchWithAuth(`/consultations/${consultationId}/device`, {
+            method: 'POST',
+            body: JSON.stringify({ event, metadata }),
+        }),
+
+    requestEnd: (consultationId: string, reason?: string) =>
+        fetchWithAuth(`/consultations/${consultationId}/end/request`, {
+            method: 'POST',
+            body: JSON.stringify({ reason }),
+        }),
+
+    respondEnd: (consultationId: string, decision: 'confirm' | 'decline', otp?: string) =>
+        fetchWithAuth(`/consultations/${consultationId}/end/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ decision, otp }),
+        }),
+
+    completeEnd: (consultationId: string, data?: {
+        reason?: string;
+        otp?: string;
+        diagnosis?: string;
+        notes?: string;
+        followUpDate?: string;
+        duration?: number;
+    }) =>
+        fetchWithAuth(`/consultations/${consultationId}/end/complete`, {
+            method: 'POST',
+            body: JSON.stringify(data || {}),
+        }),
+
+    forceComplete: (consultationId: string, data?: { reason?: string; otp?: string; disputedByPatient?: boolean }) =>
+        fetchWithAuth(`/consultations/${consultationId}/end/force`, {
+            method: 'POST',
+            body: JSON.stringify(data || {}),
+        }),
+
+    pause: (consultationId: string) =>
+        fetchWithAuth(`/consultations/${consultationId}/pause`, { method: 'POST' }),
+
+    resume: (consultationId: string) =>
+        fetchWithAuth(`/consultations/${consultationId}/resume`, { method: 'POST' }),
+
+    reportState: (consultationId: string, state: 'joined' | 'patient_left' | 'doctor_left' | 'reconnecting' | 'recovered') =>
+        fetchWithAuth(`/consultations/${consultationId}/state`, {
+            method: 'POST',
+            body: JSON.stringify({ state }),
+        }),
+
+    getLogs: (consultationId: string) =>
+        fetchWithAuth(`/consultations/${consultationId}/logs`),
+
+    getPolicies: () =>
+        fetchWithAuth('/consultations/policies'),
+
+    updatePolicy: (key: string, value: string) =>
+        fetchWithAuth(`/consultations/policies/${key}`, {
+            method: 'PUT',
+            body: JSON.stringify({ value }),
         }),
 };
 

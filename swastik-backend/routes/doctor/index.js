@@ -105,10 +105,53 @@ router.put('/me/profile',
     body('degree_certificate_url').optional().isString().trim(),
     body('profile_image_url').optional().isString().trim(),
     body('intro_video_url').optional().isString().trim(),
+    body('registration_date').optional().isISO8601(),
+    body('registration_valid_till').optional().isISO8601(),
+    body('medical_council').optional().isString().trim(),
+    body('government_id_type').optional().isString().trim(),
+    body('government_id_url').optional().isString().trim(),
+    body('live_selfie_url').optional().isString().trim(),
+    body('qualification_details').optional().isArray(),
+    body('experience_months').optional().isInt({ min: 0 }),
+    body('home_visit_consultation_fee').optional().isInt({ min: 0 }),
+    body('emergency_consultation_fee').optional().isInt({ min: 0 }),
+    body('is_emergency_available').optional().isBoolean(),
+    body('clinic_name').optional().isString().trim(),
+    body('clinic_address').optional().isString().trim(),
+    body('clinic_pincode').optional().isString().trim(),
+    body('clinic_map_url').optional().isString().trim(),
+    body('clinic_photo_url').optional().isString().trim(),
   ],
   validate,
   asyncHandler(async (req, res) => {
     const profile = await doctorService.updateProfile(req.user.id, req.body);
+    res.json({ success: true, data: profile });
+  })
+);
+
+// Submit profile for approval
+router.post('/me/submit-for-approval',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.submitForApproval(req.user.id);
+    res.json({ success: true, ...result });
+  })
+);
+
+// Update verification documents
+router.put('/me/verification-documents',
+  authenticate,
+  authorize('doctor'),
+  [
+    body('degree_certificate_url').optional().isString().trim(),
+    body('license_document_url').optional().isString().trim(),
+    body('government_id_url').optional().isString().trim(),
+    body('live_selfie_url').optional().isString().trim(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const profile = await doctorService.updateVerificationDocuments(req.user.id, req.body);
     res.json({ success: true, data: profile });
   })
 );
@@ -305,11 +348,55 @@ router.put('/me/slots',
   authorize('doctor'),
   [
     body('slots').isArray().withMessage('Slots must be an array'),
+    body('slots.*.slot_date').optional().isString(),
+    body('slots.*.date').optional().isString(),
+    body('slots.*.startTime').optional().isString(),
+    body('slots.*.endTime').optional().isString(),
+    body('slots.*.isHomeEnabled').optional().isBoolean(),
+    body('slots.*.slotDuration').optional().isInt(),
+    body('slots.*.bufferTime').optional().isInt(),
   ],
   validate,
   asyncHandler(async (req, res) => {
     const slots = await doctorService.updateSlots(req.user.id, req.body.slots);
     res.json({ success: true, data: slots });
+  })
+);
+
+// ============ LEAVE MANAGEMENT (Phase 6) ============
+
+router.get('/me/leaves',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const leaves = await doctorService.getLeaves(req.user.id);
+    res.json({ success: true, data: leaves });
+  })
+);
+
+router.post('/me/leaves',
+  authenticate,
+  authorize('doctor'),
+  [
+    body('start_date').isDate().withMessage('Valid start date is required'),
+    body('end_date').isDate().withMessage('Valid end date is required'),
+    body('reason').optional().isString(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const leave = await doctorService.addLeave(req.user.id, req.body);
+    res.json({ success: true, data: leave });
+  })
+);
+
+router.delete('/me/leaves/:id',
+  authenticate,
+  authorize('doctor'),
+  param('id').isUUID().withMessage('Valid leave ID is required'),
+  validate,
+  asyncHandler(async (req, res) => {
+    await doctorService.deleteLeave(req.user.id, req.params.id);
+    res.json({ success: true, message: 'Leave deleted successfully' });
   })
 );
 
@@ -420,6 +507,26 @@ router.get('/me/patients/:patientId',
   asyncHandler(async (req, res) => {
     const patient = await doctorService.getPatientDetails(req.user.id, req.params.patientId);
     res.json({ success: true, data: patient });
+  })
+);
+
+// Update patient medical history
+router.put('/me/patients/:patientId/medical-history',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.updatePatientMedicalHistory(req.user.id, req.params.patientId, req.body);
+    res.json({ success: true, data: result });
+  })
+);
+
+// Update patient internal notes
+router.put('/me/patients/:patientId/internal-notes',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.updatePatientInternalNotes(req.user.id, req.params.patientId, req.body.notes);
+    res.json({ success: true, data: result });
   })
 );
 
@@ -835,6 +942,31 @@ router.post('/:id/reviews',
     const review = await reviewService.submitReview(patient.id, reviewData);
 
     res.status(201).json({ success: true, data: review });
+  })
+);
+
+// Get doctor details (PUBLIC PROFILE)
+router.get('/:id',
+  asyncHandler(async (req, res) => {
+    // IMPORTANT: This is a public route, no authentication needed.
+    const doctorDetails = await doctorService.getDoctorById(req.params.id);
+    const { signStorageUrlsInPayload } = require('../../config/minio');
+    const dataPayload = {
+      doctor: doctorDetails,
+      schedules: doctorDetails.slots || [],
+      reviews: doctorDetails.reviews || [],
+      reviewDistribution: doctorDetails.reviewDistribution || {},
+      queueCount: doctorDetails.queueCount || 0,
+      clinics: doctorDetails.affiliatedClinics?.map(ac => ({ ...ac.clinic, consultation_fee: ac.consultation_fee, schedule: ac.schedule })) || [],
+      hospitals: doctorDetails.affiliatedHospitals?.map(ah => ({ ...ah.hospital, department: ah.department, designation: ah.designation, schedule: ah.schedule })) || []
+    };
+
+    const signedData = await signStorageUrlsInPayload(dataPayload);
+
+    res.json({
+      success: true,
+      data: signedData
+    });
   })
 );
 

@@ -4,6 +4,7 @@ const { validate } = require('../../middleware/validate');
 const { authenticate } = require('../../middleware/auth');
 const appointmentService = require('../../services/appointmentService');
 const consultationService = require('../../services/consultationService');
+const prescriptionPdfService = require('../../services/prescriptionPdfService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { recordHealthEvent } = require('../../services/outbreakService');
 
@@ -222,6 +223,14 @@ router.post('/:id/prescription',
     }
 
     res.status(201).json({ success: true, data: prescription });
+  })
+);
+
+// Get Prescription PDF
+router.get('/:id/prescription/pdf',
+  asyncHandler(async (req, res) => {
+    // We allow both doctors and patients to download their prescription
+    await prescriptionPdfService.generatePdf(req.params.id, res);
   })
 );
 

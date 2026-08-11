@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
 import { VideoUpload } from '@/components/shared/VideoUpload';
 import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
+import { SecuritySettings } from './SecuritySettings';
 import { useAuthStore } from '@/stores/authStore';
 import { doctorApi, authApi } from '@/lib/api';
 import { loadDoctorNotificationSettings, saveDoctorNotificationSettings } from '@/lib/doctorNotificationSettings';
@@ -644,24 +645,7 @@ export default function DoctorSettingsPage() {
 
                             {/* SECURITY */}
                             {activeTab === 'security' && (
-                                <>
-                                    <SectionLabel>Change Password</SectionLabel>
-                                    <div className="max-w-sm space-y-4 bg-gray-50 dark:bg-gray-800/30 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
-                                        <FieldRow label="Current Password">
-                                            <Input type="password" value={passwords.current} onChange={e => setPasswords(p => ({ ...p, current: e.target.value }))} placeholder="Enter current password" />
-                                        </FieldRow>
-                                        <FieldRow label="New Password">
-                                            <Input type="password" value={passwords.new} onChange={e => setPasswords(p => ({ ...p, new: e.target.value }))} placeholder="Min. 6 characters" />
-                                        </FieldRow>
-                                        <FieldRow label="Confirm New Password">
-                                            <Input type="password" value={passwords.confirm} onChange={e => setPasswords(p => ({ ...p, confirm: e.target.value }))} placeholder="Re-enter new password" />
-                                        </FieldRow>
-                                        <Button variant="outline" onClick={handleChangePassword} isLoading={isSaving} leftIcon={<Lock className="h-4 w-4" />} className="w-full mt-2">Update Password</Button>
-                                    </div>
-                                    <div className="mt-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400 max-w-sm">
-                                        🔐 Use a strong password with letters, numbers and symbols. Never share your credentials.
-                                    </div>
-                                </>
+                                <SecuritySettings showStatus={showStatus} />
                             )}
 
                         </div>

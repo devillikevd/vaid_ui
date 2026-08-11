@@ -13,10 +13,12 @@ import { Input } from '@/components/ui/Input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAdminStore } from '@/stores/adminStore';
 import type { PendingProvider } from '@/stores/adminStore';
+import { api, adminApi } from '@/lib/api';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
 import Link from 'next/link';
 import { Pagination, usePagination } from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
+import VerificationChecklist from '@/components/admin/VerificationChecklist';
 
 type ProviderType = 'all' | 'doctors' | 'hospitals' | 'clinics' | 'pharmacies' | 'diagnostic_centers' | 'wellness_coaches' | 'fitness_centers' | 'ambulances';
 
@@ -42,6 +44,11 @@ export default function ApprovalsPage() {
     const toast = useToast();
     const [page, setPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
+    
+    // Phase 4: Advanced Filters
+    const [sort, setSort] = useState('date_desc');
+    const [dateRange, setDateRange] = useState('');
+    const [minCompletion, setMinCompletion] = useState('');
     const { pendingProviders, loadingApprovals, fetchPendingApprovals, fetchDashboardData, stats, providerCounts } = useAdminStore();
 
     useEffect(() => {
@@ -61,8 +68,8 @@ export default function ApprovalsPage() {
 
     useEffect(() => {
         setPage(1);
-        fetchPendingApprovals(activeFilter);
-    }, [activeFilter, fetchPendingApprovals]);
+        fetchPendingApprovals(activeFilter, { sort, dateRange, minCompletion });
+    }, [activeFilter, sort, dateRange, minCompletion, fetchPendingApprovals]);
 
     const filteredApprovals = pendingProviders.filter(item => {
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -120,10 +127,34 @@ export default function ApprovalsPage() {
             </div>
 
             <Card padding="sm">
-                <div className="flex items-center gap-4">
-                    <div className="flex-1">
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                    <div className="flex-1 w-full">
                         <Input placeholder="Search by name or email..." value={searchQuery}
                             onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} leftIcon={<Search className="h-5 w-5" />} />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                        <select 
+                            className="text-sm border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-800"
+                            value={sort} onChange={(e) => setSort(e.target.value)}>
+                            <option value="date_desc">Newest First</option>
+                            <option value="date_asc">Oldest First</option>
+                            <option value="score_desc">Highest Completion</option>
+                        </select>
+                        <select 
+                            className="text-sm border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-800"
+                            value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
+                            <option value="">All Time</option>
+                            <option value="7">Last 7 Days</option>
+                            <option value="30">Last 30 Days</option>
+                        </select>
+                        <select 
+                            className="text-sm border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-800"
+                            value={minCompletion} onChange={(e) => setMinCompletion(e.target.value)}>
+                            <option value="">Any Score</option>
+                            <option value="50">&gt; 50%</option>
+                            <option value="80">&gt; 80%</option>
+                            <option value="100">100%</option>
+                        </select>
                     </div>
                 </div>
             </Card>
@@ -316,6 +347,8 @@ function ApprovalActions({
 
 /** Expanded detail panel showing provider info + map preview */
 function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
+    const toast = useToast();
+    const [isDownloadingZip, setIsDownloadingZip] = useState<string | null>(null);
     const hasLocation = approval.latitude != null && approval.longitude != null;
     const isDoctor = approval.provider_type === 'doctors' || approval.provider_type_key === 'doctor';
     const isCoach = approval.provider_type === 'wellness_coaches' || approval.provider_type_key === 'wellness_coach';
@@ -341,6 +374,16 @@ function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
     return (
         <div className="px-6 pb-4 pt-0 bg-gray-50/50 dark:bg-gray-800/30 border-t border-gray-100 dark:border-gray-800">
             <div className={`grid grid-cols-1 ${needsLocationPreview ? 'lg:grid-cols-2' : ''} gap-4 pt-3`}>
+                {/* Verification Engine (Phase 7) */}
+                {isDoctor && (
+                    <div className="col-span-1 lg:col-span-full mb-4">
+                        <VerificationChecklist 
+                            providerId={approval.id} 
+                            providerType={approval.provider_type || 'doctor'} 
+                            initialChecklist={approval.verification_checklist || {}} 
+                        />
+                    </div>
+                )}
                 {/* Provider details */}
                 <div className="space-y-3">
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Provider Details</h4>
@@ -455,6 +498,64 @@ function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
                             ))}
                         </div>
                     )}
+                    {isDoctor && (approval.degree_certificate_url || approval.license_document_url || approval.government_id_url || approval.live_selfie_url) && (
+                        <div className="space-y-2 pt-2">
+                            <div className="flex items-center justify-between">
+                                <h5 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Doctor Verification Documents
+                                </h5>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={isDownloadingZip === approval.id}
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        setIsDownloadingZip(approval.id);
+                                        const res = await adminApi.downloadDocumentsZip(approval.provider_type_key || approval.provider_type || 'doctor', approval.id);
+                                        if (!res.success) {
+                                            toast.error('Download Failed', res.error || 'Failed to download ZIP');
+                                        }
+                                        setIsDownloadingZip(null);
+                                    }}
+                                    leftIcon={isDownloadingZip === approval.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                                >
+                                    {isDownloadingZip === approval.id ? 'Downloading...' : 'Download ZIP'}
+                                </Button>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {approval.live_selfie_url && (
+                                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                        <div className="bg-gray-100 dark:bg-gray-800 px-3 py-1 text-xs font-medium border-b border-gray-200 dark:border-gray-700">Live Selfie</div>
+                                        <img src={approval.live_selfie_url} alt="Selfie" className="w-full h-32 object-cover object-top" />
+                                    </div>
+                                )}
+                                {approval.government_id_url && (
+                                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 flex flex-col justify-between">
+                                        <div className="text-xs font-medium text-gray-500">Government ID ({approval.government_id_type || 'Unknown'})</div>
+                                        <a href={approval.government_id_url} target="_blank" rel="noreferrer" className="mt-2 text-sm text-blue-600 hover:underline">View Document</a>
+                                    </div>
+                                )}
+                                {approval.degree_certificate_url && (
+                                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 flex flex-col justify-between">
+                                        <div className="text-xs font-medium text-gray-500">Medical Degree</div>
+                                        <a href={approval.degree_certificate_url} target="_blank" rel="noreferrer" className="mt-2 text-sm text-blue-600 hover:underline">View Document</a>
+                                    </div>
+                                )}
+                                {approval.license_document_url && (
+                                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 flex flex-col justify-between">
+                                        <div className="text-xs font-medium text-gray-500">Registration Certificate</div>
+                                        <a href={approval.license_document_url} target="_blank" rel="noreferrer" className="mt-2 text-sm text-blue-600 hover:underline">View Document</a>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* 🌟 Verification Checklist Engine (Phase 2) */}
+                    {isDoctor && (
+                        <VerificationChecklistEngine approval={approval} />
+                    )}
+
                     {needsLocationPreview && !hasLocation && (
                         <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
                             <MapPin className="h-3.5 w-3.5" />
@@ -482,6 +583,95 @@ function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
                         </div>
                     )}
                 </div>}
+            </div>
+        </div>
+    );
+}
+
+function VerificationChecklistEngine({ approval }: { approval: PendingProvider }) {
+    const [checklist, setChecklist] = useState<Record<string, boolean>>(
+        (approval as any).verification_checklist || {}
+    );
+    const [notes, setNotes] = useState((approval as any).admin_notes || '');
+    const [saving, setSaving] = useState(false);
+    const toast = useToast();
+
+    const items = [
+        { key: 'email_verified', label: 'Email Verified', readonly: true, val: true }, // Auth handles this, assumed true if they reached here in our flow
+        { key: 'registration_verified', label: 'Registration Number Verified' },
+        { key: 'degree_verified', label: 'Degree Verified' },
+        { key: 'identity_verified', label: 'Identity Verified (Selfie vs ID)' },
+        { key: 'clinic_verified', label: 'Clinic/Hospital Verified' },
+    ];
+
+    const completedCount = items.filter(i => (i.readonly ? i.val : checklist[i.key])).length;
+    const progressPercent = Math.round((completedCount / items.length) * 100);
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const res = await adminApi.updateProviderVerification('doctor', approval.id, {
+                verification_checklist: checklist,
+                admin_notes: notes
+            });
+            if (res.success) {
+                toast.success('Success', 'Checklist updated successfully');
+            } else {
+                toast.error('Error', 'Failed to update checklist');
+            }
+        } catch (e) {
+            toast.error('Error', 'API Error updating checklist');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="space-y-4 pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+                <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    Verification Checklist Engine
+                </h5>
+                <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-full">
+                    Progress: {progressPercent}%
+                </span>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {items.map((item) => {
+                    const isChecked = item.readonly ? item.val : !!checklist[item.key];
+                    return (
+                        <label key={item.key} className={`flex items-center gap-2 text-sm p-2 rounded-md border ${isChecked ? 'bg-emerald-50/50 border-emerald-200 dark:bg-emerald-900/10 dark:border-emerald-800' : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'} ${item.readonly ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750'}`}>
+                            <input 
+                                type="checkbox" 
+                                checked={isChecked} 
+                                disabled={item.readonly || saving}
+                                onChange={(e) => setChecklist(prev => ({ ...prev, [item.key]: e.target.checked }))}
+                                className="rounded text-emerald-600 focus:ring-emerald-500 bg-white border-gray-300"
+                            />
+                            <span className={isChecked ? 'text-emerald-700 dark:text-emerald-400 font-medium' : 'text-gray-700 dark:text-gray-300'}>
+                                {item.label}
+                            </span>
+                        </label>
+                    );
+                })}
+            </div>
+
+            <div>
+                <h5 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                    Admin Internal Notes (Private)
+                </h5>
+                <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="E.g., Called hospital, verified degree on NMC website..."
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200 focus:ring-2 focus:ring-blue-500"
+                    rows={3}
+                />
+            </div>
+            
+            <div className="flex justify-end">
+                <Button size="sm" onClick={handleSave} isLoading={saving}>Save Checklist & Notes</Button>
             </div>
         </div>
     );

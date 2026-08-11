@@ -879,6 +879,192 @@ export function useConsultationPatientLeft(onPatientLeft?: (data: ConsultationPa
     return { leftConsultation };
 }
 
+// ── Consultation lifecycle socket types (Part 8-12) ─────────────────
+
+export interface ConsultationStageUpdate {
+    consultationId: string;
+    appointmentId?: string | null;
+    roomId?: string;
+    status?: string;
+    stage?: string;
+    reason?: string | null;
+    event?: string;
+    completionMethod?: string;
+    activeDurationMs?: number | null;
+    totalPausedMs?: number;
+    reconnectCount?: number;
+    recoveryCount?: number;
+    consent?: { agreed: boolean; at?: string };
+    doctorUserId?: string;
+    patientUserId?: string;
+    timestamp: string;
+}
+
+export interface ConsultationEndRequestEvent {
+    consultationId: string;
+    appointmentId?: string | null;
+    roomId?: string;
+    requestedBy: string;
+    requestedByName?: string;
+    reason?: string | null;
+    otpRequired: boolean;
+    rejoinWindowSec?: number;
+    timestamp: string;
+}
+
+export interface ConsultationEndResponseEvent {
+    consultationId: string;
+    appointmentId?: string | null;
+    roomId?: string;
+    decision: 'confirm' | 'decline';
+    reason?: string | null;
+    timestamp: string;
+}
+
+export interface ConsultationForceCompletedEvent {
+    consultationId: string;
+    appointmentId?: string | null;
+    roomId?: string;
+    reason?: string | null;
+    disputed?: boolean;
+    event?: string;
+    timestamp: string;
+}
+
+export interface ConsultationNetworkEvent {
+    consultationId: string;
+    event: string;
+    userId?: string | null;
+    metadata?: Record<string, unknown>;
+    timestamp: string;
+}
+
+export interface ConsultationLogEvent {
+    consultationId: string;
+    event: string;
+    eventType?: string;
+    actorType?: string;
+    actorName?: string | null;
+    detail?: string | null;
+    metadata?: Record<string, unknown>;
+    timestamp: string;
+}
+
+export interface ConsultationPolicyChangedEvent {
+    key: string;
+    value: string;
+    changedBy?: string | null;
+    timestamp: string;
+}
+
+/**
+ * Hook for lifecycle stage updates (Part 8) — stage/status transitions.
+ */
+export function useConsultationStage(onStage?: (data: ConsultationStageUpdate) => void) {
+    const { on } = useSocket();
+    const [stageUpdate, setStageUpdate] = useState<ConsultationStageUpdate | null>(null);
+
+    useEffect(() => {
+        const handle = (data: ConsultationStageUpdate) => {
+            setStageUpdate(data);
+            onStage?.(data);
+        };
+        return on('consultation:stage', handle);
+    }, [on, onStage]);
+
+    return { stageUpdate };
+}
+
+/**
+ * Hook for doctor end-requests (Part 10) — fires on the patient side.
+ */
+export function useConsultationEndRequest(onRequest?: (data: ConsultationEndRequestEvent) => void) {
+    const { on } = useSocket();
+    const [endRequest, setEndRequest] = useState<ConsultationEndRequestEvent | null>(null);
+
+    useEffect(() => {
+        const handle = (data: ConsultationEndRequestEvent) => {
+            setEndRequest(data);
+            onRequest?.(data);
+        };
+        return on('consultation:end-request', handle);
+    }, [on, onRequest]);
+
+    return { endRequest };
+}
+
+/**
+ * Hook for patient end-responses (Part 10) — fires on the doctor side.
+ */
+export function useConsultationEndResponse(onResponse?: (data: ConsultationEndResponseEvent) => void) {
+    const { on } = useSocket();
+    const [endResponse, setEndResponse] = useState<ConsultationEndResponseEvent | null>(null);
+
+    useEffect(() => {
+        const handle = (data: ConsultationEndResponseEvent) => {
+            setEndResponse(data);
+            onResponse?.(data);
+        };
+        return on('consultation:end-response', handle);
+    }, [on, onResponse]);
+
+    return { endResponse };
+}
+
+/**
+ * Hook for force-complete events (Part 12).
+ */
+export function useConsultationForceCompleted(onCompleted?: (data: ConsultationForceCompletedEvent) => void) {
+    const { on } = useSocket();
+    const [forceCompleted, setForceCompleted] = useState<ConsultationForceCompletedEvent | null>(null);
+
+    useEffect(() => {
+        const handle = (data: ConsultationForceCompletedEvent) => {
+            setForceCompleted(data);
+            onCompleted?.(data);
+        };
+        return on('consultation:force-completed', handle);
+    }, [on, onCompleted]);
+
+    return { forceCompleted };
+}
+
+/**
+ * Hook for network events (Part 7) — camera/mic/connection state changes.
+ */
+export function useConsultationNetworkEvents(onNetwork?: (data: ConsultationNetworkEvent) => void) {
+    const { on } = useSocket();
+    const [networkEvents, setNetworkEvents] = useState<ConsultationNetworkEvent[]>([]);
+
+    useEffect(() => {
+        const handle = (data: ConsultationNetworkEvent) => {
+            setNetworkEvents((prev) => [...prev.slice(-19), data]);
+            onNetwork?.(data);
+        };
+        return on('consultation:network', handle);
+    }, [on, onNetwork]);
+
+    return { networkEvents };
+}
+
+/**
+ * Hook for realtime consultation audit logs (Part 16).
+ */
+export function useConsultationLogs(onLog?: (data: ConsultationLogEvent) => void) {
+    const { on } = useSocket();
+    const [logEvents, setLogEvents] = useState<ConsultationLogEvent[]>([]);
+
+    useEffect(() => {
+        const handle = (data: ConsultationLogEvent) => {
+            setLogEvents((prev) => [...prev.slice(-49), data]);
+            onLog?.(data);
+        };
+        return on('consultation:log', handle);
+    }, [on, onLog]);
+
+    return { logEvents };
+}
+
 /**
  * Hook for prescription updates (C2) — fires when doctor creates a new prescription
  */

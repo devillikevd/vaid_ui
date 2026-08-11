@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Clock, Plus, Loader2, RefreshCw, Trash2, AlertCircle, X, Info, CalendarPlus, ChevronDown, ChevronUp, PauseCircle, PlayCircle } from 'lucide-react';
+import { Clock, Plus, Loader2, RefreshCw, Trash2, AlertCircle, X, Info, CalendarPlus, ChevronDown, ChevronUp, PauseCircle, PlayCircle, CalendarX } from 'lucide-react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -30,9 +30,23 @@ function generateSubSlots(start: string, end: string, intervalMinutes: number = 
 }
 
 export default function DoctorSchedulePage() {
-    const { schedule, blockedSlots, bookedSlots, loadingSchedule, error, fetchSchedule, updateSchedule, clearError, toggleSlotBlock } = useDoctorStore();
+    const { schedule, blockedSlots, bookedSlots, leaves, loadingSchedule, loadingLeaves, error, fetchSchedule, updateSchedule, fetchLeaves, addLeave, deleteLeave, clearError, toggleSlotBlock } = useDoctorStore();
     const [showAddModal, setShowAddModal] = useState(false);
-    const [newSlot, setNewSlot] = useState({ slot_date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '17:00', isVideoEnabled: true, isClinicEnabled: true });
+    const [showLeaveModal, setShowLeaveModal] = useState(false);
+    const [activeTab, setActiveTab] = useState<'schedule' | 'leaves'>('schedule');
+    const [newSlot, setNewSlot] = useState({ 
+        slot_date: new Date().toISOString().split('T')[0], 
+        startTime: '09:00', 
+        endTime: '17:00', 
+        isVideoEnabled: true, 
+        isClinicEnabled: true,
+        isHomeEnabled: false,
+        slotDuration: 15,
+        bufferTime: 0
+    });
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [recurringWeeks, setRecurringWeeks] = useState(4);
+    const [newLeave, setNewLeave] = useState({ start_date: '', end_date: '', reason: '' });
     const [saving, setSaving] = useState(false);
     const [expandedSlots, setExpandedSlots] = useState<Set<number>>(new Set());
     const [optimisticBlocks, setOptimisticBlocks] = useState<Set<string>>(new Set());
@@ -78,17 +92,54 @@ export default function DoctorSchedulePage() {
     };
     const { dialogProps, confirm: confirmAction } = useConfirmDialog();
 
-    useEffect(() => { fetchSchedule(); }, [fetchSchedule]);
+    useEffect(() => { 
+        fetchSchedule(); 
+        fetchLeaves();
+    }, [fetchSchedule, fetchLeaves]);
 
     const handleAddSlot = async () => {
         setSaving(true);
-        const updatedSlots = [...schedule, { ...newSlot, isAvailable: true }];
+        let updatedSlots = [...schedule];
+        
+        if (isRecurring) {
+            // Generate dates for the next N weeks
+            const startDate = new Date(newSlot.slot_date);
+            const generatedSlots = [];
+            for (let i = 0; i < recurringWeeks; i++) {
+                const date = new Date(startDate);
+                date.setDate(startDate.getDate() + (i * 7));
+                generatedSlots.push({ ...newSlot, slot_date: date.toISOString().split('T')[0], isAvailable: true });
+            }
+            updatedSlots = [...updatedSlots, ...generatedSlots];
+        } else {
+            updatedSlots.push({ ...newSlot, isAvailable: true });
+        }
+        
         const success = await updateSchedule(updatedSlots as unknown as Record<string, unknown>[]);
         if (success) {
             setShowAddModal(false);
-            setNewSlot({ slot_date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '17:00', isVideoEnabled: true, isClinicEnabled: true });
+            setNewSlot({ slot_date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '17:00', isVideoEnabled: true, isClinicEnabled: true, isHomeEnabled: false, slotDuration: 15, bufferTime: 0 });
+            setIsRecurring(false);
+            setRecurringWeeks(4);
         }
         setSaving(false);
+    };
+
+    const handleAddLeave = async () => {
+        setSaving(true);
+        const success = await addLeave(newLeave.start_date, newLeave.end_date, newLeave.reason);
+        if (success) {
+            setShowLeaveModal(false);
+            setNewLeave({ start_date: '', end_date: '', reason: '' });
+        }
+        setSaving(false);
+    };
+
+    const handleDeleteLeave = async (id: string) => {
+        const confirmed = await confirmAction({ title: 'Remove Leave', message: 'Are you sure you want to remove this leave?', confirmLabel: 'Remove', variant: 'warning' });
+        if (confirmed) {
+            await deleteLeave(id);
+        }
     };
 
     const handleRemoveSlot = async (index: number) => {
@@ -158,14 +209,37 @@ export default function DoctorSchedulePage() {
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div><h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Manage your availability slots</p></div>
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule & Leaves</h1>
+                    <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your availability slots and time off</p>
+                </div>
+                <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                    <button 
+                        onClick={() => setActiveTab('schedule')}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'schedule' ? 'bg-white dark:bg-gray-700 shadow text-emerald-700 dark:text-emerald-400' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
+                    >
+                        Schedule
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('leaves')}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'leaves' ? 'bg-white dark:bg-gray-700 shadow text-emerald-700 dark:text-emerald-400' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
+                    >
+                        Leaves
+                    </button>
+                </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={fetchSchedule} leftIcon={<RefreshCw className="h-4 w-4" />} disabled={saving || loadingSchedule}>Refresh</Button>
-                    <Button onClick={() => setShowAddModal(true)} leftIcon={<Plus className="h-4 w-4" />} disabled={saving}>Add Slot</Button>
+                    <Button variant="outline" onClick={activeTab === 'schedule' ? fetchSchedule : fetchLeaves} leftIcon={<RefreshCw className="h-4 w-4" />} disabled={saving || loadingSchedule || loadingLeaves}>Refresh</Button>
+                    {activeTab === 'schedule' ? (
+                        <Button onClick={() => setShowAddModal(true)} leftIcon={<Plus className="h-4 w-4" />} disabled={saving}>Add Slot</Button>
+                    ) : (
+                        <Button onClick={() => setShowLeaveModal(true)} leftIcon={<CalendarX className="h-4 w-4" />} disabled={saving}>Add Leave</Button>
+                    )}
                 </div>
             </div>
 
-            <Card padding="sm">
+            {activeTab === 'schedule' ? (
+                <>
+                    <Card padding="sm">
                 <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                     <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
                         {activeSlots} active slots
@@ -271,9 +345,91 @@ export default function DoctorSchedulePage() {
                 <Info className="w-5 h-5 text-blue-500 mt-0.5" />
                 <div>
                     <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">Did you know?</h4>
-                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">You can block specific time slots by expanding a time block and clicking on the generated 30-minute intervals. Click again to unblock.</p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">You can block specific time slots by expanding a time block and clicking on the generated intervals. Click again to unblock.</p>
                 </div>
             </div>
+            </>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {leaves.length === 0 && !loadingLeaves ? (
+                        <div className="col-span-full py-12 text-center text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                            No upcoming leaves scheduled.
+                        </div>
+                    ) : (
+                        leaves.map(leave => (
+                            <Card key={leave.id} padding="md" className="border-red-100 dark:border-red-900/30">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div>
+                                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                                            {new Date(leave.start_date).toLocaleDateString()}
+                                            {leave.start_date !== leave.end_date && ` - ${new Date(leave.end_date).toLocaleDateString()}`}
+                                        </h3>
+                                        <p className="text-sm text-gray-500 mt-1">{leave.reason || 'No reason provided'}</p>
+                                    </div>
+                                    <button onClick={() => handleDeleteLeave(leave.id)} className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors">
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </Card>
+                        ))
+                    )}
+                </div>
+            )}
+
+            {/* Add Leave Modal */}
+            {showLeaveModal && (
+                <div className="fixed inset-0 backdrop-blur-md bg-black/60 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900/95 dark:backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.3)] border border-gray-100 dark:border-white/10 w-full max-w-md overflow-hidden transform transition-all">
+                        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-black/20">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-red-100 dark:bg-red-500/20 rounded-lg">
+                                    <CalendarX className="h-5 w-5 text-red-600 dark:text-red-400" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Schedule Leave</h3>
+                            </div>
+                            <button onClick={() => setShowLeaveModal(false)} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors text-gray-500"><X className="h-5 w-5" /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Start Date</label>
+                                    <input 
+                                        type="date"
+                                        value={newLeave.start_date} 
+                                        onChange={e => setNewLeave(s => ({ ...s, start_date: e.target.value }))} 
+                                        className="w-full px-4 py-2 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 rounded-xl text-sm transition-all outline-none"
+                                        min={new Date().toISOString().split('T')[0]}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">End Date</label>
+                                    <input 
+                                        type="date"
+                                        value={newLeave.end_date} 
+                                        onChange={e => setNewLeave(s => ({ ...s, end_date: e.target.value }))} 
+                                        className="w-full px-4 py-2 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 rounded-xl text-sm transition-all outline-none"
+                                        min={newLeave.start_date || new Date().toISOString().split('T')[0]}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reason (Optional)</label>
+                                <input 
+                                    type="text"
+                                    placeholder="e.g. Vacation, Sick leave"
+                                    value={newLeave.reason} 
+                                    onChange={e => setNewLeave(s => ({ ...s, reason: e.target.value }))} 
+                                    className="w-full px-4 py-2 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 rounded-xl text-sm transition-all outline-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 p-5 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-black/20">
+                            <Button variant="outline" onClick={() => setShowLeaveModal(false)}>Cancel</Button>
+                            <Button onClick={handleAddLeave} isLoading={saving} className="bg-red-600 hover:bg-red-700 text-white">Save Leave</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Add Slot Modal */}
             {showAddModal && (
@@ -329,25 +485,90 @@ export default function DoctorSchedulePage() {
                                     />
                                 </div>
                             </div>
-                            <div className="flex gap-4 p-4 bg-gray-50 dark:bg-black/20 border border-gray-100 dark:border-white/10 rounded-xl">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={newSlot.isVideoEnabled}
-                                        onChange={e => setNewSlot(s => ({ ...s, isVideoEnabled: e.target.checked }))}
-                                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                                    />
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Video Consult</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={newSlot.isClinicEnabled}
-                                        onChange={e => setNewSlot(s => ({ ...s, isClinicEnabled: e.target.checked }))}
-                                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                                    />
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">In-Person Clinic</span>
-                                </label>
+                            <div className="grid grid-cols-2 gap-5">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Slot Duration</label>
+                                    <select 
+                                        value={newSlot.slotDuration} 
+                                        onChange={e => setNewSlot(s => ({ ...s, slotDuration: parseInt(e.target.value) }))} 
+                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:focus:border-emerald-500/50 rounded-xl text-sm text-gray-900 dark:text-gray-100 transition-all shadow-sm outline-none"
+                                    >
+                                        <option value={10}>10 minutes</option>
+                                        <option value={15}>15 minutes</option>
+                                        <option value={20}>20 minutes</option>
+                                        <option value={30}>30 minutes</option>
+                                        <option value={60}>60 minutes</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Buffer Time</label>
+                                    <select 
+                                        value={newSlot.bufferTime} 
+                                        onChange={e => setNewSlot(s => ({ ...s, bufferTime: parseInt(e.target.value) }))} 
+                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:focus:border-emerald-500/50 rounded-xl text-sm text-gray-900 dark:text-gray-100 transition-all shadow-sm outline-none"
+                                    >
+                                        <option value={0}>0 minutes</option>
+                                        <option value={5}>5 minutes</option>
+                                        <option value={10}>10 minutes</option>
+                                        <option value={15}>15 minutes</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-4 p-4 bg-gray-50 dark:bg-black/20 border border-gray-100 dark:border-white/10 rounded-xl">
+                                <div className="flex flex-wrap gap-4">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={newSlot.isVideoEnabled}
+                                            onChange={e => setNewSlot(s => ({ ...s, isVideoEnabled: e.target.checked }))}
+                                            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                        />
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Video Consult</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={newSlot.isClinicEnabled}
+                                            onChange={e => setNewSlot(s => ({ ...s, isClinicEnabled: e.target.checked }))}
+                                            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                        />
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">In-Person Clinic</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={newSlot.isHomeEnabled}
+                                            onChange={e => setNewSlot(s => ({ ...s, isHomeEnabled: e.target.checked }))}
+                                            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                        />
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Home Visit</span>
+                                    </label>
+                                </div>
+                                <div className="border-t border-gray-200 dark:border-white/10 pt-4 mt-2">
+                                    <label className="flex items-center gap-2 cursor-pointer mb-3">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={isRecurring}
+                                            onChange={e => setIsRecurring(e.target.checked)}
+                                            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                        />
+                                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Repeat Weekly</span>
+                                    </label>
+                                    {isRecurring && (
+                                        <div className="flex items-center gap-3 ml-6">
+                                            <span className="text-sm text-gray-600 dark:text-gray-400">For</span>
+                                            <select 
+                                                value={recurringWeeks} 
+                                                onChange={e => setRecurringWeeks(parseInt(e.target.value))}
+                                                className="px-3 py-1.5 bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-lg text-sm"
+                                            >
+                                                {[2,3,4,5,6,8,10,12].map(w => (
+                                                    <option key={w} value={w}>{w} weeks</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 p-5 border-t border-gray-100 dark:border-white/10 bg-gray-50/50 dark:bg-black/20">
