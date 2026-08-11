@@ -167,3 +167,4 @@ swastik-backend/test_get_slots.js
 swastik-backend/test_insert.js
 swastik-backend/test_journey.js
 swastik-backend/test_schema.js
+failed_log.txt

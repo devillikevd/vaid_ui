@@ -17,6 +17,30 @@ const escapeHtml = (str) => {
     .replace(/'/g, '&#039;');
 };
 
+// M002: never send plaintext http:// links in emails outside local dev.
+// Upgrade any scheme to https unless the host is loopback (localhost/127.0.0.1)
+// or the app is explicitly running in development.
+const toHttpsUrl = (url) => {
+  if (!url) return url;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
+      parsed.protocol = 'https:';
+    }
+    return parsed.toString();
+  } catch (_) {
+    return url;
+  }
+};
+
+// M002: Build an HTTPS-enforced link for emails.
+const buildEmailLink = (pathWithQuery) => {
+  const base = config.frontendWebUrl || '';
+  const raw = `${base}${pathWithQuery}`;
+  if (config.env !== 'development') return toHttpsUrl(raw);
+  return raw;
+};
+
 // ==================== Transporter Setup ====================
 let transporter = null;
 let initFailed = false;
@@ -85,7 +109,7 @@ const sendEmail = async ({ to, subject, html, text }) => {
  * Send email verification link after registration.
  */
 const sendVerificationEmail = async (email, name, verificationToken) => {
-  const verifyUrl = `${config.frontendWebUrl}/verify-email?token=${verificationToken}`;
+  const verifyUrl = buildEmailLink(`/verify-email?token=${encodeURIComponent(verificationToken)}`);
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -190,7 +214,7 @@ const sendVerificationOtpEmail = async (email, name, otp) => {
     intro: 'use the verification code below to activate your account.',
     subject: 'Your Email Verification Code — VAIDIDEA Healthcare',
     accentColor: '#059669',
-    expiryMinutes: 10,
+    expiryMinutes: 5,
   });
 };
 
@@ -203,7 +227,7 @@ const sendPasswordResetOtpEmail = async (email, name, otp) => {
     intro: 'use the reset code below to set a new password.',
     subject: 'Your Password Reset Code — VAIDIDEA Healthcare',
     accentColor: '#DC2626',
-    expiryMinutes: 10,
+    expiryMinutes: 5,
   });
 };
 
@@ -211,7 +235,7 @@ const sendPasswordResetOtpEmail = async (email, name, otp) => {
  * Send password reset link.
  */
 const sendPasswordResetEmail = async (email, name, resetToken) => {
-  const resetUrl = `${config.frontendWebUrl}/reset-password?token=${resetToken}`;
+  const resetUrl = buildEmailLink(`/reset-password?token=${encodeURIComponent(resetToken)}`);
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -270,7 +294,7 @@ const sendNotificationEmail = async (email, name, notification) => {
         <p style="color: #4b5563; line-height: 1.6;">${escapeHtml(notification.message)}</p>
         
         <div style="text-align: center; margin: 25px 0;">
-          <a href="${config.frontendWebUrl}" 
+          <a href="${toHttpsUrl(config.frontendWebUrl)}" 
              style="display: inline-block; padding: 12px 28px; background: #7C3AED; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
             Open VAIDIDEA
           </a>
@@ -358,7 +382,7 @@ const sendApprovalEmail = async (email, name, role, status, notes = '') => {
         
         ${status === 'approved' && loginPath ? `
           <div style="text-align: center; margin: 25px 0;">
-            <a href="${config.frontendWebUrl}/login/${loginPath}" 
+            <a href="${buildEmailLink(`/login/${loginPath}`)}" 
                style="display: inline-block; padding: 14px 32px; background: #059669; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
               Login Now
             </a>

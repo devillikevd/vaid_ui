@@ -6,10 +6,10 @@ certificate_arn = "arn:aws:acm:ap-south-1:324081754250:certificate/96f05022-359b
 instance_type        = "t4g.small"
 ec2_min_size         = 1
 ec2_desired_capacity = 1
-ec2_max_size         = 4
+ec2_max_size         = 2
 app_min_tasks        = 1
 app_desired_tasks    = 1
-app_max_tasks        = 6
+app_max_tasks        = 2
 ai_service_workers   = 1
 log_retention_days   = 14
 

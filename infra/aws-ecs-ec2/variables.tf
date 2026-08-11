@@ -141,6 +141,18 @@ variable "create_s3_bucket" {
   default     = true
 }
 
+variable "enable_s3_versioning" {
+  description = "Enable S3 bucket versioning so accidental overwrites/deletes of uploaded files are recoverable."
+  type        = bool
+  default     = true
+}
+
+variable "enable_s3_mfa_delete" {
+  description = "L019: enable MFA Delete on the upload bucket. WARNING: requires the operator's MFA token at apply time (Terraform cannot supply it, so set this and run scripts/enable_s3_mfa_delete.sh) and blocks the app's programmatic object deletes. Default false."
+  type        = bool
+  default     = false
+}
+
 variable "frontend_web_url" {
   type    = string
   default = "http://localhost:3000"

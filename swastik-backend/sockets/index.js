@@ -35,9 +35,40 @@ const VIDEO_ROLES = ['doctor', 'patient'];
 const CHAT_ROLES = ['doctor', 'patient'];
 const WELLNESS_CHAT_ROLES = ['patient', 'wellness_coach'];
 
+// M004: Per-connection global rate limit. Every event handler runs through
+// safeHandler, so this single choke point caps the total number of socket
+// events a connection can emit per window — regardless of which specific
+// event name is used. A 200-event/10s budget is generous for normal clients
+// (existing per-event limits cap location/chat traffic far lower) but catches
+// abusive flooding of otherwise-unlimited events (e.g. video:ice-candidate).
+const CONN_EVENT_WINDOW_MS = 10 * 1000;
+const CONN_MAX_EVENTS_PER_WINDOW = 200;
+
+const checkConnectionRateLimit = (socket) => {
+  const now = Date.now();
+  const timestamps = socket._eventTimestamps || (socket._eventTimestamps = []);
+  while (timestamps.length > 0 && now - timestamps[0] > CONN_EVENT_WINDOW_MS) {
+    timestamps.shift();
+  }
+  if (timestamps.length >= CONN_MAX_EVENTS_PER_WINDOW) {
+    console.warn(`[sockets] Connection rate limit exceeded for user ${socket.userId} (${socket.id}) — disconnecting`);
+    try {
+      socket.emit('error', { message: 'Too many events sent too quickly. Please slow down.', code: 'RATE_LIMITED' });
+    } catch (_) { /* socket may already be gone */ }
+    try {
+      socket.disconnect(true);
+    } catch (_) { /* ignore */ }
+    return false;
+  }
+  timestamps.push(now);
+  return true;
+};
+
 // Helper: wrap socket event handlers with async try-catch
 const safeHandler = (socket, handler) => {
   return (...args) => {
+    // M004: global per-connection rate limit gate
+    if (!checkConnectionRateLimit(socket)) return;
     try {
       const result = handler(...args);
       // Handle async errors
@@ -275,7 +306,17 @@ const initializeSocketIO = (io) => {
       if (socket.handshake.query?.token) {
         return next(new Error('Query token authentication is not allowed'));
       }
-      const token = socket.handshake.auth?.token;
+      let token = socket.handshake.auth?.token;
+      
+      // Fallback to cookie authentication if HttpOnly cookies are used
+      if (!token && socket.request.headers.cookie) {
+          const cookieHeader = socket.request.headers.cookie;
+          const match = cookieHeader.match(/(?:^|;\s*)accessToken=([^;]*)/);
+          if (match && match[1]) {
+              token = match[1];
+          }
+      }
+
       if (!token) {
         return next(new Error('Authentication required'));
       }

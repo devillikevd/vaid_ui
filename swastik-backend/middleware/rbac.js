@@ -188,4 +188,54 @@ const requireApproval = async (req, res, next) => {
   }
 };
 
-module.exports = { ROLES, requireRole, requireMinRole, requireApproval };
+/**
+ * L015: require MFA for admin/super_admin access.
+ * Enforcement is gated by the ADMIN_MFA_REQUIRED env flag (default off so the
+ * current non-MFA deployment keeps working). When enabled, admin access tokens
+ * must carry an `mfa` claim (issued after a TOTP challenge) or the request is
+ * rejected. Audit-log the denial so enablement is observable.
+ */
+const { asyncLocalStorage } = require('../utils/asyncContext');
+
+const isAdminRole = (role) => role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN;
+
+const requireMfa = (req, res, next) => {
+  if (!process.env.ADMIN_MFA_REQUIRED || process.env.ADMIN_MFA_REQUIRED !== 'true') {
+    return next();
+  }
+
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Authentication required.' });
+  }
+
+  if (!isAdminRole(req.user.role)) {
+    return next(); // MFA requirement only applies to admin roles
+  }
+
+  if (req.user.mfa !== true && req.mfaVerified !== true) {
+    try {
+      const logAudit = require('../utils/auditLogger').logAudit;
+      const token = asyncLocalStorage.getStore()?.token;
+      logAudit({
+        userId: req.user.id,
+        userRole: req.user.role,
+        action: 'admin.mfa_denied',
+        entityType: 'user',
+        entityId: req.user.id,
+        metadata: { path: req.originalUrl, method: req.method },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'] || null,
+        token,
+      }).catch(() => {});
+    } catch { /* audit failure must not break the security response */ }
+    return res.status(403).json({
+      success: false,
+      message: 'Multi-factor authentication is required for admin access.',
+      code: 'MFA_REQUIRED',
+    });
+  }
+
+  next();
+};
+
+module.exports = { ROLES, requireRole, requireMinRole, requireApproval, requireMfa, isAdminRole };

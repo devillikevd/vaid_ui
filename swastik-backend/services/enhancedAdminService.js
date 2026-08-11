@@ -1866,7 +1866,14 @@ const getAnalytics = async (period = '30d') => {
 };
 
 // Audit logs (from MongoDB if available, else return empty)
-const getAuditLogs = async (filters = {}, page = 1, limit = 50) => {
+// M012: cursor (keyset) pagination replaces unbounded offset skip. When a
+// `before` cursor is supplied we page strictly on (createdAt < before), which
+// stays O(page) regardless of how deep the caller pages. Offset mode is kept
+// only for first-page/legacy callers and clamped to MAX_AUDIT_SKIP so a
+// hostile page=N cannot force a full-collection scan.
+const MAX_AUDIT_SKIP = 10000;
+
+const getAuditLogs = async (filters = {}, page = 1, limit = 50, before = null) => {
   try {
     const { AuditLog } = require('../database/models');
     const mongoFilters = {};
@@ -1891,13 +1898,30 @@ const getAuditLogs = async (filters = {}, page = 1, limit = 50) => {
       }
     }
 
-    const total = await AuditLog.countDocuments(mongoFilters);
-    const rawLogs = await AuditLog.find(mongoFilters)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
+    const safePage = Math.max(parseInt(page, 10) || 1, 1);
 
-    const userIds = [...new Set((rawLogs || []).map((log) => log.userId).filter(Boolean))];
+    const isCursorMode = !!before && !Number.isNaN(new Date(before).getTime());
+    const mongoQuery = { ...mongoFilters };
+    if (isCursorMode) {
+      mongoQuery.createdAt = {
+        ...(mongoFilters.createdAt || {}),
+        $lt: new Date(before),
+      };
+    }
+
+    const skip = isCursorMode ? 0 : Math.min((safePage - 1) * safeLimit, MAX_AUDIT_SKIP);
+
+    // Fetch one extra row to determine hasNext without a separate query.
+    const rawLogs = await AuditLog.find(mongoQuery)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(safeLimit + 1);
+
+    const hasNext = rawLogs.length > safeLimit;
+    const pageRows = rawLogs.slice(0, safeLimit);
+
+    const userIds = [...new Set((pageRows || []).map((log) => log.userId).filter(Boolean))];
     let usersById = new Map();
 
     if (userIds.length > 0) {
@@ -1909,7 +1933,7 @@ const getAuditLogs = async (filters = {}, page = 1, limit = 50) => {
       usersById = new Map((users || []).map((user) => [user.id, user]));
     }
 
-    const data = (rawLogs || []).map((log) => {
+    const data = (pageRows || []).map((log) => {
       const plainLog = typeof log.toObject === 'function' ? log.toObject() : log;
       const user = usersById.get(plainLog.userId);
       return {
@@ -1926,15 +1950,33 @@ const getAuditLogs = async (filters = {}, page = 1, limit = 50) => {
       };
     });
 
+    // `total` is only computed in offset mode (cursor mode pages independently
+    // of the collection size, so counting would be both expensive and wrong).
+    let total = null;
+    if (!isCursorMode) {
+      total = await AuditLog.countDocuments(mongoFilters);
+    }
+
+    const nextCursor = pageRows.length > 0 && pageRows[pageRows.length - 1].createdAt
+      ? new Date(pageRows[pageRows.length - 1].createdAt).toISOString()
+      : null;
+
     return {
       data,
-      pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil((total || 0) / limit)) },
+      pagination: {
+        page: isCursorMode ? 1 : safePage,
+        limit: safeLimit,
+        total,
+        totalPages: total !== null ? Math.max(1, Math.ceil(total / safeLimit)) : null,
+        hasNext,
+        nextCursor,
+      },
       sourceStatus: 'available',
     };
   } catch (err) {
     return {
       data: [],
-      pagination: { page, limit, total: 0, totalPages: 1 },
+      pagination: { page, limit, total: 0, totalPages: 1, hasNext: false, nextCursor: null },
       sourceStatus: 'unavailable',
       message: 'Audit log storage is currently unavailable.',
     };

@@ -33,7 +33,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
       - name: Validate AWS role input
         shell: bash
@@ -44,7 +44,7 @@ jobs:
           fi
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a  # v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
@@ -97,10 +97,10 @@ jobs:
             | docker login --username AWS --password-stdin "${{ steps.names.outputs.registry }}"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3
 
       - name: Build and push backend
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:
           context: ./swastik-backend
           platforms: ${{ env.PLATFORM }}
@@ -110,7 +110,7 @@ jobs:
             ${{ steps.names.outputs.backend_latest }}
 
       - name: Build and push AI service
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:
           context: ./swastik-ai-service
           platforms: ${{ env.PLATFORM }}
@@ -235,13 +235,52 @@ jobs:
       - name: Update ECS service
         if: steps.service.outputs.exists == 'true'
         shell: bash
+        env:
+          CLUSTER: ${{ steps.names.outputs.cluster }}
+          SERVICE: ${{ steps.names.outputs.service }}
+          TASK_DEF: ${{ steps.taskdef.outputs.task_definition }}
         run: |
+          set -euo pipefail
+
           aws ecs update-service \
-            --cluster "${{ steps.names.outputs.cluster }}" \
-            --service "${{ steps.names.outputs.service }}" \
-            --task-definition "${{ steps.taskdef.outputs.task_definition }}" \
+            --cluster "${CLUSTER}" \
+            --service "${SERVICE}" \
+            --task-definition "${TASK_DEF}" \
             --force-new-deployment
 
-          aws ecs wait services-stable \
-            --cluster "${{ steps.names.outputs.cluster }}" \
-            --services "${{ steps.names.outputs.service }}"
+          echo "Waiting for ECS service to stabilize (timeout: 10 minutes)..."
+          if ! timeout 600 aws ecs wait services-stable \
+            --cluster "${CLUSTER}" \
+            --services "${SERVICE}"; then
+
+            echo "::error::ECS service did not stabilize within 10 minutes. Collecting diagnostics..."
+
+            # Print recent service events
+            echo "--- Recent Service Events ---"
+            aws ecs describe-services \
+              --cluster "${CLUSTER}" \
+              --services "${SERVICE}" \
+              --query 'services[0].events[:10]' \
+              --output table 2>/dev/null || true
+
+            # Print stopped task reasons
+            echo "--- Stopped Tasks ---"
+            stopped_tasks=$(aws ecs list-tasks \
+              --cluster "${CLUSTER}" \
+              --service-name "${SERVICE}" \
+              --desired-status STOPPED \
+              --query 'taskArns[:3]' \
+              --output text 2>/dev/null || true)
+
+            if [[ -n "${stopped_tasks}" && "${stopped_tasks}" != "None" ]]; then
+              aws ecs describe-tasks \
+                --cluster "${CLUSTER}" \
+                --tasks ${stopped_tasks} \
+                --query 'tasks[].{taskArn:taskArn,stoppedReason:stoppedReason,containers:containers[].{name:name,exitCode:exitCode,reason:reason}}' \
+                --output json 2>/dev/null || true
+            fi
+
+            exit 1
+          fi
+
+          echo "ECS service is stable."

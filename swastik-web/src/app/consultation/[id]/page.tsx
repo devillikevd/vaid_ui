@@ -75,12 +75,14 @@ const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        // TURN server from Vercel env vars (required for mobile network NAT traversal)
+        // M005: TURN credentials are NEVER bundled client-side. The static
+        // fallback below only carries credential-less STUN/TURN URLs for
+        // localhost dev; production ICE config (including ephemeral per-user
+        // TURN credentials) always comes from the authenticated
+        // GET /consultations/:id/ice-servers endpoint.
         ...(process.env.NEXT_PUBLIC_TURN_URL
             ? [{
                 urls: expandTurnUrls(process.env.NEXT_PUBLIC_TURN_URL),
-                username: process.env.NEXT_PUBLIC_TURN_USERNAME || '',
-                credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL || '',
             }]
             : []),
     ],

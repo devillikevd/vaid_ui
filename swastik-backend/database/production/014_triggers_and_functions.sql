@@ -310,6 +310,10 @@ END;
 $$;
 
 -- M2: Atomic doctor slot replacement — delete all + reinsert in one TX
+-- M011: SECURITY DEFINER functions bypass RLS, so ownership is enforced
+-- explicitly. Only the doctor who owns these slots (via doctors.user_id =
+-- auth.uid()) may replace them — otherwise an authenticated caller could
+-- wipe/replace any other doctor's availability.
 CREATE OR REPLACE FUNCTION rpc_replace_doctor_slots(
   p_doctor_id UUID,
   p_slots JSONB
@@ -322,6 +326,12 @@ DECLARE
   v_slot JSONB;
   v_inserted INTEGER := 0;
 BEGIN
+  IF auth.uid() IS NULL OR NOT EXISTS (
+    SELECT 1 FROM doctors WHERE id = p_doctor_id AND user_id = auth.uid()
+  ) THEN
+    RAISE EXCEPTION 'Access denied: you can only replace your own slots';
+  END IF;
+
   DELETE FROM doctor_slots WHERE doctor_id = p_doctor_id;
 
   FOR v_slot IN SELECT * FROM jsonb_array_elements(p_slots)

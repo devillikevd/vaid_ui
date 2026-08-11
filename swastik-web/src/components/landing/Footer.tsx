@@ -33,7 +33,7 @@ export default function Footer() {
               <a href="https://www.youtube.com/@vaididea" target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full bg-vd-forest/10 flex items-center justify-center hover:bg-vd-forest/20 transition-colors" aria-label="YouTube">
                 <svg className="w-4 h-4 text-vd-forest" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path d="M2.5 7.1C2.6 5.9 3.5 5 4.7 4.9 8.2 4.5 12 4.5 15.3 4.9c1.2.1 2.1 1 2.2 2.2.4 2.8.4 6 0 8.8-.1 1.2-1 2.1-2.2 2.2-3.3.4-7.1.4-10.6 0-1.2-.1-2.1-1-2.2-2.2-.4-2.8-.4-6 0-8.8Z" /><polygon points="9.5 15.5 15.5 12 9.5 8.5" /></svg>
               </a>
-              <a href="#" className="w-9 h-9 rounded-full bg-vd-forest/10 flex items-center justify-center hover:bg-vd-forest/20 transition-colors" aria-label="LinkedIn">
+              <a href="https://www.linkedin.com/company/vaididea-healthcare/" target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full bg-vd-forest/10 flex items-center justify-center hover:bg-vd-forest/20 transition-colors" aria-label="LinkedIn">
                 <svg className="w-4 h-4 text-vd-forest" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-4 0v7h-4v-7a6 6 0 016-6z" /><rect x="2" y="9" width="4" height="12" /><circle cx="4" cy="4" r="2" /></svg>
               </a>
               <a href="#" className="w-9 h-9 rounded-full bg-vd-forest/10 flex items-center justify-center hover:bg-vd-forest/20 transition-colors" aria-label="X">

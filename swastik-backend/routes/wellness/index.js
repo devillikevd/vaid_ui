@@ -579,6 +579,18 @@ router.get('/trainer-invites/:token',
   })
 );
 
+// L018: preview the invite with the token in the request BODY so it never
+// appears in URLs, access logs, or the Referer header.
+router.post('/trainer-invites/preview',
+  optionalAuth,
+  [body('token').isString().isLength({ min: 16, max: 128 })],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.getTrainerInviteByToken(req.body.token);
+    res.json({ success: true, data });
+  })
+);
+
 router.get('/coaches/me/center-invites',
   authenticate,
   requireRole(ROLES.WELLNESS_COACH),
@@ -614,6 +626,21 @@ router.post('/trainer-invites/:token/respond',
   validate,
   asyncHandler(async (req, res) => {
     const data = await wellnessService.respondTrainerInvite(req.user.id, req.params.token, req.body.decision);
+    res.json({ success: true, data });
+  })
+);
+
+// L018: respond to an invite with the token in the body (no URL exposure).
+router.post('/trainer-invites/respond',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH),
+  [
+    body('token').isString().isLength({ min: 16, max: 128 }),
+    body('decision').isIn(['accept', 'reject']),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.respondTrainerInvite(req.user.id, req.body.token, req.body.decision);
     res.json({ success: true, data });
   })
 );

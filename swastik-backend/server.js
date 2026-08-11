@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
+const cookieParser = require('cookie-parser');
 const { Server } = require('socket.io');
 const crypto = require('crypto');
 const WebSocket = require('ws');
@@ -255,8 +256,48 @@ app.use(cors({
   optionsSuccessStatus: 204,
 }));
 
-// Trust proxy (AWS ALB) for rate limiting and X-Forwarded-For to work properly
-app.set('trust proxy', 1);
+// L004: Only trust X-Forwarded-For (and set req.ip accordingly) when the
+// connecting peer is on the explicit trusted-proxy allowlist. Without this,
+// a client can spoof X-Forwarded-For to bypass IP-based rate limiting.
+// Configure with TRUSTED_PROXY_IPS (comma-separated IPs and/or IPv4 CIDRs),
+// e.g. the AWS ALB subnet CIDRs. Fails closed when unset.
+const net = require('net');
+const TRUSTED_PROXY_IPS = (process.env.TRUSTED_PROXY_IPS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const ipv4ToInt = (ipv4) => {
+  const octets = ipv4.split('.').map(Number);
+  if (octets.length !== 4 || octets.some((o) => !Number.isInteger(o) || o < 0 || o > 255)) return null;
+  return octets.reduce((acc, octet) => (acc << 8) + octet, 0) >>> 0;
+};
+
+const cidrContains = (cidr, ipv4) => {
+  const slash = cidr.indexOf('/');
+  if (slash === -1) return false;
+  const range = ipv4ToInt(cidr.slice(0, slash));
+  const bits = Number(cidr.slice(slash + 1));
+  if (range === null || !Number.isInteger(bits) || bits < 0 || bits > 32) return false;
+  const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
+  return (ipv4ToInt(ipv4) & mask) === (range & mask);
+};
+
+const isTrustedProxy = (remoteIp) => {
+  const normalized = String(remoteIp).replace(/^::ffff:/, '');
+  if (!net.isIP(normalized)) return false;
+  return TRUSTED_PROXY_IPS.some((entry) => {
+    if (entry.includes('/')) return cidrContains(entry, normalized);
+    return entry === normalized || entry === remoteIp;
+  });
+};
+
+app.set('trust proxy', TRUSTED_PROXY_IPS.length > 0 ? isTrustedProxy : false);
+
+// H001: Origin validation for state-changing requests (defense-in-depth on top
+// of header-based bearer auth + SameSite=Strict cookies).
+const { csrfProtection } = require('./middleware/csrf');
+app.use(csrfProtection);
 
 // Security middleware (after CORS)
 app.use(helmet({
@@ -268,13 +309,23 @@ app.use(helmet({
     preload: true,
   },
   referrerPolicy: { policy: 'no-referrer' },
-  // JSON API: frame-ancestors guards against clickjacking of any served content
+  // L003: explicit CSP directives for any HTML this server renders (error
+  // pages, /health, swagger-style content). API JSON responses carry it too,
+  // which is harmless. No inline/remote sources are allowed.
   contentSecurityPolicy: {
+    useDefaults: false,
     directives: {
-      defaultSrc: ["'self'"],
-      baseUri: ["'self'"],
+      defaultSrc: ["'none'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
       objectSrc: ["'none'"],
-      frameAncestors: ["'self'"],
+      baseUri: ["'none'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
+      upgradeInsecureRequests: [],
     },
   },
   crossOriginEmbedderPolicy: false,
@@ -352,6 +403,9 @@ app.use('/api/auth/reset-password', authLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Cookie parsing (M001: HttpOnly refresh-token cookie)
+app.use(cookieParser());
+
 // Data sanitization against NoSQL query injection
 app.use(mongoSanitize());
 
@@ -366,7 +420,18 @@ if (config.env === 'development') {
 }
 
 // Health check — I17: Verify backing stores for production readiness
+// H007: The public response is minimal. When HEALTHCHECK_SECRET is configured,
+// detailed diagnostics require `x-healthcheck-secret` to match, so internal
+// state (providers, storage, MongoDB) is not exposed to unauthenticated clients.
 app.get('/health', async (req, res) => {
+  const healthSecretOk =
+    !config.healthCheckSecret ||
+    (req.headers['x-healthcheck-secret'] && req.headers['x-healthcheck-secret'] === config.healthCheckSecret);
+
+  if (!healthSecretOk) {
+    return res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  }
+
   const checks = { server: 'ok' };
   let overallStatus = 'ok';
 

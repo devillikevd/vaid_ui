@@ -4,6 +4,7 @@ const { validate } = require('../../middleware/validate');
 const { authenticate } = require('../../middleware/auth');
 const authService = require('../../services/authService');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { setRefreshTokenCookie, clearRefreshTokenCookie, REFRESH_COOKIE } = require('../../utils/authCookies');
 
 const router = express.Router();
 
@@ -120,6 +121,9 @@ router.post('/login',
       deviceInfo: req.headers['user-agent']
     };
     const result = await authService.login(email, password, role, reqMeta);
+    // M001/M014: Refresh token rides in an HttpOnly+Secure cookie so client JS
+    // never reads or stores it (memory/localStorage/cookies are all JS-visible).
+    setRefreshTokenCookie(res, req, result.refreshToken);
     res.json({
       success: true,
       message: 'Login successful',
@@ -212,11 +216,18 @@ router.post('/resend-verification',
 // Refresh token
 router.post('/refresh-token',
   [
-    body('refreshToken').notEmpty().withMessage('Refresh token is required'),
+    body('refreshToken').optional().notEmpty().withMessage('Refresh token is required'),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const result = await authService.refreshToken(req.body.refreshToken);
+    // M001/M014: prefer the HttpOnly cookie; fall back to body for mobile/legacy.
+    const token = req.body.refreshToken || req.cookies?.[REFRESH_COOKIE];
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Refresh token is required' });
+    }
+    const result = await authService.refreshToken(token);
+    // Rotate the HttpOnly cookie to the new refresh token on every refresh.
+    setRefreshTokenCookie(res, req, result.refreshToken);
     res.json({
       success: true,
       data: result,
@@ -229,7 +240,9 @@ router.post('/logout',
   authenticate,
   asyncHandler(async (req, res) => {
     const { refreshToken } = req.body;
-    const result = await authService.logout(req.user.id, refreshToken);
+    const cookieToken = req.cookies?.[REFRESH_COOKIE];
+    const result = await authService.logout(req.user.id, refreshToken || cookieToken);
+    clearRefreshTokenCookie(res, req);
     req.app.get('io')?.forceDisconnect?.(req.user.id);
     res.json({
       success: true,

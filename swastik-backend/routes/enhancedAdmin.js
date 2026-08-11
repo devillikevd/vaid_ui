@@ -8,13 +8,27 @@ const { body, param, query } = require('express-validator');
 const { validate } = require('../middleware/validate');
 const enhancedAdminService = require('../services/enhancedAdminService');
 const { authenticate } = require('../middleware/auth');
-const { requireRole, ROLES } = require('../middleware/rbac');
+const { requireRole, requireMfa, ROLES } = require('../middleware/rbac');
 const { asyncHandler, ApiError } = require('../middleware/errorHandler');
 const { deleteOldImageUrl } = require('../config/minio');
 
-// All admin routes require authentication and admin role
+const rateLimit = require('express-rate-limit');
+
+// All admin routes require authentication, admin role, and (when
+// ADMIN_MFA_REQUIRED=true) an MFA-verified session (L015)
 router.use(authenticate);
 router.use(requireRole(ROLES.SUPER_ADMIN, ROLES.ADMIN));
+router.use(requireMfa);
+
+// B-08: Admin endpoint rate limiting to prevent brute-forcing approval endpoints
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // Limit each IP to 200 requests per `window`
+  standardHeaders: true, 
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many admin requests, please try again later.' }
+});
+router.use(adminLimiter);
 
 // Category normalization helper — caches valid names from medicine_categories table
 let _validCategoryCache = null;
@@ -452,7 +466,7 @@ router.get('/analytics', asyncHandler(async (req, res) => {
  * @desc Get audit logs with filters
  */
 router.get('/audit-logs', asyncHandler(async (req, res) => {
-    const { userId, action, resourceType, search, fromDate, toDate, page = 1, limit = 50 } = req.query;
+    const { userId, action, resourceType, search, fromDate, toDate, page = 1, limit = 50, before } = req.query;
 
     const filters = {};
     if (userId) filters.userId = userId;
@@ -462,7 +476,15 @@ router.get('/audit-logs', asyncHandler(async (req, res) => {
     if (fromDate) filters.fromDate = fromDate;
     if (toDate) filters.toDate = toDate;
 
-    const result = await enhancedAdminService.getAuditLogs(filters, parseInt(page), parseInt(limit));
+    // M012: keyset pagination — `before` (last row's createdAt ISO string)
+    // replaces deep offset skips. page/limit are still honoured for the first
+    // page and legacy clients (offset clamped in the service).
+    const result = await enhancedAdminService.getAuditLogs(
+        filters,
+        parseInt(page),
+        parseInt(limit),
+        typeof before === 'string' && before ? before : null
+    );
     res.json({ success: true, ...result });
 }));
 

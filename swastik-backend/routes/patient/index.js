@@ -13,7 +13,9 @@ const emergencyContactNotificationService = require('../../services/emergencyCon
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { supabaseAdmin } = require('../../config/supabase');
 const { signStorageUrlsInPayload } = require('../../config/minio');
+const config = require('../../config');
 const eventEmitter = require('../../services/eventEmitter');
+const { cacheSet, cacheGet, cacheDel, cacheIncr } = require('../../config/redis');
 
 // SOS rate limiter — 3 minute cooldown per user
 const sosCooldowns = new Map();
@@ -136,13 +138,31 @@ router.delete('/profile/image',
   })
 );
 
-// ABDM Mock routes for ABHA linking (VULN-BS-06)
+// ABDM Mock routes for ABHA linking (B-01 Fixed)
 router.post('/abha/generate-otp',
   [body('abhaNumber').notEmpty().withMessage('ABHA Number is required')],
   validate,
   asyncHandler(async (req, res) => {
-    // Mock OTP generation
-    res.json({ success: true, message: 'OTP sent to registered mobile number' });
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ success: false, message: 'ABHA Mocking is disabled in production' });
+    }
+    
+    // Check rate limit for OTP generation (max 3 per 5 minutes)
+    const rateLimitKey = `ratelimit:abha_gen:${req.user.id}`;
+    const attempts = await cacheIncr(rateLimitKey, 300);
+    if (attempts > 3) {
+      return res.status(429).json({ success: false, message: 'Too many OTP requests. Try again later.' });
+    }
+
+    const { abhaNumber } = req.body;
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Store OTP in Redis with 5-minute expiry
+    const otpKey = `abha_otp:${req.user.id}:${abhaNumber}`;
+    await cacheSet(otpKey, otp, 300);
+
+    // In a real scenario, this would send an SMS. For testing, we return it in dev environment.
+    res.json({ success: true, message: 'OTP sent to registered mobile number', dev_otp: otp });
   })
 );
 
@@ -153,11 +173,28 @@ router.post('/abha/verify-otp',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { abhaNumber, otp } = req.body;
-    // Mock OTP verification - accept 123456
-    if (otp !== '123456') {
-      return res.status(400).json({ success: false, message: 'Invalid OTP' });
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ success: false, message: 'ABHA Mocking is disabled in production' });
     }
+
+    const { abhaNumber, otp } = req.body;
+    
+    // Check rate limit for OTP verification (max 5 attempts per 5 minutes)
+    const verifyRateLimitKey = `ratelimit:abha_verify:${req.user.id}`;
+    const verifyAttempts = await cacheIncr(verifyRateLimitKey, 300);
+    if (verifyAttempts > 5) {
+      return res.status(429).json({ success: false, message: 'Too many verification attempts. Try again later.' });
+    }
+
+    const otpKey = `abha_otp:${req.user.id}:${abhaNumber}`;
+    const storedOtp = await cacheGet(otpKey);
+
+    if (!storedOtp || storedOtp !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+    
+    // Clear OTP after successful verification
+    await cacheDel(otpKey);
     
     const profile = await patientService.updateProfile(req.user.id, { abhaNumber });
     res.json({ success: true, message: 'ABHA number linked successfully', data: profile });
@@ -304,7 +341,7 @@ router.post('/vitals',
     const jwt = require('jsonwebtoken');
     vitalInsert.crypto_signature = jwt.sign(
       { type: req.body.type, value: req.body.value, patient_id: patient.id, recorded_at: vitalInsert.recorded_at },
-      process.env.JWT_SECRET || 'default-secret'
+      config.jwt.secret
     );
 
     const { data, error } = await supabaseAdmin
@@ -422,8 +459,7 @@ router.post('/vitals/sync',
       });
 
       if (safeInsert.length > 0) {
-        const jwt = require('jsonwebtoken');
-        const secret = process.env.JWT_SECRET || 'default-secret';
+        const secret = config.jwt.secret;
         safeInsert.forEach(p => {
           const type = p.heart_rate !== undefined ? 'heart_rate' : (p.temperature !== undefined ? 'temperature' : 'steps');
           const value = p.heart_rate ?? p.temperature ?? p.steps;

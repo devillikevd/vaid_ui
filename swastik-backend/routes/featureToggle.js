@@ -6,18 +6,19 @@ const express = require('express');
 const { body } = require('express-validator');
 const { validate } = require('../middleware/validate');
 const { authenticate } = require('../middleware/auth');
+const { requireRole, ROLES } = require('../middleware/rbac');
 const { asyncHandler } = require('../middleware/errorHandler');
 const featureToggleService = require('../services/featureToggleService');
 
 const router = express.Router();
+// M010: read AND write paths require an authenticated doctor. `requireRole`
+// also rejects admin/super_admin here (feature toggles are doctor-scoped).
 router.use(authenticate);
+router.use(requireRole(ROLES.DOCTOR));
 
 // Get feature toggles for the authenticated doctor
 router.get('/',
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'doctor') {
-      return res.status(403).json({ success: false, message: 'Only doctors can manage feature toggles' });
-    }
     const toggles = await featureToggleService.getToggles(req.user.id);
     res.json({ success: true, data: toggles });
   })
@@ -30,9 +31,6 @@ router.put('/',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'doctor') {
-      return res.status(403).json({ success: false, message: 'Only doctors can manage feature toggles' });
-    }
     const updated = await featureToggleService.updateToggles(req.user.id, req.body.toggles);
     res.json({ success: true, data: updated });
   })
@@ -41,9 +39,6 @@ router.put('/',
 // Reset feature toggles to defaults
 router.post('/reset',
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'doctor') {
-      return res.status(403).json({ success: false, message: 'Only doctors can manage feature toggles' });
-    }
     const defaults = await featureToggleService.resetToggles(req.user.id);
     res.json({ success: true, data: defaults });
   })
@@ -52,9 +47,6 @@ router.post('/reset',
 // Check individual feature status
 router.get('/:feature',
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'doctor') {
-      return res.status(403).json({ success: false, message: 'Only doctors can check features' });
-    }
     const enabled = await featureToggleService.isFeatureEnabled(req.user.id, req.params.feature);
     res.json({ success: true, data: { feature: req.params.feature, enabled } });
   })

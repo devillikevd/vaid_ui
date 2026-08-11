@@ -28,8 +28,8 @@ services:
       - NODE_ENV=production
       - PORT=5001
       - AI_SERVICE_URL=http://ai-service:8000
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-supersecretredis123}@redis:6379
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-vaididea}:${POSTGRES_PASSWORD:-vaididea}@postgres:5432/${POSTGRES_DB:-health_library}?schema=public
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
     env_file:
       - ./swastik-backend/.env
     depends_on:
@@ -63,7 +63,7 @@ services:
       - AI_SERVICE_PORT=8000
       - AI_SERVICE_WORKERS=2
       - BACKEND_URL=http://backend:5001
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-supersecretredis123}@redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-}
       - JWT_SECRET=${JWT_SECRET:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
@@ -117,13 +117,13 @@ services:
   redis:
     image: redis:7-alpine
     container_name: swastik-redis
-    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-supersecretredis123}
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     networks:
       - swastik-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-supersecretredis123}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -134,8 +134,8 @@ services:
     image: minio/minio:latest
     container_name: swastik-minio
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin_telemedicine}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-Str0ngM1n10P@ss!}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
@@ -154,9 +154,9 @@ services:
     image: mongo:7
     container_name: swastik-mongodb
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin_swastik}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-Str0ngM0ng0P@ss!}
-      MONGO_INITDB_DATABASE: swastik_healthcare
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGODB_DB_NAME:-swastik_healthcare}
     volumes:
       - mongodb_data:/data/db
     networks:
@@ -197,9 +197,9 @@ services:
     container_name: swastik-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-vaididea}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vaididea}
-      POSTGRES_DB: ${POSTGRES_DB:-health_library}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5433:5432"
     volumes:
@@ -207,7 +207,7 @@ services:
     networks:
       - swastik-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-vaididea} -d $${POSTGRES_DB:-health_library}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
