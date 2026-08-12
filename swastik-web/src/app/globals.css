@@ -2,12 +2,12 @@
 
 @theme {
   --color-brand-lightBg: #F8FAFC;
-  --color-brand-darkBg: #EFF6FF; /* Light blue-50 instead of dark slate */
+  --color-brand-darkBg: #EFF6FF;
   --color-brand-surface: #FFFFFF;
-  --color-brand-darkSurface: #DBEAFE; /* Blue-100 */
-  --color-brand-darkText: #1E3A8A; /* Blue-900 */
-  --color-brand-primary: #2563EB; /* Blue-600 */
-  --color-brand-accent: #60A5FA; /* Blue-400 */
+  --color-brand-darkSurface: #DBEAFE;
+  --color-brand-darkText: #1E3A8A;
+  --color-brand-primary: #2563EB;
+  --color-brand-accent: #60A5FA;
 
   /* Vaididea Landing Page Palette */
   --color-vd-forest: #1B4D3E;
@@ -24,24 +24,77 @@
   --font-cursive: "Great Vibes", cursive;
   --font-outfit: "Outfit", sans-serif;
   --font-heading: "Cormorant Garamond", serif;
+
+  /* ===== Semantic Surface/Text Design Tokens ===== */
+  /* These are exposed as CSS variables; Tailwind utilities below reference them. */
+  --color-surface-page: var(--surface-page);
+  --color-surface-card: var(--surface-card);
+  --color-surface-card-alt: var(--surface-card-alt);
+  --color-surface-input: var(--surface-input);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-border: var(--surface-border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
 }
 
 /* Enable class-based dark mode in Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ===== Design Token CSS Variables ===== */
+/* Light mode (default) */
 :root {
   --font-inter: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* Surface tokens */
+  --surface-page:      #F0F4F8;
+  --surface-card:      #FFFFFF;
+  --surface-card-alt:  #F8FAFC;
+  --surface-input:     #F1F5F9;
+  --surface-hover:     #F1F5F9;
+  --surface-border:    #E2E8F0;
+  --surface-sidebar:   #FFFFFF;
+  --surface-sidebar-border: #E8EAED;
+
+  /* Text tokens */
+  --text-primary:   #0F172A;
+  --text-secondary: #475569;
+  --text-muted:     #94A3B8;
+  --text-inverse:   #FFFFFF;
+
+  /* Accent (doctor = emerald) */
+  --accent-primary:      #059669;
+  --accent-primary-dark: #047857;
+  --accent-subtle:       rgba(5, 150, 105, 0.08);
+  --accent-border:       rgba(5, 150, 105, 0.2);
+}
+
+/* Dark mode overrides */
+.dark {
+  color-scheme: dark;
+
+  /* Surface tokens */
+  --surface-page:      #080e1a;
+  --surface-card:      #0f1929;
+  --surface-card-alt:  #131A2B;
+  --surface-input:     #0B1020;
+  --surface-hover:     #1A2235;
+  --surface-border:    rgba(255,255,255,0.07);
+  --surface-sidebar:   #0B1020;
+  --surface-sidebar-border: rgba(255,255,255,0.05);
+
+  /* Text tokens */
+  --text-primary:   #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted:     #475569;
+  --text-inverse:   #0F172A;
 }
 
 body {
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
-  @apply bg-[#EFF6FF] text-[#0F172A];
+  background-color: var(--surface-page);
+  color: var(--text-primary);
   transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-/* Fix native select options and browser elements in dark mode */
-.dark {
-  color-scheme: dark;
 }
 
 option {
@@ -51,6 +104,19 @@ option {
 .dark option {
   @apply bg-gray-900 text-gray-100;
 }
+
+/* ===== Semantic surface utility classes ===== */
+/* Use these instead of hardcoded hex values in components */
+.bg-surface-page     { background-color: var(--surface-page); }
+.bg-surface-card     { background-color: var(--surface-card); }
+.bg-surface-card-alt { background-color: var(--surface-card-alt); }
+.bg-surface-input    { background-color: var(--surface-input); }
+.bg-surface-hover    { background-color: var(--surface-hover); }
+.border-surface      { border-color: var(--surface-border); }
+.bg-surface-sidebar  { background-color: var(--surface-sidebar); }
+.text-page-primary   { color: var(--text-primary); }
+.text-page-secondary { color: var(--text-secondary); }
+.text-page-muted     { color: var(--text-muted); }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
@@ -610,5 +676,14 @@ option {
   .dark input::placeholder,
   .dark textarea::placeholder {
     @apply text-gray-400;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }

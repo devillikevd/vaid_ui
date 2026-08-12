@@ -21,15 +21,24 @@ router.get('/', [
     query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be 1-100'),
     query('unreadOnly').optional().isIn(['true', 'false']).withMessage('unreadOnly must be true or false'),
+    query('types').optional().isString().withMessage('types must be a comma-separated string'),
+    query('search').optional().isString().withMessage('search must be a string'),
     validate,
 ], asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20, unreadOnly = false } = req.query;
+    const { page = 1, limit = 20, unreadOnly = false, types, search } = req.query;
+
+    let parsedTypes = null;
+    if (types) {
+        parsedTypes = types.split(',').map(t => t.trim()).filter(Boolean);
+    }
 
     const result = await notificationService.getUserNotifications(
         req.user.id,
         parseInt(page),
         parseInt(limit),
-        unreadOnly === 'true'
+        unreadOnly === 'true',
+        parsedTypes,
+        search
     );
 
     res.json({ success: true, data: result });
@@ -65,6 +74,16 @@ router.put('/:id/read', [
  */
 router.put('/read-all', asyncHandler(async (req, res) => {
     const result = await notificationService.markAllAsRead(req.user.id);
+    res.json({ success: true, ...result });
+}));
+
+/**
+ * @route DELETE /api/notifications/read
+ * @desc Clear (delete) all read user notifications
+ * @access Private
+ */
+router.delete('/read', asyncHandler(async (req, res) => {
+    const result = await notificationService.clearReadNotifications(req.user.id);
     res.json({ success: true, ...result });
 }));
 

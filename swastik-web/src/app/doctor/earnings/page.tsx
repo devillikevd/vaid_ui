@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { IndianRupee, Users, ArrowLeft, Loader2, Calendar, ChevronDown, ChevronUp, Clock, Star, FileText, Activity } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { IndianRupee, Users, ArrowLeft, Loader2, Calendar, ChevronDown, ChevronUp, Clock, Star, FileText, Activity, Wallet, CreditCard, Receipt, TrendingUp, CheckCircle2, ShieldCheck, PieChart, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
 import { fetchWithAuth } from '@/lib/api';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function EarningsPage() {
     const router = useRouter();
@@ -13,6 +13,7 @@ export default function EarningsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    
     const [dateFilter, setDateFilter] = useState('today');
     const [customStartDate, setCustomStartDate] = useState('');
     const [customEndDate, setCustomEndDate] = useState('');
@@ -58,240 +59,400 @@ export default function EarningsPage() {
         fetchEarnings();
     }, [dateFilter, customStartDate, customEndDate]);
 
-    const totalEarnings = earningsData.reduce((sum, item) => sum + (item.fee || 0), 0);
-    const totalConsultations = earningsData.length;
+    const { totalEarnings, totalConsultations, averageEarnings, pendingSettlement } = useMemo(() => {
+        const total = earningsData.reduce((sum, item) => sum + (item.fee || 0), 0);
+        const count = earningsData.length;
+        const avg = count > 0 ? (total / count) : 0;
+        
+        // Simulating pending settlement from data if available, else 0.
+        // Assuming some might have payment_status === 'pending_settlement'
+        const pending = earningsData
+            .filter(item => item.payment_status === 'pending' || item.payment_status === 'processing')
+            .reduce((sum, item) => sum + (item.fee || 0), 0);
+
+        return {
+            totalEarnings: total,
+            totalConsultations: count,
+            averageEarnings: avg,
+            pendingSettlement: pending
+        };
+    }, [earningsData]);
+
+    const getStatusColor = (status: string) => {
+        const s = (status || 'completed').toLowerCase();
+        switch (s) {
+            case 'completed':
+            case 'successful':
+            case 'settled':
+                return 'bg-emerald-50 text-emerald-700 border-emerald-200/50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/50';
+            case 'pending':
+            case 'processing':
+                return 'bg-amber-50 text-amber-700 border-amber-200/50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/50';
+            case 'failed':
+                return 'bg-red-50 text-red-700 border-red-200/50 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/50';
+            case 'refunded':
+                return 'bg-purple-50 text-purple-700 border-purple-200/50 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800/50';
+            case 'cancelled':
+                return 'bg-gray-50 text-gray-700 border-gray-200/50 dark:bg-gray-800/50 dark:text-gray-400 dark:border-gray-700/50';
+            default:
+                return 'bg-emerald-50 text-emerald-700 border-emerald-200/50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/50';
+        }
+    };
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
+        <div className="max-w-6xl mx-auto space-y-8 pb-24">
+            
+            {/* Premium Page Header */}
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 py-2">
+                <div className="flex items-start gap-4">
                     <button
                         onClick={() => router.back()}
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-900 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-800 shrink-0"
+                        className="flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-600 transition-all hover:bg-gray-50 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 shrink-0 mt-1"
                     >
-                        <ArrowLeft size={20} />
+                        <ArrowLeft size={20} strokeWidth={2.5} />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Earnings Breakdown</h1>
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Track and analyze your consultation earnings over time</p>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30 mb-3 text-xs font-bold tracking-widest uppercase text-emerald-600 dark:text-emerald-400 shadow-sm">
+                            <Wallet className="h-3.5 w-3.5" />
+                            Financial Overview
+                        </div>
+                        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white leading-tight">
+                            Earnings Breakdown
+                        </h1>
+                        <p className="mt-2 text-base font-medium text-gray-500 dark:text-gray-400 max-w-lg">
+                            Track and analyze your consultation earnings, settlements, and platform performance.
+                        </p>
                     </div>
                 </div>
                 
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2 bg-white dark:bg-gray-900 p-1.5 rounded-lg border border-gray-200 dark:border-gray-700">
+                {/* Premium Date Filter */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-hover:text-emerald-500 transition-colors z-10">
+                            <Calendar className="h-4 w-4" />
+                        </div>
                         <select 
                             value={dateFilter}
                             onChange={(e) => setDateFilter(e.target.value)}
-                            className="px-3 py-1.5 bg-transparent border-0 text-sm font-medium focus:ring-0 text-gray-700 dark:text-gray-300 outline-none cursor-pointer"
+                            className="w-full sm:w-48 h-12 pl-11 pr-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl text-sm font-bold text-gray-900 dark:text-white appearance-none focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all shadow-sm cursor-pointer relative"
                         >
-                            <option value="today" className="bg-white dark:bg-gray-900">Today</option>
-                            <option value="week" className="bg-white dark:bg-gray-900">This Week</option>
-                            <option value="month" className="bg-white dark:bg-gray-900">This Month</option>
-                            <option value="all" className="bg-white dark:bg-gray-900">All Time (Overall)</option>
-                            <option value="custom" className="bg-white dark:bg-gray-900">Custom Range</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="all">All Time (Overall)</option>
+                            <option value="custom">Custom Range</option>
                         </select>
+                        <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-gray-400">
+                            <ChevronDown className="h-4 w-4" />
+                        </div>
                     </div>
 
-                    {dateFilter === 'custom' && (
-                        <div className="flex items-center gap-2">
-                            <input 
-                                type="date"
-                                value={customStartDate}
-                                onChange={(e) => setCustomStartDate(e.target.value)}
-                                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-emerald-500/50 outline-none"
-                            />
-                            <span className="text-gray-400 text-sm">to</span>
-                            <input 
-                                type="date"
-                                value={customEndDate}
-                                onChange={(e) => setCustomEndDate(e.target.value)}
-                                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-emerald-500/50 outline-none"
-                            />
-                        </div>
-                    )}
+                    <AnimatePresence>
+                        {dateFilter === 'custom' && (
+                            <motion.div 
+                                initial={{ opacity: 0, width: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, width: 'auto', scale: 1 }}
+                                exit={{ opacity: 0, width: 0, scale: 0.95 }}
+                                className="flex items-center gap-2 overflow-hidden"
+                            >
+                                <input 
+                                    type="date"
+                                    value={customStartDate}
+                                    onChange={(e) => setCustomStartDate(e.target.value)}
+                                    className="h-12 px-4 border border-gray-200 dark:border-gray-800 rounded-2xl text-sm font-bold bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none shadow-sm transition-all"
+                                />
+                                <span className="text-gray-400 font-medium text-sm px-1">to</span>
+                                <input 
+                                    type="date"
+                                    value={customEndDate}
+                                    onChange={(e) => setCustomEndDate(e.target.value)}
+                                    className="h-12 px-4 border border-gray-200 dark:border-gray-800 rounded-2xl text-sm font-bold bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none shadow-sm transition-all"
+                                />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </div>
 
-            {isLoading ? (
-                <div className="flex items-center justify-center py-20">
-                    <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+            {error && (
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-bold rounded-2xl border border-red-200 dark:border-red-800/50 shadow-sm flex items-center gap-3">
+                    <Ban className="h-5 w-5" /> {error}
                 </div>
-            ) : error ? (
-                <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl">
-                    {error}
-                </div>
-            ) : (
-                <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Card className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20">
-                            <CardContent className="p-6">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <p className="text-emerald-100 text-sm font-medium">Total Earnings</p>
-                                        <h2 className="text-4xl font-bold mt-1">₹{totalEarnings.toLocaleString('en-IN')}</h2>
-                                    </div>
-                                    <div className="bg-white/20 p-3 rounded-xl">
-                                        <IndianRupee className="h-8 w-8 text-white" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        
-                        <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white border-0 shadow-lg shadow-blue-500/20">
-                            <CardContent className="p-6">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <p className="text-blue-100 text-sm font-medium">Total Consultations</p>
-                                        <h2 className="text-4xl font-bold mt-1">{totalConsultations}</h2>
-                                    </div>
-                                    <div className="bg-white/20 p-3 rounded-xl">
-                                        <Users className="h-8 w-8 text-white" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
+            )}
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Consultation Details</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {earningsData.length === 0 ? (
-                                <div className="text-center py-12 text-gray-500">
-                                    <p>No completed consultations found for this period.</p>
+            {/* Premium Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+                <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-3xl p-6 shadow-xl shadow-emerald-500/20 border border-emerald-400/30 group transition-transform duration-300 hover:-translate-y-1">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3"></div>
+                    <div className="relative z-10 flex flex-col h-full justify-between">
+                        <div className="flex items-start justify-between mb-4">
+                            <p className="text-emerald-100 text-sm font-bold uppercase tracking-widest">Total Earnings</p>
+                            <div className="p-2.5 bg-white/20 backdrop-blur-md rounded-xl text-white group-hover:scale-110 transition-transform">
+                                <IndianRupee className="h-5 w-5" />
+                            </div>
+                        </div>
+                        <div>
+                            <h2 className="text-4xl font-extrabold text-white tracking-tight drop-shadow-sm">
+                                {isLoading ? '-' : `₹${totalEarnings.toLocaleString('en-IN')}`}
+                            </h2>
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300 hover:shadow-xl hover:shadow-gray-200/20 dark:hover:shadow-black/20 hover:-translate-y-1 group">
+                    <div className="flex items-start justify-between mb-4">
+                        <p className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-widest">Total Consultations</p>
+                        <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl group-hover:scale-110 transition-transform">
+                            <Users className="h-5 w-5" />
+                        </div>
+                    </div>
+                    <div>
+                        <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                            {isLoading ? '-' : totalConsultations}
+                        </h2>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300 hover:shadow-xl hover:shadow-gray-200/20 dark:hover:shadow-black/20 hover:-translate-y-1 group">
+                    <div className="flex items-start justify-between mb-4">
+                        <p className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-widest">Average / Consult</p>
+                        <div className="p-2.5 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-xl group-hover:scale-110 transition-transform">
+                            <PieChart className="h-5 w-5" />
+                        </div>
+                    </div>
+                    <div>
+                        <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                            {isLoading ? '-' : `₹${averageEarnings.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                        </h2>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300 hover:shadow-xl hover:shadow-gray-200/20 dark:hover:shadow-black/20 hover:-translate-y-1 group">
+                    <div className="flex items-start justify-between mb-4">
+                        <p className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-widest">Pending Settlement</p>
+                        <div className="p-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-xl group-hover:scale-110 transition-transform">
+                            <Clock className="h-5 w-5" />
+                        </div>
+                    </div>
+                    <div>
+                        <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                            {isLoading ? '-' : `₹${pendingSettlement.toLocaleString('en-IN')}`}
+                        </h2>
+                    </div>
+                </div>
+            </div>
+
+            {/* Consultation Earnings List */}
+            <div className="pt-4">
+                <h3 className="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center gap-2 mb-6">
+                    <Receipt className="w-6 h-6 text-emerald-600 dark:text-emerald-500" />
+                    Transaction History
+                </h3>
+                
+                {isLoading ? (
+                    <div className="space-y-4">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                            <div key={i} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl p-5 shadow-sm animate-pulse flex flex-col md:flex-row justify-between gap-6 items-center">
+                                <div className="flex items-center gap-4 w-full md:w-auto">
+                                    <div className="w-14 h-14 bg-gray-200 dark:bg-gray-800 rounded-2xl shrink-0"></div>
+                                    <div className="space-y-3 flex-1 min-w-0">
+                                        <div className="h-5 bg-gray-200 dark:bg-gray-800 rounded-lg w-48"></div>
+                                        <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded-lg w-32"></div>
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {earningsData.map((appointment) => {
-                                        const isExpanded = expandedId === appointment.id;
-                                        // The backend nested query returns consultation as an array or object
-                                        const consultation = Array.isArray(appointment.consultation) 
-                                            ? appointment.consultation[0] 
-                                            : appointment.consultation;
-                                            
-                                        return (
-                                        <div key={appointment.id} className="border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden transition-all duration-200 bg-white dark:bg-gray-950">
-                                            <div 
-                                                onClick={() => toggleExpand(appointment.id)}
-                                                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-4">
-                                                    <div className="bg-emerald-100 dark:bg-emerald-900/30 p-2.5 rounded-full text-emerald-600 dark:text-emerald-400">
-                                                        <IndianRupee className="h-5 w-5" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                                                            {appointment.patient?.name || 'Unknown Patient'}
-                                                            <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-[10px] text-gray-500 font-medium">
-                                                                {appointment.type || 'consultation'}
-                                                            </span>
-                                                        </p>
-                                                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                                                            <Calendar className="h-3 w-3" />
-                                                            <span>{appointment.appointment_date} at {appointment.time_slot}</span>
-                                                        </div>
-                                                    </div>
+                                <div className="flex justify-between md:justify-end items-center gap-8 w-full md:w-auto">
+                                    <div className="space-y-3">
+                                        <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded-lg w-24"></div>
+                                        <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded-lg w-16"></div>
+                                    </div>
+                                    <div className="w-8 h-8 bg-gray-200 dark:bg-gray-800 rounded-full"></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : earningsData.length === 0 ? (
+                    <div className="bg-white dark:bg-gray-900/50 rounded-[2rem] border border-gray-200 border-dashed dark:border-gray-800 py-24 px-6 flex flex-col items-center justify-center text-center shadow-sm">
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-full mb-6 ring-8 ring-emerald-50/50 dark:ring-emerald-900/10">
+                            <Wallet className="w-16 h-16 text-emerald-500 dark:text-emerald-400" strokeWidth={1.5} />
+                        </div>
+                        <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-2">
+                            No earnings found
+                        </h3>
+                        <p className="text-gray-500 dark:text-gray-400 font-medium max-w-sm mb-8">
+                            There are no completed consultations or transactions recorded for this period. Try selecting a different date range.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {earningsData.map((appointment) => {
+                            const isExpanded = expandedId === appointment.id;
+                            // Safe consultation extraction
+                            const consultation = Array.isArray(appointment.consultation) 
+                                ? appointment.consultation[0] 
+                                : appointment.consultation;
+                            
+                            const status = appointment.payment_status || appointment.status || 'Completed';
+                            const fee = appointment.fee || 0;
+
+                            return (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    key={appointment.id} 
+                                    className={`bg-white dark:bg-gray-900 rounded-[1.5rem] border ${isExpanded ? 'border-emerald-200 dark:border-emerald-800 shadow-md shadow-emerald-500/5' : 'border-gray-100 dark:border-gray-800 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.02)] hover:shadow-md hover:border-gray-200 dark:hover:border-gray-700'} transition-all duration-300 overflow-hidden`}
+                                >
+                                    <div 
+                                        onClick={() => toggleExpand(appointment.id)}
+                                        className="flex flex-col md:flex-row justify-between p-5 md:p-6 cursor-pointer gap-5 md:items-center"
+                                    >
+                                        {/* Left Side: Avatar & Basic Info */}
+                                        <div className="flex items-center gap-4 md:gap-5 min-w-0">
+                                            <div className="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-800 text-gray-700 dark:text-gray-300 w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center font-extrabold text-xl shadow-sm shrink-0 border border-white dark:border-gray-700">
+                                                {(appointment.patient?.name || 'A')[0].toUpperCase()}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                                    <h4 className="font-extrabold text-lg text-gray-900 dark:text-white truncate">
+                                                        {appointment.patient?.name || 'Unknown Patient'}
+                                                    </h4>
+                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-widest border shadow-sm ${getStatusColor(status)}`}>
+                                                        {status}
+                                                    </span>
+                                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-widest bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
+                                                        {appointment.type || 'Consultation'}
+                                                    </span>
                                                 </div>
-                                                <div className="flex items-center gap-4">
-                                                    <div className="text-right">
-                                                        <p className="font-bold text-lg text-emerald-600 dark:text-emerald-400">
-                                                            + ₹{(appointment.fee || 0).toLocaleString('en-IN')}
-                                                        </p>
-                                                        <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Completed</p>
-                                                    </div>
-                                                    <div className="text-gray-400 p-1">
-                                                        {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                                                    </div>
+                                                <div className="flex items-center gap-3 text-sm font-medium text-gray-500 dark:text-gray-400">
+                                                    <span className="flex items-center gap-1.5">
+                                                        <Calendar className="h-4 w-4 text-gray-400" />
+                                                        {new Date(appointment.appointment_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                    </span>
+                                                    <span className="flex items-center gap-1.5">
+                                                        <Clock className="h-4 w-4 text-gray-400" />
+                                                        {appointment.time_slot}
+                                                    </span>
                                                 </div>
                                             </div>
-                                            
-                                            {/* Expanded Content */}
-                                            {isExpanded && (
-                                                <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 p-4 animate-in slide-in-from-top-2 duration-200">
-                                                    {!consultation ? (
-                                                        <p className="text-sm text-gray-500 text-center py-4">No detailed consultation data available.</p>
-                                                    ) : (
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            
-                                                            {/* Reason / Symptoms */}
-                                                            <div className="bg-white dark:bg-gray-950 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
-                                                                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-                                                                    <Activity className="h-4 w-4" />
-                                                                    <span className="text-xs font-medium">Reason & Symptoms</span>
-                                                                </div>
-                                                                <p className="text-sm text-gray-900 dark:text-gray-100">
-                                                                    {consultation.chief_complaint || appointment.symptoms || 'Not specified'}
-                                                                </p>
-                                                            </div>
-
-                                                            {/* Duration */}
-                                                            <div className="bg-white dark:bg-gray-950 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
-                                                                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-                                                                    <Clock className="h-4 w-4" />
-                                                                    <span className="text-xs font-medium">Duration</span>
-                                                                </div>
-                                                                <p className="text-sm text-gray-900 dark:text-gray-100">
-                                                                    {consultation.duration_minutes ? `${consultation.duration_minutes} minutes` : 'Unknown'}
-                                                                </p>
-                                                            </div>
-
-                                                            {/* Reviews */}
-                                                            <div className="bg-white dark:bg-gray-950 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
-                                                                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-                                                                    <Star className="h-4 w-4" />
-                                                                    <span className="text-xs font-medium">Patient Review</span>
-                                                                </div>
-                                                                {consultation.rating ? (
-                                                                    <div>
-                                                                        <div className="flex items-center gap-1 text-amber-500 mb-1">
-                                                                            {[...Array(5)].map((_, i) => (
-                                                                                <Star key={i} className={`h-3 w-3 ${i < consultation.rating ? 'fill-current' : 'text-gray-300 dark:text-gray-700'}`} />
-                                                                            ))}
-                                                                            <span className="text-xs ml-1 text-gray-900 dark:text-gray-100 font-medium">{consultation.rating}/5</span>
-                                                                        </div>
-                                                                        {consultation.review && (
-                                                                            <p className="text-xs text-gray-600 dark:text-gray-400 italic">&quot;{consultation.review}&quot;</p>
-                                                                        )}
-                                                                    </div>
-                                                                ) : (
-                                                                    <p className="text-sm text-gray-400 italic">No review provided</p>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Prescription */}
-                                                            <div className="bg-white dark:bg-gray-950 p-3 rounded-lg border border-gray-100 dark:border-gray-800 flex flex-col justify-center">
-                                                                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-                                                                    <FileText className="h-4 w-4" />
-                                                                    <span className="text-xs font-medium">Prescription</span>
-                                                                </div>
-                                                                {consultation.prescriptions && consultation.prescriptions.length > 0 ? (
-                                                                    <a 
-                                                                        href={consultation.prescriptions[0].pdf_url || consultation.prescriptions[0].file_url || '#'} 
-                                                                        target="_blank" 
-                                                                        rel="noopener noreferrer"
-                                                                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                    >
-                                                                        View Prescription PDF
-                                                                    </a>
-                                                                ) : (
-                                                                    <p className="text-sm text-gray-400 italic">No prescription given</p>
-                                                                )}
-                                                            </div>
-
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
                                         </div>
-                                    )})}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </>
-            )}
+
+                                        {/* Right Side: Earning Numbers */}
+                                        <div className="flex justify-between md:justify-end items-center gap-6 border-t md:border-0 border-gray-100 dark:border-gray-800 pt-4 md:pt-0">
+                                            <div className="text-right flex flex-col items-end">
+                                                <p className={`font-extrabold text-2xl tracking-tight leading-none ${status.toLowerCase() === 'failed' || status.toLowerCase() === 'refunded' ? 'text-gray-400 line-through' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                    ₹{fee.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                                </p>
+                                            </div>
+                                            <div className={`p-2 rounded-xl transition-colors ${isExpanded ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-gray-50 text-gray-400 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700'}`}>
+                                                {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Expanded Details Grid */}
+                                    <AnimatePresence>
+                                        {isExpanded && (
+                                            <motion.div 
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                transition={{ duration: 0.3, ease: "easeInOut" }}
+                                                className="border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/20 px-5 md:px-6 py-6"
+                                            >
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                    
+                                                    {/* Transaction Details */}
+                                                    <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-200 dark:border-gray-700/50 shadow-sm">
+                                                        <h5 className="text-xs font-extrabold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                            <Receipt className="w-4 h-4" /> Transaction Info
+                                                        </h5>
+                                                        <div className="space-y-3">
+                                                            <div className="flex justify-between items-center text-base font-extrabold text-emerald-600 dark:text-emerald-400">
+                                                                <span>Gross Fee</span>
+                                                                <span>₹{fee.toLocaleString('en-IN')}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Clinical Context */}
+                                                    <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-200 dark:border-gray-700/50 shadow-sm flex flex-col">
+                                                        <h5 className="text-xs font-extrabold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                            <Activity className="w-4 h-4" /> Clinical Context
+                                                        </h5>
+                                                        <div className="flex-1 space-y-4">
+                                                            <div>
+                                                                <p className="text-xs text-gray-500 font-bold mb-1">Reason / Symptoms</p>
+                                                                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                                    {consultation?.chief_complaint || appointment.symptoms || 'Not specified'}
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex justify-between gap-4">
+                                                                <div>
+                                                                    <p className="text-xs text-gray-500 font-bold mb-1">Duration</p>
+                                                                    <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
+                                                                        <Clock className="w-3.5 h-3.5 text-gray-400" /> {consultation?.duration_minutes ? `${consultation.duration_minutes} mins` : 'Unknown'}
+                                                                    </p>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-xs text-gray-500 font-bold mb-1">Method</p>
+                                                                    <p className="text-sm font-medium text-gray-900 dark:text-white capitalize flex items-center gap-1.5">
+                                                                        {appointment.type === 'video' ? <Star className="w-3.5 h-3.5 text-indigo-400" /> : <ShieldCheck className="w-3.5 h-3.5 text-gray-400" />} {appointment.type || 'In-Person'}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Metadata & Actions */}
+                                                    <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-200 dark:border-gray-700/50 shadow-sm flex flex-col justify-between">
+                                                        <div>
+                                                            <h5 className="text-xs font-extrabold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                                <FileText className="w-4 h-4" /> Reference
+                                                            </h5>
+                                                            <div className="space-y-3 mb-4">
+                                                                <div className="flex justify-between items-center text-sm">
+                                                                    <span className="text-gray-500 font-bold">Appt ID</span>
+                                                                    <span className="font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-xs">
+                                                                        {appointment.id.slice(-8).toUpperCase()}
+                                                                    </span>
+                                                                </div>
+                                                                {appointment.payment_reference && (
+                                                                    <div className="flex justify-between items-center text-sm">
+                                                                        <span className="text-gray-500 font-bold">Txn Ref</span>
+                                                                        <span className="font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-xs">
+                                                                            {appointment.payment_reference.slice(-8).toUpperCase()}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        {consultation?.prescriptions && consultation.prescriptions.length > 0 ? (
+                                                            <a 
+                                                                href={consultation.prescriptions[0].pdf_url || consultation.prescriptions[0].file_url || '#'} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer"
+                                                                className="flex items-center justify-center gap-2 w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 font-bold text-sm rounded-xl transition-colors border border-indigo-200/50 dark:border-indigo-800/30 shadow-sm"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <FileText className="w-4 h-4" /> View Prescription
+                                                            </a>
+                                                        ) : (
+                                                            <div className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-50 dark:bg-gray-800 text-gray-400 font-bold text-sm rounded-xl border border-gray-100 dark:border-gray-700">
+                                                                No Prescription Attached
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </motion.div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

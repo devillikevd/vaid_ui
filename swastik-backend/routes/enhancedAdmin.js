@@ -69,6 +69,109 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     res.json({ success: true, data: dashboard });
 }));
 
+// ==================== DOCTOR FEEDBACK ====================
+
+/**
+ * @route GET /api/admin/feedback
+ * @desc Get doctor feedback
+ */
+router.get('/feedback', asyncHandler(async (req, res) => {
+    const { DoctorFeedback } = require('../database/models');
+    const { status, type, category, search, page = 1, limit = 20 } = req.query;
+    
+    const query = {};
+    if (status) query.status = status;
+    if (type) query.type = type;
+    if (category) query.category = category;
+    if (search) {
+        query.$or = [
+            { title: { $regex: search, $options: 'i' } },
+            { description: { $regex: search, $options: 'i' } }
+        ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const feedbackList = await DoctorFeedback.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit));
+        
+    const total = await DoctorFeedback.countDocuments(query);
+    
+    // Admin feedback dashboard summary stats
+    const summary = {
+        total: await DoctorFeedback.countDocuments(),
+        new: await DoctorFeedback.countDocuments({ status: 'Submitted' }),
+        underReview: await DoctorFeedback.countDocuments({ status: 'Under Review' }),
+        inProgress: await DoctorFeedback.countDocuments({ status: 'In Progress' }),
+        resolved: await DoctorFeedback.countDocuments({ status: 'Resolved' })
+    };
+
+    res.json({
+        success: true,
+        data: feedbackList,
+        summary,
+        pagination: {
+            total,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            pages: Math.ceil(total / parseInt(limit))
+        }
+    });
+}));
+
+router.patch('/feedback/:id/status', [
+    body('status').isIn(['Submitted', 'Under Review', 'Planned', 'In Progress', 'Resolved', 'Closed']),
+    body('priority').optional().isIn(['Low', 'Medium', 'High', 'Critical'])
+], validate, asyncHandler(async (req, res) => {
+    const { DoctorFeedback } = require('../database/models');
+    const { status, priority } = req.body;
+    
+    const update = { status };
+    if (priority) update.priority = priority;
+    if (['Resolved', 'Closed'].includes(status)) {
+        update.resolvedAt = new Date();
+    }
+    
+    const feedback = await DoctorFeedback.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!feedback) return res.status(404).json({ success: false, message: 'Feedback not found' });
+    
+    res.json({ success: true, data: feedback });
+}));
+
+router.post('/feedback/:id/response', [
+    body('adminResponse').isString().notEmpty()
+], validate, asyncHandler(async (req, res) => {
+    const { DoctorFeedback } = require('../database/models');
+    const { supabaseAdmin } = require('../config/supabase');
+    const notificationService = require('../services/notificationService');
+    const { adminResponse, status } = req.body;
+    
+    const update = { adminResponse, adminId: req.user.id };
+    if (status) update.status = status;
+    
+    const feedback = await DoctorFeedback.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!feedback) return res.status(404).json({ success: false, message: 'Feedback not found' });
+    
+    // Get doctor's userId to send notification
+    const { data: doctor } = await supabaseAdmin
+        .from('doctors')
+        .select('user_id')
+        .eq('id', feedback.doctorId)
+        .maybeSingle();
+        
+    if (doctor?.user_id) {
+        notificationService.sendNotification(doctor.user_id, {
+            title: 'Feedback Update',
+            message: `Your feedback "${feedback.title}" has been updated by an admin.`,
+            type: 'system',
+            metadata: { feedbackId: feedback._id, status: feedback.status }
+        }).catch(err => console.error('Failed to notify doctor of feedback response', err));
+    }
+    
+    res.json({ success: true, data: feedback });
+}));
+
 // ==================== APPROVAL WORKFLOW ====================
 
 /**

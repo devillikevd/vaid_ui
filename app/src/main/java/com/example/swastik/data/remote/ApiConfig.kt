@@ -33,7 +33,7 @@ object ApiConfig {
             Build.PRODUCT.contains("sdk")
     }
 
-    val BASE_URL: String = BuildConfig.API_BASE_URL
+    val BASE_URL: String = "http://192.168.1.104:5001/api/"
 
     /** Socket URL is the server root (scheme + host + port, without /api path). */
     val SOCKET_URL: String = run {

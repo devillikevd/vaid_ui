@@ -321,30 +321,55 @@ const startConsultation = async (doctorUserId, appointmentId) => {
     return consultation;
   }
 
-  // C7: Atomic start — creates consultation + updates appointment in one transaction
-  const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('rpc_start_consultation', {
-    p_appointment_id: appointmentId,
-    p_doctor_id: doctor.id,
-  });
+  // C7: Atomic start — fallback manual mode since RPC might have missing column references
+  let consultation;
+  try {
+    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('rpc_start_consultation', {
+      p_appointment_id: appointmentId,
+      p_doctor_id: doctor.id,
+    });
 
-  if (rpcError) throw rpcError;
+    if (rpcError) throw rpcError;
+    if (!rpcResult?.success) throw new Error(rpcResult?.reason || 'Failed');
+    consultation = rpcResult.consultation;
+  } catch (err) {
+    console.error('RPC start_consultation failed, falling back to manual insert:', err.message);
+    
+    // Update appointment status to in_progress
+    const { error: aptUpdateError } = await supabaseAdmin
+      .from('appointments')
+      .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+      .eq('id', appointmentId);
+      
+    if (aptUpdateError) throw new ApiError(400, 'Failed to update appointment status: ' + aptUpdateError.message);
 
-  if (!rpcResult?.success) {
-    const reasons = {
-      appointment_not_found: 'Valid appointment not found',
-    };
-    throw new ApiError(404, reasons[rpcResult?.reason] || 'Failed to start consultation');
+    // Get patient id from appointment
+    const { data: aptData } = await supabaseAdmin
+      .from('appointments')
+      .select('patient_id')
+      .eq('id', appointmentId)
+      .single();
+
+    // Create consultation record
+    const { data: newConsultation, error: insertError } = await supabaseAdmin
+      .from('consultations')
+      .insert({
+        appointment_id: appointmentId,
+        doctor_id: doctor.id,
+        patient_id: aptData?.patient_id,
+        status: 'in_progress',
+        room_id: appointmentId,
+        started_at: new Date().toISOString(),
+        doctor_joined_at: new Date().toISOString()
+      })
+      .select('*')
+      .single();
+
+    if (insertError) throw new ApiError(400, 'Failed to create consultation: ' + insertError.message);
+    consultation = newConsultation;
   }
 
-  let consultation = rpcResult.consultation;
   const nowIso = new Date().toISOString();
-
-  // Generate OTP and save to appointment
-  const completionOtp = Math.floor(100000 + Math.random() * 900000).toString();
-  await supabaseAdmin
-    .from('appointments')
-    .update({ completion_otp: completionOtp })
-    .eq('id', appointmentId);
 
   consultation = await syncConsultationSessionState(consultation.id, {
     roomId: consultation.room_id || consultation.id,

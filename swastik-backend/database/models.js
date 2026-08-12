@@ -172,9 +172,44 @@ const healthSearchStatSchema = new mongoose.Schema({
 // M007: trending-search aggregation filters by result_count/searched_at
 healthSearchStatSchema.index({ searched_at: -1, result_count: -1 });
 
+// Doctor Goal Schema - Tracks personal targets for Doctor Growth Dashboard
+const doctorGoalSchema = new mongoose.Schema({
+    doctorId: { type: String, required: true, unique: true, index: true },
+    monthlyConsultations: { type: Number, default: 0 },
+    monthlyRevenue: { type: Number, default: 0 },
+    profileCompletion: { type: Number, default: 100 },
+    updatedAt: { type: Date, default: Date.now },
+});
+
+// Doctor Feedback Schema - internal feedback from doctors to admins
+const doctorFeedbackSchema = new mongoose.Schema({
+    doctorId: { type: String, required: true, index: true },
+    type: { type: String, required: true, index: true },
+    category: { type: String, required: true, index: true },
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    rating: Number,
+    pageName: String,
+    route: String,
+    attachments: [String],
+    browser: String,
+    device: String,
+    os: String,
+    appVersion: String,
+    status: { type: String, default: 'Submitted', index: true },
+    priority: { type: String, default: 'Low', index: true },
+    adminResponse: String,
+    adminId: String,
+    resolvedAt: Date,
+    createdAt: { type: Date, default: Date.now, index: true },
+    updatedAt: { type: Date, default: Date.now }
+});
+
+doctorFeedbackSchema.index({ status: 1, createdAt: -1 });
+doctorFeedbackSchema.index({ doctorId: 1, createdAt: -1 });
 
 // Create models only if mongoose is connected
-let AuditLog, ChatMessage, AnalyticsEvent, AmbulanceLocation, SearchLog, MealLog, Disease, Category, HealthSearchStat;
+let AuditLog, ChatMessage, AnalyticsEvent, AmbulanceLocation, SearchLog, MealLog, Disease, Category, HealthSearchStat, DoctorGoal, DoctorFeedback;
 
 try {
     AuditLog = mongoose.model('AuditLog', auditLogSchema);
@@ -186,6 +221,8 @@ try {
     Disease = mongoose.model('Disease', diseaseSchema);
     Category = mongoose.model('Category', categorySchema);
     HealthSearchStat = mongoose.model('HealthSearchStat', healthSearchStatSchema);
+    DoctorGoal = mongoose.model('DoctorGoal', doctorGoalSchema);
+    DoctorFeedback = mongoose.model('DoctorFeedback', doctorFeedbackSchema);
 } catch (error) {
     // Models might already exist
     AuditLog = mongoose.models.AuditLog;
@@ -197,6 +234,8 @@ try {
     Disease = mongoose.models.Disease;
     Category = mongoose.models.Category;
     HealthSearchStat = mongoose.models.HealthSearchStat;
+    DoctorGoal = mongoose.models.DoctorGoal;
+    DoctorFeedback = mongoose.models.DoctorFeedback;
 }
 
 module.exports = {
@@ -209,4 +248,6 @@ module.exports = {
     Disease,
     Category,
     HealthSearchStat,
+    DoctorGoal,
+    DoctorFeedback
 };

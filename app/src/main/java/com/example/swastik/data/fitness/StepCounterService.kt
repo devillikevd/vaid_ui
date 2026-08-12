@@ -77,16 +77,17 @@ class StepCounterService : Service(), SensorEventListener {
             .setOngoing(true)
             .build()
 
-        if (Build.VERSION.SDK_INT >= 34) {
-            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH.let { type ->
-                try {
-                    startForeground(1001, notification, type)
-                } catch (e: Exception) {
-                    startForeground(1001, notification)
-                }
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(1001, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH)
+            } else {
+                startForeground(1001, notification)
             }
-        } else {
-            startForeground(1001, notification)
+        } catch (e: Exception) {
+            Log.e("StepCounterService", "Foreground service start failed", e)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && e is android.app.ForegroundServiceStartNotAllowedException) {
+                // Ignore, this happens if system restarts a START_STICKY service while app is in background
+            }
         }
     }
 

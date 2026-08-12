@@ -140,6 +140,14 @@ const normalizeBoolean = (value, fallback = true) => {
   return fallback;
 };
 
+// True when a Supabase/PostgREST error means the object doesn't exist in the DB
+// yet (missing table → PGRST205, missing column → 42703). Used to degrade
+// gracefully when the Phase 6 schedule migration (033) hasn't been applied.
+const isMissingSchemaError = (error) => {
+  if (!error) return false;
+  return error.code === 'PGRST205' || error.code === '42P01';
+};
+
 class DoctorService {
   // Get doctor profile
   async getProfile(userId) {
@@ -153,7 +161,7 @@ class DoctorService {
         consultation_types, education, certifications, rating, total_reviews,
         is_available, is_approved, approval_status,
         degree_certificate_url, license_document_url, government_id_url, live_selfie_url, compliance_documents,
-        hospital_id,
+        hospital_id, is_public_profile, show_phone_number,
         user:users!doctors_user_id_fkey(email, phone, is_verified, created_at),
         hospital:hospitals(id, name, address, city)
       `)
@@ -241,6 +249,14 @@ class DoctorService {
     }
     if (updateData.education !== undefined) updatePayload.education = updateData.education;
     if (updateData.certifications !== undefined) updatePayload.certifications = updateData.certifications;
+
+    // Privacy Settings
+    if (updateData.isPublicProfile !== undefined || updateData.is_public_profile !== undefined) {
+      updatePayload.is_public_profile = updateData.isPublicProfile ?? updateData.is_public_profile;
+    }
+    if (updateData.showPhoneNumber !== undefined || updateData.show_phone_number !== undefined) {
+      updatePayload.show_phone_number = updateData.showPhoneNumber ?? updateData.show_phone_number;
+    }
 
     // Registration Overhaul Fields
     if (updateData.registration_date !== undefined) updatePayload.registration_date = updateData.registration_date;
@@ -1120,16 +1136,34 @@ class DoctorService {
         slot_duration: (slot.is_clinic_enabled && !slot.is_video_enabled && !slot.is_home_enabled) ? null : slot.slot_duration,
         is_video_enabled: slot.is_video_enabled,
         is_clinic_enabled: slot.is_clinic_enabled,
-        is_home_enabled: slot.is_home_enabled,
         is_active: slot.is_active,
-        buffer_time: slot.buffer_time,
       }));
 
-      const { error: insertFallbackError } = await supabaseAdmin
+      let { error: insertFallbackError } = await supabaseAdmin
         .from('doctor_slots')
         .insert(fallbackRows);
 
+      if (insertFallbackError && insertFallbackError.code === '42703') {
+        // doctor_slots is missing the is_home_enabled column (migration 033 not
+        // applied). Retry with the pre-033 column set so video/clinic slots can
+        // still be created; home-visit slots persist only after 033 is applied.
+        const compatibleRows = fallbackRows.map((row) => ({
+          doctor_id: row.doctor_id,
+          slot_date: row.slot_date,
+          start_time: row.start_time,
+          end_time: row.end_time,
+          slot_duration: row.slot_duration,
+          is_video_enabled: row.is_video_enabled,
+          is_clinic_enabled: row.is_clinic_enabled,
+          is_active: row.is_active,
+        }));
+        ({ error: insertFallbackError } = await supabaseAdmin
+          .from('doctor_slots')
+          .insert(compatibleRows));
+      }
+
       if (insertFallbackError) {
+        console.error('insertFallbackError details:', insertFallbackError);
         throw new ApiError(400, 'Failed to update slots');
       }
     }
@@ -1171,7 +1205,15 @@ class DoctorService {
       .gte('end_date', new Date().toISOString().split('T')[0])
       .order('start_date', { ascending: true });
       
-    if (error) throw error;
+    if (error) {
+      // doctor_leaves may not exist yet when migration 033 hasn't been applied.
+      // Return empty so the schedule page still loads instead of 500ing.
+      if (isMissingSchemaError(error)) {
+        console.warn('doctor_leaves table not found — leave management unavailable (apply migration 033).');
+        return [];
+      }
+      throw error;
+    }
     return leaves || [];
   }
   
@@ -1201,7 +1243,12 @@ class DoctorService {
       .select()
       .single();
       
-    if (error) throw new ApiError(400, 'Failed to add leave');
+    if (error) {
+      if (isMissingSchemaError(error)) {
+        throw new ApiError(400, 'Leave management is not enabled yet.');
+      }
+      throw new ApiError(400, 'Failed to add leave');
+    }
     return leave;
   }
   
@@ -1222,7 +1269,12 @@ class DoctorService {
       .eq('id', leaveId)
       .eq('doctor_id', doctor.id);
       
-    if (error) throw new ApiError(400, 'Failed to delete leave');
+    if (error) {
+      if (isMissingSchemaError(error)) {
+        throw new ApiError(400, 'Leave management is not enabled yet.');
+      }
+      throw new ApiError(400, 'Failed to delete leave');
+    }
     return { success: true };
   }
 

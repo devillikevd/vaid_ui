@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
     Activity, Heart, Thermometer, Droplets, Loader2, Search,
-    User, Plus, X, Wind, Scale, Droplet,
+    User, Plus, X, Wind, Scale, Droplet, Calendar, ChartArea
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -47,26 +47,26 @@ interface VitalForm {
 
 
 function getBPStatus(sys?: number, dia?: number) {
-    if (!sys || !dia) return { label: 'Unknown', color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-gray-800' };
-    if (sys < 120 && dia < 80) return { label: 'Normal', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' };
-    if (sys >= 140 || dia >= 90) return { label: 'High (HBP)', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' };
-    if (sys >= 130 || dia >= 80) return { label: 'Elevated', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' };
-    return { label: 'Normal', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' };
+    if (!sys || !dia) return { label: 'Unknown', color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-gray-800', border: 'border-gray-200 dark:border-gray-700' };
+    if (sys < 120 && dia < 80) return { label: 'Normal', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800/50' };
+    if (sys >= 140 || dia >= 90) return { label: 'High (HBP)', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800/50' };
+    if (sys >= 130 || dia >= 80) return { label: 'Elevated', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-200 dark:border-orange-800/50' };
+    return { label: 'Normal', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800/50' };
 }
 
 function getTempStatus(temp?: number) {
-    if (!temp) return { label: 'Unknown', color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-gray-800' };
-    if (temp > 100.4) return { label: 'Fever', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' };
-    if (temp > 99.5) return { label: 'Elevated', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' };
-    if (temp < 95) return { label: 'Hypothermia', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' };
-    return { label: 'Normal', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' };
+    if (!temp) return { label: 'Unknown', color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-gray-800', border: 'border-gray-200 dark:border-gray-700' };
+    if (temp > 100.4) return { label: 'Fever', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800/50' };
+    if (temp > 99.5) return { label: 'Elevated', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-200 dark:border-orange-800/50' };
+    if (temp < 95) return { label: 'Hypothermia', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-800/50' };
+    return { label: 'Normal', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800/50' };
 }
 
 function getSpO2Status(spo2?: number) {
-    if (!spo2) return { label: 'Unknown', color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-gray-800' };
-    if (spo2 < 90) return { label: 'Critical', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' };
-    if (spo2 < 95) return { label: 'Low', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' };
-    return { label: 'Normal', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' };
+    if (!spo2) return { label: 'Unknown', color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-gray-800', border: 'border-gray-200 dark:border-gray-700' };
+    if (spo2 < 90) return { label: 'Critical', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800/50' };
+    if (spo2 < 95) return { label: 'Low', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-200 dark:border-orange-800/50' };
+    return { label: 'Normal', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800/50' };
 }
 
 const emptyForm: VitalForm = {
@@ -82,21 +82,24 @@ const emptyForm: VitalForm = {
     notes: '',
 };
 
-function VitalBadge({ icon: Icon, label, value, unit, color, bg }: {
-    icon: React.ElementType; label: string; value?: number | string | null;
-    unit: string; color: string; bg: string;
-}) {
-    if (value == null) return null;
-    return (
-        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${bg}`}>
-            <Icon className={`h-4 w-4 ${color} shrink-0`} />
-            <div className="min-w-0">
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{label}</p>
-                <p className={`text-sm font-semibold ${color}`}>{value} {unit}</p>
+const VitalsSkeleton = () => (
+    <div className="space-y-6 max-w-7xl mx-auto w-full animate-pulse pb-20">
+        <div className="flex justify-between items-center">
+            <div>
+                <div className="h-8 w-48 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
+                <div className="h-4 w-72 bg-gray-100 dark:bg-gray-800/50 rounded-lg mt-2"></div>
             </div>
+            <div className="h-10 w-36 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
         </div>
-    );
-}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="h-36 bg-gray-200 dark:bg-gray-800 rounded-3xl"></div>
+            <div className="h-36 bg-gray-200 dark:bg-gray-800 rounded-3xl"></div>
+            <div className="h-36 bg-gray-200 dark:bg-gray-800 rounded-3xl"></div>
+            <div className="h-36 bg-gray-200 dark:bg-gray-800 rounded-3xl"></div>
+        </div>
+        <div className="h-[600px] bg-gray-200 dark:bg-gray-800 rounded-3xl"></div>
+    </div>
+);
 
 export default function DoctorVitalsPage() {
     const { vitals, loadingVitals, fetchVitals, recordVitals } = useDoctorStore();
@@ -195,22 +198,27 @@ export default function DoctorVitalsPage() {
 
     if (loadingVitals) {
         return (
-            <div className="flex items-center justify-center h-96">
-                <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
-                <span className="ml-2 text-gray-600 dark:text-gray-400">Loading vitals...</span>
+            <div className="p-4 sm:p-6">
+                <VitalsSkeleton />
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8 max-w-7xl mx-auto pb-20">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">Patient Vitals</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Monitor clinical metrics and track patient health trends</p>
+                    <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">Patient Vitals</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1.5 text-base font-medium">Monitor clinical metrics and track patient health trends</p>
                 </div>
-                <Button onClick={() => setShowForm(!showForm)} variant={showForm ? 'outline' : 'primary'} className="w-full sm:w-auto shadow-sm">
+                <Button 
+                    onClick={() => setShowForm(!showForm)} 
+                    variant={showForm ? 'outline' : 'primary'} 
+                    className={`w-full sm:w-auto shadow-sm font-bold rounded-xl transition-all ${
+                        !showForm ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''
+                    }`}
+                >
                     {showForm ? <X className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
                     {showForm ? 'Cancel' : 'Record Vitals'}
                 </Button>
@@ -218,72 +226,85 @@ export default function DoctorVitalsPage() {
 
             {/* Real-time New Vital Alert */}
             {newVitalAlert && (
-                <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 px-4 py-3 rounded-xl flex items-center gap-3 animate-pulse shadow-sm">
-                    <Activity className="h-5 w-5" />
-                    <span className="font-medium text-sm">New vital signs recorded by a patient!</span>
-                    <button onClick={() => setNewVitalAlert(false)} className="ml-auto text-emerald-800 dark:text-emerald-300 underline text-sm hover:text-emerald-900">Dismiss</button>
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 px-5 py-4 rounded-2xl flex items-center gap-4 animate-pulse shadow-sm">
+                    <div className="bg-emerald-100 dark:bg-emerald-900/40 p-2 rounded-xl text-emerald-600 dark:text-emerald-400">
+                        <Activity className="h-5 w-5" />
+                    </div>
+                    <span className="font-bold text-sm">New vital signs recorded by a patient!</span>
+                    <button onClick={() => setNewVitalAlert(false)} className="ml-auto text-emerald-800 dark:text-emerald-300 underline font-semibold text-sm hover:text-emerald-900">Dismiss</button>
                 </div>
             )}
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card padding="md" className="bg-gradient-to-br from-red-50 to-white dark:from-red-950/20 dark:to-gray-950 border-red-100 dark:border-red-900/30">
-                    <div className="p-2.5 bg-red-100 dark:bg-red-900/40 rounded-xl w-fit mb-3">
-                        <Heart className="h-5 w-5 text-red-600 dark:text-red-400" />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-3xl shadow-sm flex flex-col justify-center transition-all hover:shadow-md hover:border-gray-200 dark:hover:border-gray-700 relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-400 to-rose-500 opacity-50"></div>
+                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-red-50 dark:bg-red-900/10 rounded-full blur-xl group-hover:scale-110 transition-transform"></div>
+                    <div className="p-3 bg-red-50 dark:bg-red-900/30 rounded-2xl w-fit mb-4 border border-red-100 dark:border-red-800/50 relative z-10 text-red-600 dark:text-red-400">
+                        <Heart className="h-5 w-5" />
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{vitals.length}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Records</p>
-                </Card>
-                <Card padding="md" className="bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-gray-950 border-blue-100 dark:border-blue-900/30">
-                    <div className="p-2.5 bg-blue-100 dark:bg-blue-900/40 rounded-xl w-fit mb-3">
-                        <User className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <p className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 relative z-10 tracking-tight">{vitals.length}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mt-1 relative z-10">Total Records</p>
+                </div>
+                
+                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-3xl shadow-sm flex flex-col justify-center transition-all hover:shadow-md hover:border-gray-200 dark:hover:border-gray-700 relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500 opacity-50"></div>
+                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-50 dark:bg-blue-900/10 rounded-full blur-xl group-hover:scale-110 transition-transform"></div>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-2xl w-fit mb-4 border border-blue-100 dark:border-blue-800/50 relative z-10 text-blue-600 dark:text-blue-400">
+                        <User className="h-5 w-5" />
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{uniquePatients}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Patients Tracked</p>
-                </Card>
-                <Card padding="md" className="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-gray-950 border-emerald-100 dark:border-emerald-900/30">
-                    <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl w-fit mb-3">
-                        <Activity className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    <p className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 relative z-10 tracking-tight">{uniquePatients}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mt-1 relative z-10">Patients Tracked</p>
+                </div>
+
+                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-3xl shadow-sm flex flex-col justify-center transition-all hover:shadow-md hover:border-gray-200 dark:hover:border-gray-700 relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-teal-500 opacity-50"></div>
+                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 dark:bg-emerald-900/10 rounded-full blur-xl group-hover:scale-110 transition-transform"></div>
+                    <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl w-fit mb-4 border border-emerald-100 dark:border-emerald-800/50 relative z-10 text-emerald-600 dark:text-emerald-400">
+                        <Activity className="h-5 w-5" />
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{todayCount}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Recorded Today</p>
-                </Card>
-                <Card padding="md" className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/20 dark:to-gray-950 border-orange-100 dark:border-orange-900/30">
-                    <div className="p-2.5 bg-orange-100 dark:bg-orange-900/40 rounded-xl w-fit mb-3">
-                        <Thermometer className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                    <p className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 relative z-10 tracking-tight">{todayCount}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mt-1 relative z-10">Recorded Today</p>
+                </div>
+
+                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-3xl shadow-sm flex flex-col justify-center transition-all hover:shadow-md hover:border-gray-200 dark:hover:border-gray-700 relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 to-amber-500 opacity-50"></div>
+                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-orange-50 dark:bg-orange-900/10 rounded-full blur-xl group-hover:scale-110 transition-transform"></div>
+                    <div className="p-3 bg-orange-50 dark:bg-orange-900/30 rounded-2xl w-fit mb-4 border border-orange-100 dark:border-orange-800/50 relative z-10 text-orange-600 dark:text-orange-400">
+                        <Thermometer className="h-5 w-5" />
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{patientList.length}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Your Patients</p>
-                </Card>
+                    <p className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 relative z-10 tracking-tight">{patientList.length}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mt-1 relative z-10">Your Patients</p>
+                </div>
             </div>
 
             {/* Record Vitals Form Modal-style Inline */}
             {showForm && (
-                <div className="bg-white dark:bg-gray-900 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-6 shadow-lg shadow-emerald-900/5 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
-                    <div className="flex items-center justify-between mb-6">
+                <div className="bg-white dark:bg-gray-900 border border-emerald-100 dark:border-emerald-900/30 rounded-3xl p-6 md:p-8 shadow-xl shadow-emerald-900/5 relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-400 to-teal-500"></div>
+                    <div className="flex items-center justify-between mb-8">
                         <div>
-                            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Record New Vitals</h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Log clinical measurements for a patient.</p>
+                            <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">Record New Vitals</h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">Log clinical measurements for a patient.</p>
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => setShowForm(false)} className="w-8 h-8 p-0 text-gray-400 hover:text-gray-600">
+                        <Button variant="ghost" size="sm" onClick={() => setShowForm(false)} className="w-10 h-10 p-0 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                             <X className="h-5 w-5" />
                         </Button>
                     </div>
 
                     {error && (
-                        <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
-                            <Wind className="h-4 w-4" /> {error}
+                        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-2xl text-sm font-semibold text-red-700 dark:text-red-400 flex items-center gap-3">
+                            <Wind className="h-5 w-5 shrink-0" /> {error}
                         </div>
                     )}
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Select Patient <span className="text-red-500">*</span></label>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Select Patient <span className="text-red-500">*</span></label>
                             <select
                                 value={form.patientId}
                                 onChange={(e) => setForm({ ...form, patientId: e.target.value })}
-                                className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:text-gray-200"
+                                className="w-full rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950 px-4 py-3.5 text-sm font-medium focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 dark:text-gray-200 transition-all outline-none"
                             >
                                 <option value="">-- Choose a patient --</option>
                                 {patientList.map(p => (
@@ -293,45 +314,46 @@ export default function DoctorVitalsPage() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Blood Pressure</label>
-                            <div className="flex items-center gap-2">
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Blood Pressure</label>
+                            <div className="flex items-center gap-3">
                                 <div className="relative flex-1">
                                     <Input
                                         type="number"
                                         placeholder="Sys"
                                         value={form.bloodPressureSystolic}
                                         onChange={(e) => setForm({ ...form, bloodPressureSystolic: e.target.value })}
-                                        className="pr-8"
+                                        className="pr-8 rounded-2xl font-medium"
                                     />
                                 </div>
-                                <span className="text-gray-400 font-light text-xl">/</span>
+                                <span className="text-gray-300 font-light text-2xl">/</span>
                                 <div className="relative flex-1">
                                     <Input
                                         type="number"
                                         placeholder="Dia"
                                         value={form.bloodPressureDiastolic}
                                         onChange={(e) => setForm({ ...form, bloodPressureDiastolic: e.target.value })}
+                                        className="rounded-2xl font-medium"
                                     />
                                 </div>
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Heart Rate</label>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Heart Rate</label>
                             <div className="relative">
                                 <Input
                                     type="number"
                                     placeholder="e.g. 72"
                                     value={form.heartRate}
                                     onChange={(e) => setForm({ ...form, heartRate: e.target.value })}
-                                    className="pr-12"
+                                    className="pr-12 rounded-2xl font-medium"
                                 />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">bpm</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] uppercase tracking-wider text-gray-400 font-bold">bpm</span>
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Temperature</label>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Temperature</label>
                             <div className="relative">
                                 <Input
                                     type="number"
@@ -339,42 +361,42 @@ export default function DoctorVitalsPage() {
                                     placeholder="e.g. 98.6"
                                     value={form.temperature}
                                     onChange={(e) => setForm({ ...form, temperature: e.target.value })}
-                                    className="pr-10"
+                                    className="pr-12 rounded-2xl font-medium"
                                 />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">°F</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] uppercase tracking-wider text-gray-400 font-bold">°F</span>
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Oxygen (SpO2)</label>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Oxygen (SpO2)</label>
                             <div className="relative">
                                 <Input
                                     type="number"
                                     placeholder="e.g. 98"
                                     value={form.oxygenLevel}
                                     onChange={(e) => setForm({ ...form, oxygenLevel: e.target.value })}
-                                    className="pr-8"
+                                    className="pr-10 rounded-2xl font-medium"
                                 />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">%</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] uppercase tracking-wider text-gray-400 font-bold">%</span>
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Respiratory Rate</label>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Respiratory Rate</label>
                             <div className="relative">
                                 <Input
                                     type="number"
                                     placeholder="e.g. 16"
                                     value={form.respiratoryRate}
                                     onChange={(e) => setForm({ ...form, respiratoryRate: e.target.value })}
-                                    className="pr-14"
+                                    className="pr-14 rounded-2xl font-medium"
                                 />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">/ min</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] uppercase tracking-wider text-gray-400 font-bold">/ min</span>
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Weight</label>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Weight</label>
                             <div className="relative">
                                 <Input
                                     type="number"
@@ -382,38 +404,39 @@ export default function DoctorVitalsPage() {
                                     placeholder="e.g. 70"
                                     value={form.weight}
                                     onChange={(e) => setForm({ ...form, weight: e.target.value })}
-                                    className="pr-10"
+                                    className="pr-12 rounded-2xl font-medium"
                                 />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">kg</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] uppercase tracking-wider text-gray-400 font-bold">kg</span>
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Blood Sugar</label>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Blood Sugar</label>
                             <div className="relative">
                                 <Input
                                     type="number"
                                     placeholder="e.g. 110"
                                     value={form.bloodSugar}
                                     onChange={(e) => setForm({ ...form, bloodSugar: e.target.value })}
-                                    className="pr-14"
+                                    className="pr-16 rounded-2xl font-medium"
                                 />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">mg/dL</span>
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] uppercase tracking-wider text-gray-400 font-bold">mg/dL</span>
                             </div>
                         </div>
 
                         <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Clinical Notes</label>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Clinical Notes</label>
                             <Input
                                 placeholder="Any additional observations..."
                                 value={form.notes}
                                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                                className="rounded-2xl font-medium py-3"
                             />
                         </div>
                     </div>
-                    <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                        <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-                        <Button onClick={handleSave} disabled={isSaving}>
+                    <div className="mt-8 flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-800">
+                        <Button variant="outline" className="rounded-xl font-bold" onClick={() => setShowForm(false)}>Cancel</Button>
+                        <Button className="rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSave} disabled={isSaving}>
                             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Activity className="h-4 w-4 mr-2" />}
                             {isSaving ? 'Saving...' : 'Save Vitals'}
                         </Button>
@@ -422,33 +445,33 @@ export default function DoctorVitalsPage() {
             )}
 
             {/* Vitals History Table */}
-            <Card className="overflow-hidden">
-                <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-50/50 dark:bg-gray-900/50">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Vitals History</h2>
+            <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col">
+                <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-5 bg-gray-50/30 dark:bg-gray-900/30">
+                    <h2 className="text-lg font-extrabold text-gray-900 dark:text-gray-100">Vitals History</h2>
                     <div className="relative w-full sm:max-w-xs">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <Input
-                            placeholder="Search patients..."
+                            placeholder="Search patient..."
                             value={searchQuery}
                             onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-                            className="pl-9 bg-white dark:bg-gray-950"
+                            className="pl-11 bg-white dark:bg-gray-950 rounded-xl font-medium border-gray-200 dark:border-gray-800 focus:border-gray-300 focus:ring-0 shadow-sm"
                         />
                     </div>
                 </div>
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+                        <thead className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-widest bg-gray-50/80 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-800 font-bold">
                             <tr>
-                                <th className="px-6 py-4 font-semibold">Patient</th>
-                                <th className="px-6 py-4 font-semibold">BP (mmHg)</th>
-                                <th className="px-6 py-4 font-semibold">Heart Rate</th>
-                                <th className="px-6 py-4 font-semibold">Temp (°F)</th>
-                                <th className="px-6 py-4 font-semibold">SpO2</th>
-                                <th className="px-6 py-4 font-semibold">Recorded At</th>
+                                <th className="px-6 py-4 whitespace-nowrap">Patient</th>
+                                <th className="px-6 py-4 whitespace-nowrap">Blood Pressure</th>
+                                <th className="px-6 py-4 whitespace-nowrap">Heart Rate</th>
+                                <th className="px-6 py-4 whitespace-nowrap">Temperature</th>
+                                <th className="px-6 py-4 whitespace-nowrap">SpO2</th>
+                                <th className="px-6 py-4 whitespace-nowrap">Recorded Date</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                             {paginatedItems.length > 0 ? (
                                 paginatedItems.map((vital: any) => {
                                     const bpStatus = getBPStatus(vital.bloodPressureSystolic, vital.bloodPressureDiastolic);
@@ -456,69 +479,88 @@ export default function DoctorVitalsPage() {
                                     const spo2Status = getSpO2Status(vital.oxygenLevel);
                                     
                                     return (
-                                        <tr key={vital.id} className="bg-white dark:bg-gray-950 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <p className="font-medium text-gray-900 dark:text-gray-100">{vital.patientName || 'Unknown Patient'}</p>
-                                                {vital.notes && <p className="text-xs text-gray-500 mt-1 truncate max-w-[150px]">{vital.notes}</p>}
+                                        <tr key={vital.id} className="bg-white dark:bg-gray-900 hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors duration-200 group">
+                                            <td className="px-6 py-5">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="h-10 w-10 shrink-0 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 text-gray-600 dark:text-gray-400 font-bold flex items-center justify-center text-sm border border-gray-200 dark:border-gray-700 shadow-sm">
+                                                        {(vital.patientName || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-gray-900 dark:text-gray-100 text-base">{vital.patientName || 'Unknown Patient'}</p>
+                                                        {vital.notes ? (
+                                                            <p className="text-xs font-medium text-gray-500 mt-0.5 truncate max-w-[150px]">{vital.notes}</p>
+                                                        ) : (
+                                                            <p className="text-xs font-medium text-gray-400 mt-0.5">No notes provided</p>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-5">
                                                 {vital.bloodPressureSystolic && vital.bloodPressureDiastolic ? (
-                                                    <div className="flex flex-col items-start gap-1">
-                                                        <span className="font-medium text-gray-900 dark:text-gray-200">
-                                                            {vital.bloodPressureSystolic}/{vital.bloodPressureDiastolic}
-                                                        </span>
-                                                        <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-full ${bpStatus.bg} ${bpStatus.color}`}>
-                                                            {bpStatus.label}
-                                                        </span>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`px-3 py-1.5 rounded-xl border flex items-center justify-center font-bold text-sm tracking-wide ${bpStatus.bg} ${bpStatus.border} ${bpStatus.color}`}>
+                                                            {vital.bloodPressureSystolic} / {vital.bloodPressureDiastolic}
+                                                        </div>
+                                                        {bpStatus.label !== 'Normal' && (
+                                                            <span className={`text-[10px] uppercase font-bold tracking-wider ${bpStatus.color}`}>
+                                                                {bpStatus.label}
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                ) : <span className="text-gray-400">-</span>}
+                                                ) : <span className="text-gray-300 dark:text-gray-700 font-medium">—</span>}
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-5">
                                                 {vital.heartRate ? (
-                                                    <span className="font-medium text-gray-900 dark:text-gray-200">{vital.heartRate} <span className="text-xs text-gray-500 font-normal">bpm</span></span>
-                                                ) : <span className="text-gray-400">-</span>}
+                                                    <div className="flex items-center gap-2">
+                                                        <Heart className="h-4 w-4 text-rose-500 shrink-0" fill="currentColor" fillOpacity={0.2} />
+                                                        <span className="font-extrabold text-gray-900 dark:text-gray-100 text-base">{vital.heartRate} <span className="text-[11px] text-gray-500 font-bold uppercase tracking-wider ml-0.5">bpm</span></span>
+                                                    </div>
+                                                ) : <span className="text-gray-300 dark:text-gray-700 font-medium">—</span>}
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-5">
                                                 {vital.temperature ? (
-                                                    <div className="flex flex-col items-start gap-1">
-                                                        <span className="font-medium text-gray-900 dark:text-gray-200">
-                                                            {vital.temperature}°
-                                                        </span>
-                                                        {vital.temperature > 99.5 && (
-                                                            <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-full ${tempStatus.bg} ${tempStatus.color}`}>
-                                                                {tempStatus.label}
+                                                    <div className="flex items-center gap-2">
+                                                        <Thermometer className={`h-4 w-4 shrink-0 ${tempStatus.label === 'Normal' ? 'text-gray-400' : tempStatus.color}`} />
+                                                        <div className="flex flex-col">
+                                                            <span className="font-extrabold text-gray-900 dark:text-gray-100 text-base">
+                                                                {vital.temperature}°
                                                             </span>
-                                                        )}
+                                                            {tempStatus.label !== 'Normal' && (
+                                                                <span className={`text-[10px] uppercase font-bold tracking-wider ${tempStatus.color}`}>
+                                                                    {tempStatus.label}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                ) : <span className="text-gray-400">-</span>}
+                                                ) : <span className="text-gray-300 dark:text-gray-700 font-medium">—</span>}
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-5">
                                                 {vital.oxygenLevel ? (
-                                                    <div className="flex flex-col items-start gap-1">
-                                                        <span className="font-medium text-gray-900 dark:text-gray-200">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`px-2 py-1 rounded-lg border font-bold text-sm ${spo2Status.bg} ${spo2Status.border} ${spo2Status.color}`}>
                                                             {vital.oxygenLevel}%
-                                                        </span>
-                                                        {vital.oxygenLevel < 95 && (
-                                                            <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-full ${spo2Status.bg} ${spo2Status.color}`}>
-                                                                {spo2Status.label}
-                                                            </span>
-                                                        )}
+                                                        </div>
                                                     </div>
-                                                ) : <span className="text-gray-400">-</span>}
+                                                ) : <span className="text-gray-300 dark:text-gray-700 font-medium">—</span>}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-gray-400 text-sm">
-                                                {new Date(vital.recordedAt || vital.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                            <td className="px-6 py-5 whitespace-nowrap">
+                                                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300 font-medium">
+                                                    <Calendar className="h-4 w-4 text-gray-400" />
+                                                    {new Date(vital.recordedAt || vital.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                                </div>
                                             </td>
                                         </tr>
                                     );
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-16 text-center">
-                                        <div className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
-                                            <Activity className="h-10 w-10 mb-3 text-gray-300 dark:text-gray-600" />
-                                            <p className="font-medium">No Vitals Recorded</p>
-                                            <p className="text-sm mt-1">Start by recording vitals for your patients.</p>
+                                    <td colSpan={6} className="px-6 py-20 text-center">
+                                        <div className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+                                            <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-full mb-5 border border-gray-100 dark:border-gray-800">
+                                                <ChartArea className="h-12 w-12 text-gray-400 dark:text-gray-500" strokeWidth={1.5} />
+                                            </div>
+                                            <p className="font-extrabold text-gray-900 dark:text-gray-100 text-xl tracking-tight mb-2">No vitals recorded yet</p>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium leading-relaxed">Start by recording your first patient vitals to monitor their clinical metrics and track health trends over time.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -527,11 +569,11 @@ export default function DoctorVitalsPage() {
                     </table>
                 </div>
                 {totalPages > 1 && (
-                    <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
+                    <div className="p-5 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
                         <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
                     </div>
                 )}
-            </Card>
+            </div>
         </div>
     );
 }

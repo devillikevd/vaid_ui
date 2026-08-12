@@ -537,7 +537,7 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
   // Fetch current status first to validate transition
   const { data: current, error: currentError } = await supabaseAdmin
     .from('appointments')
-    .select('status, type, completion_otp, status_history')
+    .select('status, type')
     .eq('id', appointmentId)
     .eq('doctor_id', doctor?.id)
     .single();
@@ -552,28 +552,12 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
     throw new ApiError(400, `Cannot transition from '${current.status}' to '${status}'`);
   }
 
-  // Validate OTP if completing a consultation
-  if (status === 'completed' && current.completion_otp) {
-    if (current.completion_otp !== otp) {
-      throw new ApiError(400, 'Invalid completion OTP. Please ask the patient for the correct 6-digit OTP.');
-    }
-  }
-
-  let history = current.status_history || [];
-  if (!Array.isArray(history)) history = [];
-  history.push({ status, timestamp: new Date().toISOString() });
-
   let updateData = {
     status,
-    status_history: history,
     cancellation_reason: reason || null,
     cancelled_by: status === 'cancelled' ? doctor?.id : null,
     updated_at: new Date().toISOString(),
   };
-
-  if (status === 'in_progress' && !current.completion_otp) {
-    updateData.completion_otp = Math.floor(100000 + Math.random() * 900000).toString();
-  }
 
   const { data: appointment, error } = await supabaseAdmin
     .from('appointments')

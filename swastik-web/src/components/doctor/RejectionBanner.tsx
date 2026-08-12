@@ -5,7 +5,7 @@ import { AlertCircle, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { DoctorProfile } from '@/stores/doctorStore';
 import { FileUpload } from '@/components/shared/FileUpload';
-import { doctorApi } from '@/lib/api';
+import { doctorApi, uploadApi } from '@/lib/api';
 
 interface RejectionBannerProps {
     profile: DoctorProfile;
@@ -25,15 +25,19 @@ export function RejectionBanner({ profile, onReupload }: RejectionBannerProps) {
         if (!file) return;
         setUploadingFor(docType);
         try {
-            // Mocking upload to cloud storage
-            await new Promise(r => setTimeout(r, 1500));
-            const mockUrl = `https://storage.vaididea.com/${docType}/${Date.now()}`;
+            // Use real upload API
+            const uploadRes = await uploadApi.uploadFile(file, 'doctor_docs') as any;
+            if (!uploadRes.success || !uploadRes.data?.url) {
+                throw new Error(uploadRes.error || 'Failed to upload document');
+            }
+            
+            const uploadedUrl = uploadRes.data.url;
             
             // Updating profile in DB
             const payload: any = { approval_status: 'under_review' };
-            if (docType === 'degree') payload.degree_certificate_url = mockUrl;
-            if (docType === 'council') payload.license_document_url = mockUrl;
-            if (docType === 'govtid') payload.government_id_url = mockUrl;
+            if (docType === 'degree') payload.degree_certificate_url = uploadedUrl;
+            if (docType === 'council') payload.license_document_url = uploadedUrl;
+            if (docType === 'govtid') payload.government_id_url = uploadedUrl;
             
             await doctorApi.updateProfile(payload);
             setFile(null);

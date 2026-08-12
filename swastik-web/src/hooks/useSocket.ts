@@ -359,6 +359,7 @@ export function useNotifications(onNotification?: (notification: Notification) =
         : null;
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [unreadCount, setUnreadCount] = useState<number>(0);
 
     const normalizeNotification = useCallback((raw: Record<string, any>): Notification => ({
         id: raw.id,
@@ -432,6 +433,12 @@ export function useNotifications(onNotification?: (notification: Notification) =
             // Local/socket notifications still work if persisted fetch fails.
         });
 
+        notificationsApi.getUnreadCount().then((response) => {
+            if (cancelled || !response.success) return;
+            const count = (response.data as any)?.count || 0;
+            setUnreadCount(count);
+        }).catch(() => {});
+
         return () => {
             cancelled = true;
         };
@@ -455,6 +462,7 @@ export function useNotifications(onNotification?: (notification: Notification) =
                 return;
             }
             setNotifications((prev) => dedupeNotifications([normalizedNotification, ...prev]));
+            setUnreadCount((prev) => prev + 1);
             onNotification?.(normalizedNotification);
         };
 
@@ -466,6 +474,7 @@ export function useNotifications(onNotification?: (notification: Notification) =
         setNotifications((prev) =>
             prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
         );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
         notificationsApi.markAsRead(notificationId).catch(() => {
             // Keep optimistic local read state; retry happens on future server hydration.
         });
@@ -473,18 +482,17 @@ export function useNotifications(onNotification?: (notification: Notification) =
 
     const markAllRead = useCallback(() => {
         setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        setUnreadCount(0);
         notificationsApi.markAllAsRead().catch(() => {});
     }, []);
 
     const clearNotifications = useCallback(() => {
         setNotifications([]);
+        setUnreadCount(0);
         if (typeof window !== 'undefined' && storageKey) {
             localStorage.removeItem(storageKey);
         }
     }, [storageKey]);
-
-    // BUG-14 Fix: unreadCount now counts only notifications without read flag
-    const unreadCount = notifications.filter((n) => !(n as any).read).length;
 
     return { notifications, unreadCount, clearNotifications, markRead, markAllRead };
 }

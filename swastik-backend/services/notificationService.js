@@ -185,8 +185,8 @@ const sendPushNotification = async (userId, notification) => {
   }
 };
 
-// Get user notifications (used by routes/notifications.js)
-const getUserNotifications = async (userId, page = 1, limit = 20, unreadOnly = false) => {
+// Get user notifications (paginated)
+const getUserNotifications = async (userId, page = 1, limit = 20, unreadOnly = false, types = null, search = null) => {
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('notifications')
@@ -194,6 +194,17 @@ const getUserNotifications = async (userId, page = 1, limit = 20, unreadOnly = f
     .eq('user_id', userId);
 
   if (unreadOnly) query = query.eq('is_read', false);
+  
+  if (types && Array.isArray(types) && types.length > 0) {
+    query = query.in('type', types);
+  } else if (types && typeof types === 'string') {
+    query = query.eq('type', types);
+  }
+
+  if (search) {
+    // Search in title or message
+    query = query.or(`title.ilike.%${search}%,message.ilike.%${search}%`);
+  }
 
   const { data, error, count } = await query
     .order('created_at', { ascending: false })
@@ -248,6 +259,18 @@ const markAllAsRead = async (userId) => {
 
   if (error) throw error;
   return { message: 'All notifications marked as read' };
+};
+
+// Clear read notifications
+const clearReadNotifications = async (userId) => {
+  const { error } = await supabaseAdmin
+    .from('notifications')
+    .delete()
+    .eq('user_id', userId)
+    .eq('is_read', true);
+
+  if (error) throw error;
+  return { message: 'Read notifications cleared' };
 };
 
 // Delete notification
@@ -392,6 +415,7 @@ module.exports = {
   markAllAsRead,
   deleteNotification,
   clearAllNotifications,
+  clearReadNotifications,
   registerDevice,
   createNotification,
   sendNotification,

@@ -17,9 +17,12 @@ import {
     Moon,
     Monitor,
     ArrowLeft,
+    CheckCircle2, Star, Users, Calendar, Clock, Edit2, FileText, Bell, Globe, Shield,
+    Building2, CalendarDays, CreditCard, BarChart2, HelpCircle, MessageSquare, BookOpen, Repeat
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { useDoctorStore } from '@/stores/doctorStore';
 import { cn, getInitials, formatDoctorName } from '@/lib/utils';
 import { ApprovalBanner } from '@/components/shared/ApprovalBanner';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
@@ -98,7 +101,7 @@ function ThemeOptionButton({ value, Icon }: { value: 'light' | 'dark' | 'system'
                 'flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all',
                 isActive
                     ? 'bg-emerald-500 text-white shadow-sm'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
             )}
         >
             <Icon className="h-3 w-3" />
@@ -129,14 +132,14 @@ const COLOR_CLASSES: Record<string, {
         logoBg: 'bg-blue-700',
     },
     emerald: {
-        sidebar: 'bg-emerald-900',
-        border: 'border-emerald-800',
-        active: 'bg-emerald-700 text-white',
-        text: 'text-emerald-100',
-        hover: 'hover:bg-emerald-800',
+        sidebar: 'bg-white dark:bg-[#0B1020]',
+        border: 'border-gray-200 dark:border-gray-800/60',
+        active: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+        text: 'text-gray-600 dark:text-gray-400',
+        hover: 'hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-200',
         avatar: 'bg-emerald-600',
         spinner: 'border-emerald-600',
-        logoBg: 'bg-emerald-700',
+        logoBg: 'bg-emerald-100 dark:bg-emerald-600/20',
     },
     teal: {
         sidebar: 'bg-teal-900',
@@ -288,6 +291,7 @@ export default function DashboardLayout({
     const router = useRouter();
     const pathname = usePathname();
     const { user, isAuthenticated, _hasHydrated, logout } = useAuthStore();
+    const doctorStore = useDoctorStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [desktopCollapsed, setDesktopCollapsed] = useState(false);
@@ -333,7 +337,7 @@ export default function DashboardLayout({
         };
         timeout = setTimeout(tick, 800);
         return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Close search on outside click
@@ -364,7 +368,7 @@ export default function DashboardLayout({
     const searchResults = searchQuery.trim().length > 0
         ? config.navItems.filter(item =>
             item.name.toLowerCase().includes(searchQuery.toLowerCase())
-          )
+        )
         : [];
 
     const sidebarRef = useRef<HTMLDivElement>(null);
@@ -446,6 +450,16 @@ export default function DashboardLayout({
         allowedRoles.includes(user.role) ||
         (allowedRoles.includes('admin') && user.role === 'super_admin')
     );
+
+    // Calculate dynamic stats for doctor dropdown
+    const averageRating = doctorStore.reviews.length > 0
+        ? (doctorStore.reviews.reduce((acc, r) => acc + r.rating, 0) / doctorStore.reviews.length).toFixed(1)
+        : '5.0';
+    const totalPatients = doctorStore.patientsPagination.total > 0 ? doctorStore.patientsPagination.total : 0;
+    const formattedPatients = totalPatients >= 1000 ? `${(totalPatients / 1000).toFixed(1)}k` : totalPatients.toString();
+    const todaysCount = doctorStore.stats?.todaysAppointments ?? doctorStore.stats?.totalPatientsToday ?? doctorStore.todaysAppointments?.length ?? 0;
+    const yearsExp = doctorStore.doctorProfile?.experience_years ?? 0;
+
     const normalizedApprovalStatus = user?.approval_status === 'under_review' ? 'review' : user?.approval_status;
 
     const [isMounted, setIsMounted] = useState(false);
@@ -501,17 +515,17 @@ export default function DashboardLayout({
     const basePath = `/${baseRoleStr?.replace(/_owner|_manager/, '')}`;
 
     const activeNavItem = config.navItems.find(item => item.href === pathname);
-    
+
     // Find parent nav item for nested pages to show correct title
-    const parentNavItem = !activeNavItem 
-        ? config.navItems.find(item => 
-            pathname.startsWith(item.href + '/') && 
+    const parentNavItem = !activeNavItem
+        ? config.navItems.find(item =>
+            pathname.startsWith(item.href + '/') &&
             item.href !== basePath
-          )
+        )
         : null;
 
     const navItemToDisplay = activeNavItem || parentNavItem;
-    
+
     const isRootPage = pathname === basePath;
     const showBackButton = !activeNavItem && !isRootPage;
 
@@ -530,7 +544,7 @@ export default function DashboardLayout({
         : roleFilteredNavItems;
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950" data-theme={config.theme.dataTheme}>
+        <div className="min-h-screen bg-[var(--surface-page)]" data-theme={config.theme.dataTheme}>
             {/* Socket listener — only active on dashboard pages (not login/register/etc.) */}
             <GlobalSocketToasts />
 
@@ -547,9 +561,10 @@ export default function DashboardLayout({
             <div
                 ref={sidebarRef}
                 className={cn(
-                    'fixed top-0 left-0 z-50 h-full text-white transition-all duration-300 lg:translate-x-0 flex flex-col',
+                    'fixed top-0 left-0 z-50 h-full transition-all duration-300 lg:translate-x-0 flex flex-col border-r',
                     desktopCollapsed ? 'w-64 lg:w-20' : 'w-64',
                     colors.sidebar,
+                    colors.border,
                     sidebarOpen ? 'translate-x-0' : '-translate-x-full'
                 )}
                 role={sidebarOpen ? 'dialog' : 'navigation'}
@@ -559,39 +574,39 @@ export default function DashboardLayout({
                 {/* Logo */}
                 <div className={cn('flex-none flex items-center h-16 px-4 border-b', colors.border, desktopCollapsed ? 'justify-center' : 'justify-between')}>
                     <div className={cn("flex items-center gap-3 overflow-hidden", desktopCollapsed ? "lg:hidden" : "")}>
-                        <div className={cn('p-2 rounded-lg shrink-0', colors.logoBg)}>
-                            <PortalIcon className="h-5 w-5" />
+                        <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/20 shrink-0">
+                            <PortalIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                         </div>
                         <div className="whitespace-nowrap">
-                            <h1 className="font-bold text-lg">{config.portalTitle}</h1>
-                            <p className={cn('text-xs', subtitleColor)}>{config.portalSubtitle}</p>
+                            <h1 className="font-bold text-[15px] text-gray-900 dark:text-white tracking-tight">{config.portalTitle}</h1>
+                            <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{config.portalSubtitle}</p>
                         </div>
                     </div>
                     {desktopCollapsed && (
-                        <div className={cn('p-2 rounded-lg shrink-0 hidden lg:block', colors.logoBg)}>
-                            <PortalIcon className="h-5 w-5" />
+                        <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/20 shrink-0 hidden lg:flex">
+                            <PortalIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                         </div>
                     )}
                     <div className="flex shrink-0 items-center gap-1">
                         <button
                             onClick={() => setDesktopCollapsed(!desktopCollapsed)}
-                            className={cn('hidden lg:flex p-1.5 rounded-lg', colors.hover)}
+                            className="hidden lg:flex p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                             title={desktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                         >
-                            {desktopCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+                            {desktopCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                         </button>
                         <button
                             onClick={closeSidebar}
-                            className={cn('lg:hidden p-1 rounded-lg', colors.hover)}
+                            className="lg:hidden p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                             aria-label="Close sidebar"
                         >
-                            <X className="h-5 w-5" />
+                            <X className="h-4 w-4" />
                         </button>
                     </div>
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6">
+                <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-6">
                     {(() => {
                         const sections: Record<string, typeof visibleNavItems> = {};
                         visibleNavItems.forEach(item => {
@@ -601,18 +616,17 @@ export default function DashboardLayout({
                         });
 
                         return Object.entries(sections).map(([sectionName, items]) => (
-                            <div key={sectionName || 'default'} className="space-y-1">
+                            <div key={sectionName || 'default'} className="space-y-0.5">
                                 {sectionName && (
                                     <div className={cn(
-                                        "px-3 mb-2 text-xs font-semibold uppercase tracking-wider opacity-60 whitespace-nowrap",
-                                        colors.text,
+                                        "px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] whitespace-nowrap text-gray-400 dark:text-gray-600",
                                         desktopCollapsed ? "lg:hidden" : ""
                                     )}>
                                         {sectionName}
                                     </div>
                                 )}
                                 {sectionName && desktopCollapsed && (
-                                    <div className="h-4 hidden lg:block" /> 
+                                    <div className="h-px hidden lg:block bg-gray-200 dark:bg-gray-800/50 mx-2 mb-2" />
                                 )}
                                 {items.map((item) => {
                                     const isActive = pathname === item.href ||
@@ -626,24 +640,33 @@ export default function DashboardLayout({
                                             onClick={item.onClick}
                                             title={desktopCollapsed ? item.name : undefined}
                                             className={cn(
-                                                'flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative',
-                                                desktopCollapsed ? 'lg:justify-center px-3 lg:px-0' : 'px-3',
-                                                isActive ? colors.active : cn(colors.text, colors.hover)
+                                                'relative flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group',
+                                                desktopCollapsed ? 'lg:justify-center px-3 lg:px-0 lg:py-3' : 'px-3',
+                                                isActive
+                                                    ? colors.active
+                                                    : cn(colors.text, colors.hover)
                                             )}
                                         >
-                                            <Icon className="h-5 w-5 shrink-0" />
-                                            <span className={cn("whitespace-nowrap", desktopCollapsed ? "lg:hidden" : "")}>{item.name}</span>
-                                            
+                                            {/* Active left indicator */}
+                                            {isActive && (
+                                                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-emerald-500 rounded-r-full shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                                            )}
+                                            <Icon className={cn(
+                                                'h-[18px] w-[18px] shrink-0 transition-colors duration-200',
+                                                isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400'
+                                            )} />
+                                            <span className={cn("whitespace-nowrap font-medium", desktopCollapsed ? "lg:hidden" : "")}>{item.name}</span>
+
                                             {item.badge != null && item.badge > 0 && (
                                                 <span className={cn(
-                                                    "bg-red-500 text-white text-xs font-bold rounded-full h-5 min-w-[20px] flex items-center justify-center px-1 ml-auto",
+                                                    "bg-red-500 text-white text-[10px] font-bold rounded-full h-4.5 min-w-[18px] flex items-center justify-center px-1 ml-auto leading-none py-0.5",
                                                     desktopCollapsed ? "lg:hidden" : ""
                                                 )}>
                                                     {item.badge > 99 ? '99+' : item.badge}
                                                 </span>
                                             )}
                                             {desktopCollapsed && item.badge != null && item.badge > 0 && (
-                                                <span className="hidden lg:flex absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 items-center justify-center">
+                                                <span className="hidden lg:flex absolute top-0.5 right-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full h-4 w-4 items-center justify-center">
                                                     {item.badge > 99 ? '!' : item.badge}
                                                 </span>
                                             )}
@@ -657,11 +680,11 @@ export default function DashboardLayout({
             </div>
 
             {/* Main content */}
-            <div 
+            <div
                 className={cn("transition-all duration-300 min-h-screen flex flex-col", desktopCollapsed ? "lg:pl-20" : "lg:pl-64")}
                 onClick={() => {
-                                                    // Removed auto-collapse since it applies incorrectly to mobile state
-                                                }}
+                    // Removed auto-collapse since it applies incorrectly to mobile state
+                }}
             >
                 {/* Header */}
                 <header className="sticky top-0 z-30 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
@@ -685,11 +708,13 @@ export default function DashboardLayout({
                                     <ArrowLeft className="h-5 w-5" />
                                 </button>
                             )}
-                            {navItemToDisplay && (() => { const Icon = navItemToDisplay.icon; return (
-                                <span className={cn('hidden sm:flex items-center justify-center h-8 w-8 rounded-lg shrink-0', colors.logoBg)}>
-                                    <Icon className="h-4 w-4 text-white" />
-                                </span>
-                            ); })()}
+                            {navItemToDisplay && (() => {
+                                const Icon = navItemToDisplay.icon; return (
+                                    <span className={cn('hidden sm:flex items-center justify-center h-8 w-8 rounded-lg shrink-0', colors.logoBg)}>
+                                        <Icon className="h-4 w-4 text-white" />
+                                    </span>
+                                );
+                            })()}
                             <h2 className="truncate text-sm font-bold text-gray-900 dark:text-gray-100 sm:text-base capitalize">
                                 {navItemToDisplay?.name || 'Dashboard'}
                                 {showBackButton && ' Details'}
@@ -700,7 +725,7 @@ export default function DashboardLayout({
                     {/* Search Bar */}
                     <div ref={searchRef} className="relative hidden md:flex flex-1 max-w-sm lg:max-w-md mx-4">
                         <div className="relative w-full group">
-                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-emerald-500 transition-colors pointer-events-none" />
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-gray-400 group-focus-within:text-emerald-600 dark:group-focus-within:text-emerald-500 transition-colors pointer-events-none" />
                             <input
                                 ref={searchInputRef}
                                 type="text"
@@ -721,7 +746,7 @@ export default function DashboardLayout({
                             {searchQuery && (
                                 <button
                                     onClick={() => { setSearchQuery(''); setSearchOpen(false); searchInputRef.current?.focus(); }}
-                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                                 >
                                     <X className="h-3.5 w-3.5" />
                                 </button>
@@ -732,7 +757,7 @@ export default function DashboardLayout({
                         {searchOpen && searchQuery.trim().length > 0 && (
                             <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden z-50">
                                 {searchResults.length > 0 ? (
-                                    <ul className="py-1">
+                                    <ul className="py-1 max-h-[60vh] overflow-y-auto scrollbar-hide">
                                         {searchResults.map((item) => {
                                             const Icon = item.icon;
                                             return (
@@ -745,7 +770,7 @@ export default function DashboardLayout({
                                                             setSearchQuery('');
                                                         }}
                                                     >
-                                                        <Icon className="h-4 w-4 shrink-0 text-gray-400" />
+                                                        <Icon className="h-4 w-4 shrink-0 text-gray-700 dark:text-gray-400" />
                                                         <span className="font-medium">{item.name}</span>
                                                         {(item as any).section && (
                                                             <span className="ml-auto text-[10px] text-gray-400 uppercase tracking-wider">{(item as any).section}</span>
@@ -824,77 +849,270 @@ export default function DashboardLayout({
                                         onClick={() => setDropdownOpen(false)}
                                         role="presentation"
                                     />
-                                    <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-20">
+                                    <div className="absolute right-0 mt-2 w-[95vw] sm:w-[500px] bg-white/95 dark:bg-[#0B1020]/95 backdrop-blur-xl rounded-[18px] border border-gray-200 dark:border-gray-800 shadow-2xl z-50 overflow-hidden ring-1 ring-black/5 dark:ring-white/5 flex flex-col max-h-[85vh]">
+                                        {user?.role === 'doctor' ? (
+                                            <>
+                                                <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">
+                                                    {/* Premium Doctor Header */}
+                                                    <div className="p-6 bg-gradient-to-b from-emerald-500/10 to-transparent border-b border-gray-200 dark:border-gray-800">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="relative shrink-0">
+                                                                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 p-[2px]">
+                                                                    <div className="h-full w-full rounded-full bg-white dark:bg-[#0B1020] flex items-center justify-center">
+                                                                        <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{getInitials(displayName)}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-white dark:bg-[#0B1020] rounded-full flex items-center justify-center">
+                                                                    <div className="h-3.5 w-3.5 bg-emerald-500 rounded-full flex items-center justify-center text-white">
+                                                                        <CheckCircle2 className="h-2.5 w-2.5" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                                <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate w-full">{displayName}</h3>
+                                                                <div className="flex items-center gap-1.5 mt-0.5 shrink-0">
+                                                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                                                    <span className="text-xs font-bold text-emerald-500">{doctorStore.doctorProfile?.is_approved ? 'Verified Doctor' : 'Doctor'}</span>
+                                                                </div>
+                                                                <p className="text-[13px] font-medium text-gray-400 mt-1.5 whitespace-normal break-words leading-tight">
+                                                                    {doctorStore.doctorProfile?.specialization || 'General Physician'}
+                                                                    {doctorStore.doctorProfile?.hospital_id ? ' • Hospital Affiliated' : ''}
+                                                                </p>
+                                                                <div className="flex items-center gap-1.5 mt-2 shrink-0">
+                                                                    <span className={cn(
+                                                                        "flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-md",
+                                                                        doctorStore.doctorProfile?.is_available !== false ? "text-emerald-500 bg-emerald-500/10" : "text-gray-500 bg-gray-500/10"
+                                                                    )}>
+                                                                        <span className={cn(
+                                                                            "w-1.5 h-1.5 rounded-full shrink-0",
+                                                                            doctorStore.doctorProfile?.is_available !== false ? "bg-emerald-500 animate-pulse" : "bg-gray-500"
+                                                                        )}></span> {doctorStore.doctorProfile?.is_available !== false ? 'Online' : 'Offline'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
 
-                                        {/* Profile Header */}
-                                        <div className="px-4 py-4 bg-gradient-to-br from-emerald-500/10 to-emerald-700/5 border-b border-gray-100 dark:border-gray-700">
-                                            <div className="flex items-center gap-3">
-                                                <div className={cn(
-                                                    'h-11 w-11 rounded-full flex items-center justify-center text-white text-base font-bold shrink-0',
-                                                    colors.avatar
-                                                )}>
-                                                    {getInitials(displayName)}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{displayName}</p>
-                                                    <span className="inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 capitalize">
-                                                        {user?.role?.replace(/_/g, ' ')}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
+                                                        {/* Quick Stats */}
+                                                        <div className="grid grid-cols-4 gap-3 mt-6">
+                                                            <div className="bg-gray-50 dark:bg-[#131A2B] rounded-xl p-3 border border-gray-200 dark:border-gray-800/50 flex flex-col items-center justify-center transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 h-[150px]">
+                                                                <Calendar className="w-4 h-4 text-emerald-500 shrink-0" />
+                                                                <span className="text-[36px] font-bold text-gray-900 dark:text-white leading-none mt-2">{todaysCount}</span>
+                                                                <span className="text-[11px] font-medium text-gray-500 tracking-tight leading-[1.3] text-center mt-auto pb-1 whitespace-normal text-balance">Today's Appointments</span>
+                                                            </div>
+                                                            <div className="bg-gray-50 dark:bg-[#131A2B] rounded-xl p-3 border border-gray-200 dark:border-gray-800/50 flex flex-col items-center justify-center transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 h-[150px]">
+                                                                <Star className="w-4 h-4 text-amber-500 shrink-0" />
+                                                                <span className="text-[36px] font-bold text-gray-900 dark:text-white leading-none mt-2">{averageRating}<span className="text-xl text-amber-500/50">★</span></span>
+                                                                <span className="text-[11px] font-medium text-gray-500 tracking-tight leading-[1.3] text-center mt-auto pb-1 whitespace-normal text-balance">Average Rating</span>
+                                                            </div>
+                                                            <div className="bg-gray-50 dark:bg-[#131A2B] rounded-xl p-3 border border-gray-200 dark:border-gray-800/50 flex flex-col items-center justify-center transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 h-[150px]">
+                                                                <Users className="w-4 h-4 text-blue-500 shrink-0" />
+                                                                <span className="text-[36px] font-bold text-gray-900 dark:text-white leading-none mt-2">{formattedPatients}</span>
+                                                                <span className="text-[11px] font-medium text-gray-500 tracking-tight leading-[1.3] text-center mt-auto pb-1 whitespace-normal text-balance">Total Patients</span>
+                                                            </div>
+                                                            <div className="bg-gray-50 dark:bg-[#131A2B] rounded-xl p-3 border border-gray-200 dark:border-gray-800/50 flex flex-col items-center justify-center transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 h-[150px]">
+                                                                <Clock className="w-4 h-4 text-purple-500 shrink-0" />
+                                                                <span className="text-[36px] font-bold text-gray-900 dark:text-white leading-none mt-2">{yearsExp}</span>
+                                                                <span className="text-[11px] font-medium text-gray-500 tracking-tight leading-[1.3] text-center mt-auto pb-1 whitespace-normal text-balance">Years Experience</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
 
-                                        {/* Navigation Links */}
-                                        {config.showFullDropdown && (
-                                            <div className="py-1.5">
-                                                <Link
-                                                    href={`/${user?.role?.replace(/_owner|_manager/, '')}/settings`}
-                                                    onClick={() => setDropdownOpen(false)}
-                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                                                >
-                                                    <span className="flex items-center justify-center h-7 w-7 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                                                        <UserIcon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                                                    </span>
-                                                    <span>View Profile</span>
-                                                </Link>
-                                                {config.settingsHref && (
-                                                    <Link
-                                                        href={config.settingsHref}
-                                                        onClick={() => setDropdownOpen(false)}
-                                                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                                                    >
-                                                        <span className="flex items-center justify-center h-7 w-7 rounded-lg bg-gray-100 dark:bg-gray-700">
-                                                            <Settings2 className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                                                        </span>
-                                                        <span>Account &amp; Settings</span>
-                                                    </Link>
+                                                    {/* Theme Switcher Segmented Control */}
+                                                    <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+                                                        <div className="flex w-full bg-gray-100 dark:bg-[#131A2B] p-1.5 gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800">
+                                                            {(['light', 'dark', 'system'] as const).map((t) => {
+                                                                const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
+                                                                return (
+                                                                    <ThemeOptionButton key={t} value={t} Icon={Icon} />
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Menu Sections */}
+                                                    <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
+                                                        <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Profile</div>
+                                                        <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <UserIcon className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">View Profile</span>
+                                                        </Link>
+                                                        <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <Edit2 className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Edit Profile</span>
+                                                        </Link>
+                                                        <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <FileText className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Professional Details</span>
+                                                        </Link>
+                                                    </div>
+
+                                                    <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
+                                                        <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Account</div>
+                                                        <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <Settings2 className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Account Settings</span>
+                                                        </Link>
+                                                        <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <Bell className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Notification Preferences</span>
+                                                        </Link>
+                                                        <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <Sun className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Appearance</span>
+                                                        </Link>
+                                                        <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <Globe className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Language</span>
+                                                        </Link>
+                                                        <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <Shield className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Privacy & Security</span>
+                                                        </Link>
+                                                    </div>
+
+                                                    <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
+                                                        <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Workspace</div>
+                                                        <Link href="/doctor/invites" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <Building2 className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">My Hospitals</span>
+                                                        </Link>
+                                                        <Link href="/doctor/schedule" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <CalendarDays className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">My Schedule</span>
+                                                        </Link>
+                                                        <Link href="/doctor/earnings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <CreditCard className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Earnings</span>
+                                                        </Link>
+                                                        <Link href="/doctor" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <BarChart2 className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Analytics</span>
+                                                        </Link>
+                                                    </div>
+
+                                                    <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
+                                                        <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Support</div>
+                                                        <button className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <HelpCircle className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Help Center</span>
+                                                        </button>
+                                                        <button className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <MessageSquare className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Contact Support</span>
+                                                        </button>
+                                                        <button className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <BookOpen className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Documentation</span>
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Account Info Section */}
+                                                    <div className="p-4 bg-gray-50 dark:bg-[#131A2B]/50">
+                                                        <div className="space-y-3">
+                                                            <div className="flex justify-between items-center text-xs">
+                                                                <span className="text-gray-400 font-medium">Email</span>
+                                                                <span className="text-gray-700 dark:text-gray-300 font-bold">{user?.email || 'Not provided'}</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center text-xs">
+                                                                <span className="text-gray-400 font-medium">Phone Number</span>
+                                                                <span className="text-gray-700 dark:text-gray-300 font-bold">{user?.phone || 'Not provided'}</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center text-xs">
+                                                                <span className="text-gray-400 font-medium">Medical Reg No</span>
+                                                                <span className="text-gray-700 dark:text-gray-300 font-bold">MED-2026-892</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center text-xs">
+                                                                <span className="text-gray-400 font-medium">Membership Plan</span>
+                                                                <span className="text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-500/20">Enterprise</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center text-xs">
+                                                                <span className="text-gray-400 font-medium">Last Login</span>
+                                                                <span className="text-gray-700 dark:text-gray-300 font-bold">Just now</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            /* Standard / Non-Doctor Profile Layout */
+                                            <div className="flex flex-col">
+                                                {/* Profile Header */}
+                                                <div className="px-4 py-4 bg-gradient-to-br from-emerald-500/10 to-emerald-700/5 border-b border-gray-100 dark:border-gray-700">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={cn(
+                                                            'h-11 w-11 rounded-full flex items-center justify-center text-white text-base font-bold shrink-0',
+                                                            colors.avatar
+                                                        )}>
+                                                            {getInitials(displayName)}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{displayName}</p>
+                                                            <span className="inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 capitalize">
+                                                                {user?.role?.replace(/_/g, ' ')}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Navigation Links */}
+                                                {config.showFullDropdown && (
+                                                    <div className="py-1.5">
+                                                        <Link
+                                                            href={`/${user?.role?.replace(/_owner|_manager/, '')}/settings`}
+                                                            onClick={() => setDropdownOpen(false)}
+                                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                                        >
+                                                            <span className="flex items-center justify-center h-7 w-7 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                                                                <UserIcon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                                            </span>
+                                                            <span>View Profile</span>
+                                                        </Link>
+                                                        {config.settingsHref && (
+                                                            <Link
+                                                                href={config.settingsHref}
+                                                                onClick={() => setDropdownOpen(false)}
+                                                                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                                            >
+                                                                <span className="flex items-center justify-center h-7 w-7 rounded-lg bg-gray-100 dark:bg-gray-700">
+                                                                    <Settings2 className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                                                                </span>
+                                                                <span>Account &amp; Settings</span>
+                                                            </Link>
+                                                        )}
+                                                    </div>
                                                 )}
+
+                                                {/* Theme Toggle Row */}
+                                                <div className="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700">
+                                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">Theme</p>
+                                                    <div className="flex items-center gap-1.5">
+                                                        {(['light', 'dark', 'system'] as const).map((t) => {
+                                                            const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
+                                                            return (
+                                                                <ThemeOptionButton key={t} value={t} Icon={Icon} />
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
                                             </div>
                                         )}
 
-                                        {/* Theme Toggle Row */}
-                                        <div className="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700">
-                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">Theme</p>
-                                            <div className="flex items-center gap-1.5">
-                                                {(['light', 'dark', 'system'] as const).map((t) => {
-                                                    const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
-                                                    return (
-                                                        <ThemeOptionButton key={t} value={t} Icon={Icon} />
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-
-                                        {/* Sign Out */}
-                                        <div className="border-t border-gray-100 dark:border-gray-700 py-1.5">
+                                        {/* Common Footer */}
+                                        <div className="p-4 mt-2 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#0B1020] space-y-2">
+                                            {user?.role === 'doctor' && (
+                                                <button className="flex items-center w-full px-4 min-h-[56px] text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#131A2B] rounded-xl transition-all group active:bg-gray-200 dark:active:bg-gray-800">
+                                                    <span className="flex items-center gap-3 shrink-0">
+                                                        <Repeat className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" /> Switch Account
+                                                    </span>
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={handleLogout}
-                                                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                className="flex items-center w-full px-4 min-h-[56px] text-sm font-bold text-rose-500 hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all group active:bg-rose-100 dark:active:bg-rose-500/20"
                                             >
-                                                <span className="flex items-center justify-center h-7 w-7 rounded-lg bg-red-100 dark:bg-red-900/30">
-                                                    <LogOut className="h-4 w-4 text-red-500" />
+                                                <span className="flex items-center gap-3 shrink-0">
+                                                    <LogOut className="w-5 h-5 shrink-0" /> Sign Out
                                                 </span>
-                                                <span className="font-medium">Sign Out</span>
                                             </button>
                                         </div>
                                     </div>

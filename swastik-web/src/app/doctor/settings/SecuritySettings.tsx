@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lock, Smartphone, Clock, XCircle, LogOut } from 'lucide-react';
+import { Lock, Smartphone, Clock, XCircle, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { authApi } from '@/lib/api';
@@ -15,7 +15,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            <label className="block text-[13px] font-bold text-gray-400 mb-2 uppercase tracking-wide">
                 {label}
             </label>
             {children}
@@ -99,11 +99,11 @@ export function SecuritySettings({ showStatus }: { showStatus: (type: 'success' 
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-12">
             {/* Change Password */}
             <div>
                 <SectionLabel>Change Password</SectionLabel>
-                <div className="max-w-sm space-y-4 bg-gray-50 dark:bg-gray-800/30 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <div className="max-w-md space-y-5 bg-white dark:bg-[#131A2B] p-7 rounded-3xl border border-gray-200 dark:border-gray-800/50 shadow-sm transition-all hover:border-gray-300 dark:hover:border-gray-700/50">
                     <FieldRow label="Current Password">
                         <Input type="password" value={passwords.current} onChange={e => setPasswords(p => ({ ...p, current: e.target.value }))} placeholder="Enter current password" />
                     </FieldRow>
@@ -113,58 +113,65 @@ export function SecuritySettings({ showStatus }: { showStatus: (type: 'success' 
                     <FieldRow label="Confirm New Password">
                         <Input type="password" value={passwords.confirm} onChange={e => setPasswords(p => ({ ...p, confirm: e.target.value }))} placeholder="Re-enter new password" />
                     </FieldRow>
-                    <Button variant="outline" onClick={handleChangePassword} isLoading={isSavingPassword} leftIcon={<Lock className="h-4 w-4" />} className="w-full mt-2">Update Password</Button>
+                    <div className="pt-2">
+                        <Button onClick={handleChangePassword} isLoading={isSavingPassword} leftIcon={<Lock className="h-4 w-4" />} className="w-full h-12 text-[15px]">Update Password</Button>
+                    </div>
                 </div>
-                <div className="mt-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400 max-w-sm">
-                    🔐 Changing your password will automatically log you out from all other devices.
+                <div className="mt-6 p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 to-transparent border-l-4 border-amber-500 text-[15px] font-medium text-amber-500 max-w-md flex gap-4 items-center">
+                    <span className="text-2xl shrink-0">🔐</span>
+                    <p className="leading-relaxed">Changing your password will automatically log you out from all other active devices.</p>
                 </div>
             </div>
 
             {/* Active Sessions */}
             <div>
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <SectionLabel>Active Sessions</SectionLabel>
-                    <Button variant="danger" size="sm" onClick={handleLogoutAll} leftIcon={<LogOut className="h-4 w-4" />}>
+                    <Button variant="danger" size="sm" onClick={handleLogoutAll} leftIcon={<LogOut className="h-4 w-4" />} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border-0 transition-all">
                         Log out all other devices
                     </Button>
                 </div>
                 
                 {isLoadingSessions ? (
-                    <p className="text-sm text-gray-500">Loading sessions...</p>
+                    <div className="flex justify-center p-12 bg-white dark:bg-[#131A2B] rounded-3xl border border-gray-200 dark:border-gray-800/50">
+                        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+                    </div>
                 ) : (
-                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         {sessions.length === 0 ? (
-                            <div className="p-4 text-sm text-gray-500 text-center">No active sessions found.</div>
+                            <div className="col-span-full p-12 text-[15px] font-medium text-gray-500 text-center bg-white dark:bg-[#131A2B] rounded-3xl border border-gray-200 dark:border-gray-800/50 shadow-sm flex flex-col items-center gap-3">
+                                <Smartphone className="w-10 h-10 text-gray-700" />
+                                No active sessions found.
+                            </div>
                         ) : (
-                            <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {sessions.map(session => (
-                                    <li key={session.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
-                                                <Smartphone className="h-5 w-5" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                                    {session.device_info || 'Unknown Device'}
-                                                </p>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-xs text-gray-500 flex items-center gap-1">
-                                                        IP: {session.ip_address || 'Unknown'}
-                                                    </span>
-                                                    <span className="text-xs text-gray-300 dark:text-gray-600">•</span>
-                                                    <span className="text-xs text-gray-500 flex items-center gap-1">
-                                                        <Clock className="h-3 w-3" /> 
-                                                        Last active: {formatDate(session.last_active)}
-                                                    </span>
-                                                </div>
+                            sessions.map(session => (
+                                <div key={session.id} className="bg-white dark:bg-[#131A2B] p-6 rounded-3xl border border-gray-200 dark:border-gray-800/50 flex flex-col gap-5 shadow-sm transition-all hover:border-gray-300 dark:hover:border-gray-700/50">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500 shrink-0 border border-emerald-500/20">
+                                            <Smartphone className="h-6 w-6" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[16px] font-bold text-gray-900 dark:text-gray-100 truncate">
+                                                {session.device_info || 'Unknown Device'}
+                                            </p>
+                                            <div className="flex flex-col gap-1.5 mt-2.5">
+                                                <span className="text-[13px] font-semibold text-gray-500 flex items-center gap-2">
+                                                    IP Address: <span className="text-gray-300 font-mono">{session.ip_address || 'Unknown'}</span>
+                                                </span>
+                                                <span className="text-[13px] font-semibold text-gray-500 flex items-center gap-2">
+                                                    <Clock className="h-4 w-4 text-gray-600" /> 
+                                                    Last active: <span className="text-gray-400">{formatDate(session.last_active)}</span>
+                                                </span>
                                             </div>
                                         </div>
-                                        <Button variant="ghost" size="sm" onClick={() => handleLogoutDevice(session.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
-                                            <XCircle className="h-4 w-4 mr-2" /> Revoke
+                                    </div>
+                                    <div className="flex justify-end mt-auto pt-2 border-t border-gray-200 dark:border-gray-800/50">
+                                        <Button variant="ghost" size="sm" onClick={() => handleLogoutDevice(session.id)} className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-9 px-4 rounded-xl mt-2">
+                                            <XCircle className="h-4 w-4 mr-2" /> Revoke Access
                                         </Button>
-                                    </li>
-                                ))}
-                            </ul>
+                                    </div>
+                                </div>
+                            ))
                         )}
                     </div>
                 )}
@@ -174,45 +181,50 @@ export function SecuritySettings({ showStatus }: { showStatus: (type: 'success' 
             <div>
                 <SectionLabel>Recent Login History</SectionLabel>
                 {isLoadingSessions ? (
-                    <p className="text-sm text-gray-500">Loading history...</p>
+                    <div className="flex justify-center p-12 bg-white dark:bg-[#131A2B] rounded-3xl border border-gray-200 dark:border-gray-800/50">
+                        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+                    </div>
                 ) : (
-                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
+                    <div className="bg-white dark:bg-[#131A2B] rounded-3xl border border-gray-200 dark:border-gray-800/50 shadow-sm overflow-hidden transition-all hover:border-gray-300 dark:hover:border-gray-700/50">
                         {history.length === 0 ? (
-                            <div className="p-4 text-sm text-gray-500 text-center">No login history found.</div>
+                            <div className="p-12 text-[15px] font-medium text-gray-500 text-center flex flex-col items-center gap-3">
+                                <Clock className="w-10 h-10 text-gray-700" />
+                                No login history found.
+                            </div>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800/50 uppercase border-b border-gray-200 dark:border-gray-700">
+                                <table className="w-full text-sm text-left whitespace-nowrap">
+                                    <thead className="text-[12px] font-bold uppercase tracking-widest text-gray-500 bg-gray-50 dark:bg-[#0B1020]/50 border-b border-gray-200 dark:border-gray-800/50">
                                         <tr>
-                                            <th className="px-6 py-3 font-medium">Status</th>
-                                            <th className="px-6 py-3 font-medium">Date & Time</th>
-                                            <th className="px-6 py-3 font-medium">Device Info</th>
-                                            <th className="px-6 py-3 font-medium">IP Address</th>
+                                            <th className="px-8 py-5">Status</th>
+                                            <th className="px-8 py-5">Date & Time</th>
+                                            <th className="px-8 py-5">Device Info</th>
+                                            <th className="px-8 py-5">IP Address</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                    <tbody className="divide-y divide-gray-200 dark:divide-gray-800/50">
                                         {history.map((log) => (
-                                            <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap">
+                                            <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-[#1A2235] transition-colors">
+                                                <td className="px-8 py-5">
                                                     {log.status === 'success' ? (
-                                                        <span className="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                                        <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                                                             Success
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                                                        <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-widest bg-red-500/10 text-red-500 border border-red-500/20">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
                                                             Failed
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
+                                                <td className="px-8 py-5 text-[14px] font-medium text-gray-600 dark:text-gray-400">
                                                     {formatDate(log.created_at)}
                                                 </td>
-                                                <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
+                                                <td className="px-8 py-5 text-[15px] font-bold text-gray-800 dark:text-gray-200">
                                                     {log.device_info || 'Unknown'}
                                                 </td>
-                                                <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
+                                                <td className="px-8 py-5 text-[14px] font-medium text-gray-500 font-mono">
                                                     {log.ip_address || 'Unknown'}
                                                 </td>
                                             </tr>

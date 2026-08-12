@@ -14,6 +14,7 @@ import {
     Shield,
     Package,
     BadgePercent,
+    MessageSquare,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
@@ -37,6 +38,7 @@ const ADMIN_CONFIG: DashboardConfig = {
         { name: 'Emergencies', href: '/admin/emergencies', icon: AlertTriangle },
         { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
         { name: 'Outbreak Monitor', href: '/admin/outbreaks', icon: Radar },
+        { name: 'Doctor Feedback', href: '/admin/feedback', icon: MessageSquare },
         { name: 'Compliance', href: '/admin/compliance', icon: FileCheck },
         { name: 'Audit Trail', href: '/admin/audit', icon: History },
         { name: 'Settings', href: '/admin/settings', icon: Settings },

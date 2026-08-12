@@ -45,6 +45,9 @@ router.get('/specialties',
 );
 
 // ============ DOCTOR PROTECTED ROUTES ============
+// Mount feedback routes
+router.use('/feedback', require('./feedback'));
+
 // NOTE: /me/* routes MUST be registered before /:id to prevent Express
 // from matching "me" as a doctor ID parameter.
 
@@ -215,6 +218,229 @@ router.get('/me/dashboard',
     res.json({ success: true, data: dashboard });
   })
 );
+
+// Get doctor analytics (revenue trends, appointment breakdown, performance)
+router.get('/me/analytics',
+  authenticate,
+  authorize('doctor'),
+  requireApproval,
+  asyncHandler(async (req, res) => {
+    const { period = '30d' } = req.query;
+    const { supabaseAdmin } = require('../../config/supabase');
+
+    // Resolve doctor ID
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id, consultation_fee')
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    if (!doctor) return res.status(404).json({ success: false, message: 'Doctor profile not found' });
+
+    // Calculate date range
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    const startDateStr = startDate.toISOString().split('T')[0];
+
+    const prevStartDate = new Date(startDate);
+    prevStartDate.setDate(prevStartDate.getDate() - days);
+    const prevStartDateStr = prevStartDate.toISOString().split('T')[0];
+
+    // Fetch appointments in range
+    const { data: appointments } = await supabaseAdmin
+      .from('appointments')
+      .select('id, appointment_date, status, type, fee, patient_id')
+      .eq('doctor_id', doctor.id)
+      .gte('appointment_date', startDateStr)
+      .order('appointment_date', { ascending: true });
+      
+    const { data: prevAppointments } = await supabaseAdmin
+      .from('appointments')
+      .select('id, status, type, fee')
+      .eq('doctor_id', doctor.id)
+      .gte('appointment_date', prevStartDateStr)
+      .lt('appointment_date', startDateStr);
+
+    const appts = appointments || [];
+
+    // Build daily appointment counts
+    const dailyMap = {};
+    appts.forEach(a => {
+      const d = a.appointment_date;
+      if (!dailyMap[d]) dailyMap[d] = { date: d, appointments: 0, revenue: 0, video: 0, inPerson: 0, cancelled: 0, completed: 0 };
+      dailyMap[d].appointments++;
+      if (a.status === 'completed') {
+        dailyMap[d].completed++;
+        dailyMap[d].revenue += (a.fee || doctor.consultation_fee || 0);
+      }
+      if (a.status === 'cancelled') dailyMap[d].cancelled++;
+      if (a.type === 'Video' || a.type === 'video') dailyMap[d].video++;
+      else dailyMap[d].inPerson++;
+    });
+    const dailyData = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+
+    // Summary stats
+    const totalAppointments = appts.length;
+    const completedAppts = appts.filter(a => a.status === 'completed').length;
+    const cancelledAppts = appts.filter(a => a.status === 'cancelled').length;
+    const videoAppts = appts.filter(a => a.type === 'Video' || a.type === 'video').length;
+    const inPersonAppts = totalAppointments - videoAppts;
+    const totalRevenue = appts.filter(a => a.status === 'completed').reduce((sum, a) => sum + (a.fee || doctor.consultation_fee || 0), 0);
+    const cancellationRate = totalAppointments > 0 ? Math.round((cancelledAppts / totalAppointments) * 100) : 0;
+    const completionRate = totalAppointments > 0 ? Math.round((completedAppts / totalAppointments) * 100) : 0;
+    const avgRevenue = completedAppts > 0 ? Math.round(totalRevenue / completedAppts) : 0;
+    const uniquePatients = new Set(appts.map(a => a.patient_id).filter(Boolean)).size;
+
+    const prevAppts = prevAppointments || [];
+    const prevTotalAppointments = prevAppts.length;
+    const prevCompletedAppts = prevAppts.filter(a => a.status === 'completed').length;
+    const prevCancelledAppts = prevAppts.filter(a => a.status === 'cancelled').length;
+    const prevTotalRevenue = prevAppts.filter(a => a.status === 'completed').reduce((sum, a) => sum + (a.fee || doctor.consultation_fee || 0), 0);
+    const prevCancellationRate = prevTotalAppointments > 0 ? Math.round((prevCancelledAppts / prevTotalAppointments) * 100) : 0;
+    const prevCompletionRate = prevTotalAppointments > 0 ? Math.round((prevCompletedAppts / prevTotalAppointments) * 100) : 0;
+
+    // Peak hours from appointment times — get from time_slot
+    const { data: slotData } = await supabaseAdmin
+      .from('appointments')
+      .select('time_slot')
+      .eq('doctor_id', doctor.id)
+      .gte('appointment_date', startDateStr)
+      .not('time_slot', 'is', null);
+
+    const hourMap = {};
+    (slotData || []).forEach(a => {
+      if (!a.time_slot) return;
+      const hour = parseInt(a.time_slot.split(':')[0], 10);
+      hourMap[hour] = (hourMap[hour] || 0) + 1;
+    });
+    const peakHours = Object.entries(hourMap)
+      .map(([hour, count]) => ({ hour: parseInt(hour), label: `${hour}:00`, count }))
+      .sort((a, b) => a.hour - b.hour);
+
+    res.json({
+      success: true,
+      data: {
+        period,
+        summary: {
+          totalAppointments,
+          completedAppointments: completedAppts,
+          cancelledAppointments: cancelledAppts,
+          totalRevenue,
+          avgRevenuePerConsultation: avgRevenue,
+          cancellationRate,
+          completionRate,
+          videoConsultations: videoAppts,
+          inPersonConsultations: inPersonAppts,
+          uniquePatients,
+        },
+        previousSummary: {
+          totalAppointments: prevTotalAppointments,
+          totalRevenue: prevTotalRevenue,
+          cancellationRate: prevCancellationRate,
+          completionRate: prevCompletionRate,
+        },
+        charts: {
+          daily: dailyData,
+          consultationType: [
+            { name: 'Video', value: videoAppts, color: '#10b981' },
+            { name: 'In-Person', value: inPersonAppts, color: '#3b82f6' },
+          ],
+          peakHours,
+        },
+      }
+    });
+  })
+);
+
+// Get AI-powered doctor insights (rule-based, ready for OpenAI integration)
+router.get('/me/insights',
+  authenticate,
+  authorize('doctor'),
+  requireApproval,
+  asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../../config/supabase');
+
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id, consultation_fee, bio, profile_image_url, intro_video_url, qualification, specialization, registration_number, license_number')
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    if (!doctor) return res.status(404).json({ success: false, message: 'Doctor profile not found' });
+
+    // Last 30 days appointments
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const { data: recentAppts } = await supabaseAdmin
+      .from('appointments')
+      .select('appointment_date, status, type, fee, time_slot')
+      .eq('doctor_id', doctor.id)
+      .gte('appointment_date', thirtyDaysAgo.toISOString().split('T')[0]);
+
+    const appts = recentAppts || [];
+    const insights = [];
+
+    // Rule 1: Weekend vs weekday bookings
+    const weekendAppts = appts.filter(a => {
+      const day = new Date(a.appointment_date).getDay();
+      return day === 0 || day === 6;
+    }).length;
+    const weekdayAppts = appts.length - weekendAppts;
+    if (weekendAppts > 0 && weekdayAppts > 0) {
+      const weekendRate = ((weekendAppts / appts.length) * 100).toFixed(0);
+      if (weekendAppts > weekdayAppts / 5) {
+        insights.push({ id: 'weekend_bookings', category: 'Schedule', type: 'positive', icon: 'calendar', title: 'Weekend bookings are strong', description: `${weekendRate}% of your recent appointments are on weekends. Consider adding more Saturday/Sunday slots.`, action: 'Add Weekend Slots', actionHref: '/doctor/schedule' });
+      }
+    }
+
+    // Rule 2: Evening slots
+    const eveningAppts = appts.filter(a => {
+      if (!a.time_slot) return false;
+      const hour = parseInt(a.time_slot.split(':')[0], 10);
+      return hour >= 17;
+    }).length;
+    if (eveningAppts > 0 && appts.length > 0) {
+      const eveningRate = ((eveningAppts / appts.length) * 100).toFixed(0);
+      if (eveningRate > 25) {
+        insights.push({ id: 'evening_slots', category: 'Schedule', type: 'positive', icon: 'clock', title: 'Evening slots are popular', description: `${eveningRate}% of your bookings are for evening hours. Evening slots generate higher patient engagement.`, action: 'Optimize Schedule', actionHref: '/doctor/schedule' });
+      }
+    }
+
+    // Rule 3: Video vs In-Person revenue comparison
+    const videoAppts = appts.filter(a => a.type === 'Video' || a.type === 'video');
+    const inPersonAppts = appts.filter(a => a.type !== 'Video' && a.type !== 'video');
+    if (videoAppts.length > 0 && inPersonAppts.length > 0) {
+      insights.push({ id: 'video_vs_inperson', category: 'Revenue', type: 'info', icon: 'video', title: 'Video consultations growing', description: `${videoAppts.length} video vs ${inPersonAppts.length} in-person consultations this month. Video cuts travel time and increases patient reach.`, action: 'View Earnings', actionHref: '/doctor/earnings' });
+    }
+
+    // Rule 4: Cancellation rate
+    const cancelled = appts.filter(a => a.status === 'cancelled').length;
+    if (appts.length > 5) {
+      const cancelRate = ((cancelled / appts.length) * 100).toFixed(0);
+      if (parseFloat(cancelRate) > 15) {
+        insights.push({ id: 'high_cancellation', category: 'Engagement', type: 'warning', icon: 'alert', title: 'Cancellation rate is elevated', description: `Your cancellation rate is ${cancelRate}% this month. Consider sending appointment reminders to reduce no-shows.`, action: 'Review Appointments', actionHref: '/doctor/appointments' });
+      }
+    }
+
+    // Rule 5: Profile completeness
+    const profileFields = ['bio', 'profile_image_url', 'intro_video_url', 'qualification', 'specialization', 'registration_number'];
+    const filledFields = profileFields.filter(f => doctor[f] && doctor[f] !== '');
+    const completionPct = Math.round((filledFields.length / profileFields.length) * 100);
+    if (completionPct < 85) {
+      insights.push({ id: 'profile_completion', category: 'Engagement', type: 'warning', icon: 'user', title: 'Complete your profile for more bookings', description: `Your profile is ${completionPct}% complete. Doctors with complete profiles receive 3× more patient bookings.`, action: 'Complete Profile', actionHref: '/doctor/settings' });
+    }
+
+    // Rule 6: No intro video
+    if (!doctor.intro_video_url) {
+      insights.push({ id: 'intro_video', category: 'Engagement', type: 'tip', icon: 'video', title: 'Add an intro video to boost trust', description: 'Doctors with intro videos get significantly more bookings. Upload a 15-second reel to introduce yourself to patients.', action: 'Upload Video', actionHref: '/doctor/settings?tab=video' });
+    }
+
+    res.json({ success: true, data: insights });
+  })
+);
+
+
 
 // Get patient health alerts
 router.get('/me/patient-alerts',
@@ -688,27 +914,112 @@ router.get('/me/journey',
       return res.status(404).json({ success: false, message: 'Doctor not found' });
     }
 
-    // Get all completed appointments for this doctor to calculate earnings and unique patients
+    // Get all completed appointments to calculate timeseries, earnings, and unique patients
     const { data: consultations, error: consError } = await supabaseAdmin
       .from('appointments')
-      .select('id, fee, patient_id')
+      .select('id, fee, patient_id, created_at, updated_at, appointment_date')
       .eq('doctor_id', doctor.id)
-      .eq('status', 'completed');
+      .eq('status', 'completed')
+      .order('appointment_date', { ascending: true });
 
     if (consError) {
       return res.status(500).json({ success: false, message: 'Failed to fetch journey stats' });
     }
 
-    // Calculate stats
+    // Get recent reviews
+    const { data: recentReviews } = await supabaseAdmin
+      .from('reviews')
+      .select('id, rating, review_text, created_at, patient:patients(user:users(name))')
+      .eq('doctor_id', doctor.id)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    // Get Goals gracefully (handle MongoDB timeouts)
+    const { DoctorGoal } = require('../../database/models');
+    let doctorGoal = {
+        monthlyConsultations: 50,
+        monthlyRevenue: 25000,
+        profileCompletion: 100
+    };
+    try {
+        const mongoose = require('mongoose');
+        if (mongoose.connection.readyState === 1) {
+            const foundGoal = await DoctorGoal.findOne({ doctorId: doctor.id }).maxTimeMS(2000).exec();
+            if (foundGoal) doctorGoal = foundGoal;
+        } else {
+            console.warn('MongoDB not connected, using default DoctorGoal.');
+        }
+    } catch (err) {
+        console.warn('MongoDB error for DoctorGoal, using defaults:', err.message);
+    }
+
+    // Calculate stats & timeseries
     let lifetimeEarnings = 0;
     const uniquePatients = new Set();
+    const patientsByMonth = {};
+    const revenueByMonth = {};
+    const consultationsByMonth = {};
+    const milestones = [];
+
+    milestones.push({
+        title: 'Joined Vaididea',
+        date: doctor.user?.created_at,
+        icon: 'UserPlus'
+    });
+
+    if (consultations && consultations.length > 0) {
+        milestones.push({
+            title: 'First Consultation',
+            date: consultations[0].appointment_date || consultations[0].updated_at,
+            icon: 'Stethoscope'
+        });
+        
+        if (consultations.length >= 10) {
+            milestones.push({ title: '10 Consultations', date: consultations[9].appointment_date || consultations[9].updated_at, icon: 'Award' });
+        }
+        if (consultations.length >= 50) {
+            milestones.push({ title: '50 Consultations', date: consultations[49].appointment_date || consultations[49].updated_at, icon: 'Award' });
+        }
+        if (consultations.length >= 100) {
+            milestones.push({ title: '100 Consultations', date: consultations[99].appointment_date || consultations[99].updated_at, icon: 'Trophy' });
+        }
+    }
+
+    if (recentReviews && recentReviews.length > 0) {
+        milestones.push({
+            title: 'First Patient Review',
+            date: recentReviews[recentReviews.length - 1].created_at,
+            icon: 'Star'
+        });
+    }
+
+    // Sort milestones chronologically
+    milestones.sort((a, b) => new Date(a.date) - new Date(b.date));
     
+    // Process analytics
     (consultations || []).forEach(cons => {
       lifetimeEarnings += (cons.fee || 0);
-      if (cons.patient_id) {
-        uniquePatients.add(cons.patient_id);
-      }
+      if (cons.patient_id) uniquePatients.add(cons.patient_id);
+      
+      const d = new Date(cons.appointment_date || cons.updated_at);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (!consultationsByMonth[monthKey]) consultationsByMonth[monthKey] = 0;
+      if (!revenueByMonth[monthKey]) revenueByMonth[monthKey] = 0;
+      if (!patientsByMonth[monthKey]) patientsByMonth[monthKey] = new Set();
+      
+      consultationsByMonth[monthKey]++;
+      revenueByMonth[monthKey] += (cons.fee || 0);
+      if (cons.patient_id) patientsByMonth[monthKey].add(cons.patient_id);
     });
+
+    // Format timeseries for charts
+    const chartData = Object.keys(consultationsByMonth).sort().map(monthKey => ({
+        month: monthKey,
+        consultations: consultationsByMonth[monthKey],
+        revenue: revenueByMonth[monthKey],
+        patients: patientsByMonth[monthKey].size
+    }));
 
     res.json({
       success: true,
@@ -718,9 +1029,55 @@ router.get('/me/journey',
         totalConsultations: (consultations || []).length,
         lifetimeEarnings,
         averageRating: doctor.rating || 0,
-        totalReviews: doctor.total_reviews || 0
+        totalReviews: doctor.total_reviews || 0,
+        chartData,
+        milestones,
+        recentReviews: (recentReviews || []).map(r => ({
+            id: r.id,
+            rating: r.rating,
+            text: r.review_text,
+            date: r.created_at,
+            patientName: r.patient?.user?.name || 'Anonymous'
+        })),
+        goals: {
+            monthlyConsultations: doctorGoal.monthlyConsultations,
+            monthlyRevenue: doctorGoal.monthlyRevenue,
+            profileCompletion: doctorGoal.profileCompletion
+        }
       }
     });
+  })
+);
+
+// Save/Update Goals
+router.post('/me/goals',
+  authenticate,
+  authorize('doctor'),
+  requireApproval,
+  asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../../config/supabase');
+    const { DoctorGoal } = require('../../database/models');
+    
+    const { data: doctor } = await supabaseAdmin.from('doctors').select('id').eq('user_id', req.user.id).single();
+    if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found' });
+
+    const { monthlyConsultations, monthlyRevenue } = req.body;
+    
+    try {
+        const mongoose = require('mongoose');
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ success: false, message: 'Goals storage temporarily unavailable' });
+        }
+        await DoctorGoal.findOneAndUpdate(
+            { doctorId: doctor.id },
+            { monthlyConsultations, monthlyRevenue, updatedAt: new Date() },
+            { upsert: true, new: true, maxTimeMS: 3000 }
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Failed to save goals:', err.message);
+        res.status(503).json({ success: false, message: 'Goals storage temporarily unavailable' });
+    }
   })
 );
 

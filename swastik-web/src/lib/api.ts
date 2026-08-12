@@ -456,6 +456,30 @@ export const authApi = {
 
 export const adminApi = {
     getDashboard: () => fetchWithAuth('/admin/dashboard'),
+    
+    // Feedback Management
+    getFeedback: (filters?: Record<string, unknown>, page: number = 1, limit: number = 20) => {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString(),
+        });
+        if (filters?.status) params.set('status', String(filters.status));
+        if (filters?.type) params.set('type', String(filters.type));
+        if (filters?.category) params.set('category', String(filters.category));
+        if (filters?.search) params.set('search', String(filters.search));
+        return fetchWithAuth(`/admin/feedback?${params}`);
+    },
+    updateFeedbackStatus: (id: string, status: string, priority?: string) => 
+        fetchWithAuth(`/admin/feedback/${id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status, priority }),
+        }),
+    respondToFeedback: (id: string, adminResponse: string, status?: string) =>
+        fetchWithAuth(`/admin/feedback/${id}/response`, {
+            method: 'POST',
+            body: JSON.stringify({ adminResponse, status }),
+        }),
+
 
     getPendingApprovals: (type: string = 'all', page: number = 1, filters?: Record<string, unknown>) => {
         const params = new URLSearchParams({
@@ -733,6 +757,15 @@ export const adminApi = {
 // Backend: routes/doctor/index.js
 
 export const doctorApi = {
+    // Feedback
+    submitFeedback: (data: any) => fetchWithAuth('/doctor/feedback', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }),
+    getMyFeedback: () => fetchWithAuth('/doctor/feedback'),
+    getFeedbackDetail: (id: string) => fetchWithAuth(`/doctor/feedback/${id}`),
+
+
     getPublicDoctorById: async (id: string) => {
         const response = await fetch(`${API_BASE_URL}/doctors/${id}`);
         return response.json();
@@ -743,6 +776,11 @@ export const doctorApi = {
         return response.json();
     },
     getJourneyStats: () => fetchWithAuth('/doctors/me/journey'),
+    updateJourneyGoals: (data: { monthlyConsultations: number, monthlyRevenue: number }) =>
+        fetchWithAuth('/doctors/me/goals', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
     getDashboard: () => fetchWithAuth('/doctors/me/dashboard'),
     getPatientAlerts: () => fetchWithAuth<any[]>('/doctors/me/patient-alerts'),
 
@@ -882,6 +920,12 @@ export const doctorApi = {
 
     getReviews: (page: number = 1, limit: number = 10) =>
         fetchWithAuth(`/doctors/me/reviews?page=${page}&limit=${limit}`),
+
+    getAnalytics: (period: string = '30d') =>
+        fetchWithAuth(`/doctors/me/analytics?period=${period}`),
+
+    getInsights: () =>
+        fetchWithAuth('/doctors/me/insights'),
 };
 
 // ==================== HOSPITAL API ====================
@@ -1676,7 +1720,16 @@ export const uploadApi = {
 // Backend: routes/notification/index.js
 
 export const notificationsApi = {
-    getAll: (page: number = 1) => fetchWithAuth(`/notifications?page=${page}`),
+    getAll: (page: number = 1, limit: number = 20, unreadOnly?: boolean, types?: string[], search?: string) => {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString()
+        });
+        if (unreadOnly) params.set('unreadOnly', 'true');
+        if (types && types.length > 0) params.set('types', types.join(','));
+        if (search) params.set('search', search);
+        return fetchWithAuth(`/notifications?${params}`);
+    },
 
     getUnreadCount: () => fetchWithAuth('/notifications/unread-count'),
 
@@ -1685,6 +1738,12 @@ export const notificationsApi = {
 
     markAllAsRead: () =>
         fetchWithAuth('/notifications/read-all', { method: 'PUT' }),
+
+    clearRead: () =>
+        fetchWithAuth('/notifications/read', { method: 'DELETE' }),
+
+    clearAll: () =>
+        fetchWithAuth('/notifications', { method: 'DELETE' }),
 };
 
 // ==================== VITALS API ====================
