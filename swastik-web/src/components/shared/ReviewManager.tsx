@@ -174,7 +174,7 @@ export default function ReviewManager({ reviews, loadingReviews, error, fetchRev
     };
 
     const filteredAndSortedReviews = useMemo(() => {
-        let result = reviews.filter(review => {
+        const result = reviews.filter(review => {
             const matchesFilter = 
                 filter === 'all' || 
                 (filter === 'verified' && !review.is_anonymous) || 
