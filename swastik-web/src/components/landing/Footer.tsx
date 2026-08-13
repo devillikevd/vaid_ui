@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import VaidideaLogo from "@/components/shared/VaidideaLogo";
 
 export default function Footer() {
   return (
@@ -11,14 +12,7 @@ export default function Footer() {
           {/* Brand Column */}
           <div className="col-span-2 md:col-span-3 lg:col-span-2 pr-4">
             <Link href="/" className="flex items-center gap-2.5 mb-6 group">
-              <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8">
-                <path d="M 50 90 L 22 55 C 8 38 25 12 45 28 L 50 32 L 55 28 C 75 12 92 38 78 55 L 50 90 Z" 
-                      stroke="#1B4D3E" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M 30 50 L 45 68 L 72 32" 
-                      stroke="#2D6A4F" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M 78 45 L 78 60 M 70.5 52.5 L 85.5 52.5" 
-                      stroke="#1B4D3E" strokeWidth="6" strokeLinecap="round"/>
-              </svg>
+              <VaidideaLogo className="w-8 h-8" size={32} />
               <span className="font-heading text-2xl font-semibold text-vd-forest">Vaididea</span>
             </Link>
             <p className="text-sm leading-relaxed max-w-xs">

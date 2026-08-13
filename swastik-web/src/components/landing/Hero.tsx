@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import VaidideaLogo from "@/components/shared/VaidideaLogo";
 
 export default function Hero() {
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -40,14 +41,7 @@ export default function Hero() {
         <div className="flex justify-center mb-10 hover:-translate-y-2 transition-transform duration-700 ease-out">
           <div className="relative">
             <div className="absolute inset-0 bg-white/40 blur-2xl rounded-full scale-150" />
-            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 drop-shadow-2xl relative z-10">
-              <path d="M 50 90 L 22 55 C 8 38 25 12 45 28 L 50 32 L 55 28 C 75 12 92 38 78 55 L 50 90 Z" 
-                    stroke="#1B4D3E" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M 30 50 L 45 68 L 72 32" 
-                    stroke="#2D6A4F" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M 78 45 L 78 60 M 70.5 52.5 L 85.5 52.5" 
-                    stroke="#1B4D3E" strokeWidth="6" strokeLinecap="round"/>
-            </svg>
+            <VaidideaLogo className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 drop-shadow-2xl relative z-10" size={176} />
           </div>
         </div>
 
