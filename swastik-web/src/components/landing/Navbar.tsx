@@ -40,7 +40,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
             <VaidideaLogo className="w-9 h-9 transition-transform duration-300 group-hover:scale-105" />
-            <span className="font-heading text-2xl font-semibold tracking-tight text-vd-forest">
+            <span className="font-heading text-2xl font-semibold tracking-tight text-vd-forest uppercase">
               Vaididea
             </span>
           </Link>

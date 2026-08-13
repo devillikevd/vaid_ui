@@ -9,10 +9,10 @@
   --color-brand-primary: #2563EB;
   --color-brand-accent: #60A5FA;
 
-  /* Vaididea Landing Page Palette */
-  --color-vd-forest: #1B4D3E;
-  --color-vd-forest-deep: #143D31;
-  --color-vd-sage: #2D6A4F;
+  /* Vaididea Landing Page Palette — matched to logo */
+  --color-vd-forest: #0F5F50;
+  --color-vd-forest-deep: #0A4F42;
+  --color-vd-sage: #2D8B5E;
   --color-vd-cream: #FAF8F4;
   --color-vd-warm: #F3EDE4;
   --color-vd-gold: #C4A265;
@@ -665,6 +665,185 @@ option {
 .animate-on-scroll.is-visible {
     opacity: 1;
     transform: translateY(0);
+}
+
+/* ===== ANIMATED HERO LOGO ===== */
+
+/* Entrance: spring scale-up */
+.hero-logo-animated {
+    animation: logoEntrance 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+}
+@keyframes logoEntrance {
+    0%   { opacity: 0; transform: scale(0.3) rotate(-8deg); }
+    60%  { opacity: 1; transform: scale(1.08) rotate(2deg); }
+    80%  { transform: scale(0.97) rotate(-1deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* Heartbeat pulse — medical double-pump rhythm */
+.logo-heartbeat {
+    animation: heartbeat 2.4s ease-in-out 1.6s infinite;
+    will-change: transform;
+}
+@keyframes heartbeat {
+    0%   { transform: scale(1); }
+    7%   { transform: scale(1.06); }
+    14%  { transform: scale(0.98); }
+    21%  { transform: scale(1.04); }
+    28%  { transform: scale(1); }
+    100% { transform: scale(1); }
+}
+
+/* Hover: intensify heartbeat + lift */
+.hero-logo-animated:hover .logo-heartbeat {
+    animation: heartbeatHover 0.6s ease-in-out infinite alternate;
+}
+@keyframes heartbeatHover {
+    0%   { transform: scale(1) translateY(0); }
+    100% { transform: scale(1.08) translateY(-6px); }
+}
+
+/* Glow ring — expanding ring that fades out */
+.logo-glow-ring {
+    border: 2px solid rgba(45, 139, 94, 0.3);
+    animation: glowRingExpand 3s ease-out 1.8s infinite;
+    pointer-events: none;
+}
+@keyframes glowRingExpand {
+    0%   { transform: scale(1); opacity: 0.6; border-width: 2px; }
+    100% { transform: scale(2.2); opacity: 0; border-width: 0.5px; }
+}
+
+/* Secondary pulsing glow */
+.logo-glow-pulse {
+    background: radial-gradient(circle, rgba(45, 139, 94, 0.15) 0%, transparent 70%);
+    animation: glowPulse 3s ease-in-out 1.5s infinite alternate;
+    pointer-events: none;
+}
+@keyframes glowPulse {
+    0%   { transform: scale(1.2); opacity: 0.4; }
+    100% { transform: scale(1.8); opacity: 0.15; }
+}
+
+/* Ambient glow breathing */
+.logo-ambient-glow {
+    animation: ambientBreathe 5s ease-in-out infinite alternate;
+    pointer-events: none;
+}
+@keyframes ambientBreathe {
+    0%   { opacity: 0.3; transform: scale(1.8); }
+    50%  { opacity: 0.5; transform: scale(2.2); }
+    100% { opacity: 0.3; transform: scale(2); }
+}
+
+/* Shimmer sweep — diagonal light streak */
+.logo-shimmer {
+    overflow: hidden;
+}
+.logo-shimmer::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -60%;
+    width: 40%;
+    height: 200%;
+    background: linear-gradient(
+        105deg,
+        transparent 30%,
+        rgba(255, 255, 255, 0.5) 45%,
+        rgba(255, 255, 255, 0.8) 50%,
+        rgba(255, 255, 255, 0.5) 55%,
+        transparent 70%
+    );
+    animation: shimmerSweep 4s ease-in-out 2.5s infinite;
+    pointer-events: none;
+}
+@keyframes shimmerSweep {
+    0%   { left: -60%; opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { left: 160%; opacity: 0; }
+}
+
+/* Orbiting particles */
+.logo-orbit-particle {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.logo-orbit-particle-1 {
+    background: radial-gradient(circle, #4CAF50, transparent);
+    box-shadow: 0 0 8px 2px rgba(76, 175, 80, 0.5);
+    animation: orbitParticle1 6s linear 2s infinite;
+}
+.logo-orbit-particle-2 {
+    background: radial-gradient(circle, #2D8B5E, transparent);
+    box-shadow: 0 0 8px 2px rgba(45, 139, 94, 0.5);
+    width: 4px;
+    height: 4px;
+    animation: orbitParticle2 8s linear 2.5s infinite;
+}
+.logo-orbit-particle-3 {
+    background: radial-gradient(circle, #0F5F50, transparent);
+    box-shadow: 0 0 8px 2px rgba(15, 95, 80, 0.4);
+    width: 5px;
+    height: 5px;
+    animation: orbitParticle3 7s linear 3s infinite;
+}
+
+@keyframes orbitParticle1 {
+    0%   { top: 50%; left: 0%; opacity: 0; }
+    10%  { opacity: 1; }
+    25%  { top: 0%; left: 50%; }
+    50%  { top: 50%; left: 100%; }
+    75%  { top: 100%; left: 50%; }
+    90%  { opacity: 1; }
+    100% { top: 50%; left: 0%; opacity: 0; }
+}
+
+@keyframes orbitParticle2 {
+    0%   { top: 0%; left: 50%; opacity: 0; }
+    10%  { opacity: 0.8; }
+    25%  { top: 50%; left: 100%; }
+    50%  { top: 100%; left: 50%; }
+    75%  { top: 50%; left: 0%; }
+    90%  { opacity: 0.8; }
+    100% { top: 0%; left: 50%; opacity: 0; }
+}
+
+@keyframes orbitParticle3 {
+    0%   { top: 100%; left: 50%; opacity: 0; }
+    10%  { opacity: 0.7; }
+    25%  { top: 50%; left: 0%; }
+    50%  { top: 0%; left: 50%; }
+    75%  { top: 50%; left: 100%; }
+    90%  { opacity: 0.7; }
+    100% { top: 100%; left: 50%; opacity: 0; }
+}
+
+/* Hover: intensify glow */
+.hero-logo-animated:hover .logo-glow-pulse {
+    animation: glowPulseHover 1s ease-in-out infinite alternate;
+}
+@keyframes glowPulseHover {
+    0%   { transform: scale(1.4); opacity: 0.5; }
+    100% { transform: scale(2); opacity: 0.35; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .logo-heartbeat,
+    .logo-glow-ring,
+    .logo-glow-pulse,
+    .logo-ambient-glow,
+    .logo-shimmer::after,
+    .logo-orbit-particle,
+    .hero-logo-animated {
+        animation: none !important;
+    }
 }
 
 @layer base {

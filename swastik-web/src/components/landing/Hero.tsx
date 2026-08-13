@@ -39,11 +39,29 @@ export default function Hero() {
       </div>
 
       <div className="relative z-10 max-w-5xl mx-auto px-5 sm:px-8 text-center pt-28 pb-20 animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out fill-mode-both">
-        {/* Logo Mark with subtle hover float */}
-        <div className="flex justify-center mb-10 hover:-translate-y-2 transition-transform duration-700 ease-out">
-          <div className="relative">
-            <div className="absolute inset-0 bg-white/40 blur-2xl rounded-full scale-150" />
-            <VaidideaLogo className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 drop-shadow-2xl relative z-10" />
+        {/* Animated Logo Mark */}
+        <div className="flex justify-center mb-10">
+          <div className="relative hero-logo-animated group cursor-pointer">
+
+            {/* Secondary pulsing glow */}
+            <div className="absolute inset-0 rounded-full scale-[1.4] logo-glow-pulse" />
+            
+            {/* Soft ambient glow behind logo */}
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/30 via-green-500/20 to-teal-600/30 blur-3xl rounded-full scale-[2] logo-ambient-glow" />
+
+            {/* Orbiting particles */}
+            <div className="absolute inset-0 scale-[1.6]">
+              <div className="logo-orbit-particle logo-orbit-particle-1" />
+              <div className="logo-orbit-particle logo-orbit-particle-2" />
+              <div className="logo-orbit-particle logo-orbit-particle-3" />
+            </div>
+
+            {/* Main logo with heartbeat + shimmer */}
+            <div className="relative z-10 logo-heartbeat">
+              <VaidideaLogo className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 drop-shadow-2xl" />
+              {/* Shimmer sweep overlay */}
+              <div className="absolute inset-0 logo-shimmer rounded-full overflow-hidden pointer-events-none" />
+            </div>
           </div>
         </div>
 
@@ -86,7 +104,7 @@ export default function Hero() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-5 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-1000 fill-mode-both">
           <button
             onClick={() => openScanner("Patient")}
-            className="group relative px-8 py-4 bg-vd-forest text-white rounded-full text-[15px] font-semibold tracking-wide hover:bg-vd-forest-deep transition-all duration-400 shadow-[0_8px_30px_-6px_rgba(27,77,62,0.5)] hover:shadow-[0_15px_40px_-6px_rgba(27,77,62,0.6)] hover:-translate-y-1 flex items-center gap-2 overflow-hidden"
+            className="group relative px-8 py-4 bg-vd-forest text-white rounded-full text-[15px] font-semibold tracking-wide hover:bg-vd-forest-deep transition-all duration-400 shadow-[0_8px_30px_-6px_rgba(15,95,80,0.5)] hover:shadow-[0_15px_40px_-6px_rgba(15,95,80,0.6)] hover:-translate-y-1 flex items-center gap-2 overflow-hidden"
           >
             <div className="absolute inset-0 bg-white/20 translate-y-[-100%] group-hover:translate-y-[100%] transition-transform duration-700 ease-in-out" />
             <span className="relative z-10">Explore Patient App</span>
@@ -119,9 +137,9 @@ export default function Hero() {
             <h3 className="text-2xl font-heading font-bold text-center text-vd-forest mb-2">Get {scannerType || ''} App</h3>
             <p className="text-sm text-center text-vd-muted mb-8 font-medium">Scan this QR code to download the app instantly to your device.</p>
             <div className="bg-white p-5 rounded-3xl flex justify-center mb-8 shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)] border border-white">
-              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&color=1B4D3E&data=https://vaididea.com/download/${scannerType?.toLowerCase()}`} alt="QR Code" className="w-48 h-48 rounded-2xl" />
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&color=0F5F50&data=https://vaididea.com/download/${scannerType?.toLowerCase()}`} alt="QR Code" className="w-48 h-48 rounded-2xl" />
             </div>
-            <button className="w-full py-4 bg-vd-forest text-white rounded-[1.25rem] font-semibold tracking-wide hover:bg-vd-forest-deep transition-all shadow-[0_8px_20px_-6px_rgba(27,77,62,0.4)] hover:shadow-[0_12px_25px_-6px_rgba(27,77,62,0.5)] hover:-translate-y-0.5" onClick={() => setScannerOpen(false)}>
+            <button className="w-full py-4 bg-vd-forest text-white rounded-[1.25rem] font-semibold tracking-wide hover:bg-vd-forest-deep transition-all shadow-[0_8px_20px_-6px_rgba(15,95,80,0.4)] hover:shadow-[0_12px_25px_-6px_rgba(15,95,80,0.5)] hover:-translate-y-0.5" onClick={() => setScannerOpen(false)}>
               Done
             </button>
           </div>

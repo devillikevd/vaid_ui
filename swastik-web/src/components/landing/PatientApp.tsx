@@ -75,7 +75,7 @@ export default function PatientApp() {
               <div className="absolute inset-0 bg-gradient-to-tr from-emerald-400/30 via-teal-500/20 to-vd-forest/40 blur-3xl rounded-full scale-[0.85] group-hover/phone:scale-105 group-hover/phone:rotate-3 transition-all duration-1000 opacity-70" />
               
               {/* Glassy Phone Frame */}
-              <div className="w-[280px] sm:w-[320px] h-[570px] sm:h-[650px] relative rounded-[3rem] p-[8px] bg-white/20 backdrop-blur-3xl shadow-[0_30px_60px_-15px_rgba(27,77,62,0.4)] border border-white/60 group-hover/phone:-translate-y-2 transition-transform duration-700 ease-out">
+              <div className="w-[280px] sm:w-[320px] h-[570px] sm:h-[650px] relative rounded-[3rem] p-[8px] bg-white/20 backdrop-blur-3xl shadow-[0_30px_60px_-15px_rgba(15,95,80,0.4)] border border-white/60 group-hover/phone:-translate-y-2 transition-transform duration-700 ease-out">
                 {/* Inner Bezel */}
                 <div className="w-full h-full bg-black rounded-[2.6rem] p-[4px] relative overflow-hidden shadow-inner">
                   {/* Screen Image Container */}
