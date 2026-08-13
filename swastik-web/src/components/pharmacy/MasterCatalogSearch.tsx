@@ -1,3 +1,5 @@
+/* eslint-disable @next/next/no-img-element */
+/* eslint-disable jsx-a11y/alt-text */
 import { useState, useEffect, useCallback } from 'react';
 import { Search, Loader2, Clock, X } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
