@@ -2,7 +2,24 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import VaidideaLogo from "@/components/shared/VaidideaLogo";
+
+function VaidideaLogo({ className = "w-8 h-8" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      {/* Outer Heart Shape forming a V */}
+      <path d="M 50 90 L 22 55 C 8 38 25 12 45 28 L 50 32 L 55 28 C 75 12 92 38 78 55 L 50 90 Z" 
+            stroke="#1B4D3E" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/>
+      
+      {/* Inner Checkmark forming the right side of V */}
+      <path d="M 30 50 L 45 68 L 72 32" 
+            stroke="#2D6A4F" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/>
+            
+      {/* Plus Sign */}
+      <path d="M 78 45 L 78 60 M 70.5 52.5 L 85.5 52.5" 
+            stroke="#1B4D3E" strokeWidth="6" strokeLinecap="round"/>
+    </svg>
+  );
+}
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
