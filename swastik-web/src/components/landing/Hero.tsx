@@ -60,7 +60,7 @@ export default function Hero() {
             <div className="relative z-10 logo-heartbeat">
               <VaidideaLogo className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 drop-shadow-2xl" />
               {/* Shimmer sweep overlay */}
-              <div className="absolute inset-0 logo-shimmer rounded-full overflow-hidden pointer-events-none" />
+              <div className="absolute inset-0 logo-shimmer overflow-hidden pointer-events-none" />
             </div>
           </div>
         </div>

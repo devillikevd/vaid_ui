@@ -86,7 +86,7 @@ export default function Navbar() {
               key={link.href}
               href={link.href}
               onClick={() => setMobileMenuOpen(false)}
-              className="text-3xl font-heading font-semibold text-vd-forest hover:text-vd-sage transition-colors"
+              className={`text-3xl font-heading font-semibold text-vd-forest hover:text-vd-sage transition-colors ${mobileMenuOpen ? 'fade-in-up' : 'opacity-0'}`}
               style={{ animationDelay: `${i * 80}ms` }}
             >
               {link.label}

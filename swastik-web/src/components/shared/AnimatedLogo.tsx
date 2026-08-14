@@ -1,0 +1,586 @@
+
+"use client";
+import React from 'react';
+import { motion } from 'framer-motion';
+
+export default function AnimatedLogo({ className }: { className?: string }) {
+  return (
+    <div className={`flex items-center justify-center ${className || ""}`}>
+      <motion.svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1024" className="w-full h-full drop-shadow-lg">
+    <motion.path 
+      fill="#2fc63a"
+      stroke="#2fc63a"
+      strokeWidth="15"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m512 15 14.1.6c2.5 0 5 .1 7.5.2 3.8.1 7.6.2 11.4.2.7.3 1.3.7 2 1 2-.3 4-.7 6-1 6 2 6 2 9 5 4 .3 8 .7 12 1 .7.5.7.5 4 3h4c.3.7.7 1.3 1 2 .5-.2.5-.2 3-1 .7.5.7.5 4 3 5.7 1.6 11 2.9 16.9 3.4 7.8 1.1 13.2 6.1 17.1 12.6 4.7 2.4 11.4 1.4 16.6 1.6 4.4.4 4.4.4 7.4 2.4v2h2c.7 2 1.3 4 2 6h2c.3 1.3.7 2.6 1 4 3.7 3.7 5.9 3.4 11 4v2h3c3 6 3 6 3 12 3.3 1.1 6.6 2.1 10 3 4 5 4 5 5 11 .3 1.3.7 2.6 1 4 .2 1.3.5 2.6.8 3.9 1.2 4.1 1.2 4.1 6.2 9.1.7 1.3 1.3 2.6 2 4 4 6 4 6 5 6 .7 2 1.3 4 2 6l3 3 4 4c1.6.7 3.3 1.3 5 2v2h2c3.7 6 4.2 10.1 4 17 2 5 2 5 9 7v-2c4 2 4 2 3.8 5.9q-.75 4.05-1.8 8.1c1 1.3 2 2.6 3 4v2c.7.3 1.3.7 2 1 .4 1.3.9 2.6 1.3 4 1.7 5.1 4.1 9.3 6.7 14v3h2c1 1.7 2 3.3 3 5 1 1.3 2 2.6 3 4 .3 1.7.7 3.3 1 5 1 .3 2 .7 3 1 .3 1.7.7 3.3 1 5 4-1 4-1 7-2 2 1 2 1 2 3 2-.3 4-.7 6-1v-6l3-3v-3h2v-2c1-.3 2-.7 3-1 .3-1.7.7-3.3 1-5h1v-8c3.3-6.7 4.3-6.9 12-8 2-6 2-6 3-11h2c0-3 0-3-2-5 .4-4.1.4-4.1 2-8 2.3-.3 4.6-.7 7-1 6.1-3 5.5-7.6 7-14 .5-.7.5-.7 3-4 .7-1.7 1.3-3.3 2-5 6.3-6 6.3-6 9-6 .7-2.7 1.4-5.3 2-8l2-2c.3-1 .7-2 1-3 4-5 4-5 7-5 .7-1.7 1.3-3.3 2-5l2-2c.3-1.5.7-3.1 1-4.6s.7-2.9 1-4.4h2v-2l9-3v-2c1.3-.3 2.6-.7 4-1 .3-2.3.7-4.6 1-7 1.3-.7 2.6-1.3 4-2 5-3 5-3 9-7h2c.2-1.3.3-2.6.5-4 .2-1.3.3-2.6.5-4h2v-2c2 .3 4 .7 6 1 7-1 7-1 8-5 6-3 6-3 8-3v-2c6-4.4 11.8-6.1 19-8v-2c5-3 5-3 7-3v-3c3-.7 6-1.4 9-2 6-3 6-3 8-5 3-.4 6-.7 9-1 4-1 4-1 6-7h6v2c1-.2 1-.2 5.9-1 6.1-1 6.1-1 8.1-1 .3-.7.7-1.3 1-2 1 .3 2 .7 3 1 3.3-.7 6.7-1.3 10-2 10-1.4 19.9-2.3 30-2v-2c10.9-1.4 10.9-1.4 17 1h6v-1c13.5-1.2 13.5-1.2 16 0v2c1.3-.3 2.6-.7 4-1 2 1 2 1 2 3 2 .3 4 .7 6 1 .7.3 1.3.7 2 1 .7 0 .7 0 4.4-.1 5.8.1 11 .9 16.6 2.1.8.2.8.2 5 1v2c2 .7 4 1.3 6 2l1 1c2.3.3 4.6.7 7 1 1.3.7 2.6 1.3 4 2 2.6.3 5.1.7 7.8 1 2.3.3 4.7.7 7.2 1v2c1 .3 2 .7 3 1 .8.7.8.7 5 4 2.3 1.3 4.7 2.7 7 4l2 2c2.7.4 5.3.7 8 1 4 1 4 1 5 3-.3.7-.7 1.3-1 2h2l4 4h2l3 3 6 3c1.2 1 2.4 2.1 3.6 3.1 3.4 2.9 3.4 2.9 7.4 3.9.3.7.7 1.3 1 2h2v2c.7.3 1.3.7 2 1-.3.7-.7 1.3-1 2h2l4 4c.7-.3 1.3-.7 2-1 .7 1 1.3 2 2 3 1.3 1 2.6 2 4 3 1 2.3 2 4.6 3 7l5 5v2h2v2h2c1.3 2 2.6 4 4 6l5 5c.5.9.5.9 3.1 5.2 2.9 4.8 2.9 4.8 5.9 5.8v2c1.3.3 2.6.7 4 1 2 1 2 1 2.9 7.2 1.1 6.8 1.1 6.8 4.1 11.8.3 1 .7 2 1 3 1.3.7 2.6 1.3 4 2 4 2 4 2 4 9 .9 6 2.1 10.4 4 16 .4 1.4.8 2.7 1.2 4.1 3.5 11.8 3.5 11.8 6.8 12.9 4 4 4 4 5 11l1 1c.4 13.3.4 13.3-2 18 .3 1.3.7 2.6 1 4v10c.3 2 .7 4 1 6 1 12.8 1.1 25.3 0 38-.5 6.9-1 13.7-1.2 20.7 0 2.3-.1 4.7-.2 7.2 0 2.3-.1 4.5-.1 6.9-.2 1.7-.3 3.4-.5 5.2h-3c-2 4-2 4-3 7-.3.2-.3.2-2 1-1.4 3.8-2.8 7.6-4.1 11.4l-2.1 6.3c-2.8 8.3-2.8 8.3-1.8 10.3h-2c-1.3 2.3-2.5 4.7-3.7 7.1-.3.8-.3.8-2.2 4.5-.7 1.4-1.4 2.9-2.1 4.4-17.4 36-17.4 36-24 36v2h-3v-2c-1.3-.3-2.6-.7-4-1v-2c-1.3-.7-2.6-1.3-4-2-1.2-.9-2.4-1.7-3.6-2.6-4.4-2.4-4.4-2.4-9.8-2.3-1.5-.1-3-.1-4.6-.1-.3-2-.7-4-1-6-1.4-4.1-2.9-5.6-7-7-1.5-.7-3-1.4-4.6-2.1-4.4-1.9-4.4-1.9-6.4-.9-9 0-9 0-12-7-1-2-1-2-7-4-10.2-3.4-10.2-3.4-12-7h-2c1-7 1-7 3.6-12.8 2.4-6.2 2.4-6.2 2.4-11.6 0-4.6 0-4.6 5-9.6 1-.3 2-.7 3-1 .3-1.6.7-3.3 1-5h2c.7-4.7 1.4-9.3 2-14 .3-1.3.7-2.6 1-4v-8c.3-1 .7-2 1-3 .1-1.8.2-3.6.4-5.5.6-5.5.6-5.5 3.6-8.5-.3-2.3-.7-4.6-1-7h2c.1-3.1.2-6.2.2-9.2.1-.9.1-.9.2-5.3-.4-4.5-.4-4.5-4.4-8.5l3-9-3-6c-.3-2.3-.7-4.6-1-7h-1c-.4-5.4-.7-10.8-1-16.2-1-4.8-1-4.8-7-6.8-5.3-5.3-4.5-8.7-5-16-6.8-15.8-6.8-15.8-13-17-1.3-.3-2.6-.7-4-1v-2h-2v-8c-4-4-4-4-10-4v-2c-1 .3-2 .7-3 1-1-1-1-1-2-8-5.7-4.6-11.1-6.7-18-9 .3-1 .7-2 1-3-2-.3-4-.7-6-1v-2h-2v-2c-3.3-1.1-6.6-2.1-10-3-1.4-.5-2.7-1-4.2-1.6-5.4-1.6-10.1-1.8-15.8-1.7h-5.6c-4.4.3-4.4.3-5.4 2.3-6 0-6 0-7-1h-12.6c-4.9 0-9.6-.2-14.4-1v-2h-3c-.7-1.3-1.3-2.6-2-4-6 1-6 1-7 4-5 2-5 2-9 1-.7.3-1.3.7-2 1-.9 0-.9 0-5.5-.2-6.6.2-10.7 1.1-16.5 4.2-.3 1.7-.7 3.3-1 5h-3c-1.3.3-2.6.7-4 1-1.3.3-2.6.7-4 1-.3 1-.7 2-1 3-1.6.7-3.3 1.3-5 2-3.3 2.3-6.7 4.7-10 7-1 .3-2 .7-3 1v2c-4 4-4 4-6 4v2c-1.6.7-3.3 1.3-5 2-2 2-2 2-4 6-.7 1-1.3 2-2 3-.3 1.7-.7 3.3-1 5-1.6.7-3.3 1.3-5 2-.7 1.3-1.3 2.6-2 4h-2c-2 4-2 4-4 9h-2c-.7 1.7-1.3 3.3-2 5-.5.8-.5.8-3 5 .7.3 1.3.7 2 1h-4c-.3 1.3-.7 2.6-1 4-2 3-2 3-4 3-.7 2-1.3 4-2 6-.5.7-.5.7-3 4-.3 1.7-.7 3.3-1 5-1.3.7-2.6 1.3-4 2-.3 1.7-.7 3.3-1 5-1.6 1.7-3.3 3.3-5 5-2.9 4.2-4 6.6-4.4 11.8-.6 4.2-.6 4.2-5.6 6.2-9 9-9 9-9 15-.7.3-1.3.7-2 1 .2 1.9.4 3.8.6 5.8.4 6.2.4 6.2-2.6 11.2h-9c-3 4-3 4-3 7h-2v6c-1-.3-2-.7-3-1-.3 1.6-.7 3.3-1 5-1.3.7-2.6 1.3-4 2-3.1 4.5-4 6.5-4 12h-2c-.3 2-.7 4-1 6l-3 2.1c-8.8 6.4-14.2 17.8-20 26.9-4.7 7-4.7 7-7 7-.3 2.3-.7 4.6-1 7h-2c-.7 1.6-1.3 3.3-2 5l-2.7 4.2C791 380 791 380 792 382h-2c-.3 1.3-.7 2.6-1 4-.3.2-.3.2-2 1 0 .8 0 .8.1 4.9-.1 7.1-1.7 6.6-8.1 9.1-1 .3-2 .7-3 1-.3 1.3-.7 2.6-1 4h-2c-2 4-2 4-3 10-1 .3-2 .7-3 1-1 6-1 6-1 11-1 2-1 2-8 3-4.1 5-6.7 8.6-8 15-1.3.7-2.6 1.3-4 2-2.1 3.3-4.1 6.6-6 10-3 5-3 5-5 5-.3 2.3-.7 4.6-1 7-1.3.3-2.6.7-4 1-.7 2.3-1.3 4.6-2 7-2 .7-4 1.3-6 2-2 4-2 4-2.8 9.1-1.2 4.9-1.2 4.9-7.2 6.9h-2c-.3.7-.7 1.3-1 2l-4 4c-.7 2-1.3 4-2 6-.3 1-.7 2-1 3h-6l-6 3c-1 .3-2 .7-3 1-2.4 3.6-4.7 7.3-7 11-3.8 3.8-10.3 2.5-15.4 2.7l-3.6.3v2c-1.6.3-3.3.7-5 1-1 2-1 2-2 5h-2v3c-4 .4-8 .8-12 1-1.6.3-3.3.7-5 1-7.6-2.1-7.6-2.1-10-7-9.3-3-9.3-3-14-3-.3-.7-.7-1.3-1-2-2.3-.7-4.6-1.3-7-2-.7-1.3-1.3-2.6-2-4-3-4-3-4-6-5-2-2-2-2-3.9-6.9-3-7.1-4.4-8.1-12.1-8.1-.3-.7-.7-1.3-1-2h-1c-.1-1.5-.2-2.9-.4-4.4-1-9.1-3.1-17-10.6-22.6-.3-1-.7-2-1-3-1-1.3-2-2.6-3-4l-6-12c-2-3-2-3-5-4v-2c-1.3.3-2.6.7-4 1-4.1-6.2-4.5-8.8-5-16-.3-1-.7-2-1-3h-2v-2c-1.3.3-2.6.7-4 1-4.9-4.9-4.9-8.3-6-15h-2c-.7-2.3-1.3-4.6-2-7-3-2-3-2-7-4-4.8-4.8-7-12.2-7-19-1.3-.7-2.6-1.3-4-2v-2c-.7-.3-1.3-.7-2-1v-2c-.7-.3-1.3-.7-2-1-.3-1.2-.3-1.2-2-7-.7-.3-1.3-.7-2-1v-2c-1.3-.3-2.6-.7-4-1-.3-1.2-.3-1.2-2-7-3-6.7-3.4-6.8-11-9-1-1-1-1-1.2-6.3-.8-5.7-.8-5.7-6.8-9.7-4.4-2.9-4.9-5.7-6-10.8-.3-1.4-.7-2.8-1-4.2h-2c-1.4-3.6-2.8-7.3-4-11-4-5-4-5-7-5-.3.7-.7 1.3-1 2-4-3-4-3-4-9 .7-1.6 1.3-3.3 2-5-1.2-3.4-2.6-6.7-4-10-1-3.3-2-6.7-3-10l-1-1c0-6 0-6 2-9 .4-4.7.7-9.3 1-14h1v-7c1-.3 2-.7 3-1 1.1-2.6 2.1-5.3 3-8-.7-.3-1.3-.7-2-1v-2h2c.3-1.3.7-2.6 1-4 1.3-.3 2.6-.6 4-.9 4-1.1 4-1.1 5-6.1 1.3-.3 2.6-.7 4-1v-2c1-.1 1-.1 5.9-.4 6.1-.6 6.1-.6 7.1-3.6 5.7-.8 11.3-1.5 17-2 2-.2 4.1-.5 6.2-.8 4.8-.2 4.8-.2 10.8 1.8 5 0 5 0 8-3 4 2 4 2 5.4 6.9 2 6.3 4.2 8.6 10.7 9.9 7.2 2.2 7 8.6 7.9 15.2 1.3.7 2.6 1.3 4 2 .7 1.3 1.3 2.6 2 4h2c.3 1 .7 2 1 3l3 3v2l3 3c-.3 1-.7 2-1 3 .7.3 1.3.7 2 1 .3 2 .7 4 1 6 4.2 7 4.2 7 11 7 2 1 2 1 1.6 6.1.5 8.2 3.1 12.6 7.3 19.5 2.1 3.4 2.1 3.4 3.1 6.4h6c.3 3 .7 6 1 9 6.2 11 6.2 11 9 11v2c.7.3 1.3.7 2 1 .3 1.6.7 3.3 1 5l2 2c7 13.5 7 13.5 7 16h2v2c1.3.3 2.6.7 4 1 4.7 2.3 4.3 7.3 5 12 .3 1 .7 2 1 3 3.7.1 7.3.1 11 0 1 1 1 1 .9 7.5.1 6.5.1 6.5 2.1 7.5.1 1.2.2 2.3.2 3.5 1 6 2.6 9.1 6.8 13.5 6.3-.8 10.4-1.4 15-6 .3-1.6.7-3.3 1-5h2c.3-1.3.7-2.6 1-4h2v-2h2c-.3-2.3-.7-4.6-1-7 0-3 0-3 2-8h2c.7-1.3 1.3-2.6 2-4 3-1 3-1 5 0 .3-.7.7-1.3 1-2 3-3 3-3 5-3 .3-2.3.7-4.6 1-7h2c4-5 4-5 5-9h2c.7-1.6 1.3-3.3 2-5h2c3-7.4 3.1-8.2-1-15v-2h-2v-2h-2c-4.1-5.2-4.8-7.7-6-14-2-4-2-4-4-4-.7-2.7-1.4-5.3-2-8l-2-2c-.7-1.3-1.3-2.6-2-4-1.3.3-2.6.7-4 1-4-10-4-10-4-15-1.3-.7-2.6-1.3-4-2-2-4-2-4-2-6h-2c-.3-1-.7-2-1-3-.7.3-1.3.7-2 1-.5-1.9-.9-3.7-1.4-5.6-2.1-8.3-3.6-13.4-9.6-19.4-.7.3-1.3.7-2 1l-2-2h-2c-.3-1.7-.5-3.5-.8-5.2-1.3-6.4-2.9-8.7-9.2-10.8v-2h-2v-5c-1.6-.7-3.3-1.3-5-2-1-2-1-2-1.2-8.1-1.2-10.1-4.5-13.4-12.8-18.9-3-3-3-3-4-9-.7-.8-.7-.8-4-5l-.9-4.2C602 164 602 164 597 162v-2h-3c-.3-1-.7-2-1-3-.7-.3-1.3-.7-2-1-1-1.7-2-3.3-3-5-1.6-.7-3.3-1.3-5-2v-3h-4v-3h-4v-3c-4.6-1.5-7.2-2.2-12-1-.7-2.3-1.3-4.6-2-7-4.7-1.8-4.7-1.8-10-3-2.3-.7-4.6-1.3-7-2-.5.2-.5.2-3 1-2-.3-4-.7-6-1-2.3-.3-4.6-.7-7-1-.3.7-.7 1.3-1 2-13.1 1.3-25.9.7-39 .1-6-.1-6-.1-11 1.9l-6-.9c-18.3-2.8-18.3-2.8-25 3.9-1 .3-2 .7-3 1l-2 2c-4 2-4 2-7 2 .3 1.3.7 2.6 1 4-6 2-6 2-11.2 2.8-4.8 1.2-4.8 1.2-7.8 6.2v6c-3 4-3 4-10 3v2c-4 4-4 4-6 4-.7 2.6-1.4 5.3-2 8-1-.3-2-.7-3-1-.3 1-.7 2-1 3-1-.3-2-.7-3-1-.7 1.3-1.3 2.6-2 4-.4.7-.4.7-2.6 4.5-2.4 4.5-2.4 4.5-2.4 8.5h2c-1.8 12.6-1.8 12.6-4 16h-8c-2.9 4.9-4.3 8.9-5.8 14.4-.5 1.6-.9 3.2-1.4 4.9-.8 4.7-.8 4.7 1.2 11.7.3 2.8.5 5.7.7 8.5.1 1.4.2 2.9.2 4.3.1 4.2.1 4.2-.9 11.2 0 4.3.1 8.6.2 12.9-.2 4.1-.2 4.1-2.2 10.1h2c2.7 8.2 2.7 8.2-2 14 .3 1.2.3 1.2 2 7 .5 1.9 1 3.8 1.6 5.8.7 2.7 1.5 5.5 2.4 8.2h2c2 5 2 5 3 10h2v2c1.3.3 2.6.7 4 1 2 7 2 7 3 13 .7 2 1.3 4 2 6 1.3-.3 2.6-.7 4-1 7 1 7 1 8.4 7.2.2 2.3.4 4.5.6 6.8 1 5 1 5 4 6v6c3 4 3 4 6 7 3.3 4.5 7 10.2 7 16 1.4-.1 2.8-.2 4.3-.2 4.7.2 4.7.2 7.7 4.2.2 4.8.2 4.8 0 9h2c.1.7.1.7.9 4.1 2.3 10.2 5.5 11.5 15.1 12.9v2h2c0 7 0 7-1 14 1 1 1 1 5.4.9 6.7.2 7.2 2 9.6 8.1-.1 2.1-.1 4.1-.2 6.2.2 7.7 1.6 13.4 8.2 17.8 2 .3 4 .7 6 1 .8 5.9.8 5.9 1 12 2 3 2 3 8 5 3 4 3 4 2 11 .3 1.3.7 2.6 1 4h4v2h2c.4 1.6.9 3.3 1.3 4.9 1.7 5.1 1.7 5.1 6.7 6.1 9 3 6.7 7.2 7 16 .7 1 1.3 2 2 3 3 6 3 6 3 8h5v2c1.6-.3 3.3-.7 5-1 1 2 1 2 0 5 .7.3 1.3.7 2 1 .6 1.4 1.2 2.9 1.8 4.4 2.4 5 4.2 6.1 9.2 8.6v2c1 .3 2 .7 3 1 1 5.1.7 8.9 0 14h2c.6 1.7 1.2 3.5 1.9 5.2 2 5.6 3.3 8.9 9.1 10.8 5.3 1.8 5 2.6 5.4 8.4.6 5.6.6 5.6 3.6 9.6 3.3.1 6.7.1 10 0 3.3 3.3.5 6-1 10 1.8 7.2 4.9 12.9 9 19v2c1.4.2 2.9.5 4.4.7 4.6 1.3 4.6 1.3 6.6 8.3v6c2 5 2 5 5 6v2h2c1 2.3 2 4.6 3 7 1.6 1.3 3.3 2.6 5 4 1.7 4 3.4 8 5 12 4 3 4 3 9 4 .4 3.3.7 6.7 1 10 .7 1 .7 1 4 6v2c1.4-.2 2.9-.4 4.4-.6 4.6-.4 4.6-.4 6.6.6.1 1.7.2 3.4.2 5.2 1.3 11.1 4.6 20.2 13.8 26.8v2h2c1.3 3.3 2.7 6.7 4 10 4 6 4 6 7 9 .3 1.6.7 3.3 1 5 1.3.7 2.6 1.3 4 2 1.7 3.4 3.4 6.8 5 10.3 2.9 5.5 7 9.9 11 14.7 1.4 2.6 2.7 5.3 4 8 5 6 5 6 7 8 .3 1.6.7 3.3 1 5h2c.7 1.6 1.3 3.3 2 5h2c2.3 4.3 4.5 8.4 6 13 2.3.7 4.6 1.3 7 2 3 6 3 6 4 12 1.5 5.9 4.5 5.4 10 7 1 1 1 1 1.1 4.4 1.2 6.2 4.4 10.4 7.9 15.6v2c9.6 4.8 16.5 5.8 25-1h2l1.2-7.2c1.2-6.7 2.3-9.8 8.8-12.8h2c2-2 2-2 3-4 1.3-.7 2.6-1.3 4-2 4-4 4-4 5-6h2c.3-1.6.7-3.3 1-5 1.6-2 3.3-4 5-6 1.3-2 2.6-4 4-6 1-.3 2-.7 3-1 .3-1.3.7-2.6 1-4 3-3 3-3 5-3 .7-1.6 1.3-3.3 2-5 .7-1.3 1.3-2.6 2-4 .3-2.3.7-4.6 1-7 1.3-.3 2.6-.7 4-1v-2c1.6-.3 3.3-.7 5-1 .3-2.3.7-4.6 1-7h3v-4h3v-3c1.3-.7 2.6-1.3 4-2 .3-1.6.7-3.3 1-5 1.3-.3 2.6-.7 4-1 .7-1.3 1.3-2.6 2-4l3-3c.7-1.7 1.4-3.4 2.1-5.2 1.9-4.8 1.9-4.8 3.9-4.8.3-1 .7-2 1-3h3c.3-1 .7-2 1-3h2c2-5 2-5 3-10 2-4 2-4 4-4-.3-1-.7-2-1-3 1.6-.3 3.3-.7 5-1v-2l10-10c.3-1 .7-2 1-3l5-5c4.4-5.9 7.6-11.1 10-18h2v-4h2c.3-.7.7-1.3 1-2h3v-2l5-5c.5-1.8.9-3.6 1.4-5.5C913 687 913 687 919 682c2-2 2-2 4-7h3c.3-1.3.7-2.6 1-4h2v-5c3-2 3-2 5-3v-2c1.3-.3 2.6-.7 4-1v-2c1-.7 2-1.3 3-2 .7-2.3 1.3-4.6 2-7h2v-5c5-3 5-3 8-3v-2c1.3-.7 2.6-1.3 4-2 .7-1.3 1.3-2.6 2-4 5-1 5-1 11 4 1.3.7 2.6 1.3 4 2v2h2c1.3 2 2.6 4 4 6 3.9 3.7 7.2 6.6 12 9v2c2 .7 4 1.3 6 2v2h2l5 5c5.4 4.6 9 5.4 16 6 2 3 2 3 1 5h2v2c2 .7 4 1.3 6 2l4 4 6 3c1 6 1 6-1 11 .3.7.7 1.3 1 2h-2c-.3 1.6-.7 3.3-1 5h-3c-1 1.3-2 2.6-3 4-1 .3-2 .7-3 1-.3 1-.7 2-1 3-.7.3-1.3.7-2 1-.7 1.6-1.3 3.3-2 5l-3.6 5.7c-3.4 5.3-3.4 5.3-3.4 7.3h-2v2h-3c-.7 1.6-1.3 3.3-2 5-1.3 2-2.6 4-4 6-.5.8-.5.8-3 5h-2c.3 1.3.7 2.6 1 4-1.3.7-2.6 1.3-4 2-3 3-3 3-4 6-.7 1-1.3 2-2 3-.3 2.3-.7 4.6-1 7-3 3-3 3-6 3-.3 1.6-.7 3.3-1 5-1.6 1-3.3 2-5 3-1.7 3-3.4 6-5 9-7 7-7 7-10 8-.3 1.6-.7 3.3-1 5-2.3 3.4-4.6 6.7-7 10-.5.8-.5.8-2.8 4.6-2.2 3.4-2.2 3.4-4.2 3.4-.7 1.6-1.3 3.3-2 5-1 .3-2 .7-3 1-.7 1.6-1.3 3.3-2 5l-5 5c-.7 1.3-1.3 2.6-2 4-5.7 10-5.7 10-8 10v5c-4 4-4 4-7 4-.7 1.3-1.3 2.6-2 4-1.6 2.2-3.1 4.4-4.8 6.6-3.1 4.4-5.9 8.6-8.7 13.3-2.5 4.1-2.5 4.1-4.5 4.1-.3 1-.7 2-1 3l-3 3c-1 3-1 3-1 10-2.3.3-4.6.7-7 1-5 4-5 4-6 7-.7 1.3-1.3 2.6-2 4-.3 2-.7 4-1 6-.7.3-1.3.7-2 1v1h-5v2h-2c-.7 1.3-1.3 2.6-2 4-1 2-1 2-4 4v4c-1.6 1.3-3.3 2.6-5 4-.3.7-.7 1.3-1 2h-2c-.7 1.3-1.3 2.6-2 4-1 .7-2 1.3-3 2-.7 1.6-1.3 3.3-2 5-1 .3-2 .7-3 1-.7 1.3-1.3 2.6-2 4-10.3 13.1-10.3 13.1-16 15-.7 1-1.3 2-2 3h-2c-.7 1.3-1.3 2.6-2 4-5.1 5.2-8.9 6.7-16 8-4 3-4 3-6 7-4.5 3.4-6.6 3.4-12 4-2 .7-4 1.3-6 2-6.3.9-12.5 1.1-18.9 1.1h-11.4c-1.9 0-3.9 0-5.9-.1H726c-5.6-2.2-7.3-4.4-11-9-4.1-4.1-6.3-5.1-12-7-2.7-1.3-5.3-2.7-8-4-1.3-.3-2.6-.7-4-1-.3-1.6-.7-3.3-1-5-4-6-4-6-9-7-.7.3-1.3.7-2 1-6-2-6-2-8-6v-8c-2-.7-4-1.3-6-2 .7-.3 1.3-.7 2-1-1-.3-2-.7-3-1-.3.7-.7 1.3-1 2-5.9-3-4.2-5.8-4-12-2.7-5.4-4.3-4.5-10-5-2-2-2-2-2-7-1.3-.7-2.6-1.3-4-2-.3-1.3-.6-2.6-.9-4-1.8-8-5.7-16.9-14.1-19-3-2-3-2-3-10-2-5-2-5-6.1-5.8-3.9-1.2-3.9-1.2-4.7-5.5 0-.8 0-.8-.2-4.7-3-5-3-5-7-8v-3c-4.6-3.3-8.7-5.9-14-8-1.3-4.1-1.3-4.1-2-8h2c-.7-1.6-1.3-3.3-2-5-.3-1.6-.7-3.3-1-5h-3v-2c-1.3-.7-2.6-1.3-4-2v-6c-1.3-.7-2.6-1.3-4-2-1-2.3-2-4.6-3-7-4.5-7.8-4.5-7.8-8-9v-2h-5v-2h-2c-.1-1.5-.2-3.1-.4-4.6-.8-7.5-3.2-10.5-9.6-14.4-.7-3-1.4-6-2-9-1-.7-2-1.3-3-2-2-3-2-3-3-6-4-5.3-5.5-6.8-12-9v-3h-2c-.3-2.3-.7-4.6-1-7-.7-1.3-1.3-2.6-2-4v-3c-5-3-5-3-8-3-5-1.7-4-6.2-5-11v-4h-2c-.9-1.6-1.9-3.3-2.9-4.9-3.1-5.1-3.1-5.1-7.1-6.1-2-2-2-2-2-5h-2c-.1-1.5-.2-3-.3-4.6-.7-5.8-1.8-8.2-5.7-12.4-1.6-.3-3.3-.7-5-1 .3-1 .7-2 1-3h-4c-.7-4-1.4-8-2-12-4-6-4-6-10-11-.3-.7-.7-1.3-1-2h-3v-2c-1-.3-2-.7-3-1-2.3-2.3-1.7-8.9-2-12-1-3-1-3-4-4-4-2-4-2-6-7-2.1-4.4-4.1-8.1-7-12-.5-1.4-1-2.7-1.5-4.1-1.5-3.9-1.5-3.9-4.5-5.9v-2h-4c-1-3.3-2-6.7-3-10-5.2-8.7-5.2-8.7-9-10v-2h-4v-2h-4c-.4-4.3-.7-8.7-1-13-2.9-6.6-2.9-6.6-7-8-5.5-4.1-6-8.5-8-15-2-4-2-4-4-4v-2c-1.3-.7-2.6-1.3-4-2-.3-1.6-.7-3.3-1-5-1.3-1.6-2.6-3.3-4-5l-3-6c-.7-.8-.7-.8-4-5-2-3-2-3-3-5h-5c-3-7-3-7-3.1-11.8-.9-4.2-.9-4.2-6-5.6-1.6-.2-3.2-.4-4.9-.6v-2h-2c-2-3-2-3-1.8-8.6-.3-8.8-3.3-13.2-10.2-18.4-1.3-.3-2.6-.7-4-1-3.3-5.5-3.1-7.8-3-14-2-3-2-3-5-4v-2c-.7-.3-1.3-.7-2-1-.5-1.3-.9-2.6-1.4-4-1.6-4-1.6-4-4.6-5-3-7-3-7-4.1-11.3-1.7-7-7.2-8-13.9-9.7-2-3-2-3-2.7-7.4-1.3-4.6-1.3-4.6-4.9-6.5-5.4-3.3-3.8-7.2-3.4-13.1-1-2-1-2-3-2-1-1.3-2-2.6-3-4-.7-.3-1.3-.7-2-1-2-7-2-7-2-10-2-4-2-4-6-8-.3-.7-.7-1.3-1-2-.7-.3-1.3-.7-2-1-.3-2.7-.7-5.3-1-8-.3-.5-.3-.5-2-3-.3-2.2-.7-4.4-1-6.7-.3-2.1-.7-4.2-1-6.3h-2c-4.7-4.7-5.3-9.6-4-16-1.5-6.9-3.1-11.1-7-17-.4-5.1-.4-5.1-.2-10.8.5-19.3.5-19.3-3.8-22.2-.1-4.1.1-8.3.3-12.4.1-2.3.3-4.6.4-6.9l.3-5.7v-8.5c0-2.2-.1-4.4-.1-6.7v-6.7c.2-13.2.2-13.2 2.1-15.1.1-2.1.3-4.2.4-6.4.6-6.6.6-6.6 2.6-9.6h2c.3-.7.3-.7 2-4l2-2c.3-1 .7-2 1-3h2c.7-3 1.4-6 2-9 1-2.3 2-4.6 3-7v-6c3-4 3-4 5-4 1-4 1-4 2-10l4-4c3-6 3-6 3.9-11.3 1.1-4.7 1.1-4.7 6.1-5.7-.4-1.4-.7-2.8-1.1-4.3-.9-4.7-.9-4.7 1.1-7.7 1.6.3 3.3.7 5 1 1-.3 2-.7 3-1v-9c1.5-6.9 1.5-6.9 3-10 2.1-.3 4.3-.5 6.5-.8 6.5-1.2 6.5-1.2 7.5-6.2 2.3-8.2 2.3-7.8 10-9 1-.3 2-.7 3-1v-2h2c.2-.5.2-.5 1-3h2c.3-1.7.7-3.3 1-5 1.3-.3 2.6-.7 4-1 .2-.5.2-.5 1-3l6-3c.3-1 .7-2 1-3h2c.2-.3.2-.3 1-2h2c.3-1 .7-2 1-3h2c.3-1 .7-2 1-3 2-.7 4-1.3 6-2 .7-3 1.4-6 2-9 6.6-4.4 10.1-5.9 18-7 1-.3 2-.7 3-1l1 1c4-.1 4-.1 8-1 .3-1.6.7-3.3 1-5 .3-.2.3-.2 2-1 .3-1 .7-2 1-3 2-1 2-1 10-1 3.4-1.2 6.7-2.6 10-4 27.1-10 27.1-10 38-10 1.3-.7 2.6-1.3 4-2 7-2.8 12.4-4 20-4 1-.3 2-.7 3-1 4.4-.3 8.8-.5 13.2-.7 9.7-.7 9.7-.7 12.8-.3m481 7 4 1Zm-5 1v1h5v-1zM670 73l1 2Zm-189 47 4 1Zm525 1v1h5v-1zm-712 14 1 2Zm272 0c-.3.7-.7 1.3-1 2h2c-.3-.7-.7-1.3-1-2m254 3 2 2v-2zm444 41 1 2Zm1 3 1 2Zm-995 14 1 2Zm99 14 1 3Zm798 2 1 2Zm-799 1 1 2Zm806 28 1 4Zm-727 13 1 2Zm-1 8v8h1v-8zm-191 3 1 3Zm920 0v10h1v-10zm-920 9 1 4Zm192 0 1 3Zm726 5 1 2Zm1 5 1 2Zm-712 23 1 2Zm-94 9 1 2Zm799 1 1 3Zm-905 3 1 3Zm904 1 1 2Zm-903 3 1 3Zm1 5 1 2Zm895 4 1 2Zm106 2 1 2Zm-1 4 1 2Zm-999 3 1 2Zm5 7 1 2Zm1 3 1 2Zm1 3 1 2Zm222 2 1 2Zm656 0 1 2Zm-2 5 1 2Zm-747 10 2 2v-2zm-107 27 1 2Zm263 55 1 2Zm-203 51 1 2Zm326 16 1 2Zm-54 12 4 1Zm26 0 1 2Zm-254 26 1 2Zm16 24 1 2Zm64 96 1 2Zm32 52 1 2Zm64 91 1 2Zm220 179 1 2Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#03a966"
+      stroke="#03a966"
+      strokeWidth="15"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M1045.375 208.813c2.1.2 4.3.4 6.5.6 2 .2 4 .4 6.1.6 1.9.1 3.8.2 5.7.2 4.3.8 4.3.8 6.3 5.8v2h2c1.7 1.6 3.3 3.3 5 5 1.7 1.3 3.3 2.6 5 4 5.8 8.9 10.2 17.5 12 28 .4 1.9.7 3.8 1 5.7 0 8.5-1.9 15.2-4.5 23.2-1.5 5.1-2 9.8-2.5 15.1h-2v4h-2v2c-1.3-.3-2.6-.7-4-1-4 3-4 3-5 7l-3 6c-.3 2.3-.6 4.6-1 7-1 3-1 3-7 4-1 2-1 2-2 6-1.6 1.3-3.3 2.6-5 4-.3 1.6-.6 3.3-1 5h-1c0 1.5-.1 3-.2 4.5-.2 1.5-.5 3-.8 4.5h-6c-5.8 4.3-6.8 8.2-9 15-2 6-2 6-5 7-.7 2.6-1.3 5.3-2 8h-2v2c-1.6.6-3.3 1.3-5 2-1 5-1 5-1 8-5 5-5 5-9 7-3.5 4.8-5.8 8.1-7 14h-2v3h-3c-.3 2-.6 3.9-1 6l-4 4c.4.6.7 1.3 1 2-1.3.3-2.6.6-4 1-2.1 3.4-2.1 3.4-4 7-2.9 4.3-6.1 8.4-9.2 12.6-4.3 5.6-8.1 11.4-11.8 17.4-1.3 2-2.6 3.9-4 6-.3 1.3-.6 2.6-1 4h-3c-.6 2.3-1.3 4.6-2 7-.6.3-1.3.6-2 1-.3 1.3-.6 2.6-1 4-6 6-6 6-8 6-.6 1.6-1.3 3.3-2 5-5.5 9.1-11.6 17.8-17.9 26.3-3.1 4.7-3.1 4.7-3.1 9.7h-3c-1 2-2 3.9-3 6-1.6.6-3.3 1.3-5 2-.3 1.6-.6 3.3-1 5-1.4 2.4-2.9 4.7-4.4 7-2.4 3.7-4.6 7.1-6.6 11-1 .6-2 1.3-3 2-.6 2-1.3 3.9-2 6l-3 3c-.3 1.6-.6 3.3-1 5h-2c-.3.6-.6 1.3-1 2h-2c-.6 1.3-1.3 2.6-2 4h-2v2c-1 .6-2 1.3-3 2-.6 1.6-1.3 3.3-2 5-1.6 2.7-3.3 5.3-5 8-1 1.6-2.1 3.3-3.2 5-2.8 4-2.8 4-4.8 4-.6 2-1.3 3.9-2 6-2.4 3.3-4.9 6.5-7.5 9.8-3 3.9-5.7 8-8.5 12.2-4.2 6.1-8.3 12.2-13 18l-2.1 4.2c-1.9 3.8-1.9 3.8-3.9 4.8v4h-2c-.3.6-.6 1.3-1 2l-4 4c-4.8 6.6-8.4 11.9-10 20-4 3-4 3-6 2-.6 1.3-1.3 2.6-2 4-.8 1.2-1.6 2.5-2.4 3.8-2.6 4.2-2.6 4.2-5.6 11.2-1 .3-2 .6-3 1-.6.8-.6.8-4 5-1.6.6-3.3 1.3-5 2-.3 1.6-.6 3.3-1 5-2.3.3-4.6.6-7 1-1 .6-2 1.3-3 2-9.4 1.6-18.5 1.3-28 0h-9c-1.7-6.1-1.7-6.1-3-13-4-6-4-6-8.2-7.3-5.5-2.5-4.6-5-4.8-10.7-.6-.7-1.3-1.3-2-2v-3c-1 .3-2 .6-3 1-1.3-2-2.6-4-4-6-1.6-1.7-3.3-3.3-5-5-3-7.8-3-7.8-3-11-5.3-9.7-5.3-9.7-10-12-4.1-2.7-5-6-5-11h-2v-4c-1.3-.7-2.6-1.3-4-2-.3-2-.6-4-1-6-.6-.3-1.3-.7-2-1-.3-.7-.3-.7-2-4-.6-.3-1.3-.7-2-1v-2c-1-.3-2-.7-3-1-2-4-2-4-4-10-.6-.7-1.3-1.3-2-2-.3-.5-.3-.5-2-3-1-.3-2-.7-3-1-.3-2.3-.6-4.6-1-7-4-5-4-5-6-6v-2h-2c-3-7.2-3-7.2-3-10h-3v-2c-1.3.3-2.6.6-4 1-7.1-7.1-4.9-17.8-1.2-26.3 3.2-4.7 3.2-4.7 7.2-5.7.4-.7.7-1.3 1-2h6c2.3-.7 4.6-1.3 7-2-.6-2.7-1.3-5.4-2-8 8.1-8 15.1-9.8 26-7 .4-1.3.7-2.7 1-4 6-3 6-3 9-3 .4-.7.7-1.3 1-2 1-.7 2-1.3 3-2 .4-1.3.7-2.7 1-4h3c.4-.7.7-1.3 1-2 5.9-2 10.9-2.7 17-3 .4.6.7 1.3 1 2h2c.4.6.7 1.3 1 2 1.7.6 3.3 1.3 5 2q1.65 4.5 3 9c.5.6.5.6 3 4v2h2v2h2v3h2c1 2.3 2 4.6 3 7 .7.6.7.6 4 4 1.5 2.5 2.9 5.1 4.2 7.7 4.8 9.3 4.8 9.3 13.8 8.3.4-2.3.7-4.6 1-7l3-3v-5c1.3-.3 2.7-.7 4-1 7.7-9.8 7.7-9.8 9-15h2v-2h2c.4-1.3.7-2.7 1-4 1-.3 2-.7 3-1 .7-1.3 1.3-2.7 2-4l3-6v-8c2.5-6.7 3-7.7 10-10 5-2.5 5.2-9.1 6-14h2v-5c4-5 4-5 8.6-6 4.4-1 4.4-1 6.4-6 3.7-8.7 3.7-8.7 6-11 .4-1 .7-2 1-3 1.7-.7 3.3-1.3 5-2 .5-2.4.9-4.9 1.3-7.4 1.9-8.6 2.1-8.7 9.7-11.6 2.9-4.3 2.9-4.3 5-8h2c.4-1.3.7-2.7 1-4h2c.7-1.7 1.3-3.3 2-5 2.9-6.6 5.5-11.4 10-17 .8-3.3 1.4-6.7 2-10 2.2-4.4 5.7-8 11-8 .7-1.7 1.3-3.3 2-5h2v-3h2c.2-2 .4-4 .5-6 .2-2 .4-4 .5-6h2v-3c1.5-.3 2.9-.6 4.4-.9 4.6-1.1 4.6-1.1 6.6-6.1.7-1.7 1.3-3.3 2-5 .2-1.4.4-2.9.5-4.3.2-1.2.4-2.5.5-3.7h2v-3c.6-.2.6-.2 3.8-1.3 8.9-3.6 8.4-10 8.2-18.7 2.8-8.4 4.9-6.4 13-7 .7-1.7 1.3-3.3 2-5 .3-.7.3-.7 1.6-4 1.4-4 1.4-4 1.4-9 4-5 4-5 9-5v-2h2c1.4-3.3 2.6-6.7 3.9-10 2.8-6.5 5.8-10.9 12.1-14 2.3-5.8 3-7.7 3-14 .7-2.3 1.3-4.6 2-7h2v-2h2c.4-1.3.7-2.7 1-4l5-5c3-4 3-4 4.4-9.2 1.6-4.8 1.6-4.8 6.6-5.8h5c.4-.7.7-1.3 1-2 .7.3 1.3.6 2 1 .7-1.3 1.3-2.7 2-4 3.7-2.3 3.7-2.3 8.2-4.6 1.4-.8 2.9-1.6 4.4-2.4 8.7-4 15.2-4.1 24.8-3.2m43.6 35.2 1 2Zm1 4 1 2Zm1 3 1 2Zm-2 29 1 2Zm-1 3 1 3Zm-69 111 1 2Zm-207 302 1 2Zm-1 2 1 2Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#05ab5d"
+      stroke="#05ab5d"
+      strokeWidth="15"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M1117 408c.2.3.2.3 1 2 4.1-.5 8.2-.9 12.3-1.5 12.1-1.3 25.5-2.1 35.7 5.5 4 2 4 2 11 4 .3 1 .7 2 1 3 .7.2.7.2 4 1 1.4 5.6 2.2 11.2 3 17h1c1.5 13.4 1 26.9.9 40.4 0 .9 0 .9-.1 5.5v5c.2 4.1.2 4.1 2.2 8.1 1-.3 2-.7 3-1 8.1 0 11.2 1.1 18 5v1l10.5.6c1 0 1 0 5.9.2 1.5.1 3 .1 4.6.2v-2c3.4-.6 3.4-.6 8-1 .8-.1.8-.1 4.9-.6 6.8.8 9.3 3.9 14.1 8.6 1.3.3 2.6.7 4 1v2h2c.7 1.6 1.3 3.3 2 5h2v2h2c3 6 3 6 3 8 1.7.3 3.3.7 5 1 .8 5.1.8 5.1 1 11 .2 1.3.4 2.7.6 4.1.8 7.3.7 12.9-1.6 19.9-.1 3.7-.1 7.3 0 11 0 1 0 1-1 4h-2c-.7 2-1.3 4-2 6-4.6 8-4.6 8-7 8-.7 2-1.3 4-2 6-2 4-2 4-4 4-.3.7-.7 1.3-1 2v-2c-2-.3-4-.7-6-1-.3 1-.7 2-1 3-4 .7-4 .7-9.2 1.2-1.8.1-3.6.3-5.5.5-4.5.2-8.9.4-13.5.3-5.8 0-5.8 0-6.8 2-5.8.3-9.5.2-15-2-5-.4-10-.7-15-1 0 1.9 0 3.8-.1 5.8 0 7-.1 14.1-.2 21.2-.1 3-.1 6.1-.1 9.1-.1 4.4-.1 8.8-.2 13.2v4.1c-.1 6.4-.6 11.4-2.4 17.6-.3 2-.7 4-1 6-1.7 1-3.3 2-5 3l-3 3c-2.3 1-4.6 2-7 3-.3 1-.7 2-1 3-1 .7-2 1.3-3 2 .3.7.7 1.3 1 2-3.1 4.6-5.9 2.8-11 2-1-.3-2-.7-3-1-3.2-.2-6.5-.4-9.7-.6-1.7 0-3.5-.1-5.2-.2-1.4-.1-2.7-.1-4.1-.2v2c-.7-.3-1.3-.7-2-1l-1 1c-2.8.1-5.5.2-8.3.2h-4.6c-5.1-.3-9.4-1.2-11.1-6.2-4.2-2.6-8.6-4.8-13-7-8.3-11.1-6.5-29.9-6.8-43.1-.2-4.9-.2-4.9-1.2-5.9 0-7 0-7 1-8 .2-3 .4-6 .6-9.1 0-.8 0-.8.2-5 .1-1.3.1-2.6.2-3.9h-3l-3-3c-4.5-.5-4.5-.5-9.9-.7-1.9-.1-3.8-.1-5.7-.2-5.8-.1-11.6-.2-17.4-.1-4.2 0-7.9-1.1-12-2-5-1-5-1-8 0-1-.3-2-.7-3-1l-1 1c-11.5 0-11.5 0-15-7 .3-1.3.7-2.6 1-4-4.4-3.3-6.6-3.5-12-4-3.7-1.8-2.1-6.3-2-10 0-3 0-3-4-7-1.1-10.1 0-20.1 2-30-.3-1.6-.7-3.3-1-5 .2-4 .5-8 1-12h2c.7-1.3 1.3-2.6 2-4 6.2-7.7 6.2-7.7 12-10v-2c6-3 6-3 8-3v-2c7.3-2.1 13-2.2 20.6-2.2h8c2.8 0 5.6.1 8.3.1h8.5c6.8 0 13.7.1 20.6.1v-2h2c0-9.1 0-18.2.1-27.3v-22.3c-.1-5.4-.1-5.4-1.1-8.4l3-6c.3-2.3.7-4.6 1-7h2v-5h3c.7-2.3 1.3-4.6 2-7 5.4-3.2 5.4-3.2 11-6 1.3-1 2.6-2 4-3h7zm-29 30 1 2Zm96 30v8h1v-8zm66 36 1 2Zm-202 1v1h33v-1zm-50 74 1 2Zm89 33v6h1v-6zm97 0 1 3Zm-97 12v13h1v-13zm97 35v8h1v-8zm-96 5v5h1v-5zm69 33v2c.7-.3 1.3-.7 2-1-.7-.3-1.3-.7-2-1"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#00341e"
+      stroke="#00341e"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M577 945h7v2h2v5c-3 1-3 1-10-1 .3-2 .7-4 1-6"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#01574f"
+      stroke="#01574f"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M1001 753h5c-.3 1-.7 2-1 3-1.3-.3-2.6-.7-4-1z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#038352"
+      stroke="#038352"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M757 739h11v1h-11z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#047e54"
+      stroke="#047e54"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M1162 375c1.3.3 2.6.7 4 1-.3.2-.3.2-2 1z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#057760"
+      stroke="#057760"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m1041 689 1 4Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#70ee15"
+      stroke="#70ee15"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m759 217 1 4Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#015e42"
+      stroke="#015e42"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m685 976 2 2h-2z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#059830"
+      stroke="#059830"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m1005 592 2 2h-2z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#19c92b"
+      stroke="#19c92b"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m1041 502 3 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#1ac82b"
+      stroke="#1ac82b"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m1037 502 3 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#018a2e"
+      stroke="#018a2e"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M862 273h2c-.3.7-.7 1.3-1 2-.3-.7-.7-1.3-1-2"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#43d40c"
+      stroke="#43d40c"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m663 267 2 2h-2z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#015850"
+      stroke="#015850"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m1003 751 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#015148"
+      stroke="#015148"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m1134 699 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#057960"
+      stroke="#057960"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m1037 686 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#067e65"
+      stroke="#067e65"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m1034 685 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#06826a"
+      stroke="#06826a"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m1032 684 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#037655"
+      stroke="#037655"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m923 537 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#23b919"
+      stroke="#23b919"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m613 533 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#0bb627"
+      stroke="#0bb627"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m661 529 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#078e7a"
+      stroke="#078e7a"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m1274 525 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#04a237"
+      stroke="#04a237"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m730 471 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#016158"
+      stroke="#016158"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m1243 391 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#019232"
+      stroke="#019232"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m824 329 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#027f29"
+      stroke="#027f29"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m905 203 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#03882d"
+      stroke="#03882d"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m963 138 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#028531"
+      stroke="#028531"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m975 132 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#028632"
+      stroke="#028632"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m977 131 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#028733"
+      stroke="#028733"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m979 130 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#33b502"
+      stroke="#33b502"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m448 130 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#028834"
+      stroke="#028834"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m982 129 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#32b502"
+      stroke="#32b502"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m451 129 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#028a37"
+      stroke="#028a37"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m985 128 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#10c50e"
+      stroke="#10c50e"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m892 62 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#97e005"
+      stroke="#97e005"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m395 46 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#05cb23"
+      stroke="#05cb23"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m967 24 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#0fcb6e"
+      stroke="#0fcb6e"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m1097 23 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    />
+    <motion.path 
+      fill="#93ed2a"
+      stroke="#93ed2a"
+      strokeWidth="0"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m577 23 2 1Z"
+      initial={{ pathLength: 0, fillOpacity: 0 }}
+      animate={{ pathLength: 1, fillOpacity: 1 }}
+      transition={{ 
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
+        fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
+      }}
+    /></motion.svg>
+    </div>
+  );
+}
