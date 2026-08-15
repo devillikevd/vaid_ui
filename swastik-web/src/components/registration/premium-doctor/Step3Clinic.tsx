@@ -1,10 +1,74 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MapPin, Building, IndianRupee, Video, Home } from 'lucide-react';
+import { LocationMapModal } from '../../shared/LocationMapModal';
 
 export function Step3Clinic({ data, updateData, nextStep, prevStep }: any) {
+    const [errorMsg, setErrorMsg] = useState('');
+    const [isMapOpen, setIsMapOpen] = useState(false);
+
     const handleContinue = (e: React.FormEvent) => {
         e.preventDefault();
+        setErrorMsg('');
+
+        if (!data.clinicName?.trim()) {
+            setErrorMsg('Clinic / Hospital Name is required');
+            return;
+        }
+
+        if (!data.address?.trim()) {
+            setErrorMsg('Complete Address is required');
+            return;
+        }
+
+        // Basic Pincode validation within address or explicitly from data.pincode
+        const pinMatch = data.address.match(/\b\d{6}\b/) || (data.pincode && data.pincode.match(/\b\d{6}\b/));
+        if (!pinMatch) {
+            setErrorMsg('Address must contain a valid 6-digit Pincode');
+            return;
+        }
+
+        if (data.latitude == null || data.longitude == null) {
+            setErrorMsg('Please select your clinic location on the map.');
+            return;
+        }
+
+        if (data.consultationTypes?.video) {
+            const fee = parseInt(data.videoFee);
+            if (isNaN(fee) || fee < 0) {
+                setErrorMsg('Video Fee must be a valid non-negative amount');
+                return;
+            }
+        }
+
+        if (data.consultationTypes?.clinic) {
+            const fee = parseInt(data.clinicFee);
+            if (isNaN(fee) || fee < 0) {
+                setErrorMsg('Clinic Fee must be a valid non-negative amount');
+                return;
+            }
+        }
+
+        if (data.followupFee) {
+            const fee = parseInt(data.followupFee);
+            if (isNaN(fee) || fee < 0) {
+                setErrorMsg('Follow-up Fee must be a valid non-negative amount');
+                return;
+            }
+        }
+
         nextStep();
+    };
+
+    const handleConfirmLocation = (lat: number, lng: number, addrData?: any) => {
+        const updates: any = { latitude: lat, longitude: lng };
+        if (addrData) {
+            if (addrData.address) updates.address = addrData.address;
+            if (addrData.city) updates.city = addrData.city;
+            if (addrData.state) updates.state = addrData.state;
+            if (addrData.pincode) updates.pincode = addrData.pincode;
+        }
+        updateData(updates);
+        setIsMapOpen(false);
     };
 
     return (
@@ -35,7 +99,10 @@ export function Step3Clinic({ data, updateData, nextStep, prevStep }: any) {
 
                 {/* Complete Address */}
                 <div className="space-y-2">
-                    <label className="text-sm font-medium text-[#A1A1AA]">Complete Address</label>
+                    <div className="flex justify-between items-end">
+                        <label className="text-sm font-medium text-[#A1A1AA]">Complete Address</label>
+                        {data.city && <span className="text-xs text-[#22C55E]">{data.city}, {data.state}</span>}
+                    </div>
                     <div className="relative group">
                         <div className="absolute top-3.5 left-0 pl-3.5 flex items-start pointer-events-none">
                             <MapPin className="h-5 w-5 text-[#A1A1AA] group-focus-within:text-[#22C55E] transition-colors" />
@@ -51,11 +118,41 @@ export function Step3Clinic({ data, updateData, nextStep, prevStep }: any) {
                     </div>
                 </div>
 
-                {/* Map Mock UI */}
-                <div className="w-full h-32 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.1)] flex flex-col items-center justify-center gap-2 relative overflow-hidden group cursor-pointer hover:border-[#22C55E]/50 transition-colors">
-                    <div className="absolute inset-0 bg-[url('https://maps.googleapis.com/maps/api/staticmap?center=New+Delhi&zoom=13&size=600x300&maptype=roadmap&style=element:geometry%7Ccolor:0x242f3e&style=element:labels.text.stroke%7Ccolor:0x242f3e&style=element:labels.text.fill%7Ccolor:0x746855&key=')] opacity-20 bg-cover bg-center grayscale" />
-                    <MapPin className="w-8 h-8 text-[#22C55E] relative z-10" />
-                    <span className="text-sm text-[#A1A1AA] font-medium relative z-10 group-hover:text-white transition-colors">Click to pin location on Map</span>
+                {/* Real Map Location Picker Trigger */}
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-[#A1A1AA]">Map Location</label>
+                    <div 
+                        onClick={() => setIsMapOpen(true)}
+                        className={`w-full rounded-xl border flex flex-col items-center justify-center p-4 gap-2 relative overflow-hidden group cursor-pointer transition-colors ${data.latitude ? 'border-[#22C55E]/30 bg-[#22C55E]/5 hover:border-[#22C55E]/50' : 'border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.02)] hover:border-[#22C55E]/50'}`}
+                    >
+                        {!data.latitude ? (
+                            <>
+                                <div className="absolute inset-0 bg-[url('https://maps.googleapis.com/maps/api/staticmap?center=India&zoom=4&size=600x300&maptype=roadmap&style=element:geometry%7Ccolor:0x242f3e&style=element:labels.text.stroke%7Ccolor:0x242f3e&style=element:labels.text.fill%7Ccolor:0x746855&key=')] opacity-10 bg-cover bg-center grayscale" />
+                                <MapPin className="w-6 h-6 text-[#A1A1AA] group-hover:text-[#22C55E] relative z-10 transition-colors" />
+                                <span className="text-sm text-[#A1A1AA] font-medium relative z-10 group-hover:text-white transition-colors">
+                                    Click to pin location on Map
+                                </span>
+                            </>
+                        ) : (
+                            <div className="flex items-start gap-4 w-full relative z-10">
+                                <div className="p-3 bg-[#22C55E]/10 rounded-lg">
+                                    <MapPin className="w-6 h-6 text-[#22C55E]" />
+                                </div>
+                                <div className="flex-1 text-left">
+                                    <h4 className="text-[15px] font-semibold text-white mb-0.5">Location Selected</h4>
+                                    <p className="text-sm text-gray-400">
+                                        {[data.city, data.state].filter(Boolean).join(', ') || 'Coordinates saved'}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1 font-mono">
+                                        {data.latitude.toFixed(6)}, {data.longitude.toFixed(6)}
+                                    </p>
+                                </div>
+                                <span className="text-sm font-medium text-[#22C55E] hover:text-[#16A34A] underline underline-offset-2">
+                                    Change
+                                </span>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pt-2">
@@ -115,6 +212,12 @@ export function Step3Clinic({ data, updateData, nextStep, prevStep }: any) {
                     </div>
                 </div>
 
+                {errorMsg && (
+                    <div className="text-red-500 text-[13px] bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg flex items-center gap-2">
+                        <span>{errorMsg}</span>
+                    </div>
+                )}
+
                 <div className="pt-6 flex gap-4">
                     <button
                         type="button"
@@ -131,6 +234,15 @@ export function Step3Clinic({ data, updateData, nextStep, prevStep }: any) {
                     </button>
                 </div>
             </form>
+
+            <LocationMapModal
+                isOpen={isMapOpen}
+                onClose={() => setIsMapOpen(false)}
+                onConfirm={handleConfirmLocation}
+                initialLatitude={data.latitude}
+                initialLongitude={data.longitude}
+                initialAddressText={data.address}
+            />
         </div>
     );
 }

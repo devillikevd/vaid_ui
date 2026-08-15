@@ -526,6 +526,33 @@ export function useAppointmentUpdates(onUpdate?: (update: AppointmentUpdate) => 
     return { lastUpdate };
 }
 
+export interface ClinicInviteUpdate {
+    inviteId: string;
+    clinicId: string;
+    decision: 'accepted' | 'rejected';
+    doctorId?: string;
+}
+
+export function useClinicInviteUpdates(onUpdate?: (update: ClinicInviteUpdate) => void) {
+    const { on } = useSocket();
+    const [lastUpdate, setLastUpdate] = useState<ClinicInviteUpdate | null>(null);
+
+    useEffect(() => {
+        const handleUpdate = (update: ClinicInviteUpdate) => {
+            setLastUpdate(update);
+            onUpdate?.(update);
+        };
+
+        const unsub = on('clinic:invite-updated', handleUpdate);
+
+        return () => {
+            unsub();
+        };
+    }, [on, onUpdate]);
+
+    return { lastUpdate };
+}
+
 // NOTE: useAmbulanceTracking is in hooks/useAmbulanceTracking.ts (dedicated file with start/stop controls)
 
 /**

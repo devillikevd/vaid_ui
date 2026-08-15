@@ -14,6 +14,10 @@ export interface ClinicDashboardStats {
     walkInsToday: number;
     repeatPatients: string;
     departments?: number;
+    activeDoctors?: number;
+    pendingInvites?: number;
+    checkedInToday?: number;
+    pendingAppointmentsToday?: number;
 }
 
 export interface Department {
@@ -21,6 +25,8 @@ export interface Department {
     name: string;
     description?: string;
     head_doctor_id?: string;
+    head_doctor_name?: string | null;
+    head_doctor_specialization?: string | null;
     contact_extension?: string;
     is_active: boolean;
     created_at: string;
@@ -38,6 +44,8 @@ export interface ClinicAppointment {
     doctorName: string;
     doctorSpecialization: string;
     reason?: string | null;
+    checkedInAt?: string | null;
+    checkedInBy?: string | null;
     createdAt?: string | null;
 }
 
@@ -50,6 +58,57 @@ export interface ClinicDoctor {
     email: string;
     phone: string;
     status: 'active' | 'on-leave' | 'inactive';
+    is_approved?: boolean;
+    verification?: 'verified' | 'pending';
+    rating?: number | null;
+    total_reviews?: number;
+    experience_years?: number;
+    consultation_fee?: number | null;
+    profile_image_url?: string | null;
+    joined_at?: string | null;
+    is_available?: boolean;
+    todayAppointments?: number;
+}
+
+export interface ClinicInvite {
+    id: string;
+    clinicId: string;
+    doctorId: string;
+    status: string;
+    createdAt?: string | null;
+    respondedAt?: string | null;
+    expiresAt?: string | null;
+    invitedByName?: string;
+    doctor: {
+        id: string;
+        name: string;
+        specialization: string;
+        email: string;
+        phone: string;
+        profile_image_url?: string | null;
+        is_approved: boolean;
+    };
+}
+
+export interface ClinicPatient {
+    id: string;
+    name: string;
+    phone: string;
+    email: string;
+    gender?: string | null;
+    dateOfBirth?: string | null;
+    profile_image_url?: string | null;
+    totalVisits: number;
+    lastVisit?: string | null;
+    lastVisitDoctor?: string | null;
+    nextAppointment?: {
+        appointment_date: string;
+        time_slot: string;
+        status: string;
+        doctorName: string;
+    } | null;
+    upcomingCount: number;
+    lastStatus?: string | null;
 }
 
 export interface Review {
@@ -112,6 +171,65 @@ function normalizeClinicDoctor(raw: Record<string, any>): ClinicDoctor {
         email: doctor.email || raw.email || doctor.user?.email || '',
         phone: doctor.phone || raw.phone || doctor.user?.phone || '',
         status,
+        is_approved: raw.is_approved === true,
+        verification: raw.verification || (raw.is_approved === true ? 'verified' : 'pending'),
+        rating: raw.rating != null ? Number(raw.rating) : null,
+        total_reviews: Number(raw.total_reviews || 0),
+        experience_years: Number(raw.experience_years || 0),
+        consultation_fee: raw.consultation_fee != null ? Number(raw.consultation_fee) : null,
+        profile_image_url: raw.profile_image_url || doctor.profile_image_url || null,
+        joined_at: raw.joined_at || null,
+        is_available: raw.is_available !== false,
+        todayAppointments: Number(raw.todayAppointments || 0),
+    };
+}
+
+function normalizeClinicInvite(raw: Record<string, any>): ClinicInvite {
+    const doctor = (raw.doctor || {}) as Record<string, any>;
+    return {
+        id: raw.id || '',
+        clinicId: raw.clinicId || raw.clinic_id || '',
+        doctorId: raw.doctorId || raw.doctor_id || doctor.id || '',
+        status: raw.status || 'pending',
+        createdAt: raw.createdAt || raw.created_at || null,
+        respondedAt: raw.respondedAt || raw.responded_at || null,
+        expiresAt: raw.expiresAt || raw.expires_at || null,
+        invitedByName: raw.invitedByName || 'Clinic Owner',
+        doctor: {
+            id: doctor.id || '',
+            name: doctor.name || 'Doctor',
+            specialization: doctor.specialization || '',
+            email: doctor.email || raw.email || '',
+            phone: doctor.phone || raw.phone || '',
+            profile_image_url: doctor.profile_image_url || null,
+            is_approved: doctor.is_approved === true,
+        },
+    };
+}
+
+function normalizeClinicPatient(raw: Record<string, any>): ClinicPatient {
+    const nextAppointment = raw.nextAppointment as Record<string, any> | null | undefined;
+    return {
+        id: raw.id || '',
+        name: raw.name || 'Patient',
+        phone: raw.phone || '',
+        email: raw.email || '',
+        gender: raw.gender || null,
+        dateOfBirth: raw.dateOfBirth || raw.date_of_birth || null,
+        profile_image_url: raw.profile_image_url || null,
+        totalVisits: Number(raw.totalVisits || 0),
+        lastVisit: raw.lastVisit || null,
+        lastVisitDoctor: raw.lastVisitDoctor || null,
+        nextAppointment: nextAppointment
+            ? {
+                appointment_date: nextAppointment.appointment_date,
+                time_slot: nextAppointment.time_slot,
+                status: nextAppointment.status,
+                doctorName: nextAppointment.doctorName || '',
+            }
+            : null,
+        upcomingCount: Number(raw.upcomingCount || 0),
+        lastStatus: raw.lastStatus || null,
     };
 }
 
@@ -131,6 +249,8 @@ function normalizeClinicAppointment(raw: Record<string, any>): ClinicAppointment
         doctorSpecialization: raw.doctorSpecialization || doctor.specialization || '',
         date: raw.date || raw.appointment_date || null,
         reason: raw.reason || null,
+        checkedInAt: raw.checkedInAt || raw.checked_in_at || null,
+        checkedInBy: raw.checkedInBy || raw.checked_in_by || null,
         createdAt: raw.createdAt || raw.created_at || null,
     };
 }
@@ -159,6 +279,12 @@ interface ClinicState {
     consultations: Consultation[];
     consultationsPagination: PaginationState;
     analytics: ClinicAnalytics | null;
+    invites: ClinicInvite[];
+    invitesPagination: PaginationState;
+    patients: ClinicPatient[];
+    patientsPagination: PaginationState;
+    loadingInvites: boolean;
+    loadingPatients: boolean;
 
     fetchDashboardData: () => Promise<void>;
     fetchAppointments: (params?: { page?: number; limit?: number; search?: string; status?: string; date?: string }) => Promise<void>;
@@ -174,6 +300,12 @@ interface ClinicState {
     deleteDepartment: (departmentId: string) => Promise<boolean>;
     fetchConsultations: (params?: { page?: number; limit?: number; search?: string; status?: string }) => Promise<void>;
     fetchAnalytics: (period?: string) => Promise<void>;
+    fetchInvites: (params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
+    cancelInvite: (inviteId: string) => Promise<boolean>;
+    fetchPatients: (params?: { page?: number; limit?: number; search?: string }) => Promise<void>;
+    updateAppointmentStatus: (appointmentId: string, status: string, reason?: string) => Promise<boolean>;
+    rescheduleAppointment: (appointmentId: string, date: string, timeSlot: string) => Promise<boolean>;
+    checkInAppointment: (appointmentId: string) => Promise<boolean>;
     clearError: () => void;
     reset: () => void;
 }
@@ -183,6 +315,8 @@ const mapDepartment = (raw: Record<string, any>): Department => ({
     name: raw.name || '',
     description: raw.description || '',
     head_doctor_id: raw.head_doctor_id || raw.headDoctorId || undefined,
+    head_doctor_name: raw.head_doctor_name || null,
+    head_doctor_specialization: raw.head_doctor_specialization || null,
     contact_extension: raw.contact_extension || raw.contactExtension || '',
     is_active: raw.is_active !== false,
     created_at: raw.created_at || new Date().toISOString()
@@ -212,6 +346,12 @@ const clinicInitialState = {
     consultations: [] as Consultation[],
     consultationsPagination: { ...defaultPagination },
     analytics: null as ClinicAnalytics | null,
+    invites: [] as ClinicInvite[],
+    invitesPagination: { ...defaultPagination },
+    patients: [] as ClinicPatient[],
+    patientsPagination: { ...defaultPagination },
+    loadingInvites: false,
+    loadingPatients: false,
 };
 
 export const useClinicStore = create<ClinicState>((set, get) => ({
@@ -250,6 +390,10 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
                 walkInsToday: Number(rawStats.walkInsToday || 0),
                 repeatPatients: String(rawStats.repeatPatients || '0%'),
                 departments: Number(rawStats.departments || 0),
+                activeDoctors: Number(rawStats.activeDoctors || rawStats.totalDoctors || 0),
+                pendingInvites: Number(rawStats.pendingInvites || 0),
+                checkedInToday: Number(rawStats.checkedInToday || 0),
+                pendingAppointmentsToday: Number(rawStats.pendingAppointmentsToday || 0),
             };
 
             set({
@@ -548,6 +692,142 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
         } catch (error) {
             console.error('Error fetching analytics:', error);
             set({ error: 'Failed to load analytics.', loadingAnalytics: false });
+        }
+    },
+
+    fetchInvites: async (params = {}) => {
+        set({ loadingInvites: true, error: null });
+        try {
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await clinicApi.getInvites({ page, limit, status: params.status });
+            if (!response.success) {
+                set({ error: response.error || 'Failed to load invites', loadingInvites: false });
+                return;
+            }
+            const rawData = response.data;
+            const invites = (Array.isArray(rawData) ? rawData : (rawData as any)?.invites || (rawData as any)?.data || [])
+                .map(normalizeClinicInvite) as ClinicInvite[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
+            set({
+                invites,
+                invitesPagination: pagination ? {
+                    page: pagination.page || page,
+                    totalPages: pagination.totalPages || 1,
+                    total: pagination.total || invites.length,
+                    hasMore: (pagination.page || page) < (pagination.totalPages || 1),
+                } : { ...defaultPagination, total: invites.length },
+                loadingInvites: false,
+            });
+        } catch (error) {
+            console.error('Error fetching invites:', error);
+            set({ error: 'Failed to load invites.', loadingInvites: false });
+        }
+    },
+
+    cancelInvite: async (inviteId) => {
+        try {
+            const response = await clinicApi.cancelInvite(inviteId);
+            if (response.success) {
+                await Promise.allSettled([
+                    get().fetchInvites({ status: 'pending' }),
+                    get().fetchDashboardData(),
+                ]);
+                return true;
+            }
+            set({ error: response.error || 'Failed to cancel invite' });
+            return false;
+        } catch (error) {
+            console.error('Error cancelling invite:', error);
+            set({ error: 'Failed to cancel invite.' });
+            return false;
+        }
+    },
+
+    fetchPatients: async (params = {}) => {
+        set({ loadingPatients: true, error: null });
+        try {
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await clinicApi.getPatients({ page, limit, search: params.search });
+            if (!response.success) {
+                set({ error: response.error || 'Failed to load patients', loadingPatients: false });
+                return;
+            }
+            const rawData = response.data;
+            const patients = (Array.isArray(rawData) ? rawData : (rawData as any)?.patients || (rawData as any)?.data || [])
+                .map(normalizeClinicPatient) as ClinicPatient[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
+            set({
+                patients,
+                patientsPagination: pagination ? {
+                    page: pagination.page || page,
+                    totalPages: pagination.totalPages || 1,
+                    total: pagination.total || patients.length,
+                    hasMore: (pagination.page || page) < (pagination.totalPages || 1),
+                } : { ...defaultPagination, total: patients.length },
+                loadingPatients: false,
+            });
+        } catch (error) {
+            console.error('Error fetching patients:', error);
+            set({ error: 'Failed to load patients.', loadingPatients: false });
+        }
+    },
+
+    updateAppointmentStatus: async (appointmentId, status, reason) => {
+        try {
+            const response = await clinicApi.updateAppointmentStatus(appointmentId, status, reason);
+            if (response.success) {
+                await Promise.allSettled([
+                    get().fetchAppointments(),
+                    get().fetchDashboardData(),
+                ]);
+                return true;
+            }
+            set({ error: response.error || 'Failed to update appointment' });
+            return false;
+        } catch (error) {
+            console.error('Error updating appointment:', error);
+            set({ error: 'Failed to update appointment.' });
+            return false;
+        }
+    },
+
+    rescheduleAppointment: async (appointmentId, date, timeSlot) => {
+        try {
+            const response = await clinicApi.rescheduleAppointment(appointmentId, date, timeSlot);
+            if (response.success) {
+                await Promise.allSettled([
+                    get().fetchAppointments(),
+                    get().fetchDashboardData(),
+                ]);
+                return true;
+            }
+            set({ error: response.error || 'Failed to reschedule appointment' });
+            return false;
+        } catch (error) {
+            console.error('Error rescheduling appointment:', error);
+            set({ error: 'Failed to reschedule appointment.' });
+            return false;
+        }
+    },
+
+    checkInAppointment: async (appointmentId) => {
+        try {
+            const response = await clinicApi.checkInAppointment(appointmentId);
+            if (response.success) {
+                await Promise.allSettled([
+                    get().fetchAppointments(),
+                    get().fetchDashboardData(),
+                ]);
+                return true;
+            }
+            set({ error: response.error || 'Failed to check in patient' });
+            return false;
+        } catch (error) {
+            console.error('Error checking in appointment:', error);
+            set({ error: 'Failed to check in patient.' });
+            return false;
         }
     },
 }));

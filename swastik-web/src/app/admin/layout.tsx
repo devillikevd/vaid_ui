@@ -16,11 +16,14 @@ import {
     BadgePercent,
     MessageSquare,
 } from 'lucide-react';
-import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
+import { BaseDashboardLayout, type DashboardConfig } from '@/components/shared/DashboardLayout';
+import { useAuthStore } from '@/stores/authStore';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 const ADMIN_CONFIG: DashboardConfig = {
     role: 'admin',
-    loginPath: '/login/admin',
+    loginPath: '/admin/login',
     portalTitle: 'Admin Portal',
     portalSubtitle: 'Control Center',
     portalIcon: Shield,
@@ -46,5 +49,29 @@ const ADMIN_CONFIG: DashboardConfig = {
 };
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-    return <DashboardLayout config={ADMIN_CONFIG}>{children}</DashboardLayout>;
+    const router = useRouter();
+    const { user, isAuthenticated, _hasHydrated } = useAuthStore();
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+
+    useEffect(() => {
+        if (isMounted && _hasHydrated && (!isAuthenticated || !isAdmin)) {
+            router.push(ADMIN_CONFIG.loginPath);
+        }
+    }, [isMounted, _hasHydrated, isAuthenticated, isAdmin, router]);
+
+    if (!isMounted || !_hasHydrated) {
+        return null;
+    }
+
+    if (!isAuthenticated || !isAdmin) {
+        return null;
+    }
+
+    return <BaseDashboardLayout config={ADMIN_CONFIG}>{children}</BaseDashboardLayout>;
 }

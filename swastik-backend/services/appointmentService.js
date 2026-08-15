@@ -445,6 +445,14 @@ const bookAppointment = async (patientId, appointmentData) => {
       type: 'appointment_booked',
       data: { appointmentId: appointment.id, patientId: patient.id, date, timeSlot },
     }),
+    clinic_owner_id
+      ? notificationService.sendNotification(clinic_owner_id, {
+        title: '📅 New Clinic Appointment',
+        message: `${patient.name} booked an appointment with Dr. ${doctor.name} for ${date} at ${timeSlot}.`,
+        type: 'appointment_booked',
+        data: { appointmentId: appointment.id, patientId: patient.id, date, timeSlot },
+      })
+      : Promise.resolve(),
   ]);
 
   // Invalidate cached dashboards so the new booking appears immediately

@@ -363,6 +363,15 @@ export const authApi = {
         return response.json();
     },
 
+    checkDuplicate: async (email?: string, phone?: string) => {
+        const response = await fetch(`${API_BASE_URL}/auth/check-duplicate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, phone }),
+        });
+        return response.json();
+    },
+
     verifyRegistrationOtp: async (email: string, otp: string) => {
         const response = await fetch(`${API_BASE_URL}/auth/verify-registration-otp`, {
             method: 'POST',
@@ -753,7 +762,7 @@ export const adminApi = {
         }),
 };
 
-// ==================== DOCTOR API ====================
+// ==================== DASHBOARD API ====================
 // Backend: routes/doctor/index.js
 
 export const doctorApi = {
@@ -1267,11 +1276,13 @@ export const clinicApi = {
         return fetchWithAuth(`/clinics/owner/doctors?${query}`);
     },
 
-    addDoctor: (data: Record<string, unknown>) =>
-        fetchWithAuth('/clinics/owner/doctors', {
+    addDoctor: (data: Record<string, unknown>) => {
+        const url = data.doctorId ? `/clinics/owner/doctors/${data.doctorId}` : '/clinics/owner/doctors';
+        return fetchWithAuth(url, {
             method: 'POST',
             body: JSON.stringify(data),
-        }),
+        });
+    },
 
     removeDoctor: (doctorId: string) =>
         fetchWithAuth(`/clinics/owner/doctors/${doctorId}`, { method: 'DELETE' }),
@@ -1359,6 +1370,50 @@ export const clinicApi = {
 
     // ── Analytics ──
     getAnalytics: (period: string = '30d') => fetchWithAuth(`/clinics/owner/analytics?period=${encodeURIComponent(period)}`),
+
+    // ── Doctor Invites ──
+    getInvites: (params: { page?: number; limit?: number; status?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 20),
+        });
+        if (params.status) query.set('status', params.status);
+        return fetchWithAuth(`/clinics/owner/invites?${query}`);
+    },
+
+    cancelInvite: (inviteId: string) =>
+        fetchWithAuth(`/clinics/owner/invites/${inviteId}/cancel`, { method: 'POST' }),
+
+    // ── Clinic Patients ──
+    getPatients: (params: { page?: number; limit?: number; search?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 20),
+        });
+        if (params.search) query.set('search', params.search);
+        return fetchWithAuth(`/clinics/owner/patients?${query}`);
+    },
+
+    getPatientDetails: (patientId: string) =>
+        fetchWithAuth(`/clinics/owner/patients/${patientId}`),
+
+    // ── Clinic Appointment Workflow ──
+    updateAppointmentStatus: (appointmentId: string, status: string, reason?: string) =>
+        fetchWithAuth(`/clinics/owner/appointments/${appointmentId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status, reason }),
+        }),
+
+    rescheduleAppointment: (appointmentId: string, date: string, timeSlot: string) =>
+        fetchWithAuth(`/clinics/owner/appointments/${appointmentId}/reschedule`, {
+            method: 'POST',
+            body: JSON.stringify({ date, timeSlot }),
+        }),
+
+    checkInAppointment: (appointmentId: string) =>
+        fetchWithAuth(`/clinics/owner/appointments/${appointmentId}/check-in`, {
+            method: 'POST',
+        }),
 
     // ── Outbreak Alerts (read-only) ──
     getOutbreakAlerts: (city?: string) => {

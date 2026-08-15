@@ -56,13 +56,23 @@ export async function proxy(request: NextRequest) {
         return NextResponse.next();
     }
 
+    if (pathname === '/admin/login') {
+        return NextResponse.next();
+    }
+
     const token = request.cookies.get('swastik-token')?.value || request.cookies.get('accessToken')?.value;
     const cookieRole = request.cookies.get('swastik-role')?.value;
 
     const redirectToLogin = (expired = false) => {
-        const loginSlug = ROUTE_TO_LOGIN_SLUG[matchedPrefix] || matchedPrefix.replace('/', '');
-
-        const loginUrl = new URL(`/login/${loginSlug}`, request.url);
+        let loginUrlPath = '';
+        if (matchedPrefix === '/admin') {
+            loginUrlPath = '/admin/login';
+        } else {
+            const loginSlug = ROUTE_TO_LOGIN_SLUG[matchedPrefix] || matchedPrefix.replace('/', '');
+            loginUrlPath = `/login/${loginSlug}`;
+        }
+        
+        const loginUrl = new URL(loginUrlPath, request.url);
         loginUrl.searchParams.set('redirect', pathname);
         if (expired) loginUrl.searchParams.set('expired', '1');
         const response = NextResponse.redirect(loginUrl);

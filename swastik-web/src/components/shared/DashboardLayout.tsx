@@ -32,6 +32,7 @@ import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { useTheme } from '@/components/shared/ThemeProvider';
 import GlobalSocketToasts from '@/components/shared/GlobalSocketToasts';
 import { type Notification, useNotifications } from '@/hooks/useSocket';
+import VaidideaLogo from '@/components/shared/VaidideaLogo';
 
 // ----- Types -----
 
@@ -281,7 +282,7 @@ function resolveNotificationRoute(notification: Notification, role?: string): st
 
 // ----- Component -----
 
-export default function DashboardLayout({
+export function BaseDashboardLayout({
     config,
     children,
 }: {
@@ -300,45 +301,7 @@ export default function DashboardLayout({
     const [searchOpen, setSearchOpen] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
-    const [animatedPlaceholder, setAnimatedPlaceholder] = useState('Search pages...');
     const { notifications, unreadCount, clearNotifications, markRead, markAllRead } = useNotifications();
-
-    // Typewriter animated placeholder cycling through nav page names
-    useEffect(() => {
-        const pages = config.navItems.map(item => item.name);
-        if (pages.length === 0) return;
-        let pageIdx = 0;
-        let charIdx = 0;
-        let deleting = false;
-        let timeout: ReturnType<typeof setTimeout>;
-
-        const tick = () => {
-            const word = `Search ${pages[pageIdx]}...`;
-            if (!deleting) {
-                charIdx++;
-                setAnimatedPlaceholder(word.slice(0, charIdx));
-                if (charIdx === word.length) {
-                    deleting = true;
-                    timeout = setTimeout(tick, 1400); // pause before deleting
-                    return;
-                }
-                timeout = setTimeout(tick, 55);
-            } else {
-                charIdx--;
-                setAnimatedPlaceholder(word.slice(0, charIdx));
-                if (charIdx === 0) {
-                    deleting = false;
-                    pageIdx = (pageIdx + 1) % pages.length;
-                    timeout = setTimeout(tick, 300);
-                    return;
-                }
-                timeout = setTimeout(tick, 30);
-            }
-        };
-        timeout = setTimeout(tick, 800);
-        return () => clearTimeout(timeout);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     // Close search on outside click
     useEffect(() => {
@@ -468,21 +431,9 @@ export default function DashboardLayout({
         setIsMounted(true);
     }, []);
 
-    useEffect(() => {
-        if (_hasHydrated && (!isAuthenticated || !roleMatches)) {
-            console.error('Redirecting to login:', {
-                _hasHydrated,
-                isAuthenticated,
-                roleMatches,
-                userRole: user?.role,
-                allowedRoles,
-                loginPath: config.loginPath
-            });
-            router.push(config.loginPath);
-        }
-    }, [isAuthenticated, _hasHydrated, roleMatches, router, config.loginPath, user?.role, allowedRoles]);
 
-    if (!isMounted || !_hasHydrated || !isAuthenticated || !roleMatches) {
+
+    if (!isMounted || !_hasHydrated) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
                 <div className={cn('animate-spin h-8 w-8 border-4 border-t-transparent rounded-full', colors.spinner)} />
@@ -574,8 +525,8 @@ export default function DashboardLayout({
                 {/* Logo */}
                 <div className={cn('flex-none flex items-center h-16 px-4 border-b', colors.border, desktopCollapsed ? 'justify-center' : 'justify-between')}>
                     <div className={cn("flex items-center gap-3 overflow-hidden", desktopCollapsed ? "lg:hidden" : "")}>
-                        <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/20 shrink-0">
-                            <PortalIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        <div className="shrink-0 flex items-center justify-center bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-1">
+                            <VaidideaLogo className="w-8 h-8" />
                         </div>
                         <div className="whitespace-nowrap">
                             <h1 className="font-bold text-[15px] text-gray-900 dark:text-white tracking-tight">{config.portalTitle}</h1>
@@ -583,8 +534,8 @@ export default function DashboardLayout({
                         </div>
                     </div>
                     {desktopCollapsed && (
-                        <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/20 shrink-0 hidden lg:flex">
-                            <PortalIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        <div className="shrink-0 hidden lg:flex items-center justify-center bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-1">
+                            <VaidideaLogo className="w-8 h-8" />
                         </div>
                     )}
                     <div className="flex shrink-0 items-center gap-1">
@@ -729,7 +680,7 @@ export default function DashboardLayout({
                             <input
                                 ref={searchInputRef}
                                 type="text"
-                                placeholder={animatedPlaceholder}
+                                placeholder={navItemToDisplay ? `Search ${navItemToDisplay.name.toLowerCase()}...` : 'Search pages...'}
                                 value={searchQuery}
                                 onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
                                 onFocus={() => setSearchOpen(true)}
@@ -1033,6 +984,95 @@ export default function DashboardLayout({
                                                     </div>
                                                 </div>
                                             </>
+                                        ) : user?.role === 'clinic_owner' ? (
+                                            <>
+                                                <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">
+                                                    {/* Premium Clinic Header */}
+                                                    <div className="p-6 bg-gradient-to-b from-pink-500/10 to-transparent border-b border-gray-200 dark:border-gray-800">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="relative shrink-0">
+                                                                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-pink-500 to-pink-700 p-[2px]">
+                                                                    <div className="h-full w-full rounded-full bg-white dark:bg-[#0B1020] flex items-center justify-center">
+                                                                        <span className="text-xl font-bold text-pink-600 dark:text-pink-400">{getInitials(displayName)}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-white dark:bg-[#0B1020] rounded-full flex items-center justify-center">
+                                                                    <div className="h-3.5 w-3.5 bg-pink-500 rounded-full flex items-center justify-center text-white">
+                                                                        <Building2 className="h-2 w-2" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                                <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate w-full">{displayName}</h3>
+                                                                <div className="flex items-center gap-1.5 mt-0.5 shrink-0">
+                                                                    <Building2 className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                                                                    <span className="text-xs font-bold text-pink-500">Clinic Owner</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1.5 mt-2 shrink-0">
+                                                                    <span className="flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-md text-emerald-500 bg-emerald-500/10">
+                                                                        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500 animate-pulse"></span> Active
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Theme Switcher Segmented Control */}
+                                                    <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+                                                        <div className="flex w-full bg-gray-100 dark:bg-[#131A2B] p-1.5 gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800">
+                                                            {(['light', 'dark', 'system'] as const).map((t) => {
+                                                                const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
+                                                                return (
+                                                                    <ThemeOptionButton key={t} value={t} Icon={Icon} />
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Menu Sections */}
+                                                    <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
+                                                        <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Profile</div>
+                                                        <Link href="/clinic/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <UserIcon className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors shrink-0" />
+                                                            <span className="truncate">View Clinic Profile</span>
+                                                        </Link>
+                                                        <Link href="/clinic/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <Edit2 className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Edit Clinic Profile</span>
+                                                        </Link>
+                                                    </div>
+
+                                                    <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
+                                                        <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Organization</div>
+                                                        <Link href="/clinic/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <Settings2 className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Clinic Settings</span>
+                                                        </Link>
+                                                    </div>
+
+                                                    <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
+                                                        <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Security</div>
+                                                        <Link href="/clinic/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                            <Shield className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors shrink-0" />
+                                                            <span className="truncate">Security & Password</span>
+                                                        </Link>
+                                                    </div>
+
+                                                    {/* Account Info Section */}
+                                                    <div className="p-4 bg-gray-50 dark:bg-[#131A2B]/50">
+                                                        <div className="space-y-3">
+                                                            <div className="flex justify-between items-center text-xs">
+                                                                <span className="text-gray-400 font-medium">Email</span>
+                                                                <span className="text-gray-700 dark:text-gray-300 font-bold truncate max-w-[200px]" title={user?.email || ''}>{user?.email || 'Not provided'}</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center text-xs">
+                                                                <span className="text-gray-400 font-medium">Phone Number</span>
+                                                                <span className="text-gray-700 dark:text-gray-300 font-bold truncate max-w-[200px]">{user?.phone || 'Not provided'}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
                                         ) : (
                                             /* Standard / Non-Doctor Profile Layout */
                                             <div className="flex flex-col">
@@ -1172,4 +1212,44 @@ export default function DashboardLayout({
             </div>
         </div>
     );
+}
+
+// ----- Auth Guard Wrapper -----
+export default function DashboardLayout({
+    config,
+    children,
+}: {
+    config: DashboardConfig;
+    children: ReactNode;
+}) {
+    const router = useRouter();
+    const { user, isAuthenticated, _hasHydrated } = useAuthStore();
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    const allowedRoles = Array.isArray(config.role) ? config.role : [config.role];
+    const roleMatches = user?.role != null && (
+        allowedRoles.includes(user.role) ||
+        (allowedRoles.includes('admin') && user.role === 'super_admin') ||
+        (allowedRoles.includes('hospital_owner') && user.role === 'hospital_manager')
+    );
+
+    useEffect(() => {
+        if (isMounted && _hasHydrated && (!isAuthenticated || !roleMatches)) {
+            router.push(config.loginPath);
+        }
+    }, [isMounted, _hasHydrated, isAuthenticated, roleMatches, router, config.loginPath]);
+
+    if (!isMounted || !_hasHydrated) {
+        return null;
+    }
+
+    if (!isAuthenticated || !roleMatches) {
+        return null;
+    }
+
+    return <BaseDashboardLayout config={config}>{children}</BaseDashboardLayout>;
 }

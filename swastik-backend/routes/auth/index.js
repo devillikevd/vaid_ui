@@ -40,6 +40,61 @@ const authRateLimit = (maxAttempts, windowSeconds, keyPrefix) => {
   });
 };
 
+// Check duplicate email or phone
+router.post('/check-duplicate',
+  authRateLimit(20, 600, 'check-dup'), // 20 attempts per 10 minutes
+  [
+    body('email').optional().trim().isEmail().toLowerCase().withMessage('Valid email is required'),
+    body('phone').optional({ values: 'falsy' }).trim().isMobilePhone().withMessage('Valid phone number is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { email, phone } = req.body;
+    
+    if (!email && !phone) {
+        return res.status(400).json({ success: false, message: 'Email or phone is required' });
+    }
+
+    const { supabaseAdmin } = require('../../config/supabase');
+    
+    const orConditions = [];
+    if (email) orConditions.push(`email.eq.${email}`);
+    if (phone) orConditions.push(`phone.eq.${phone}`);
+
+    const { data: existingUser, error } = await supabaseAdmin
+      .from('users')
+      .select('email, phone')
+      .or(orConditions.join(','))
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (existingUser) {
+        let field = '';
+        let message = '';
+        if (email && existingUser.email === email) {
+            field = 'email';
+            message = 'This email is already registered.';
+        } else if (phone && existingUser.phone === phone) {
+            field = 'phone';
+            message = 'This phone number is already registered.';
+        }
+        return res.json({
+            success: true,
+            isDuplicate: true,
+            field,
+            message
+        });
+    }
+
+    res.json({
+        success: true,
+        isDuplicate: false
+    });
+  })
+);
+
 // Register
 router.post('/register',
   authRateLimit(8, 600, 'register'), // 8 attempts per 10 minutes
@@ -47,7 +102,11 @@ router.post('/register',
     body('email').trim().isEmail().toLowerCase().withMessage('Valid email is required'),
     body('phone').optional({ values: 'falsy' }).trim().isMobilePhone().withMessage('Valid phone number is required'),
     body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
-    body('name').trim().notEmpty().escape().withMessage('Name is required'),
+    body('name')
+      .trim()
+      .notEmpty().withMessage('Name is required')
+      .matches(/^[a-zA-Z\s\.\-']{2,100}$/).withMessage('Name must be 2-100 characters and contain only letters, spaces, dots, hyphens or apostrophes')
+      .escape(),
     body('role').optional().isIn([
       'patient',
       'doctor',
@@ -141,7 +200,29 @@ router.post('/send-registration-otp',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const result = await authService.sendRegistrationOtp(req.body.email, req.body.name);
+    const { supabaseAdmin } = require('../../config/supabase');
+    
+    // Check if email already exists
+    const { data: existingUser } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('email', req.body.email)
+      .maybeSingle();
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        error: 'This email is already registered. Please login instead.'
+      });
+    }
+
+    const result = await authService.issueUniversalOtp({
+      email: req.body.email,
+      name: req.body.name,
+      purpose: 'registration',
+      title: 'Doctor Registration',
+      intro: 'Please use the OTP below to complete your registration on Vaididea.'
+    });
     res.json({
       success: true,
       ...result,
@@ -158,7 +239,11 @@ router.post('/verify-registration-otp',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const result = await authService.verifyRegistrationOtp(req.body.email, req.body.otp);
+    const result = await authService.verifyUniversalOtp({
+      email: req.body.email,
+      otp: req.body.otp,
+      purpose: 'registration'
+    });
     res.json({
       success: true,
       ...result,

@@ -232,10 +232,31 @@ class AppEventEmitter extends EventEmitter {
     this.emitDistributed('appointment:booked', appointment);
   }
 
+  // Resolve the clinic owner's user_id for real-time dashboard updates.
+  // Fire-and-forget: this is a notification helper, never critical path.
+  async _notifyClinicOwner(clinicId, event, data) {
+    if (!clinicId) return;
+    try {
+      const { supabaseAdmin } = require('../config/supabase');
+      const { data: clinic } = await supabaseAdmin
+        .from('clinics')
+        .select('owner_id')
+        .eq('id', clinicId)
+        .maybeSingle();
+      if (clinic?.owner_id) {
+        this.notifyUser(clinic.owner_id, event, data);
+      }
+    } catch (err) {
+      console.error(`[EventEmitter] _notifyClinicOwner error (${event}):`, err.message);
+    }
+  }
+
   emitAppointmentUpdated(appointment) {
     const { doctor_id, patient_id } = appointment;
     this.notifyUser(doctor_id, 'appointment:update', appointment);
     this.notifyUser(patient_id, 'appointment:update', appointment);
+    // Real-time for the clinic owner dashboard (front desk sees changes instantly)
+    this._notifyClinicOwner(appointment.clinic_id, 'appointment:update', appointment);
     // Push notification to patient about status change
     this.notifyUser(patient_id, 'notification:new', {
       type: 'appointment',
@@ -251,6 +272,8 @@ class AppEventEmitter extends EventEmitter {
     const { doctor_id, patient_id } = appointment;
     this.notifyUser(doctor_id, 'appointment:cancelled', appointment);
     this.notifyUser(patient_id, 'appointment:cancelled', appointment);
+    // Real-time for the clinic owner dashboard
+    this._notifyClinicOwner(appointment.clinic_id, 'appointment:cancelled', appointment);
     // Notify both about cancellation
     this.notifyUser(doctor_id, 'notification:new', {
       type: 'appointment',

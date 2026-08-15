@@ -291,6 +291,73 @@ export default function RegisterPage({ params }: RegisterPageProps) {
         setIsLoading(true);
 
         try {
+            // First check if email/phone exists before sending OTP
+            const checkRes = await authApi.checkDuplicate(email.trim(), phone.trim());
+            if (checkRes.isDuplicate) {
+                setFieldErrors((prev) => ({
+                    ...prev,
+                    [checkRes.field || 'email']: checkRes.message || 'Already registered',
+                }));
+                setIsLoading(false);
+                return;
+            }
+
+            // Send registration OTP
+            const otpRes = await authApi.sendRegistrationOtp(email.trim(), name.trim());
+            if (otpRes.success) {
+                setVerificationSent(true);
+                setVerificationComplete(false);
+                setVerificationError('');
+                setVerificationInfo('We sent a 6-digit verification code to your email.');
+            } else {
+                setError(otpRes.error || 'Failed to send verification code. Please try again.');
+            }
+        } catch (err: any) {
+            setError(err.message || 'An unexpected error occurred');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleResendVerification = async () => {
+        if (resendCooldown > 0 || !email.trim()) return;
+
+        setResendingOtp(true);
+        setVerificationError('');
+
+        try {
+            const result = await authApi.resendVerification(email.trim());
+            if (result.success) {
+                setVerificationInfo(result.message || 'Verification code sent. Please check your inbox.');
+                setResendCooldown(60);
+            } else {
+                setVerificationError(result.message || 'Failed to resend verification code.');
+            }
+        } catch {
+            setVerificationError('Network error. Please try again.');
+        } finally {
+            setResendingOtp(false);
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        if (!/^\d{6}$/.test(verificationOtp.trim())) {
+            setVerificationError('Enter the 6-digit verification code from your email.');
+            return;
+        }
+
+        setVerifyingOtp(true);
+        setVerificationError('');
+        try {
+            const verifyResult = await authApi.verifyRegistrationOtp(email.trim(), verificationOtp.trim());
+            if (!verifyResult.success) {
+                setVerificationError(verifyResult.message || verifyResult.error || 'Failed to verify email.');
+                setVerifyingOtp(false);
+                return;
+            }
+
+            setVerificationInfo('Email verified! Creating your account...');
+
             // Construct data payload based on role
             const baseData = {
                 name: name.trim(),
@@ -359,11 +426,8 @@ export default function RegisterPage({ params }: RegisterPageProps) {
             const result = await register({ ...baseData, ...roleData }, config.role);
 
             if (result.success) {
-                // Show email verification success screen
-                setVerificationSent(true);
-                setVerificationComplete(false);
-                setVerificationError('');
-                setVerificationInfo('We sent a 6-digit verification code to your email.');
+                setVerificationComplete(true);
+                setVerificationInfo('Account created successfully. You can now sign in.');
             } else {
                 if (result.fieldErrors?.length) {
                     const backendFieldErrors = result.fieldErrors.reduce<Record<string, string>>((acc, item) => {
@@ -372,51 +436,9 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                     }, {});
                     setFieldErrors((prev) => ({ ...prev, ...backendFieldErrors }));
                 }
-                setError(result.error || 'Registration failed');
-            }
-        } catch (err: any) {
-            setError(err.message || 'An unexpected error occurred');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleResendVerification = async () => {
-        if (resendCooldown > 0 || !email.trim()) return;
-
-        setResendingOtp(true);
-        setVerificationError('');
-
-        try {
-            const result = await authApi.resendVerification(email.trim());
-            if (result.success) {
-                setVerificationInfo(result.message || 'Verification code sent. Please check your inbox.');
-                setResendCooldown(60);
-            } else {
-                setVerificationError(result.message || 'Failed to resend verification code.');
-            }
-        } catch {
-            setVerificationError('Network error. Please try again.');
-        } finally {
-            setResendingOtp(false);
-        }
-    };
-
-    const handleVerifyOtp = async () => {
-        if (!/^\d{6}$/.test(verificationOtp.trim())) {
-            setVerificationError('Enter the 6-digit verification code from your email.');
-            return;
-        }
-
-        setVerifyingOtp(true);
-        setVerificationError('');
-        try {
-            const result = await authApi.verifyEmailOtp(email.trim(), verificationOtp.trim());
-            if (result.success) {
-                setVerificationComplete(true);
-                setVerificationInfo(result.message || 'Email verified successfully. You can now sign in.');
-            } else {
-                setVerificationError(result.message || 'Failed to verify email.');
+                setVerificationError(result.error || 'Registration failed');
+                // Allow them to click back
+                setVerificationSent(false); 
             }
         } catch {
             setVerificationError('Network error. Please try again.');

@@ -1,0 +1,269 @@
+NO — some new SQL changes are not applied
+
+Files responsible:
+- 018_fix_users_role_check.sql
+- 026_diagnostic_booking_manual_confirmation.sql
+- 033_phase6_doctor_schedule.sql
+- 038_catalog_requests.sql
+- 040_add_doctor_pending_role.sql
+- 048_diagnostic_enhancements.sql
+- 053_fitness_center_reels.sql
+- 059_doctor_registration_overhaul.sql
+- 059_security_rls_hardening.sql
+- 060_verification_engine.sql
+- 061_security_sessions.sql
+- 063_appointment_audit_trail_and_patient_notes.sql
+- 064_consultation_lifecycle_engine.sql
+- 065_doctor_privacy_settings.sql
+- 004_doctors.sql (Partially)
+- 008_appointments_and_consultations.sql (Partially)
+- 016_migrations.sql (Partially)
+- 038_idempotency_constraints.sql (Partially)
+- 049_wellness_ecosystem.sql (Partially)
+- 062_production_doctor_features.sql (Partially)
+
+==================================================
+A. All SQL/migration files found:
+- 000_run_all.sql
+- 001_users_and_auth.sql
+- 002_patients.sql
+- 003_hospitals_and_clinics.sql
+- 004_doctors.sql
+- 005_pharmacy_and_medicines.sql
+- 006_diagnostic_centers.sql
+- 007_ambulance_and_emergency.sql
+- 008_appointments_and_consultations.sql
+- 009_medical_records.sql
+- 010_reviews_notifications_chat.sql
+- 011_system_and_audit.sql
+- 012_indexes.sql
+- 013_rls_policies.sql
+- 014_triggers_and_functions.sql
+- 015_views.sql
+- 016_migrations.sql
+- 017_ai_vitals_feature_toggles.sql
+- 018_fix_users_role_check.sql
+- 019_reminder_reliability_and_timezone.sql
+- 020_family_member_phone.sql
+- 021_email_otp_indexes.sql
+- 022_hospital_doctor_invites.sql
+- 023_clinic_doctor_invites.sql
+- 024_facility_provider_associations.sql
+- 025_patient_record_access.sql
+- 026_diagnostic_booking_manual_confirmation.sql
+- 027_outbreak_detection.sql
+- 028_community_qa.sql
+- 029_reviews_trigger.sql
+- 030_doctor_profile_enhancements.sql
+- 031_hospital_ambulance_invites.sql
+- 032_doctor_slots_date_migration.sql
+- 033_delivery_tracking.sql
+- 033_phase6_doctor_schedule.sql
+- 034_pharmacy_inventory_pack_size.sql
+- 034_requested_role.sql
+- 035_diagnostic_booking_prescription.sql
+- 035_discount_campaigns.sql
+- 036_medicine_uniqueness.sql
+- 036_phi_encryption.sql
+- 037_patient_consents.sql
+- 038_catalog_requests.sql
+- 038_idempotency_constraints.sql
+- 039_atomic_addresses.sql
+- 040_add_doctor_pending_role.sql
+- 041_token_version.sql
+- 042_master_catalog.sql
+- 043_hospital_detail_enhancements.sql
+- 044_premium_hospital_features.sql
+- 045_hospital_reels.sql
+- 046_clinic_enhancements.sql
+- 047_pharmacy_enhancements.sql
+- 048_diagnostic_enhancements.sql
+- 049_wellness_ecosystem.sql
+- 050_exercise_library_enhancement.sql
+- 051_wellness_production_features.sql
+- 052_security_hardening.sql
+- 053_fitness_center_reels.sql
+- 054_community_qa_v2.sql
+- 055_community_qa_v3.sql
+- 056_community_qa_v4.sql
+- 057_wellness_assessment.sql
+- 058_appointment_completion_otp.sql
+- 059_doctor_registration_overhaul.sql
+- 059_security_rls_hardening.sql
+- 060_fix_doctor_slot_rpc_ownership.sql
+- 060_verification_engine.sql
+- 061_refresh_token_rotation.sql
+- 061_security_sessions.sql
+- 062_production_doctor_features.sql
+- 063_appointment_audit_trail_and_patient_notes.sql
+- 064_consultation_lifecycle_engine.sql
+- 065_doctor_privacy_settings.sql
+- 20250727120000_create_medicine_categories.sql
+
+==================================================
+C. Confirmed applied to Supabase:
+- 000_run_all.sql
+- 001_users_and_auth.sql
+- 002_patients.sql
+- 003_hospitals_and_clinics.sql
+- 005_pharmacy_and_medicines.sql
+- 006_diagnostic_centers.sql
+- 007_ambulance_and_emergency.sql
+- 009_medical_records.sql
+- 010_reviews_notifications_chat.sql
+- 011_system_and_audit.sql
+- 012_indexes.sql
+- 013_rls_policies.sql
+- 014_triggers_and_functions.sql
+- 015_views.sql
+- 017_ai_vitals_feature_toggles.sql
+- 019_reminder_reliability_and_timezone.sql
+- 020_family_member_phone.sql
+- 021_email_otp_indexes.sql
+- 022_hospital_doctor_invites.sql
+- 023_clinic_doctor_invites.sql
+- 024_facility_provider_associations.sql
+- 025_patient_record_access.sql
+- 027_outbreak_detection.sql
+- 028_community_qa.sql
+- 029_reviews_trigger.sql
+- 030_doctor_profile_enhancements.sql
+- 031_hospital_ambulance_invites.sql
+- 032_doctor_slots_date_migration.sql
+- 033_delivery_tracking.sql
+- 034_pharmacy_inventory_pack_size.sql
+- 034_requested_role.sql
+- 035_diagnostic_booking_prescription.sql
+- 035_discount_campaigns.sql
+- 036_medicine_uniqueness.sql
+- 036_phi_encryption.sql
+- 037_patient_consents.sql
+- 039_atomic_addresses.sql
+- 041_token_version.sql
+- 042_master_catalog.sql
+- 043_hospital_detail_enhancements.sql
+- 044_premium_hospital_features.sql
+- 045_hospital_reels.sql
+- 046_clinic_enhancements.sql
+- 047_pharmacy_enhancements.sql
+- 050_exercise_library_enhancement.sql
+- 051_wellness_production_features.sql
+- 052_security_hardening.sql
+- 054_community_qa_v2.sql
+- 055_community_qa_v3.sql
+- 056_community_qa_v4.sql
+- 057_wellness_assessment.sql
+- 058_appointment_completion_otp.sql
+- 060_fix_doctor_slot_rpc_ownership.sql
+- 061_refresh_token_rotation.sql
+- 20250727120000_create_medicine_categories.sql
+
+==================================================
+D. NOT applied:
+- 018_fix_users_role_check.sql
+- 026_diagnostic_booking_manual_confirmation.sql
+- 033_phase6_doctor_schedule.sql
+- 038_catalog_requests.sql
+- 040_add_doctor_pending_role.sql
+- 048_diagnostic_enhancements.sql
+- 053_fitness_center_reels.sql
+- 059_doctor_registration_overhaul.sql
+- 059_security_rls_hardening.sql
+- 060_verification_engine.sql
+- 061_security_sessions.sql
+- 063_appointment_audit_trail_and_patient_notes.sql
+- 064_consultation_lifecycle_engine.sql
+- 065_doctor_privacy_settings.sql
+
+==================================================
+E. Partially applied:
+- 004_doctors.sql
+- 008_appointments_and_consultations.sql
+- 016_migrations.sql
+- 038_idempotency_constraints.sql
+- 049_wellness_ecosystem.sql
+- 062_production_doctor_features.sql
+
+==================================================
+F. Schema differences:
+In 004_doctors.sql:
+  - Missing: Column hospital_departments.CONSTRAINT
+In 008_appointments_and_consultations.sql:
+  - Missing: Column doctor_reviews.CONSTRAINT
+In 016_migrations.sql:
+  - Missing: Table inline
+  - Missing: Column emergency_requests.CONSTRAINT
+  - Missing: Column patients.CONSTRAINT
+  - Missing: Column admins.CONSTRAINT
+  - Missing: Column reviews.CONSTRAINT
+  - Missing: Column hospitals.CONSTRAINT
+  - Missing: Column pharmacy_inventory.CONSTRAINT
+  - Missing: Column medicines.CONSTRAINT
+In 038_idempotency_constraints.sql:
+  - Missing: Column prescriptions.CONSTRAINT
+In 049_wellness_ecosystem.sql:
+  - Missing: Column users.CONSTRAINT
+  - Missing: Column patient_consents.CONSTRAINT
+  - Missing: Column reminders.CONSTRAINT
+In 062_production_doctor_features.sql:
+  - Missing: Column doctors.cancelled_cheque_url
+  - Missing: Column doctors.bank_account_number
+  - Missing: Column doctors.clinic_lat
+  - Missing: Column doctors.emergency_contact_name
+  - Missing: Column doctors.verification_timeline
+  - Missing: Column doctors.profile_completion_percentage
+
+==================================================
+G. Missing tables:
+- inline
+- doctor_leaves
+- public
+- public
+- public
+- doctor_profile_audits
+- public
+- active_sessions
+- login_history
+- for
+- doctor_patient_notes
+- consultation_logs
+- consultation_policies
+- consultation_policy_history
+
+==================================================
+H. Missing columns:
+- hospital_departments.CONSTRAINT
+- doctor_reviews.CONSTRAINT
+- emergency_requests.CONSTRAINT
+- patients.CONSTRAINT
+- admins.CONSTRAINT
+- reviews.CONSTRAINT
+- hospitals.CONSTRAINT
+- pharmacy_inventory.CONSTRAINT
+- medicines.CONSTRAINT
+- users.CONSTRAINT
+- diagnostic_bookings.CONSTRAINT
+- doctor_slots.is_home_enabled
+- doctor_slots.buffer_time
+- prescriptions.CONSTRAINT
+- users.CONSTRAINT
+- users.CONSTRAINT
+- patient_consents.CONSTRAINT
+- reminders.CONSTRAINT
+- doctors.CONSTRAINT
+- doctors.registration_date
+- doctors.government_id_type
+- doctors.clinic_name
+- doctors.verification_checklist
+- users.password_changed_at
+- doctors.cancelled_cheque_url
+- doctors.bank_account_number
+- doctors.clinic_lat
+- doctors.emergency_contact_name
+- doctors.verification_timeline
+- doctors.profile_completion_percentage
+- appointments.status_history
+- otp_verifications.CONSTRAINT
+- consultations.CONSTRAINT
+- consultations.stage
+- doctors.is_public_profile

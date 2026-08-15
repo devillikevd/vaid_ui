@@ -6,6 +6,8 @@ const { sanitizeSearch } = require('../utils/sanitize');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { buildProviderResubmissionFields } = require('../utils/providerApproval');
 const { calculateAge } = require('../utils/patientProfile');
+const eventEmitter = require('./eventEmitter');
+const notificationService = require('./notificationService');
 
 // Cap on how many already-past slots to surface on a given day's booking view.
 // Without this, a full day of elapsed slots floods the UI as "booked".
@@ -656,7 +658,18 @@ class DoctorService {
 
     if (filters.search) {
       const s = sanitizeSearch(filters.search);
-      if (s) query = query.or(`name.ilike.%${s}%,specialization.ilike.%${s}%`);
+      if (s) {
+        if (s.includes('@')) {
+          const { data: userMatch } = await supabaseAdmin.from('users').select('id').ilike('email', s).maybeSingle();
+          if (userMatch) {
+            query = query.eq('user_id', userMatch.id);
+          } else {
+            query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+          }
+        } else {
+          query = query.or(`name.ilike.%${s}%,specialization.ilike.%${s}%`);
+        }
+      }
     }
 
     // Determine if we need to sort by distance (which requires fetching all first)
@@ -1640,6 +1653,7 @@ class DoctorService {
         .eq('id', invite.id);
 
       if (error) throw error;
+      await this.notifyClinicOwnerOfResponse(invite.clinic_id, invite.id, 'rejected', doctor.id);
       return { message: 'Invite rejected successfully' };
     }
 
@@ -1679,7 +1693,40 @@ class DoctorService {
 
     if (inviteUpdateError) throw inviteUpdateError;
 
+    await this.notifyClinicOwnerOfResponse(invite.clinic_id, invite.id, 'accepted', doctor.id);
+
     return { message: 'Invite accepted. Clinic assigned successfully.' };
+  }
+
+  // Cross-portal sync: when a doctor accepts/rejects a clinic invite, the
+  // clinic owner gets a persisted notification + real-time event so the
+  // Clinic Portal reflects the decision without a manual refresh.
+  async notifyClinicOwnerOfResponse(clinicId, inviteId, decision, doctorId) {
+    try {
+      const [{ data: clinic }, { data: doctor }] = await Promise.all([
+        supabaseAdmin.from('clinics').select('owner_id, name').eq('id', clinicId).maybeSingle(),
+        supabaseAdmin.from('doctors').select('name').eq('id', doctorId).maybeSingle(),
+      ]);
+
+      const ownerId = clinic?.owner_id;
+      if (!ownerId) return;
+
+      const doctorName = doctor?.name || 'A doctor';
+      const payload = { inviteId, clinicId, decision, doctorId };
+
+      eventEmitter.notifyUser(ownerId, 'clinic:invite-updated', payload);
+
+      await notificationService.sendNotification(ownerId, {
+        title: decision === 'accepted' ? '✅ Doctor Joined Your Clinic' : '😔 Doctor Declined Invitation',
+        message: decision === 'accepted'
+          ? `${doctorName} accepted your invitation and joined ${clinic.name}.`
+          : `${doctorName} declined your invitation to ${clinic.name}.`,
+        type: 'clinic_invite_response',
+        data: { ...payload, clinicName: clinic?.name },
+      });
+    } catch (err) {
+      console.error(`[DoctorService] notifyClinicOwnerOfResponse failed: ${err.message}`);
+    }
   }
 
   // Get patient details (for doctor)

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Building2, Users, Activity, Loader2, AlertCircle, RefreshCw, Plus, Edit2, Trash2, X, Search } from 'lucide-react';
+import { Building2, Users, Activity, Loader2, AlertCircle, RefreshCw, Plus, Edit2, Trash2, X, Search, Phone } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -194,16 +194,25 @@ export default function ClinicDepartmentsPage() {
                                 </div>
                             </div>
                             <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                                {dept.head && <span className="flex items-center gap-1"><Users className="h-3 w-3" />{dept.head}</span>}
+                                {dept.head_doctor_name && (
+                                    <span className="flex items-center gap-1">
+                                        <Users className="h-3 w-3" />
+                                        {dept.head_doctor_name}
+                                    </span>
+                                )}
                                 <span className="flex items-center gap-1">
                                     <Activity className="h-3 w-3" />
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${dept.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
-                                        {dept.status || 'Active'}
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${dept.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
+                                        {dept.is_active ? 'Active' : 'Inactive'}
                                     </span>
                                 </span>
-                                <span className="flex items-center gap-1"><Users className="h-3 w-3" />{dept.doctors ?? dept.doctorCount ?? 0} doctors</span>
-                                <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{dept.appointments ?? 0} appointments</span>
+                                {dept.contact_extension && (
+                                    <span className="flex items-center gap-1"><Phone className="h-3 w-3" />Ext. {dept.contact_extension}</span>
+                                )}
                             </div>
+                            {!dept.head_doctor_name && (
+                                <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">No head doctor assigned yet.</p>
+                            )}
                             {dept.description && <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">{dept.description}</p>}
                         </Card>
                     ))}

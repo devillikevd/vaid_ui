@@ -1,32 +1,45 @@
 'use client';
 
-import { useCallback, useDeferredValue, useEffect, useState } from 'react';
-import { Stethoscope, Loader2, Trash2, AlertCircle, RefreshCw, X, UserPlus, Search, Mail, Phone } from 'lucide-react';
+import { useCallback, useDeferredValue, useEffect, useState, useMemo } from 'react';
+import {
+    Stethoscope, Loader2, AlertCircle, RefreshCw, Search, Mail, Phone,
+    UserCheck, Star, CalendarDays, Ban, BadgeCheck, Clock, UserPlus,
+    Building2, Info, ShieldAlert, ArrowRight, Shield
+} from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useClinicStore } from '@/stores/clinicStore';
-import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { Pagination } from '@/components/ui/Pagination';
-import { useToast } from '@/components/ui/Toast';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { useClinicStore } from '@/stores/clinicStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useClinicInviteUpdates } from '@/hooks/useSocket';
+import { Pagination } from '@/components/ui/Pagination';
+import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { useToast } from '@/components/ui/Toast';
+import { getInitials } from '@/lib/utils';
+import { InviteDoctorModal } from '@/components/clinic/InviteDoctorModal';
 
 const PAGE_SIZE = 9;
 
-export default function ClinicStaffPage() {
+export default function ClinicCareTeamPage() {
+    const { user } = useAuthStore();
     const {
         doctors,
         doctorsPagination,
+        invites,
+        invitesPagination,
         loadingDoctors,
+        loadingInvites,
         error,
         fetchDoctors,
+        fetchInvites,
         addDoctor,
-        removeDoctor,
+        cancelInvite,
         clearError,
     } = useClinicStore();
 
+    const [tab, setTab] = useState<'all' | 'doctors' | 'invites'>('all');
     const [showAdd, setShowAdd] = useState(false);
-    const [form, setForm] = useState({ email: '' });
     const [page, setPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -34,179 +47,405 @@ export default function ClinicStaffPage() {
     const toast = useToast();
     const deferredSearchQuery = useDeferredValue(searchQuery.trim());
 
+    // Filter status for invites tab
+    const [inviteStatus, setInviteStatus] = useState('pending');
+
     const loadDoctors = useCallback(async () => {
         await fetchDoctors({
-            page,
+            page: tab === 'invites' ? 1 : page,
             limit: PAGE_SIZE,
             search: deferredSearchQuery || undefined,
         });
-    }, [deferredSearchQuery, fetchDoctors, page]);
+    }, [deferredSearchQuery, fetchDoctors, page, tab]);
+
+    const loadInvites = useCallback(async () => {
+        await fetchInvites({ 
+            page: tab === 'doctors' ? 1 : (tab === 'invites' ? page : 1), 
+            limit: tab === 'all' ? 5 : PAGE_SIZE, 
+            status: tab === 'all' ? 'pending' : inviteStatus 
+        });
+    }, [fetchInvites, inviteStatus, page, tab]);
 
     useEffect(() => {
-        void loadDoctors();
-    }, [loadDoctors]);
+        if (tab === 'all' || tab === 'doctors') void loadDoctors();
+        if (tab === 'all' || tab === 'invites') void loadInvites();
+    }, [loadDoctors, loadInvites, tab]);
 
     useEffect(() => {
         setPage(1);
-    }, [deferredSearchQuery]);
+    }, [deferredSearchQuery, tab]);
 
-    useEffect(() => {
-        if (page > doctorsPagination.totalPages) {
-            setPage(doctorsPagination.totalPages);
-        }
-    }, [doctorsPagination.totalPages, page]);
+    useClinicInviteUpdates(useCallback(() => {
+        void loadInvites();
+        void loadDoctors();
+    }, [loadDoctors, loadInvites]));
 
-    const handleAdd = async () => {
-        if (!form.email.trim()) return;
-        setActionLoading('add');
-        const success = await addDoctor({ email: form.email.trim() });
-        if (success) {
-            toast.success('Invite Sent', 'Doctor must accept the invite before appearing in your clinic roster.');
-            setShowAdd(false);
-            setForm({ email: '' });
-            clearError();
-            await loadDoctors();
-        } else {
-            toast.error('Unable to send invite', useClinicStore.getState().error || 'Check the doctor email and try again.');
-        }
-        setActionLoading(null);
-    };
 
-    const handleRemove = async (id: string, name: string) => {
+
+    const handleCancelInvite = async (inviteId: string, doctorName: string) => {
         const confirmed = await confirm({
-            title: 'Remove Staff',
-            message: `Remove ${name} from clinic? Their clinic roster entry and clinic-side appointments/consultations will no longer appear in this portal.`,
-            confirmLabel: 'Remove',
-            variant: 'danger'
+            title: 'Withdraw Invite',
+            message: `Withdraw the invitation sent to ${doctorName}?`,
+            confirmLabel: 'Withdraw Invite',
+            variant: 'danger',
         });
         if (!confirmed) return;
-        setActionLoading(id);
-        const success = await removeDoctor(id);
-        if (success) {
-            toast.success('Doctor Removed', `${name} and their clinic-side records are now hidden from this portal.`);
-            clearError();
-            await loadDoctors();
-        } else {
-            toast.error('Unable to remove doctor', useClinicStore.getState().error || 'Please try again.');
-        }
+        setActionLoading(inviteId);
+        const success = await cancelInvite(inviteId);
+        if (success) toast.success('Invite Withdrawn', `Invite to ${doctorName} cancelled.`);
+        else toast.error('Unable to withdraw invite', useClinicStore.getState().error || 'Please try again.');
         setActionLoading(null);
     };
 
-    const staff = Array.isArray(doctors) ? doctors : [];
-
-    if (loadingDoctors && staff.length === 0) {
-        return <div className="flex items-center justify-center h-96"><Loader2 className="h-8 w-8 animate-spin text-pink-600" /></div>;
-    }
-
-    if (error && staff.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center h-96 gap-4">
-                <AlertCircle className="h-12 w-12 text-red-400" />
-                <p className="text-red-600">{error}</p>
-                <Button onClick={() => { clearError(); void loadDoctors(); }} leftIcon={<RefreshCw className="h-4 w-4" />}>Retry</Button>
-            </div>
-        );
-    }
+    const totalMembers = 1 + doctorsPagination.total + invitesPagination.total;
+    
+    // Check loading states globally
+    const isLoading = (loadingDoctors && doctors.length === 0) || (loadingInvites && invites.length === 0);
 
     return (
         <div className="space-y-6">
+            {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div><h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Staff</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Manage clinic doctors linked to this clinic</p></div>
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Care Team</h1>
+                    <p className="text-gray-600 dark:text-gray-400 mt-1">Manage the doctors and members connected to your clinic.</p>
+                </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => void loadDoctors()} disabled={loadingDoctors} leftIcon={<RefreshCw className={`h-4 w-4 ${loadingDoctors ? 'animate-spin' : ''}`} />}>Refresh</Button>
+                    <Button variant="outline" onClick={() => { tab === 'all' ? (loadDoctors(), loadInvites()) : tab === 'doctors' ? loadDoctors() : loadInvites(); }} disabled={loadingDoctors || loadingInvites} leftIcon={<RefreshCw className={`h-4 w-4 ${loadingDoctors || loadingInvites ? 'animate-spin' : ''}`} />}>Refresh</Button>
                     <Button onClick={() => setShowAdd(true)} leftIcon={<UserPlus className="h-4 w-4" />}>Invite Doctor</Button>
                 </div>
             </div>
 
-            {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
-
-            <Card padding="sm">
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-                    <Input
-                        placeholder="Search by name, specialization, email, phone, or status..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        leftIcon={<Search className="h-5 w-5" />}
-                    />
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                        <span className="rounded-full bg-pink-50 px-3 py-1 text-pink-700">{doctorsPagination.total} doctors</span>
-                        <span className="rounded-full bg-blue-50 px-3 py-1 text-blue-700">Page {doctorsPagination.page} of {doctorsPagination.totalPages}</span>
-                    </div>
+            {error ? (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                    {error}
                 </div>
+            ) : null}
+
+            {/* Top Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card padding="md" className="flex items-center gap-4 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/20 dark:to-[#0B1020] border-indigo-100 dark:border-indigo-800/30">
+                    <div className="p-3 bg-indigo-100 dark:bg-indigo-500/20 rounded-xl text-indigo-600 dark:text-indigo-400">
+                        <UserCheck className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Team Members</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalMembers}</p>
+                    </div>
+                </Card>
+                <Card padding="md" className="flex items-center gap-4">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-500/10 rounded-xl text-blue-600 dark:text-blue-400">
+                        <Building2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Clinic Owner</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">1</p>
+                    </div>
+                </Card>
+                <Card padding="md" className="flex items-center gap-4">
+                    <div className="p-3 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl text-emerald-600 dark:text-emerald-400">
+                        <Stethoscope className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Doctors</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{doctorsPagination.total}</p>
+                    </div>
+                </Card>
+                <Card padding="md" className="flex items-center gap-4">
+                    <div className="p-3 bg-orange-50 dark:bg-orange-500/10 rounded-xl text-orange-600 dark:text-orange-400">
+                        <Mail className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Pending Invitations</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{tab === 'invites' && inviteStatus !== 'pending' ? (invites.filter(i => i.status === 'pending').length || 0) : invitesPagination.total}</p>
+                    </div>
+                </Card>
+            </div>
+
+            {/* Informational Message */}
+            <div className="rounded-xl border border-blue-200 bg-blue-50 dark:border-blue-800/50 dark:bg-blue-900/10 p-3.5 flex items-start gap-3">
+                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                <div className="text-sm text-blue-800 dark:text-blue-300">
+                    <p>
+                        Additional staff roles (Receptionist, Nurse, Accountant) will be available when clinic staff access control is fully enabled. Currently, manage your affiliated doctors and pending invitations here.
+                    </p>
+                </div>
+            </div>
+
+            {/* Tabs & Search */}
+            <Card padding="none" className="overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 dark:border-gray-800 p-2 gap-3">
+                    <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide px-2">
+                        {[
+                            { id: 'all', label: 'All Members', count: totalMembers },
+                            { id: 'doctors', label: 'Doctors', count: doctorsPagination.total },
+                            { id: 'invites', label: 'Pending Invitations', count: invitesPagination.total }
+                        ].map((t) => (
+                            <button
+                                key={t.id}
+                                onClick={() => { setTab(t.id as any); if (t.id === 'invites') setInviteStatus('pending'); }}
+                                className={`px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
+                                    tab === t.id
+                                        ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                }`}
+                            >
+                                {t.label} <span className={`ml-1.5 px-2 py-0.5 rounded-full text-xs ${tab === t.id ? 'bg-white/20 dark:bg-black/20' : 'bg-gray-200 dark:bg-gray-700'}`}>{t.count}</span>
+                            </button>
+                        ))}
+                    </div>
+                    {(tab === 'all' || tab === 'doctors') && (
+                        <div className="w-full sm:w-72 px-2 pb-2 sm:pb-0">
+                            <Input
+                                placeholder="Search care team..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                leftIcon={<Search className="h-4 w-4" />}
+                                className="h-9 text-sm"
+                            />
+                        </div>
+                    )}
+                </div>
+                
+                {tab === 'invites' && (
+                    <div className="bg-gray-50 dark:bg-[#0B1020]/50 p-3 flex gap-2 overflow-x-auto border-b border-gray-100 dark:border-gray-800">
+                        {['pending', 'accepted', 'rejected', 'expired', 'cancelled'].map((status) => (
+                            <button
+                                key={status}
+                                onClick={() => setInviteStatus(status)}
+                                className={`px-3 py-1.5 text-xs font-medium capitalize rounded-full transition-colors ${
+                                    inviteStatus === status 
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
+                                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-400'
+                                }`}
+                            >
+                                {status}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </Card>
 
-            {/* Add Doctor Modal */}
-            {showAdd && (
-                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-                    <Card padding="lg" className="w-full max-w-md">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold">Invite Doctor to Clinic</h2>
-                            <button onClick={() => setShowAdd(false)}><X className="h-5 w-5 text-gray-400" /></button>
+            {isLoading ? (
+                <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>
+            ) : (
+                <div className="space-y-8">
+                    
+                    {/* Clinic Owner Section (Only in 'all') */}
+                    {tab === 'all' && (!searchQuery) && (
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                <Shield className="w-5 h-5 text-indigo-500" /> 
+                                Clinic Administration
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                <Card padding="md" className="relative overflow-hidden border-indigo-100 dark:border-indigo-900/30">
+                                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-indigo-100 to-transparent dark:from-indigo-900/20 rounded-bl-full -z-10" />
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md shrink-0">
+                                            {getInitials(user?.name || 'Clinic Owner')}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="font-bold text-gray-900 dark:text-white truncate">{user?.name || 'Clinic Owner'}</p>
+                                                <StatusBadge status="active" size="sm" />
+                                            </div>
+                                            <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mt-0.5">Clinic Owner</p>
+                                            
+                                            <div className="mt-3 space-y-1.5 text-sm text-gray-600 dark:text-gray-400">
+                                                <div className="flex items-center gap-2 truncate">
+                                                    <Mail className="w-3.5 h-3.5 shrink-0" />
+                                                    <span className="truncate">{user?.email}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 truncate">
+                                                    <Phone className="w-3.5 h-3.5 shrink-0" />
+                                                    <span className="truncate">{user?.phone || 'No phone added'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Card>
+                            </div>
                         </div>
-                        <div className="space-y-3">
-                            <Input label="Doctor Email *" type="email" value={form.email} onChange={e => setForm({ email: e.target.value })} placeholder="Enter existing doctor account email" />
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                                Enter the email used in the doctor portal. The doctor must accept this invite before appearing in clinic staff, appointments, and consultations.
-                            </p>
+                    )}
+
+                    {/* Doctors Section */}
+                    {(tab === 'all' || tab === 'doctors') && (
+                        <div>
+                            {tab === 'all' && (
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                    <Stethoscope className="w-5 h-5 text-emerald-500" /> 
+                                    Active Doctors
+                                </h3>
+                            )}
+                            
+                            {doctors.length === 0 ? (
+                                <Card padding="lg" className="text-center flex flex-col items-center justify-center">
+                                    <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl flex items-center justify-center mb-4 text-emerald-500">
+                                        <Stethoscope className="w-8 h-8" />
+                                    </div>
+                                    <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No doctors affiliated yet</h4>
+                                    <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6">
+                                        Invite your first doctor to build your clinic care team and allow them to manage consultations.
+                                    </p>
+                                    <Button onClick={() => setShowAdd(true)} leftIcon={<UserPlus className="w-4 h-4" />}>
+                                        Invite Doctor
+                                    </Button>
+                                </Card>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                    {doctors.map((doctor) => (
+                                        <Card key={doctor.id} padding="md" className="flex flex-col h-full">
+                                            <div className="flex items-start gap-4 mb-4">
+                                                <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-700 dark:text-emerald-400 font-bold shadow-sm shrink-0">
+                                                    {getInitials(doctor.name)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <p className="font-bold text-gray-900 dark:text-white truncate" title={doctor.name}>{doctor.name}</p>
+                                                        <StatusBadge status={doctor.status} size="sm" />
+                                                    </div>
+                                                    <p className="text-sm font-medium text-emerald-600 dark:text-emerald-500 mt-0.5 truncate">
+                                                        {doctor.specialization || 'General Practice'}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 flex-1">
+                                                {doctor.verification === 'verified' && (
+                                                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-medium">
+                                                        <BadgeCheck className="w-4 h-4" /> Verified Professional
+                                                    </div>
+                                                )}
+                                                <div className="flex items-center gap-2">
+                                                    <CalendarDays className="w-4 h-4 text-gray-400 shrink-0" />
+                                                    <span>Today&apos;s Appointments: <strong className="text-gray-900 dark:text-white">{doctor.todayAppointments || 0}</strong></span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Building2 className="w-4 h-4 text-gray-400 shrink-0" />
+                                                    <span>{doctor.status === 'active' ? 'Video + In-Person' : 'Video only'}</span>
+                                                </div>
+                                                {doctor.joined_at && (
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock className="w-4 h-4 text-gray-400 shrink-0" />
+                                                        <span>Joined {new Date(doctor.joined_at).toLocaleDateString('en-IN')}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+
+                            {tab === 'doctors' && doctorsPagination.totalPages > 1 && (
+                                <div className="mt-6">
+                                    <Pagination
+                                        currentPage={page}
+                                        totalPages={doctorsPagination.totalPages}
+                                        onPageChange={setPage}
+                                        totalItems={doctorsPagination.total}
+                                        itemsPerPage={PAGE_SIZE}
+                                    />
+                                </div>
+                            )}
                         </div>
-                        <div className="flex justify-end gap-2 mt-4">
-                            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
-                            <Button onClick={handleAdd} isLoading={actionLoading === 'add'} disabled={!form.email.trim()}>Send Invite</Button>
+                    )}
+
+                    {/* Invites Section */}
+                    {(tab === 'all' || tab === 'invites') && (
+                        <div>
+                            {tab === 'all' && (
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 mt-8 flex items-center gap-2">
+                                    <Mail className="w-5 h-5 text-orange-500" /> 
+                                    Pending Invitations
+                                </h3>
+                            )}
+
+                            {invites.length === 0 ? (
+                                tab === 'invites' ? (
+                                    <Card padding="lg" className="text-center flex flex-col items-center justify-center">
+                                        <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800/50 rounded-full flex items-center justify-center mb-4 text-gray-400">
+                                            <Mail className="w-8 h-8" />
+                                        </div>
+                                        <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No {inviteStatus} invitations</h4>
+                                        <p className="text-gray-500 dark:text-gray-400">There are no invites matching this status.</p>
+                                    </Card>
+                                ) : null
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                    {invites.filter(i => tab === 'invites' || i.status === 'pending').map((invite) => (
+                                        <Card key={invite.id} padding="md" className="flex flex-col h-full border-dashed border-gray-300 dark:border-gray-700 hover:border-solid transition-all">
+                                            <div className="flex items-start gap-4 mb-4">
+                                                <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 font-bold shadow-sm shrink-0">
+                                                    {getInitials(invite.doctor.name)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-bold text-gray-900 dark:text-white truncate" title={invite.doctor.name}>{invite.doctor.name}</p>
+                                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                                                        {invite.doctor.specialization || 'General Practice'}
+                                                    </p>
+                                                </div>
+                                                <StatusBadge status={invite.status} size="sm" />
+                                            </div>
+
+                                            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 flex-1 mb-4">
+                                                {invite.doctor.email && (
+                                                    <div className="flex items-center gap-2 truncate">
+                                                        <Mail className="w-4 h-4 shrink-0 text-gray-400" />
+                                                        <span className="truncate">{invite.doctor.email}</span>
+                                                    </div>
+                                                )}
+                                                {invite.createdAt && (
+                                                    <div className="flex items-center gap-2 text-xs">
+                                                        <Clock className="w-4 h-4 shrink-0 text-gray-400" />
+                                                        Sent {new Date(invite.createdAt).toLocaleDateString('en-IN')}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {invite.status === 'pending' && (
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/30"
+                                                    disabled={actionLoading === invite.id}
+                                                    onClick={() => void handleCancelInvite(invite.id, invite.doctor.name)}
+                                                    leftIcon={actionLoading === invite.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
+                                                >
+                                                    Withdraw Request
+                                                </Button>
+                                            )}
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                            
+                            {tab === 'invites' && invitesPagination.totalPages > 1 && (
+                                <div className="mt-6">
+                                    <Pagination
+                                        currentPage={page}
+                                        totalPages={invitesPagination.totalPages}
+                                        onPageChange={setPage}
+                                        totalItems={invitesPagination.total}
+                                        itemsPerPage={PAGE_SIZE}
+                                    />
+                                </div>
+                            )}
                         </div>
-                    </Card>
+                    )}
                 </div>
             )}
 
-            {staff.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                    <Stethoscope className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p>No doctors linked to this clinic yet.</p>
-                    <p className="text-sm mt-1">Click &quot;Invite Doctor&quot; to send an invite.</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {staff.map((member) => (
-                        <Card key={member.associationId || member.id} padding="md">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-pink-100 rounded-full"><Stethoscope className="h-5 w-5 text-pink-600" /></div>
-                                    <div>
-                                        <p className="font-medium text-gray-900 dark:text-gray-100">{member.name}</p>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">{member.specialization || 'General Practice'}</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => handleRemove(member.id, member.name)}
-                                    disabled={actionLoading === member.id}
-                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                >
-                                    {actionLoading === member.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                </button>
-                            </div>
-                            <div className="mt-4 space-y-3">
-                                <StatusBadge status={member.status} size="sm" />
-                                <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                                    <div className="flex items-center gap-2">
-                                        <Mail className="h-4 w-4 text-gray-400" />
-                                        <span className="truncate">{member.email || 'Email not available'}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Phone className="h-4 w-4 text-gray-400" />
-                                        <span>{member.phone || 'Phone not available'}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </Card>
-                    ))}
-                </div>
-            )}
-            <Pagination
-                currentPage={page}
-                totalPages={doctorsPagination.totalPages}
-                onPageChange={setPage}
-                totalItems={doctorsPagination.total}
-                itemsPerPage={PAGE_SIZE}
+            {/* Invite Doctor Modal */}
+            <InviteDoctorModal 
+                isOpen={showAdd} 
+                onClose={() => {
+                    setShowAdd(false);
+                    void loadInvites();
+                }} 
             />
+
             <ConfirmDialog {...dialogProps} />
         </div>
     );

@@ -136,6 +136,21 @@ const statusConfig: Record<string, {
         icon: AlertTriangle,
         className: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700',
     },
+    checked_in: {
+        label: 'Checked In',
+        icon: CheckCircle,
+        className: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
+    },
+    accepted: {
+        label: 'Accepted',
+        icon: CheckCircle,
+        className: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
+    },
+    expired: {
+        label: 'Expired',
+        icon: AlertTriangle,
+        className: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800/50 dark:text-gray-300 dark:border-gray-600',
+    },
     'no-show': {
         label: 'No Show',
         icon: AlertTriangle,

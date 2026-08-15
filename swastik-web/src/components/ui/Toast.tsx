@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, createContext, useContext, useCallback, Re
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { Bell, Settings2, Search, Calendar, User, FileText, IndianRupee, Star, HeartPulse, Mail, MessageCircle, CheckCircle2, X, MoreHorizontal, Trash2, ArrowRight, Check } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
 
 // Toast types
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -302,6 +303,8 @@ export function NotificationPanel({
 }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState('All');
+    const { user } = useAuthStore();
+    const role = user?.role || 'doctor';
 
     if (!isOpen) return null;
 
@@ -531,7 +534,7 @@ export function NotificationPanel({
                                 Clear read
                             </button>
                         )}
-                        <Link href="/doctor/notifications" onClick={onClose} className="flex-1 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
+                        <Link href={`/${role.replace('_owner', '')}/notifications`} onClick={onClose} className="flex-1 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
                             View all notifications <ArrowRight className="w-4 h-4" />
                         </Link>
                     </div>

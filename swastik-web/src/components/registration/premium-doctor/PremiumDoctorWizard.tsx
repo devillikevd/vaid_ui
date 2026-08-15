@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Shield, Calendar, Video, FileText, HeartPulse, Wallet, Circle, Lock, CheckCircle2, ChevronRight } from 'lucide-react';
 import { Step1Basic } from './Step1Basic';
@@ -10,6 +11,7 @@ import { Step3Clinic } from './Step3Clinic';
 import { Step4Documents } from './Step4Documents';
 import { Step5Preview } from './Step5Preview';
 import { Step6Success } from './Step6Success';
+import { authApi, uploadApi } from '@/lib/api';
 
 const STEPS = [
     { id: 1, title: 'Basic Information' },
@@ -36,10 +38,10 @@ export default function PremiumDoctorWizard() {
     const [formData, setFormData] = useState({
         name: '', email: '', phone: '', password: '', confirmPassword: '',
         otpSent: false, otpVerified: false,
-        medicalCouncil: '', registrationNumber: '', qualifications: [{ degree: '', university: '', year: '' }],
-        specializations: [] as string[], experienceYears: '', languages: [] as string[],
+        medicalCouncil: '', registrationNumber: '', qualifications: [] as string[],
+        specializations: [] as string[], primarySpecialization: '', experienceYears: '', languages: [] as string[],
         consultationTypes: { video: false, clinic: false, home: false },
-        clinicName: '', address: '', city: '', state: '', pincode: '', videoFee: '', clinicFee: '', followupFee: '',
+        clinicName: '', address: '', city: '', state: '', pincode: '', videoFee: '', clinicFee: '', followupFee: '', latitude: null as number | null, longitude: null as number | null,
         mbbsCert: null as File | null, registrationCert: null as File | null, panCard: null as File | null, aadhaarCard: null as File | null, profilePhoto: null as File | null,
     });
 
@@ -54,13 +56,63 @@ export default function PremiumDoctorWizard() {
 
     const handleNext = () => { if (step < 6) setStep(s => s + 1); };
     const handleBack = () => { if (step > 1) setStep(s => s - 1); };
+    
     const handleSubmit = async () => {
         setIsLoading(true);
+        setErrors({ submit: '' });
         try {
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // 1. Register
+            const regRes = await authApi.register({
+                email: formData.email,
+                phone: formData.phone,
+                password: formData.password,
+                name: formData.name,
+                role: 'doctor',
+                specialization: formData.primarySpecialization || formData.specializations[0] || '',
+                specializations: formData.specializations,
+                medicalCouncil: formData.medicalCouncil,
+                registrationNumber: formData.registrationNumber,
+                licenseNumber: formData.registrationNumber, // Backend requires this field
+                qualifications: formData.qualifications,
+                experienceYears: formData.experienceYears || 0,
+                consultationFee: formData.clinicFee || 0,
+                videoConsultationFee: formData.videoFee || 0,
+                languages: formData.languages,
+                // Clinic Info
+                clinicName: formData.clinicName,
+                address: formData.address,
+                city: formData.city,
+                state: formData.state,
+                pincode: formData.pincode,
+                latitude: formData.latitude,
+                longitude: formData.longitude,
+            });
+
+            if (!regRes.success && regRes.error) {
+                throw new Error(regRes.error);
+            }
+
+            // 2. Login to get token
+            const loginRes = await authApi.login(formData.email, formData.password, 'doctor');
+            if (!loginRes.success) {
+                throw new Error('Account created, but failed to log in automatically. Please sign in manually to upload documents.');
+            }
+
+            // 3. Upload Documents
+            try {
+                if (formData.profilePhoto) await uploadApi.uploadFile(formData.profilePhoto, 'profile');
+                if (formData.registrationCert) await uploadApi.uploadFile(formData.registrationCert, 'license');
+                if (formData.mbbsCert) await uploadApi.uploadFile(formData.mbbsCert, 'document');
+                if (formData.aadhaarCard) await uploadApi.uploadFile(formData.aadhaarCard, 'document');
+            } catch (uploadErr) {
+                console.error("Document upload error:", uploadErr);
+                // We don't block success if upload fails slightly, they can upload later
+            }
+
             setStep(6);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Registration failed:', error);
+            setErrors({ submit: error.message || 'An unexpected error occurred during registration.' });
         } finally {
             setIsLoading(false);
         }
@@ -99,11 +151,7 @@ export default function PremiumDoctorWizard() {
 
                 <div className="relative z-10 flex-1 flex flex-col">
                     <div className="flex items-center gap-3 mb-10">
-                        <div className="w-10 h-10 bg-[#22C55E] rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(34,197,94,0.3)]">
-                            <svg className="text-white w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                        </div>
+                        <Image src="/logo.png" alt="Vaididea" width={40} height={40} className="rounded-xl" />
                         <span className="text-2xl font-bold tracking-tight">Vaididea</span>
                     </div>
 

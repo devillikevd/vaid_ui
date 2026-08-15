@@ -2,410 +2,319 @@
 /* eslint-disable jsx-a11y/alt-text */
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Save, Loader2, Plus, X, Globe, Calendar, Clock, Image as ImageIcon, Shield, Building2 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    AlertCircle,
+    Bell,
+    Building,
+    Building2,
+    Clock,
+    CreditCard,
+    EyeOff,
+    FolderKanban,
+    Lock,
+    Mail,
+    MapPin,
+    Palette,
+    Plug,
+    RefreshCw,
+    Search,
+    ShieldCheck,
+    Stethoscope,
+    Users,
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
-import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
-import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
-import LocationPicker from '@/components/shared/LocationPickerDynamic';
-import { clinicApi, authApi, uploadApi } from '@/lib/api';
+import { clinicApi } from '@/lib/api';
 import { getResubmissionSuccessMessage, refreshAuthenticatedUser } from '@/lib/authSession';
+import { ProfileSection } from './_components/ProfileSection';
+import { OrganizationSection } from './_components/OrganizationSection';
+import { LocationSection } from './_components/LocationSection';
+import { DepartmentsSection } from './_components/DepartmentsSection';
+import { ScheduleSection } from './_components/ScheduleSection';
+import { StaffSection } from './_components/StaffSection';
+import { InvitationsSection } from './_components/InvitationsSection';
+import { NotificationsSection } from './_components/NotificationsSection';
+import { VerificationSection } from './_components/VerificationSection';
+import { SecuritySection } from './_components/SecuritySection';
+import { AppearanceSection } from './_components/AppearanceSection';
+import {
+    BillingSection,
+    ConnectedServicesSection,
+    ConsultationServicesSection,
+    PrivacySection,
+} from './_components/ComingSoonSections';
+import { normalizeClinicProfile, type ClinicProfile } from './_components/types';
 
-const FACILITY_OPTIONS = [
-    'Parking', 'Pharmacy', 'Canteen', 'Wheelchair Access', 'ICU',
-    'NICU', 'Blood Bank', 'Ambulance', 'Wi-Fi', 'Waiting Lounge',
-    'Lab', 'X-Ray', 'MRI', 'CT Scan', 'Ultrasound', 'Dialysis',
-    'Operation Theatre', 'Ventilator', 'Oxygen Supply', 'Elevator',
+type SaveProfile = (fields: Record<string, unknown>, successMessage: string) => Promise<{
+    ok: boolean;
+    message: string;
+    next: ClinicProfile | null;
+}>;
+
+const NAV_SECTIONS = [
+    { id: 'profile', label: 'Clinic Profile', keywords: ['profile', 'about', 'description', 'gallery', 'logo'], icon: Building2 },
+    { id: 'organization', label: 'Organization Details', keywords: ['registration', 'license', 'specializations', 'insurance'], icon: Building },
+    { id: 'location', label: 'Location', keywords: ['address', 'map', 'coordinates', 'pincode'], icon: MapPin },
+    { id: 'departments', label: 'Departments', keywords: ['department', 'head doctor'], icon: FolderKanban },
+    { id: 'services', label: 'Consultation & Services', keywords: ['consultation', 'consent', 'services'], icon: Stethoscope },
+    { id: 'schedule', label: 'Working Hours', keywords: ['hours', 'timing', 'open', 'schedule'], icon: Clock },
+    { id: 'staff', label: 'Doctors & Staff', keywords: ['doctors', 'staff', 'roster'], icon: Users },
+    { id: 'invitations', label: 'Staff Invitations', keywords: ['invite', 'invitation', 'email'], icon: Mail },
+    { id: 'notifications', label: 'Notifications', keywords: ['alerts', 'channels', 'preferences'], icon: Bell },
+    { id: 'verification', label: 'Documents & Verification', keywords: ['license document', 'approval', 'verification'], icon: ShieldCheck },
+    { id: 'security', label: 'Security', keywords: ['password', 'sessions', 'login', 'devices'], icon: Lock },
+    { id: 'appearance', label: 'Appearance', keywords: ['theme', 'dark', 'light', 'mode'], icon: Palette },
+    { id: 'privacy', label: 'Privacy', keywords: ['privacy', 'data'], icon: EyeOff },
+    { id: 'billing', label: 'Billing & Plans', keywords: ['billing', 'subscription', 'invoice'], icon: CreditCard },
+    { id: 'connected-services', label: 'Connected Services', keywords: ['integration', 'third party', 'connected'], icon: Plug },
 ];
 
 export default function ClinicSettingsPage() {
     const user = useAuthStore((s) => s.user);
-    const [isSaving, setIsSaving] = useState(false);
+    const [clinic, setClinic] = useState<ClinicProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-    const [profile, setProfile] = useState({
-        name: '',
-        email: '',
-        phone: '',
-        address: '',
-        licenseNumber: '',
-        licenseDocumentUrl: '',
-        accreditations: '',
-        profileImage: '' as string | null,
-        latitude: null as number | null,
-        longitude: null as number | null,
-        description: '',
-        openingHours: '',
-        websiteUrl: '',
-        establishedYear: '',
-        facilities: [] as string[],
-        galleryUrls: [] as string[],
-        insuranceAccepted: '',
-        virtualTourUrl: '',
-        is24Hours: false,
-    });
-    const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
-    const [galleryUploading, setGalleryUploading] = useState(false);
-    const galleryInputRef = useRef<HTMLInputElement>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [query, setQuery] = useState('');
+    const [activeId, setActiveId] = useState('profile');
+    const [dirtySections, setDirtySections] = useState<Record<string, boolean>>({});
+    const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const res = await clinicApi.getProfile();
-                if (res.success) {
-                    const p = (res.data as any)?.clinic || (res.data as any)?.profile || (res.data as any) || {};
-                    setProfile({
-                        name: p.name || user?.name || '',
-                        email: p.email || user?.email || '',
-                        phone: p.phone || '',
-                        address: p.address || '',
-                        licenseNumber: p.license_number || '',
-                        licenseDocumentUrl: p.license_document_url || '',
-                        accreditations: Array.isArray(p.accreditations) ? p.accreditations.join(', ') : '',
-                        profileImage: p.profile_image_url || p.profile_image || p.profileImage || p.image_url || p.avatar_url || null,
-                        latitude: p.latitude ?? null,
-                        longitude: p.longitude ?? null,
-                        description: p.description || '',
-                        openingHours: p.opening_hours || '',
-                        websiteUrl: p.website_url || '',
-                        establishedYear: p.established_year?.toString() || '',
-                        facilities: Array.isArray(p.facilities) ? p.facilities : [],
-                        galleryUrls: Array.isArray(p.gallery_urls) ? p.gallery_urls : [],
-                        insuranceAccepted: Array.isArray(p.insurance_accepted) ? p.insurance_accepted.join(', ') : '',
-                        virtualTourUrl: p.virtual_tour_url || '',
-                        is24Hours: Boolean(p.is_24_hours),
-                    });
-                }
-            } catch { /* use defaults */ }
+    const fetchProfile = useCallback(async () => {
+        setIsLoading(true);
+        setLoadError(null);
+        try {
+            const res = await clinicApi.getProfile();
+            if (!res.success) {
+                setLoadError(res.error || 'Failed to load clinic profile');
+                return;
+            }
+            const data = res.data as Record<string, unknown> | undefined;
+            const raw = data?.clinic || data?.profile || data;
+            setClinic(normalizeClinicProfile(raw as Record<string, unknown> | null));
+        } catch {
+            setLoadError('Failed to connect to server.');
+        } finally {
             setIsLoading(false);
-        })();
+        }
     }, []);
 
-    const toggleFacility = (facility: string) => {
-        setProfile(p => ({
-            ...p,
-            facilities: p.facilities.includes(facility)
-                ? p.facilities.filter(f => f !== facility)
-                : [...p.facilities, facility],
-        }));
-    };
+    useEffect(() => {
+        void fetchProfile();
+    }, [fetchProfile]);
 
-    const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files || files.length === 0) return;
-        setGalleryUploading(true);
-        try {
-            for (const file of Array.from(files)) {
-                const res = await uploadApi.uploadFile(file, 'clinic-gallery');
-                if (res.success && res.url) {
-                    const url = res.url as string;
-                    setProfile(p => ({ ...p, galleryUrls: [...p.galleryUrls, url] }));
+    const saveProfile: SaveProfile = useCallback(
+        async (fields, successMessage) => {
+            try {
+                const res = await clinicApi.updateProfile(fields);
+                if (!res.success) {
+                    return { ok: false, message: res.error || 'Failed to update clinic.', next: null };
                 }
-            }
-        } catch { setSaveStatus({ type: 'error', message: 'Failed to upload gallery image' }); }
-        setGalleryUploading(false);
-        if (galleryInputRef.current) galleryInputRef.current.value = '';
-    };
-
-    const removeGalleryImage = (index: number) => {
-        setProfile(p => ({ ...p, galleryUrls: p.galleryUrls.filter((_, i) => i !== index) }));
-    };
-
-    const handleSaveProfile = async () => {
-        setIsSaving(true);
-        setSaveStatus(null);
-        const previousApprovalStatus = user?.approval_status;
-        if (!profile.phone.trim()) {
-            setSaveStatus({ type: 'error', message: 'Phone is required for approval and patient contact.' });
-            setIsSaving(false);
-            return;
-        }
-        if (profile.latitude == null || profile.longitude == null) {
-            setSaveStatus({ type: 'error', message: 'Location is required so patients can find your clinic on map.' });
-            setIsSaving(false);
-            return;
-        }
-        try {
-            const res = await clinicApi.updateProfile({
-                name: profile.name, email: profile.email, phone: profile.phone, address: profile.address,
-                license_number: profile.licenseNumber.trim() || undefined,
-                license_document_url: profile.licenseDocumentUrl.trim() || undefined,
-                accreditations: profile.accreditations
-                    .split(',')
-                    .map((item) => item.trim())
-                    .filter(Boolean),
-                profile_image_url: profile.profileImage || undefined,
-                ...(profile.latitude != null && profile.longitude != null ? { latitude: profile.latitude, longitude: profile.longitude } : {}),
-                description: profile.description.trim() || undefined,
-                opening_hours: profile.openingHours.trim() || undefined,
-                website_url: profile.websiteUrl.trim() || undefined,
-                established_year: Number(profile.establishedYear) || undefined,
-                facilities: profile.facilities.length > 0 ? profile.facilities : undefined,
-                gallery_urls: profile.galleryUrls.length > 0 ? profile.galleryUrls : undefined,
-                insurance_accepted: profile.insuranceAccepted
-                    .split(',')
-                    .map((item) => item.trim())
-                    .filter(Boolean),
-                virtual_tour_url: profile.virtualTourUrl.trim() || undefined,
-                is_24_hours: profile.is24Hours,
-            });
-            if (res.success) {
+                const previousApprovalStatus = user?.approval_status;
                 const refreshedUser = await refreshAuthenticatedUser();
-                setSaveStatus({
-                    type: 'success',
-                    message: getResubmissionSuccessMessage(previousApprovalStatus, refreshedUser?.approval_status, 'Clinic profile updated!'),
-                });
-            } else {
-                setSaveStatus({ type: 'error', message: res.error || 'Failed to update profile' });
+                const profileRes = await clinicApi.getProfile();
+                const profileData = profileRes.success ? (profileRes.data as Record<string, unknown> | undefined) : undefined;
+                const fallbackData = res.data as Record<string, unknown> | undefined;
+                const raw = profileRes.success
+                    ? profileData?.clinic || profileData?.profile || profileData
+                    : fallbackData?.clinic || fallbackData?.profile || fallbackData;
+                const next = normalizeClinicProfile(raw as Record<string, unknown> | null);
+                if (next) setClinic(next);
+                return {
+                    ok: true,
+                    message: getResubmissionSuccessMessage(
+                        previousApprovalStatus,
+                        refreshedUser?.approval_status,
+                        successMessage
+                    ),
+                    next,
+                };
+            } catch {
+                return { ok: false, message: 'Network error. Please try again.', next: null };
             }
-        } catch { setSaveStatus({ type: 'error', message: 'Network error.' }); }
-        setIsSaving(false);
-        setTimeout(() => setSaveStatus(null), 4000);
+        },
+        [user?.approval_status]
+    );
+
+    const handleDirtyChange = useCallback((id: string) => (dirty: boolean) => {
+        setDirtySections((prev) => (prev[id] === dirty ? prev : { ...prev, [id]: dirty }));
+    }, []);
+
+    const hasUnsaved = useMemo(() => Object.values(dirtySections).some(Boolean), [dirtySections]);
+
+    useEffect(() => {
+        if (!hasUnsaved) return;
+        const handler = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [hasUnsaved]);
+
+    const scrollToSection = (id: string) => {
+        sectionRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
-    const handleChangePassword = async () => {
-        if (passwords.new !== passwords.confirm) { setSaveStatus({ type: 'error', message: 'Passwords do not match.' }); return; }
-        if (passwords.new.length < 6) { setSaveStatus({ type: 'error', message: 'Password must be at least 6 characters.' }); return; }
-        setIsSaving(true);
-        try {
-            const res = await authApi.changePassword(passwords.current, passwords.new);
-            if (res.success) { setSaveStatus({ type: 'success', message: 'Password changed!' }); setPasswords({ current: '', new: '', confirm: '' }); }
-            else { setSaveStatus({ type: 'error', message: (res as any).error || 'Failed' }); }
-        } catch { setSaveStatus({ type: 'error', message: 'Network error.' }); }
-        setIsSaving(false);
-        setTimeout(() => setSaveStatus(null), 4000);
-    };
+    useEffect(() => {
+        const onScroll = () => {
+            let current = NAV_SECTIONS[0].id;
+            for (const section of NAV_SECTIONS) {
+                const el = sectionRefs.current[section.id];
+                if (el && el.getBoundingClientRect().top <= 160) current = section.id;
+            }
+            setActiveId(current);
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+        return () => window.removeEventListener('scroll', onScroll);
+    }, []);
 
-    if (isLoading) return <div className="flex items-center justify-center h-96"><Loader2 className="h-8 w-8 animate-spin text-teal-600" /></div>;
+    const filteredNav = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return NAV_SECTIONS;
+        return NAV_SECTIONS.filter(
+            (section) =>
+                section.label.toLowerCase().includes(q) ||
+                section.keywords.some((keyword) => keyword.toLowerCase().includes(q))
+        );
+    }, [query]);
+
+    const sectionProps = (id: string) => ({ onDirtyChange: handleDirtyChange(id) });
+
+    if (user?.role && user.role !== 'clinic_owner') {
+        return (
+            <div className="mx-auto max-w-lg rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+                <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
+                <h1 className="mt-4 text-lg font-bold text-gray-900 dark:text-gray-100">Access denied</h1>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Only clinic owners can manage clinic settings.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
-            <div><h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Clinic configuration</p></div>
-
-            {saveStatus && (
-                <div className={`px-4 py-3 rounded-lg text-sm border ${saveStatus.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>{saveStatus.message}</div>
-            )}
-
-            {/* Basic Information */}
-            <Card>
-                <CardHeader><CardTitle>Clinic Information</CardTitle></CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        <ProfileImageUpload
-                            currentImage={profile.profileImage}
-                            name={profile.name}
-                            onUploadComplete={(url) => setProfile(p => ({ ...p, profileImage: url }))}
-                            accentColor="teal"
-                        />
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Clinic Name</label><Input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label><Input value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} placeholder="clinic@example.com" /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label><Input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="+91..." /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label><Input value={profile.address} onChange={e => setProfile(p => ({ ...p, address: e.target.value }))} placeholder="Full address" /></div>
-                        <LocationPicker
-                            latitude={profile.latitude}
-                            longitude={profile.longitude}
-                            address={profile.address}
-                            onLocationChange={(lat, lng) => {
-                                if (lat === 0 && lng === 0) {
-                                    setProfile(p => ({ ...p, latitude: null, longitude: null }));
-                                } else {
-                                    setProfile(p => ({ ...p, latitude: lat, longitude: lng }));
-                                }
-                            }}
-                            accentColor="teal"
-                            label="Clinic Location"
-                            height="250px"
-                        />
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* About & Details */}
-            <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5 text-teal-600" />About & Details</CardTitle></CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description / About Us</label>
-                            <textarea
-                                value={profile.description}
-                                onChange={e => setProfile(p => ({ ...p, description: e.target.value }))}
-                                placeholder="Tell patients about your clinic — its mission, specialties, and what makes it unique..."
-                                rows={4}
-                                maxLength={2000}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
-                            />
-                            <p className="text-xs text-gray-400 mt-1">{profile.description.length}/2000</p>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    <Globe className="inline h-4 w-4 mr-1 text-teal-600" />Website URL
-                                </label>
-                                <Input value={profile.websiteUrl} onChange={e => setProfile(p => ({ ...p, websiteUrl: e.target.value }))} placeholder="https://www.yourclinic.com" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    <Calendar className="inline h-4 w-4 mr-1 text-teal-600" />Established Year
-                                </label>
-                                <Input type="number" value={profile.establishedYear} onChange={e => setProfile(p => ({ ...p, establishedYear: e.target.value }))} placeholder="e.g. 1995" min="1800" max={new Date().getFullYear()} />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                <Clock className="inline h-4 w-4 mr-1 text-teal-600" />Opening Hours
-                            </label>
-                            <Input value={profile.openingHours} onChange={e => setProfile(p => ({ ...p, openingHours: e.target.value }))} placeholder="Mon-Sat: 9:00 AM - 9:00 PM, Sun: 10:00 AM - 2:00 PM" />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Facilities */}
-            <Card>
-                <CardHeader><CardTitle>Facilities & Amenities</CardTitle></CardHeader>
-                <CardContent>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Select all facilities available at your clinic</p>
-                    <div className="flex flex-wrap gap-2">
-                        {FACILITY_OPTIONS.map(facility => (
-                            <button
-                                key={facility}
-                                type="button"
-                                onClick={() => toggleFacility(facility)}
-                                className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                                    profile.facilities.includes(facility)
-                                        ? 'bg-teal-600 text-white border-teal-600'
-                                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-teal-400'
-                                }`}
-                            >
-                                {profile.facilities.includes(facility) && '✓ '}{facility}
-                            </button>
-                        ))}
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Premium Features */}
-            <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Globe className="h-5 w-5 text-teal-600" />Premium Clinic Features</CardTitle></CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                360° Virtual Tour URL (Matterport, Kuula, etc.)
-                            </label>
-                            <Input 
-                                value={profile.virtualTourUrl} 
-                                onChange={e => setProfile(p => ({ ...p, virtualTourUrl: e.target.value }))} 
-                                placeholder="https://my.matterport.com/show/?m=..." 
-                            />
-                            <p className="text-xs text-gray-500 mt-1">Embedded directly inside the Patient App for premium engagement.</p>
-                        </div>
-                        <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                            <div>
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Open 24 Hours</p>
-                                <p className="text-xs text-gray-500 mt-0.5">Toggle if your clinic operates round the clock</p>
-                            </div>
-                            <button
-                                type="button"
-                                role="switch"
-                                aria-checked={profile.is24Hours}
-                                onClick={() => setProfile(p => ({ ...p, is24Hours: !p.is24Hours }))}
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                    profile.is24Hours ? 'bg-teal-600' : 'bg-gray-300 dark:bg-gray-600'
-                                }`}
-                            >
-                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                    profile.is24Hours ? 'translate-x-6' : 'translate-x-1'
-                                }`} />
-                            </button>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Gallery */}
-            <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5 text-teal-600" />Clinic Gallery</CardTitle></CardHeader>
-                <CardContent>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Upload photos of your clinic — reception, rooms, OPD area, facilities. Patients see these on the app.</p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                        {profile.galleryUrls.map((url, i) => (
-                            <div key={i} className="relative group rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 aspect-video">
-                                <img src={url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
-                                <button
-                                    type="button"
-                                    onClick={() => removeGalleryImage(i)}
-                                    className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </div>
-                        ))}
-                        <button
-                            type="button"
-                            onClick={() => galleryInputRef.current?.click()}
-                            disabled={galleryUploading}
-                            className="aspect-video flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-teal-500 transition-colors text-gray-400 hover:text-teal-600"
-                        >
-                            {galleryUploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Plus className="h-6 w-6" />}
-                            <span className="text-xs mt-1">{galleryUploading ? 'Uploading...' : 'Add Photo'}</span>
-                        </button>
-                    </div>
-                    <input
-                        ref={galleryInputRef}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleGalleryUpload}
-                        className="hidden"
-                    />
-                </CardContent>
-            </Card>
-
-            {/* Credentials & Compliance */}
-            <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5 text-teal-600" />Credentials & Compliance</CardTitle></CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number</label><Input value={profile.licenseNumber} onChange={e => setProfile(p => ({ ...p, licenseNumber: e.target.value }))} placeholder="Clinic license number" /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Accreditations</label><Input value={profile.accreditations} onChange={e => setProfile(p => ({ ...p, accreditations: e.target.value }))} placeholder="NABH, ISO 9001, JCI" /></div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Insurance Accepted</label>
-                            <Input value={profile.insuranceAccepted} onChange={e => setProfile(p => ({ ...p, insuranceAccepted: e.target.value }))} placeholder="Star Health, ICICI Lombard, Max Bupa, CGHS, ECHS" />
-                            <p className="text-xs text-gray-400 mt-1">Comma-separated list of insurance providers accepted</p>
-                        </div>
-                        <ComplianceDocumentUpload
-                            label="Clinic License Document"
-                            providerType="clinic"
-                            value={profile.licenseDocumentUrl}
-                            onChange={(url) => setProfile((prev) => ({ ...prev, licenseDocumentUrl: url }))}
-                            description="Upload the clinic license or paste a hosted document URL for admin review."
-                        />
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Save Button */}
-            <div className="flex justify-end">
-                <Button onClick={handleSaveProfile} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>Save All Changes</Button>
+            <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Clinic Administration & Settings Center</h1>
+                <p className="mt-1 text-gray-600 dark:text-gray-400">
+                    Everything about your clinic — profile, operations, staff, security and compliance.
+                </p>
             </div>
 
-            {/* Change Password */}
-            <Card>
-                <CardHeader><CardTitle>Change Password</CardTitle></CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Current Password</label><Input type="password" value={passwords.current} onChange={e => setPasswords(p => ({ ...p, current: e.target.value }))} /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New Password</label><Input type="password" value={passwords.new} onChange={e => setPasswords(p => ({ ...p, new: e.target.value }))} /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirm Password</label><Input type="password" value={passwords.confirm} onChange={e => setPasswords(p => ({ ...p, confirm: e.target.value }))} /></div>
-                        <Button variant="outline" onClick={handleChangePassword} isLoading={isSaving}>Change Password</Button>
+            {hasUnsaved && (
+                <div className="sticky top-16 z-20 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
+                    You have unsaved changes. Save each section before leaving — refreshing or navigating away will discard them.
+                </div>
+            )}
+
+            {isLoading ? (
+                <div className="flex h-72 items-center justify-center">
+                    <RefreshCw className="h-8 w-8 animate-spin text-primary-500" />
+                </div>
+            ) : loadError ? (
+                <div className="flex flex-col items-center gap-4 rounded-xl border border-gray-200 dark:border-gray-700 py-12">
+                    <AlertCircle className="h-10 w-10 text-red-400" />
+                    <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>
+                    <Button variant="outline" size="sm" onClick={() => void fetchProfile()} leftIcon={<RefreshCw className="h-4 w-4" />}>
+                        Retry
+                    </Button>
+                </div>
+            ) : (
+                <div className="flex flex-col gap-6 lg:flex-row">
+                    <aside className="lg:w-64 lg:shrink-0">
+                        <nav className="lg:sticky lg:top-20">
+                            <div className="relative mb-3 lg:mb-4">
+                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="search"
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    placeholder="Search sections…"
+                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 py-2 pl-9 pr-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                />
+                            </div>
+                            <ul className="flex gap-1 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
+                                {filteredNav.map((section) => {
+                                    const Icon = section.icon;
+                                    const isActive = activeId === section.id;
+                                    return (
+                                        <li key={section.id} className="shrink-0 lg:shrink">
+                                            <button
+                                                type="button"
+                                                onClick={() => scrollToSection(section.id)}
+                                                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                                                    isActive
+                                                        ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-200'
+                                                        : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+                                                }`}
+                                            >
+                                                <Icon className="h-4 w-4 shrink-0" />
+                                                <span className="whitespace-nowrap">{section.label}</span>
+                                                {dirtySections[section.id] && (
+                                                    <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-amber-500" title="Unsaved changes" />
+                                                )}
+                                            </button>
+                                        </li>
+                                    );
+                                })}
+                                {filteredNav.length === 0 && (
+                                    <li className="px-3 py-2 text-sm text-gray-400">No sections match your search.</li>
+                                )}
+                            </ul>
+                        </nav>
+                    </aside>
+
+                    <div className="min-w-0 flex-1 space-y-6">
+                        <div ref={(el) => { sectionRefs.current['profile'] = el; }} className="scroll-mt-24">
+                            <ProfileSection clinic={clinic} onSave={saveProfile} {...sectionProps('profile')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['organization'] = el; }} className="scroll-mt-24">
+                            <OrganizationSection clinic={clinic} onSave={saveProfile} {...sectionProps('organization')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['location'] = el; }} className="scroll-mt-24">
+                            <LocationSection clinic={clinic} onSave={saveProfile} {...sectionProps('location')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['departments'] = el; }} className="scroll-mt-24">
+                            <DepartmentsSection {...sectionProps('departments')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['services'] = el; }} className="scroll-mt-24">
+                            <ConsultationServicesSection {...sectionProps('services')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['schedule'] = el; }} className="scroll-mt-24">
+                            <ScheduleSection {...sectionProps('schedule')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['staff'] = el; }} className="scroll-mt-24">
+                            <StaffSection {...sectionProps('staff')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['invitations'] = el; }} className="scroll-mt-24">
+                            <InvitationsSection {...sectionProps('invitations')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['notifications'] = el; }} className="scroll-mt-24">
+                            <NotificationsSection {...sectionProps('notifications')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['verification'] = el; }} className="scroll-mt-24">
+                            <VerificationSection clinic={clinic} onSave={saveProfile} {...sectionProps('verification')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['security'] = el; }} className="scroll-mt-24">
+                            <SecuritySection {...sectionProps('security')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['appearance'] = el; }} className="scroll-mt-24">
+                            <AppearanceSection {...sectionProps('appearance')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['privacy'] = el; }} className="scroll-mt-24">
+                            <PrivacySection {...sectionProps('privacy')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['billing'] = el; }} className="scroll-mt-24">
+                            <BillingSection {...sectionProps('billing')} />
+                        </div>
+                        <div ref={(el) => { sectionRefs.current['connected-services'] = el; }} className="scroll-mt-24">
+                            <ConnectedServicesSection {...sectionProps('connected-services')} />
+                        </div>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            )}
         </div>
     );
 }

@@ -308,6 +308,98 @@ router.get('/owner/consultations', requireRole(ROLES.CLINIC_OWNER), asyncHandler
     res.json({ success: true, ...result });
 }));
 
+// Doctor invites — list invites sent by this clinic (pending/accepted/rejected/expired/cancelled)
+router.get('/owner/invites', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const { status, page = 1, limit = 20 } = req.query;
+    const result = await clinicService.getClinicInvites(clinic.id, req.user.id, parseInt(page), parseInt(limit), status);
+    res.json({ success: true, ...result });
+}));
+
+// Cancel a pending doctor invite (withdraw)
+router.post('/owner/invites/:inviteId/cancel', requireRole(ROLES.CLINIC_OWNER), [
+    param('inviteId').isUUID().withMessage('Invalid invite ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const result = await clinicService.cancelClinicInvite(clinic.id, req.user.id, req.params.inviteId);
+    res.json({ success: true, data: result });
+}));
+
+// Patients — aggregated clinic patient view (from real appointment records)
+router.get('/owner/patients', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const { search, page = 1, limit = 20 } = req.query;
+    const result = await clinicService.getClinicPatients(
+        clinic.id,
+        req.user.id,
+        { search },
+        parseInt(page),
+        parseInt(limit)
+    );
+    res.json({ success: true, ...result });
+}));
+
+// Patient Details — specific patient profile and visit history for this clinic
+router.get('/owner/patients/:patientId', requireRole(ROLES.CLINIC_OWNER), [
+    param('patientId').isUUID().withMessage('Invalid patient ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const result = await clinicService.getClinicPatientDetails(
+        clinic.id,
+        req.user.id,
+        req.params.patientId
+    );
+    res.json({ success: true, data: result });
+}));
+
+
+// Clinic appointment workflow — front desk actions on clinic-scoped appointments.
+// Clinical transitions (in_progress/completed) stay doctor-only via appointmentService.
+router.put('/owner/appointments/:appointmentId/status', requireRole(ROLES.CLINIC_OWNER), [
+    param('appointmentId').isUUID().withMessage('Invalid appointment ID'),
+    body('status').isIn(['confirmed', 'cancelled', 'no_show']).withMessage('Invalid status'),
+    body('reason').optional().isString().trim(),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const appointment = await clinicService.updateAppointmentStatusForClinic(
+        clinic.id,
+        req.user.id,
+        req.params.appointmentId,
+        req.body.status,
+        req.body.reason
+    );
+    res.json({ success: true, data: appointment });
+}));
+
+router.post('/owner/appointments/:appointmentId/reschedule', requireRole(ROLES.CLINIC_OWNER), [
+    param('appointmentId').isUUID().withMessage('Invalid appointment ID'),
+    body('date').isDate().withMessage('Valid date is required'),
+    body('timeSlot').notEmpty().withMessage('Time slot is required'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const appointment = await clinicService.rescheduleClinicAppointment(
+        clinic.id,
+        req.user.id,
+        req.params.appointmentId,
+        req.body.date,
+        req.body.timeSlot
+    );
+    res.json({ success: true, data: appointment });
+}));
+
+router.post('/owner/appointments/:appointmentId/check-in', requireRole(ROLES.CLINIC_OWNER), [
+    param('appointmentId').isUUID().withMessage('Invalid appointment ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const appointment = await clinicService.checkInAppointment(clinic.id, req.user.id, req.params.appointmentId);
+    res.json({ success: true, data: appointment });
+}));
+
 // Schedule
 router.get('/owner/schedule', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);

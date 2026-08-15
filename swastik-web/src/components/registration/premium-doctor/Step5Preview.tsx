@@ -3,7 +3,7 @@
 import React from 'react';
 import { User, MapPin, Star, GraduationCap, Clock, CheckCircle2, Languages, Loader2 } from 'lucide-react';
 
-export function Step5Preview({ data, prevStep, submitForm, isLoading }: any) {
+export function Step5Preview({ data, prevStep, submitForm, isLoading, errors }: any) {
     const photoUrl = data.profilePhoto ? URL.createObjectURL(data.profilePhoto) : null;
 
     return (
@@ -37,7 +37,7 @@ export function Step5Preview({ data, prevStep, submitForm, isLoading }: any) {
                                     <CheckCircle2 className="w-5 h-5 text-[#22C55E]" />
                                 </h3>
                                 <p className="text-[#22C55E] font-medium text-sm">
-                                    {data.specializations[0] || 'Your Specialization'}
+                                    {data.primarySpecialization || data.specializations[0] || 'Your Specialization'}
                                 </p>
                             </div>
                             <div className="flex items-center gap-1 bg-[#22C55E]/10 px-2 py-1 rounded-lg">
@@ -48,19 +48,26 @@ export function Step5Preview({ data, prevStep, submitForm, isLoading }: any) {
 
                         <div className="grid grid-cols-2 gap-y-3 gap-x-4 mt-4">
                             <div className="flex items-center gap-2 text-sm text-[#A1A1AA]">
-                                <GraduationCap className="w-4 h-4" />
-                                <span>{data.qualifications[0]?.degree || 'Your Degree'}</span>
+                                <GraduationCap className="w-4 h-4 shrink-0" />
+                                <span className="truncate">{data.qualifications.join(', ') || 'Your Degree'}</span>
                             </div>
                             <div className="flex items-center gap-2 text-sm text-[#A1A1AA]">
                                 <Clock className="w-4 h-4" />
                                 <span>{data.experienceYears || '0'} Years Experience</span>
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-[#A1A1AA]">
-                                <MapPin className="w-4 h-4" />
-                                <span className="truncate">{data.clinicName || 'Clinic Name'}</span>
+                            <div className="flex items-start gap-2 text-sm text-[#A1A1AA]">
+                                <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
+                                <div className="flex flex-col">
+                                    <span className="truncate">{data.clinicName || 'Clinic Name'}</span>
+                                    {data.latitude && (
+                                        <span className="text-[10px] text-[#22C55E] font-mono leading-none mt-1">
+                                            {data.latitude.toFixed(4)}, {data.longitude.toFixed(4)}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex items-center gap-2 text-sm text-[#A1A1AA]">
-                                <Languages className="w-4 h-4" />
+                                <Languages className="w-4 h-4 shrink-0" />
                                 <span className="truncate">{data.languages.join(', ') || 'Languages'}</span>
                             </div>
                         </div>
@@ -83,6 +90,12 @@ export function Step5Preview({ data, prevStep, submitForm, isLoading }: any) {
                     )}
                 </div>
             </div>
+
+            {errors?.submit && (
+                <div className="mb-6 text-red-500 text-[13px] bg-red-500/10 border border-red-500/20 p-3 rounded-xl flex items-start gap-2">
+                    <span>{errors.submit}</span>
+                </div>
+            )}
 
             <div className="pt-2 flex gap-4">
                 <button

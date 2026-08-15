@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
     Activity,
@@ -60,9 +61,7 @@ export default function DoctorLoginPage() {
 
                 <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-12">
-                        <div className="w-10 h-10 bg-[#22C55E] rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(34,197,94,0.3)]">
-                            <Activity className="text-white w-6 h-6" />
-                        </div>
+                        <Image src="/logo.png" alt="Vaididea" width={40} height={40} className="rounded-xl" />
                         <span className="text-2xl font-bold text-white tracking-tight">Vaididea</span>
                     </div>
 
@@ -125,9 +124,7 @@ export default function DoctorLoginPage() {
                 >
                     {/* Mobile Logo */}
                     <div className="md:hidden flex items-center gap-3 mb-6 justify-center">
-                        <div className="w-10 h-10 bg-[#22C55E] rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(34,197,94,0.3)]">
-                            <Activity className="text-white w-6 h-6" />
-                        </div>
+                        <Image src="/logo.png" alt="Vaididea" width={40} height={40} className="rounded-xl" />
                         <span className="text-2xl font-bold text-white tracking-tight">Vaididea</span>
                     </div>
 

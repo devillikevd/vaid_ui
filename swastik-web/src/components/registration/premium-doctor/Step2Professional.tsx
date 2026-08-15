@@ -1,9 +1,61 @@
 import React from 'react';
-import { Award, BookOpen, Stethoscope, Clock, Calendar, CheckSquare, Square } from 'lucide-react';
+import { Award, BookOpen, Clock, Calendar, CheckSquare, Square, Stethoscope, Languages, GraduationCap } from 'lucide-react';
+import { MultiSelect } from '../../shared/MultiSelect';
+
+const QUALIFICATIONS = ['MBBS', 'MD', 'MS', 'DNB', 'DM', 'MCh', 'BDS', 'MDS', 'BHMS', 'BAMS', 'BUMS', 'BPT', 'MPT', 'PharmD', 'B.Sc Nursing', 'M.Sc Nursing', 'GNM', 'ANM', 'Fellowship', 'PG Diploma', 'Diploma'];
+const SPECIALIZATIONS = ['General Medicine', 'General Surgery', 'Cardiology', 'Dermatology', 'Neurology', 'Neurosurgery', 'Orthopedics', 'Pediatrics', 'Psychiatry', 'Psychology', 'ENT', 'Ophthalmology', 'Gynecology', 'Obstetrics', 'Urology', 'Nephrology', 'Gastroenterology', 'Pulmonology', 'Endocrinology', 'Rheumatology', 'Oncology', 'Hematology', 'Radiology', 'Anesthesiology', 'Pathology', 'Emergency Medicine', 'Family Medicine', 'Internal Medicine', 'Dentistry', 'Ayurveda', 'Homeopathy', 'Physiotherapy', 'Nutrition', 'Diabetology', 'Sexology', 'Pain Medicine', 'Critical Care', 'Sports Medicine'];
+const LANGUAGES = ['English', 'Hindi', 'Bengali', 'Telugu', 'Marathi', 'Tamil', 'Gujarati', 'Urdu', 'Kannada', 'Malayalam', 'Odia', 'Punjabi', 'Assamese', 'Nepali', 'Sanskrit', 'Kashmiri', 'Konkani', 'Sindhi', 'Maithili', 'Manipuri', 'French', 'German', 'Spanish', 'Arabic'];
+
 
 export function Step2Professional({ data, updateData, nextStep, prevStep }: any) {
+    const [errorMsg, setErrorMsg] = React.useState('');
+
     const handleContinue = (e: React.FormEvent) => {
         e.preventDefault();
+        setErrorMsg('');
+
+        if (!data.medicalCouncil?.trim()) {
+            setErrorMsg('Medical Council is required');
+            return;
+        }
+
+        if (!data.registrationNumber?.trim()) {
+            setErrorMsg('Registration Number is required');
+            return;
+        }
+
+        if (!data.qualifications || data.qualifications.length === 0) {
+            setErrorMsg('At least one Qualification is required');
+            return;
+        }
+
+        if (!data.specializations || data.specializations.length === 0) {
+            setErrorMsg('At least one Specialization is required');
+            return;
+        }
+
+        if (!data.primarySpecialization) {
+            setErrorMsg('Please select a Primary Specialization by clicking the circle next to a selected specialization.');
+            return;
+        }
+
+        if (!data.languages || data.languages.length === 0) {
+            setErrorMsg('At least one Language is required');
+            return;
+        }
+
+        const exp = parseInt(data.experienceYears);
+        if (isNaN(exp) || exp < 0 || exp > 60) {
+            setErrorMsg('Please enter a valid number of years of experience (0-60)');
+            return;
+        }
+
+        const hasConsultation = Object.values(data.consultationTypes).some(Boolean);
+        if (!hasConsultation) {
+            setErrorMsg('Please select at least one consultation type');
+            return;
+        }
+
         nextStep();
     };
 
@@ -63,48 +115,43 @@ export function Step2Professional({ data, updateData, nextStep, prevStep }: any)
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    {/* Primary Qualification */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-[#A1A1AA]">Highest Qualification</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                                <BookOpen className="h-5 w-5 text-[#A1A1AA] group-focus-within:text-[#22C55E] transition-colors" />
-                            </div>
-                            <input
-                                type="text"
-                                required
-                                value={data.qualifications[0]?.degree}
-                                onChange={(e) => {
-                                    const newQuals = [...data.qualifications];
-                                    newQuals[0] = { ...newQuals[0], degree: e.target.value };
-                                    updateData({ qualifications: newQuals });
-                                }}
-                                className="w-full bg-[#09090B]/50 border border-[rgba(255,255,255,0.1)] rounded-xl py-3 sm:py-2.5 pl-[42px] pr-4 text-base sm:text-[15px] text-white placeholder:text-[#A1A1AA]/50 focus:outline-none focus:ring-2 focus:ring-[#22C55E]/50 focus:border-[#22C55E] transition-all hover:border-[rgba(255,255,255,0.2)]"
-                                placeholder="e.g. MBBS, MD"
-                            />
-                        </div>
-                    </div>
+                    {/* Qualifications */}
+                    <MultiSelect
+                        label="Qualifications / Degrees"
+                        icon={<GraduationCap className="h-5 w-5 text-[#A1A1AA]" />}
+                        options={QUALIFICATIONS}
+                        selected={data.qualifications}
+                        onChange={(selected: string[]) => updateData({ qualifications: selected })}
+                        placeholder="Select qualifications..."
+                    />
 
-                    {/* Specialization */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-[#A1A1AA]">Primary Specialization</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                                <Stethoscope className="h-5 w-5 text-[#A1A1AA] group-focus-within:text-[#22C55E] transition-colors" />
-                            </div>
-                            <input
-                                type="text"
-                                required
-                                value={data.specializations[0] || ''}
-                                onChange={(e) => updateData({ specializations: [e.target.value] })}
-                                className="w-full bg-[#09090B]/50 border border-[rgba(255,255,255,0.1)] rounded-xl py-3 sm:py-2.5 pl-[42px] pr-4 text-base sm:text-[15px] text-white placeholder:text-[#A1A1AA]/50 focus:outline-none focus:ring-2 focus:ring-[#22C55E]/50 focus:border-[#22C55E] transition-all hover:border-[rgba(255,255,255,0.2)]"
-                                placeholder="e.g. Cardiology"
-                            />
-                        </div>
-                    </div>
+                    {/* Specializations */}
+                    <MultiSelect
+                        label="Specializations"
+                        icon={<Stethoscope className="h-5 w-5 text-[#A1A1AA]" />}
+                        options={SPECIALIZATIONS}
+                        selected={data.specializations}
+                        onChange={(selected: string[]) => updateData({ specializations: selected })}
+                        placeholder="Select specializations..."
+                        requirePrimary={true}
+                        primaryOption={data.primarySpecialization}
+                        onPrimaryChange={(primary: string | null) => updateData({ primarySpecialization: primary || '' })}
+                    />
                 </div>
 
-                {/* Experience & Languages */}
+                <div className="grid grid-cols-1 gap-5">
+                    {/* Languages */}
+                    <MultiSelect
+                        label="Languages Spoken"
+                        icon={<Languages className="h-5 w-5 text-[#A1A1AA]" />}
+                        options={LANGUAGES}
+                        selected={data.languages}
+                        onChange={(selected: string[]) => updateData({ languages: selected })}
+                        placeholder="Select languages..."
+                    />
+                </div>
+
+                {/* Experience & Consultation Types */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-[#A1A1AA]">Years of Experience</label>
@@ -121,22 +168,6 @@ export function Step2Professional({ data, updateData, nextStep, prevStep }: any)
                                 onChange={(e) => updateData({ experienceYears: e.target.value })}
                                 className="w-full bg-[#09090B]/50 border border-[rgba(255,255,255,0.1)] rounded-xl py-3 sm:py-2.5 pl-[42px] pr-4 text-base sm:text-[15px] text-white placeholder:text-[#A1A1AA]/50 focus:outline-none focus:ring-2 focus:ring-[#22C55E]/50 focus:border-[#22C55E] transition-all hover:border-[rgba(255,255,255,0.2)]"
                                 placeholder="e.g. 5"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-[#A1A1AA]">Languages Spoken</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                                <Calendar className="h-5 w-5 text-[#A1A1AA] group-focus-within:text-[#22C55E] transition-colors" />
-                            </div>
-                            <input
-                                type="text"
-                                value={data.languages.join(', ')}
-                                onChange={(e) => updateData({ languages: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-                                className="w-full bg-[#09090B]/50 border border-[rgba(255,255,255,0.1)] rounded-xl py-3 sm:py-2.5 pl-[42px] pr-4 text-base sm:text-[15px] text-white placeholder:text-[#A1A1AA]/50 focus:outline-none focus:ring-2 focus:ring-[#22C55E]/50 focus:border-[#22C55E] transition-all hover:border-[rgba(255,255,255,0.2)]"
-                                placeholder="English, Hindi"
                             />
                         </div>
                     </div>
@@ -170,6 +201,12 @@ export function Step2Professional({ data, updateData, nextStep, prevStep }: any)
                         })}
                     </div>
                 </div>
+
+                {errorMsg && (
+                    <div className="text-red-500 text-[13px] bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg flex items-center gap-2">
+                        <span>{errorMsg}</span>
+                    </div>
+                )}
 
                 <div className="pt-6 flex gap-4">
                     <button

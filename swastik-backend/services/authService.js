@@ -114,7 +114,8 @@ const validateRoleRegistrationPayload = (role, data) => {
 
   if (role !== 'doctor') return;
 
-  const specialization = normalizeText(data.specialization);
+  const specialization = normalizeText(data.specialization); // Still used as Primary
+  const specializations = normalizeTextArray(firstProvided(data.specializations, data.specialties));
   const licenseNumber = normalizeText(firstProvided(data.licenseNumber, data.license_number));
   const registrationNumber = normalizeText(firstProvided(data.registrationNumber, data.registration_number));
   const qualifications = normalizeTextArray(firstProvided(data.qualifications, data.qualification, data.degree));
@@ -122,7 +123,11 @@ const validateRoleRegistrationPayload = (role, data) => {
   const consultationFee = parseNonNegativeNumber(firstProvided(data.consultationFee, data.consultation_fee));
 
   if (!specialization) {
-    throw new ApiError(400, 'Doctor specialization is required for registration.');
+    throw new ApiError(400, 'Primary specialization is required for doctor registration.');
+  }
+
+  if (specializations.length === 0) {
+    throw new ApiError(400, 'At least one specialization is required for doctor registration.');
   }
 
   if (!licenseNumber) {
@@ -275,7 +280,7 @@ const issueUniversalOtp = async ({ userId = null, email, purpose, name, title, i
   if (!email || !purpose) {
     throw createOtpError('OTP_INVALID_REQUEST', 'Email and purpose are required');
   }
-  const { emailService } = require('./emailService');
+  const emailService = require('./emailService');
   const sender = async (targetEmail, displayName, otp) => {
     await emailService.sendOtpEmail({
       email: targetEmail,
@@ -497,6 +502,25 @@ const register = async (userData) => {
   const finalRole = role === 'doctor' ? 'doctor_pending' : (isProvider ? 'patient' : role);
   const requestedRole = isProvider ? role : null;
 
+  // Enforce Pre-Registration Email OTP Verification
+  const { data: verifiedOtp, error: otpLookupError } = await supabaseAdmin
+    .from('otp_verifications')
+    .select('id, verified_at')
+    .eq('email', email)
+    .eq('purpose', 'registration')
+    .eq('is_verified', true)
+    .order('verified_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (otpLookupError) throw otpLookupError;
+
+  if (!verifiedOtp) {
+    const error = new ApiError(403, 'Email not verified. Please complete email verification before registering.');
+    error.code = 'EMAIL_NOT_VERIFIED';
+    throw error;
+  }
+
   const { data: user, error } = await supabaseAdmin
     .from('users')
     .insert({
@@ -507,7 +531,7 @@ const register = async (userData) => {
       role: finalRole,
       requested_role: requestedRole,
       is_active: true,
-      is_verified: false,
+      is_verified: true, // Mark as verified immediately
     })
     .select('*')
     .single();
@@ -533,27 +557,16 @@ const register = async (userData) => {
     throw toUserFacingRegistrationError(profileError);
   }
 
-  let verificationEmailSent = true;
-  // Send OTP email asynchronously to avoid blocking the API response
-  issueEmailOtp({
-    userId: user.id,
-    email,
-    purpose: OTP_PURPOSE_EMAIL_VERIFICATION,
-    sender: sendVerificationOtpEmail,
-    name,
-  }).catch((emailError) => {
-    console.error('Failed to send verification OTP during registration:', emailError.message);
-  });
+  // Cleanup the verified OTP record so it cannot be reused
+  await supabaseAdmin.from('otp_verifications').delete().eq('id', verifiedOtp.id);
 
   const { password_hash: _, ...safeUser } = user;
 
   return {
     user: safeUser,
-    message: verificationEmailSent
-      ? 'Registration successful. We sent a 6-digit verification code to your email.'
-      : 'Registration successful, but we could not send the verification code right now. Please use resend verification from the login page.',
-    requiresVerification: true,
-    verificationEmailSent,
+    message: 'Registration successful.',
+    requiresVerification: false,
+    verificationEmailSent: false,
   };
 };
 
@@ -581,10 +594,13 @@ const createRoleProfile = async (userId, role, data) => {
       const doctorConsultationFee = parseNonNegativeNumber(firstProvided(data.consultationFee, data.consultation_fee, 0));
       const doctorVideoFee = parseNonNegativeNumber(firstProvided(data.videoConsultationFee, data.video_consultation_fee));
 
+      const doctorSpecializations = normalizeTextArray(firstProvided(data.specializations, data.specialties));
+
       await insertProfile('doctors', {
         user_id: userId,
         name: data.name,
         specialization: normalizeText(data.specialization),
+        specializations: doctorSpecializations.length > 0 ? doctorSpecializations : [normalizeText(data.specialization)],
         license_number: normalizeText(firstProvided(data.licenseNumber, data.license_number)),
         registration_number: normalizeText(firstProvided(data.registrationNumber, data.registration_number)) || null,
         qualifications: doctorQualifications,
@@ -595,6 +611,13 @@ const createRoleProfile = async (userId, role, data) => {
         languages: doctorLanguages,
         is_approved: false,
         approval_status: 'pending',
+        clinic_name: data.clinicName || null,
+        clinic_address: data.address || null,
+        clinic_city: data.city || null,
+        clinic_state: data.state || null,
+        clinic_pincode: data.pincode || null,
+        clinic_lat: parseOptionalNumber(data.latitude),
+        clinic_lng: parseOptionalNumber(data.longitude),
       });
       break;
     }
@@ -1046,103 +1069,163 @@ const resendVerification = async (rawEmail) => {
 };
 
 // ==================== Login ====================
-const login = async (rawEmail, password, expectedRole = null) => {
+const normalizeReqMeta = (reqMeta = {}) => {
+  const deviceInfo = reqMeta?.deviceInfo || null;
+  const ipAddress = reqMeta?.ipAddress || null;
+  return {
+    deviceInfo: deviceInfo ? String(deviceInfo).slice(0, 500) : null,
+    ipAddress: ipAddress ? String(ipAddress).slice(0, 64) : null,
+  };
+};
+
+const recordLoginHistory = async (entry) => {
+  try {
+    await supabaseAdmin.from('login_history').insert(entry);
+  } catch (err) {
+    console.warn('Failed to persist login history:', err.message);
+  }
+};
+
+const login = async (rawEmail, password, expectedRole = null, reqMeta = {}) => {
   const email = normalizeEmail(rawEmail);
-  const { data: user, error } = await supabaseAdmin
-    .from('users')
-    .select('*')
-    .eq('email', email)
-    .single();
+  const meta = normalizeReqMeta(reqMeta);
 
-  if (error && error.code !== 'PGRST116') {
-    console.error('Supabase Login Error:', error);
-    throw new ApiError(500, 'Database connection error. Check environment variables.');
-  }
+  try {
+    const { data: user, error } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
 
-  if (!user) {
-    throw new ApiError(401, 'Account is not registered');
-  }
-
-  const isValid = await bcrypt.compare(password, user.password_hash);
-  if (!isValid) {
-    throw new ApiError(401, 'Invalid email or password');
-  }
-
-  if (!user.is_active) {
-    throw new ApiError(403, 'Your account has been deactivated. Please contact support.');
-  }
-
-  if (!user.is_verified) {
-    throw createEmailNotVerifiedError();
-  }
-
-  // Optional role enforcement (portal-specific login)
-  // Keep backward compatibility: admin portal accepts both admin and super_admin.
-  if (expectedRole) {
-    const roleMatches = authRoleMatches(user, expectedRole);
-    if (user.requested_role === expectedRole && user.role !== expectedRole) {
-      const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, expectedRole, user.id);
-      if (providerRecord?.approval_status === 'rejected') {
-        throw new ApiError(403, 'Your account application was rejected. Please contact support.');
-      }
-      throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
+    if (error && error.code !== 'PGRST116') {
+      console.error('Supabase Login Error:', error);
+      throw new ApiError(500, 'Database connection error. Check environment variables.');
     }
-    if (!roleMatches) {
-      if (user.requested_role === expectedRole) {
+
+    if (!user) {
+      throw new ApiError(401, 'Account is not registered');
+    }
+
+    const isValid = await bcrypt.compare(password, user.password_hash);
+    if (!isValid) {
+      throw new ApiError(401, 'Invalid email or password');
+    }
+
+    if (!user.is_active) {
+      throw new ApiError(403, 'Your account has been deactivated. Please contact support.');
+    }
+
+    if (!user.is_verified) {
+      throw createEmailNotVerifiedError();
+    }
+
+    // Optional role enforcement (portal-specific login)
+    // Keep backward compatibility: admin portal accepts both admin and super_admin.
+    if (expectedRole) {
+      const roleMatches = authRoleMatches(user, expectedRole);
+      if (user.requested_role === expectedRole && user.role !== expectedRole) {
         const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, expectedRole, user.id);
-        if (providerRecord) {
-          if (providerRecord.approval_status === 'rejected') {
-            throw new ApiError(403, 'Your account application was rejected. Please contact support.');
-          } else if (['pending', 'review', 'under_review'].includes(providerRecord.approval_status)) {
-            throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
-          }
+        if (providerRecord?.approval_status === 'rejected') {
+          throw new ApiError(403, 'Your account application was rejected. Please contact support.');
         }
         throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
       }
-      throw new ApiError(403, 'Invalid credentials for this portal role');
-    }
+      if (!roleMatches) {
+        if (user.requested_role === expectedRole) {
+          const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, expectedRole, user.id);
+          if (providerRecord) {
+            if (providerRecord.approval_status === 'rejected') {
+              throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+            } else if (['pending', 'review', 'under_review'].includes(providerRecord.approval_status)) {
+              throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
+            }
+          }
+          throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
+        }
+        throw new ApiError(403, 'Invalid credentials for this portal role');
+      }
 
-    if (expectedRole === 'doctor' && user.role === 'doctor_pending') {
-      const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, 'doctor', user.id);
-      if (providerRecord && providerRecord.approval_status === 'rejected') {
-        throw new ApiError(403, 'Your account application was rejected. Please contact support.');
-      } else {
-        throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
+      if (expectedRole === 'doctor' && user.role === 'doctor_pending') {
+        const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, 'doctor', user.id);
+        if (providerRecord && providerRecord.approval_status === 'rejected') {
+          throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+        } else {
+          throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
+        }
       }
     }
-  }
 
-  // Strict validation: login requires an actual profile row for the role.
-  await assertRoleProfileExists(user);
+    // Strict validation: login requires an actual profile row for the role.
+    await assertRoleProfileExists(user);
 
-  const tokens = generateTokens(user);
+    const tokens = generateTokens(user);
 
-  try {
-    await supabaseAdmin.from('refresh_tokens').insert({
+    const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    let sessionId = null;
+    try {
+      const { data: session } = await supabaseAdmin
+        .from('active_sessions')
+        .insert({
+          user_id: user.id,
+          device_info: meta.deviceInfo,
+          ip_address: meta.ipAddress,
+          expires_at: sessionExpiresAt,
+        })
+        .select('id')
+        .single();
+      sessionId = session?.id || null;
+    } catch (err) {
+      console.warn('Failed to persist active session:', err.message);
+    }
+
+    try {
+      const tokenRow = {
+        user_id: user.id,
+        token: tokens.refreshToken,
+        family_id: require('crypto').randomUUID(),
+        expires_at: sessionExpiresAt,
+        is_revoked: false,
+      };
+      if (sessionId) tokenRow.session_id = sessionId;
+      await supabaseAdmin.from('refresh_tokens').insert(tokenRow);
+    } catch (err) {
+      console.warn('Failed to persist refresh token:', err.message);
+    }
+
+    await recordLoginHistory({
       user_id: user.id,
-      token: tokens.refreshToken,
-      family_id: require('crypto').randomUUID(),
-      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      is_revoked: false,
+      email,
+      ip_address: meta.ipAddress,
+      device_info: meta.deviceInfo,
+      status: 'success',
     });
+
+    await supabaseAdmin
+      .from('users')
+      .update({ last_login: new Date().toISOString() })
+      .eq('id', user.id);
+
+    logAudit({ userId: user.id, userRole: user.role, action: 'user.login', entityType: 'user', entityId: user.id });
+
+    const { password_hash: _, ...safeUser } = user;
+    const enrichedUser = await enrichAuthUser(safeUser, supabaseAdmin);
+
+    return {
+      user: enrichedUser,
+      ...tokens,
+    };
   } catch (err) {
-    console.warn('Failed to persist refresh token:', err.message);
+    if (err instanceof ApiError && (err.statusCode === 401 || err.statusCode === 403)) {
+      await recordLoginHistory({
+        email,
+        ip_address: meta.ipAddress,
+        device_info: meta.deviceInfo,
+        status: 'failed',
+        reason: typeof err.message === 'string' ? err.message.slice(0, 200) : null,
+      });
+    }
+    throw err;
   }
-
-  await supabaseAdmin
-    .from('users')
-    .update({ last_login: new Date().toISOString() })
-    .eq('id', user.id);
-
-  logAudit({ userId: user.id, userRole: user.role, action: 'user.login', entityType: 'user', entityId: user.id });
-
-  const { password_hash: _, ...safeUser } = user;
-  const enrichedUser = await enrichAuthUser(safeUser, supabaseAdmin);
-
-  return {
-    user: enrichedUser,
-    ...tokens,
-  };
 };
 
 // ==================== Refresh Token ====================
@@ -1234,6 +1317,18 @@ const refreshToken = async (token) => {
 // ==================== Logout ====================
 const logout = async (userId, refreshTokenValue) => {
   if (refreshTokenValue) {
+    const { data: tokenRows } = await supabaseAdmin
+      .from('refresh_tokens')
+      .select('session_id')
+      .eq('user_id', userId)
+      .eq('token', refreshTokenValue);
+    const sessionId = tokenRows?.[0]?.session_id;
+    if (sessionId) {
+      await supabaseAdmin
+        .from('active_sessions')
+        .update({ is_revoked: true })
+        .eq('id', sessionId);
+    }
     await supabaseAdmin
       .from('refresh_tokens')
       .update({ is_revoked: true, revoked_at: new Date().toISOString() })
@@ -1289,6 +1384,16 @@ const changePassword = async (userId, currentPassword, newPassword) => {
     .update({ is_revoked: true, revoked_at: new Date().toISOString() })
     .eq('user_id', userId)
     .eq('is_revoked', false);
+
+  try {
+    await supabaseAdmin
+      .from('active_sessions')
+      .update({ is_revoked: true })
+      .eq('user_id', userId)
+      .eq('is_revoked', false);
+  } catch (err) {
+    console.warn('Failed to revoke active sessions after password change:', err.message);
+  }
 
   await revokeAccessTokens(userId);
 
@@ -1576,6 +1681,101 @@ const updateProfile = async (userId, role, updates) => {
   return { message: 'Profile updated' };
 };
 
+// ==================== Active Sessions & Login History ====================
+
+const getActiveSessions = async (userId) => {
+  const { data } = await supabaseAdmin
+    .from('active_sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('is_revoked', false)
+    .gte('expires_at', new Date().toISOString())
+    .order('last_active', { ascending: false });
+
+  return (data || []).map((session, index) => ({
+    id: session.id,
+    device_info: session.device_info,
+    ip_address: session.ip_address,
+    last_active: session.last_active,
+    created_at: session.created_at,
+    expires_at: session.expires_at,
+    is_current: index === 0,
+  }));
+};
+
+const logoutDevice = async (userId, sessionId) => {
+  const { data: existing } = await supabaseAdmin
+    .from('active_sessions')
+    .select('id')
+    .eq('id', sessionId)
+    .eq('user_id', userId);
+
+  if (!existing || existing.length === 0) {
+    throw new ApiError(404, 'Session not found');
+  }
+
+  await supabaseAdmin
+    .from('active_sessions')
+    .update({ is_revoked: true })
+    .eq('id', sessionId)
+    .eq('user_id', userId);
+
+  try {
+    await supabaseAdmin
+      .from('refresh_tokens')
+      .update({ is_revoked: true, revoked_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('session_id', sessionId)
+      .eq('is_revoked', false);
+  } catch (err) {
+    console.warn('Failed to revoke tokens for session:', err.message);
+  }
+
+  logAudit({ userId, userRole: 'unknown', action: 'user.session_revoked', entityType: 'user', entityId: userId });
+  return { message: 'Session signed out' };
+};
+
+const logoutAllDevices = async (userId, exceptSessionId = null) => {
+  let sessionQuery = supabaseAdmin
+    .from('active_sessions')
+    .update({ is_revoked: true })
+    .eq('user_id', userId)
+    .eq('is_revoked', false);
+  if (exceptSessionId) sessionQuery = sessionQuery.neq('id', exceptSessionId);
+  await sessionQuery;
+
+  let tokenQuery = supabaseAdmin
+    .from('refresh_tokens')
+    .update({ is_revoked: true, revoked_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .eq('is_revoked', false);
+  if (exceptSessionId) tokenQuery = tokenQuery.neq('session_id', exceptSessionId);
+  await tokenQuery;
+
+  await cacheDel(`auth_user:${userId}`);
+  logAudit({ userId, userRole: 'unknown', action: 'user.sessions_revoked', entityType: 'user', entityId: userId });
+  return { message: 'Signed out from all other devices' };
+};
+
+const getLoginHistory = async (userId) => {
+  const { data } = await supabaseAdmin
+    .from('login_history')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  return (data || []).map((entry) => ({
+    id: entry.id,
+    email: entry.email,
+    ip_address: entry.ip_address,
+    device_info: entry.device_info,
+    status: entry.status,
+    reason: entry.reason,
+    created_at: entry.created_at,
+  }));
+};
+
 module.exports = {
   register,
   login,
@@ -1590,4 +1790,8 @@ module.exports = {
   updateProfile,
   issueUniversalOtp,
   verifyUniversalOtp,
+  getActiveSessions,
+  logoutDevice,
+  logoutAllDevices,
+  getLoginHistory,
 };

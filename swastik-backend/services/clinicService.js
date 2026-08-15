@@ -9,6 +9,8 @@ const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
 const { buildProviderResubmissionFields } = require('../utils/providerApproval');
+const eventEmitter = require('./eventEmitter');
+const notificationService = require('./notificationService');
 
 const enrichMissingPhonesFromOwners = async (rows = []) => {
   if (!Array.isArray(rows) || rows.length === 0) return rows;
@@ -108,6 +110,8 @@ const mapClinicAppointment = (appointment, patientContactMap = new Map()) => {
     doctorSpecialization: doctor.specialization || '',
     reason: appointment.reason || null,
     fee: appointment.fee ?? null,
+    checkedInAt: appointment.checked_in_at || null,
+    checkedInBy: appointment.checked_in_by || null,
     created_at: appointment.created_at || null,
   };
 };
@@ -146,6 +150,62 @@ const mapClinicConsultation = (consultation, patientContactMap = new Map()) => {
       }
       : null,
   };
+};
+
+// ── Clinic owner authorization helpers ──────────────────────────────
+const assertClinicOwner = async (clinicId, userId) => {
+  const { data: clinic } = await supabaseAdmin
+    .from('clinics')
+    .select('id')
+    .eq('id', clinicId)
+    .eq('owner_id', userId)
+    .maybeSingle();
+
+  if (!clinic) {
+    throw new ApiError(403, 'Clinic not found or access denied');
+  }
+  return clinic.id;
+};
+
+// Fetch an appointment and verify it belongs to this clinic AND an active
+// clinic-affiliated doctor (prevents clinic owners from touching unrelated
+// appointments — server-side authorization, never frontend-only).
+const getClinicScopedAppointment = async (clinicId, appointmentId) => {
+  const activeDoctorIds = await getActiveClinicDoctorIds(clinicId);
+
+  const { data: appointment, error } = await supabaseAdmin
+    .from('appointments')
+    .select('*, patient:patients(id, name, user_id), doctor:doctors(id, name, specialization, user_id)')
+    .eq('id', appointmentId)
+    .maybeSingle();
+
+  if (error || !appointment) {
+    throw new ApiError(404, 'Appointment not found');
+  }
+
+  if (appointment.clinic_id !== clinicId) {
+    throw new ApiError(403, 'This appointment does not belong to your clinic');
+  }
+
+  if (!activeDoctorIds.includes(appointment.doctor_id)) {
+    throw new ApiError(403, 'This appointment is not linked to an active doctor of your clinic');
+  }
+
+  return appointment;
+};
+
+const appendStatusHistory = (currentHistory, entry) => {
+  const history = Array.isArray(currentHistory) ? currentHistory : [];
+  return [...history, entry];
+};
+
+const todayIsoDate = () => new Date().toISOString().split('T')[0];
+
+const invalidatePatientDoctorCaches = async (patientUserId, doctorUserId) => {
+  await Promise.allSettled([
+    patientUserId ? cacheDel(`patient:dashboard:${patientUserId}`) : Promise.resolve(),
+    doctorUserId ? cacheDel(`doctor:dashboard:${doctorUserId}`) : Promise.resolve(),
+  ]);
 };
 
 // Search clinics
@@ -362,7 +422,12 @@ const getDashboard = async (clinicId, userId) => {
         walkInsToday: 0,
         repeatPatients: '0%',
         totalPatients: 0,
+        activeDoctors: 0,
+        pendingInvites: 0,
+        checkedInToday: 0,
+        pendingAppointmentsToday: 0,
       },
+      todayByStatus: {},
       todayAppointments: [],
       recentAppointments: [],
     };
@@ -375,6 +440,9 @@ const getDashboard = async (clinicId, userId) => {
     { data: patientRows },
     { data: todayAppointmentRows },
     { data: recentAppointments },
+    { count: pendingInvites },
+    { data: checkedInRows },
+    { data: todayStatusRows },
   ] = await Promise.all([
     supabaseAdmin.from('clinic_doctors').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).eq('is_active', true),
     supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds).eq('appointment_date', today).not('status', 'in', '(cancelled)'),
@@ -382,7 +450,16 @@ const getDashboard = async (clinicId, userId) => {
     supabaseAdmin.from('appointments').select('patient_id').eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds).not('status', 'in', '(cancelled)'),
     supabaseAdmin.from('appointments').select('*, patient:patients(id, name, user_id), doctor:doctors(id, name, specialization)').eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds).eq('appointment_date', today).not('status', 'in', '(cancelled)').order('time_slot', { ascending: true }).limit(25),
     supabaseAdmin.from('appointments').select('*, patient:patients(id, name, user_id), doctor:doctors(id, name, specialization)').eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds).not('status', 'in', '(cancelled)').order('appointment_date', { ascending: false }).limit(10),
+    supabaseAdmin.from('clinic_doctor_invites').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).eq('status', 'pending'),
+    supabaseAdmin.from('appointments').select('id, checked_in_at').eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds).gte('checked_in_at', `${today}T00:00:00.000Z`).not('status', 'in', '(cancelled)'),
+    supabaseAdmin.from('appointments').select('status').eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds).eq('appointment_date', today).not('status', 'in', '(cancelled)'),
   ]);
+
+  const todayByStatus = (todayStatusRows || []).reduce((acc, row) => {
+    acc[row.status] = (acc[row.status] || 0) + 1;
+    return acc;
+  }, {});
+  const pendingAppointmentsToday = todayByStatus.scheduled + todayByStatus.confirmed || 0;
 
   const patientIds = (patientRows || []).map((r) => r.patient_id).filter(Boolean);
   const uniquePatients = new Set(patientIds).size;
@@ -405,7 +482,12 @@ const getDashboard = async (clinicId, userId) => {
       walkInsToday: walkInsToday || 0,
       repeatPatients,
       totalPatients: uniquePatients,
+      activeDoctors: totalDoctors || 0,
+      pendingInvites: pendingInvites || 0,
+      checkedInToday: (checkedInRows || []).length || 0,
+      pendingAppointmentsToday,
     },
+    todayByStatus,
     todayAppointments: todayAppointmentRows || [],
     recentAppointments: recentAppointments || [],
   };
@@ -434,6 +516,13 @@ const updateClinic = async (clinicId, userId, updates) => {
   const safeUpdates = {};
   for (const key of allowedFields) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
+  }
+
+  // opening_hours is stored as TEXT (046); persist arrays as JSON strings
+  if (safeUpdates.opening_hours !== undefined) {
+    safeUpdates.opening_hours = Array.isArray(safeUpdates.opening_hours)
+      ? JSON.stringify(safeUpdates.opening_hours)
+      : String(safeUpdates.opening_hours);
   }
 
   // Backward/forward compatibility for mixed frontend payload keys
@@ -467,6 +556,23 @@ const updateClinic = async (clinicId, userId, updates) => {
   };
 };
 
+// Normalize opening_hours stored as either a JSONB array or a JSON string
+// (046 converted clinics.opening_hours from JSONB to TEXT). Always returns an array.
+const parseOpeningHours = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
 // Get clinic operating schedule
 const getSchedule = async (clinicId, userId) => {
   const { data, error } = await supabaseAdmin
@@ -480,13 +586,14 @@ const getSchedule = async (clinicId, userId) => {
     throw error || new ApiError(404, 'Clinic not found');
   }
 
-  return data.opening_hours || [];
+  return parseOpeningHours(data.opening_hours);
 };
 
 // Update clinic operating schedule
 const updateSchedule = async (clinicId, userId, schedule) => {
+  const normalized = Array.isArray(schedule) ? schedule : [];
   const payload = {
-    opening_hours: schedule || [],
+    opening_hours: JSON.stringify(normalized),
     updated_at: new Date().toISOString(),
   };
 
@@ -499,7 +606,7 @@ const updateSchedule = async (clinicId, userId, schedule) => {
     .single();
 
   if (error) throw error;
-  return data.opening_hours || [];
+  return parseOpeningHours(data.opening_hours);
 };
 
 // Get doctors in clinic
@@ -507,17 +614,55 @@ const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') =
   const offset = (page - 1) * limit;
   const { data, error } = await supabaseAdmin
     .from('clinic_doctors')
-    .select('id, doctor_id, is_active, doctor:doctors(id, user_id, name, specialization, profile_image_url, consultation_fee, is_available)')
+    .select('id, doctor_id, is_active, joined_at, doctor:doctors(id, user_id, name, specialization, profile_image_url, consultation_fee, is_available, is_approved, rating, total_reviews, experience_years)')
     .eq('clinic_id', clinicId)
     .eq('is_active', true);
 
   if (error) throw error;
 
+  const associations = data || [];
+
+  // Today's appointment count per doctor (single query instead of N+1)
+  const today = todayIsoDate();
+  const todayCounts = new Map();
+  if (associations.length > 0) {
+    const { data: todayRows, error: todayError } = await supabaseAdmin
+      .from('appointments')
+      .select('doctor_id')
+      .eq('clinic_id', clinicId)
+      .in('doctor_id', associations.map((a) => a.doctor_id))
+      .eq('appointment_date', today)
+      .not('status', 'in', '(cancelled)');
+
+    if (todayError) throw todayError;
+    for (const row of todayRows || []) {
+      todayCounts.set(row.doctor_id, (todayCounts.get(row.doctor_id) || 0) + 1);
+    }
+  }
+
   const userContactMap = await buildUserContactMap(
-    (data || []).map((association) => association?.doctor?.user_id)
+    associations.map((association) => association?.doctor?.user_id)
   );
 
-  let doctors = (data || []).map((association) => mapClinicDoctorAssociation(association, userContactMap));
+  let doctors = associations.map((association) => {
+    const doctor = association?.doctor || {};
+    const user = doctor?.user_id ? userContactMap.get(doctor.user_id) : null;
+    const isAvailable = doctor.is_available !== false && association.is_active !== false;
+
+    return {
+      ...mapClinicDoctorAssociation(association, userContactMap),
+      is_approved: doctor.is_approved === true,
+      verification: doctor.is_approved === true ? 'verified' : 'pending',
+      rating: parseFloat(doctor.rating) || null,
+      total_reviews: parseInt(doctor.total_reviews) || 0,
+      experience_years: parseInt(doctor.experience_years) || 0,
+      consultation_fee: doctor.consultation_fee ?? null,
+      profile_image_url: doctor.profile_image_url || null,
+      joined_at: association.joined_at || null,
+      is_available: isAvailable,
+      todayAppointments: todayCounts.get(doctor.id) || 0,
+    };
+  });
 
   if (search) {
     const normalizedSearch = search.toLowerCase();
@@ -637,6 +782,8 @@ const getAppointments = async (clinicId, userId, filters = {}, page = 1, limit =
       type,
       reason,
       fee,
+      checked_in_at,
+      checked_in_by,
       created_at,
       patient:patients(
         id,
@@ -836,23 +983,43 @@ const deleteReel = async (clinicId, userId, reelId) => {
 const getClinicDepartments = async (clinicId) => {
   const { data, error } = await supabaseAdmin
     .from('clinic_departments')
-    .select('*')
+    .select('*, headDoctor:doctors(id, name, specialization)')
     .eq('clinic_id', clinicId)
     .eq('is_active', true)
     .order('name', { ascending: true });
 
   if (error) throw error;
-  return data || [];
+
+  return (data || []).map((dept) => ({
+    ...dept,
+    head_doctor_name: dept.headDoctor?.name || null,
+    head_doctor_specialization: dept.headDoctor?.specialization || null,
+    headDoctor: undefined,
+  }));
 };
 
 const addDepartment = async (clinicId, userId, deptData) => {
+  const name = String(deptData.name || '').trim();
+  if (!name) throw new ApiError(400, 'Department name is required');
+
+  const { data: existing } = await supabaseAdmin
+    .from('clinic_departments')
+    .select('id')
+    .eq('clinic_id', clinicId)
+    .ilike('name', name)
+    .maybeSingle();
+
+  if (existing) {
+    throw new ApiError(409, 'A department with this name already exists');
+  }
+
   const { data, error } = await supabaseAdmin
     .from('clinic_departments')
     .insert({
       clinic_id: clinicId,
-      name: deptData.name,
+      name,
       description: deptData.description || null,
-      head_doctor_id: deptData.head_doctor_id || null,
+      head_doctor_id: deptData.head_doctor_id || deptData.headDoctorId || null,
       contact_extension: deptData.contact_extension || null,
     })
     .select('*')
@@ -867,6 +1034,25 @@ const updateDepartment = async (clinicId, userId, departmentId, updates) => {
   const safeUpdates = {};
   for (const key of allowed) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
+  }
+  if (updates.headDoctorId !== undefined) safeUpdates.head_doctor_id = updates.headDoctorId;
+
+  if (safeUpdates.name !== undefined) {
+    const name = String(safeUpdates.name).trim();
+    if (!name) throw new ApiError(400, 'Department name is required');
+    safeUpdates.name = name;
+
+    const { data: existing } = await supabaseAdmin
+      .from('clinic_departments')
+      .select('id')
+      .eq('clinic_id', clinicId)
+      .ilike('name', name)
+      .neq('id', departmentId)
+      .maybeSingle();
+
+    if (existing) {
+      throw new ApiError(409, 'A department with this name already exists');
+    }
   }
 
   const { data, error } = await supabaseAdmin
@@ -935,6 +1121,513 @@ const getAnalytics = async (clinicId, userId, period = '30d') => {
   };
 };
 
+// ── Clinic Doctor Invites ──
+const getClinicInvites = async (clinicId, userId, page = 1, limit = 20, status = '') => {
+  await assertClinicOwner(clinicId, userId);
+
+  const offset = (page - 1) * limit;
+  let query = supabaseAdmin
+    .from('clinic_doctor_invites')
+    .select(`
+      id,
+      clinic_id,
+      doctor_id,
+      status,
+      created_at,
+      responded_at,
+      expires_at,
+      doctor:doctors(id, user_id, name, specialization, profile_image_url, is_approved),
+      invitedBy:users!clinic_doctor_invites_invited_by_fkey(id, name, email)
+    `)
+    .eq('clinic_id', clinicId)
+    .order('created_at', { ascending: false });
+
+  if (status && status !== 'all') query = query.eq('status', status);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const userContactMap = await buildUserContactMap(
+    (data || []).map((invite) => invite?.doctor?.user_id)
+  );
+
+  const invites = (data || []).map((invite) => {
+    const doctor = invite?.doctor || {};
+    const doctorUser = doctor?.user_id ? userContactMap.get(doctor.user_id) : null;
+    return {
+      id: invite.id,
+      clinicId: invite.clinic_id,
+      doctorId: invite.doctor_id,
+      status: invite.status,
+      createdAt: invite.created_at,
+      respondedAt: invite.responded_at,
+      expiresAt: invite.expires_at,
+      invitedByName: invite.invitedBy?.name || 'Clinic Owner',
+      doctor: {
+        id: doctor.id || '',
+        name: doctor.name || 'Doctor',
+        specialization: doctor.specialization || '',
+        email: doctorUser?.email || '',
+        phone: doctorUser?.phone || '',
+        profile_image_url: doctor.profile_image_url || null,
+        is_approved: doctor.is_approved === true,
+      },
+    };
+  });
+
+  const total = invites.length;
+
+  return {
+    data: invites.slice(offset, offset + limit),
+    pagination: { page, limit, total, totalPages: total > 0 ? Math.ceil(total / limit) : 1 },
+  };
+};
+
+const cancelClinicInvite = async (clinicId, userId, inviteId) => {
+  await assertClinicOwner(clinicId, userId);
+
+  const { data: invite, error } = await supabaseAdmin
+    .from('clinic_doctor_invites')
+    .select('id, clinic_id, status')
+    .eq('id', inviteId)
+    .eq('clinic_id', clinicId)
+    .maybeSingle();
+
+  if (error || !invite) {
+    throw new ApiError(404, 'Invite not found');
+  }
+
+  if (invite.status !== 'pending') {
+    throw new ApiError(409, `Only pending invites can be cancelled (current status: ${invite.status})`);
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('clinic_doctor_invites')
+    .update({ status: 'cancelled', responded_at: new Date().toISOString() })
+    .eq('id', invite.id);
+
+  if (updateError) throw updateError;
+  return { id: invite.id, status: 'cancelled' };
+};
+
+// ── Clinic Patients ──
+const getClinicPatients = async (clinicId, userId, { search = '' } = {}, page = 1, limit = 20) => {
+  await assertClinicOwner(clinicId, userId);
+  const activeDoctorIds = await getActiveClinicDoctorIds(clinicId);
+  if (activeDoctorIds.length === 0) {
+    return { data: [], pagination: { page, limit, total: 0, totalPages: 1 } };
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('appointments')
+    .select(`
+      patient_id,
+      status,
+      appointment_date,
+      time_slot,
+      patient:patients(id, name, user_id, date_of_birth, gender, profile_image_url),
+      doctor:doctors(id, name, specialization)
+    `)
+    .eq('clinic_id', clinicId)
+    .in('doctor_id', activeDoctorIds)
+    .not('status', 'in', '(cancelled)')
+    .order('appointment_date', { ascending: false });
+
+  if (error) throw error;
+
+  const patientContactMap = await buildUserContactMap(
+    (data || []).map((appointment) => appointment?.patient?.user_id)
+  );
+
+  const byPatient = new Map();
+  for (const appointment of data || []) {
+    const patient = appointment?.patient || {};
+    if (!patient?.id) continue;
+    const patientUser = patient.user_id ? patientContactMap.get(patient.user_id) : null;
+
+    if (!byPatient.has(patient.id)) {
+      byPatient.set(patient.id, {
+        id: patient.id,
+        name: patient.name || 'Patient',
+        phone: patientUser?.phone || '',
+        email: patientUser?.email || '',
+        gender: patient.gender || null,
+        dateOfBirth: patient.date_of_birth || null,
+        profile_image_url: patient.profile_image_url || null,
+        totalVisits: 0,
+        lastVisit: null,
+        lastVisitDoctor: null,
+        nextAppointment: null,
+        upcomingCount: 0,
+        lastStatus: null,
+      });
+    }
+
+    const record = byPatient.get(patient.id);
+    record.totalVisits += 1;
+
+    const isUpcoming = ['scheduled', 'confirmed'].includes(appointment.status);
+    if (isUpcoming && (!record.nextAppointment || appointment.appointment_date < record.nextAppointment.appointment_date)) {
+      record.nextAppointment = {
+        appointment_date: appointment.appointment_date,
+        time_slot: appointment.time_slot,
+        status: appointment.status,
+        doctorName: appointment.doctor?.name || 'Doctor',
+      };
+      record.upcomingCount += 1;
+    }
+
+    if (appointment.appointment_date >= (record.lastVisit || '1970-01-01')) {
+      if (!record.lastVisit || appointment.appointment_date > record.lastVisit) {
+        record.lastVisit = appointment.appointment_date;
+        record.lastVisitDoctor = appointment.doctor?.name || null;
+        record.lastStatus = appointment.status;
+      }
+    }
+  }
+
+  let patients = [...byPatient.values()];
+
+  if (search) {
+    const normalized = search.toLowerCase();
+    patients = patients.filter((patient) =>
+      [patient.name, patient.phone, patient.email]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalized))
+    );
+  }
+
+  patients.sort((a, b) => b.totalVisits - a.totalVisits);
+  const total = patients.length;
+  const offset = (page - 1) * limit;
+
+  return {
+    data: patients.slice(offset, offset + limit),
+    pagination: { page, limit, total, totalPages: total > 0 ? Math.ceil(total / limit) : 1 },
+  };
+};
+
+const getClinicPatientDetails = async (clinicId, userId, patientId) => {
+  await assertClinicOwner(clinicId, userId);
+  const activeDoctorIds = await getActiveClinicDoctorIds(clinicId);
+  if (activeDoctorIds.length === 0) {
+    throw new ApiError(403, 'Clinic has no active doctors to establish patient relationship');
+  }
+
+  // Fetch all appointments for this patient at this clinic with active doctors
+  const { data: appointments, error: appointmentsError } = await supabaseAdmin
+    .from('appointments')
+    .select(`
+      id,
+      status,
+      appointment_date,
+      time_slot,
+      consultation_type,
+      payment_status,
+      doctor:doctors(id, name, specialization)
+    `)
+    .eq('clinic_id', clinicId)
+    .eq('patient_id', patientId)
+    .in('doctor_id', activeDoctorIds)
+    .order('appointment_date', { ascending: false });
+
+  if (appointmentsError) throw appointmentsError;
+
+  if (!appointments || appointments.length === 0) {
+    throw new ApiError(403, 'Patient has no relationship with this clinic');
+  }
+
+  // Fetch patient profile
+  const { data: patient, error: patientError } = await supabaseAdmin
+    .from('patients')
+    .select('id, name, date_of_birth, gender, profile_image_url, user_id')
+    .eq('id', patientId)
+    .single();
+
+  if (patientError || !patient) throw patientError || new ApiError(404, 'Patient not found');
+
+  // Fetch user email/phone
+  let email = null;
+  let phone = null;
+  if (patient.user_id) {
+    const { data: user } = await supabaseAdmin
+      .from('users')
+      .select('email, phone')
+      .eq('id', patient.user_id)
+      .single();
+    if (user) {
+      email = user.email;
+      phone = user.phone;
+    }
+  }
+
+  // Calculate metrics
+  const doctorsSeenMap = new Map();
+  let nextAppointment = null;
+  let lastVisit = null;
+
+  for (const appt of appointments) {
+    if (appt.doctor) {
+      if (!doctorsSeenMap.has(appt.doctor.id)) {
+        doctorsSeenMap.set(appt.doctor.id, {
+          id: appt.doctor.id,
+          name: appt.doctor.name,
+          specialization: appt.doctor.specialization,
+          visitCount: 0
+        });
+      }
+      doctorsSeenMap.get(appt.doctor.id).visitCount++;
+    }
+
+    const isUpcoming = ['scheduled', 'confirmed'].includes(appt.status);
+    if (isUpcoming && (!nextAppointment || appt.appointment_date < nextAppointment.appointment_date)) {
+      nextAppointment = appt;
+    }
+
+    if (appt.status === 'completed' && (!lastVisit || appt.appointment_date > lastVisit.appointment_date)) {
+      lastVisit = appt;
+    }
+  }
+
+  return {
+    patient: {
+      ...patient,
+      email,
+      phone,
+    },
+    metrics: {
+      totalVisits: appointments.length,
+      nextAppointment,
+      lastVisit,
+    },
+    appointments,
+    doctorsSeen: Array.from(doctorsSeenMap.values()).sort((a, b) => b.visitCount - a.visitCount)
+  };
+};
+
+// ── Clinic Appointment Workflow ──
+// Clinic front desk may confirm/cancel/mark-no-show/reschedule/check-in
+// appointments of its own active doctors. Clinical statuses (in_progress,
+// completed) remain exclusively doctor-controlled via appointmentService.
+const CLINIC_STATUS_TRANSITIONS = {
+  scheduled: ['confirmed', 'cancelled', 'no_show'],
+  confirmed: ['cancelled', 'no_show'],
+};
+
+const updateAppointmentStatusForClinic = async (clinicId, userId, appointmentId, status, reason = '') => {
+  await assertClinicOwner(clinicId, userId);
+
+  const appointment = await getClinicScopedAppointment(clinicId, appointmentId);
+
+  const allowed = CLINIC_STATUS_TRANSITIONS[appointment.status];
+  if (!allowed || !allowed.includes(status)) {
+    throw new ApiError(400, `Cannot transition clinic appointment from '${appointment.status}' to '${status}'`);
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data: updated, error } = await supabaseAdmin
+    .from('appointments')
+    .update({
+      status,
+      cancellation_reason: status === 'cancelled' ? (reason || 'Cancelled by clinic') : null,
+      cancelled_by: status === 'cancelled' ? userId : null,
+      cancelled_at: status === 'cancelled' ? nowIso : null,
+      status_history: appendStatusHistory(appointment.status_history, {
+        from: appointment.status,
+        to: status,
+        by: 'clinic',
+        actor_user_id: userId,
+        at: nowIso,
+      }),
+      updated_at: nowIso,
+    })
+    .eq('id', appointment.id)
+    .select('*, patient:patients(id, name, user_id), doctor:doctors(id, name, specialization, user_id)')
+    .single();
+
+  if (error || !updated) throw error || new ApiError(404, 'Appointment not found');
+
+  const patientUser = updated.patient?.user_id;
+  const doctorUser = updated.doctor?.user_id;
+
+  await invalidatePatientDoctorCaches(patientUser, doctorUser);
+
+  eventEmitter.emitAppointmentUpdated({
+    ...updated,
+    doctor_id: doctorUser || updated.doctor_id,
+    patient_id: patientUser || updated.patient_id,
+  });
+
+  await Promise.allSettled([
+    patientUser ? notificationService.sendNotification(patientUser, {
+      title: status === 'no_show' ? '⚠️ Appointment Marked as No Show' : '🩺 Appointment Updated',
+      message: status === 'no_show'
+        ? `Your appointment at the clinic on ${updated.appointment_date} at ${updated.time_slot} was marked as a no-show.`
+        : `Your appointment at the clinic on ${updated.appointment_date} at ${updated.time_slot} is now ${status.replace('_', ' ')}.`,
+      type: 'appointment_status_changed',
+      data: { appointmentId: updated.id, status },
+    }) : Promise.resolve(),
+    doctorUser ? notificationService.sendNotification(doctorUser, {
+      title: status === 'no_show' ? '📭 Patient No Show' : '🩺 Appointment Updated',
+      message: `Appointment with ${updated.patient?.name || 'patient'} on ${updated.appointment_date} at ${updated.time_slot} is now ${status.replace('_', ' ')}.`,
+      type: 'appointment_status_changed',
+      data: { appointmentId: updated.id, status },
+    }) : Promise.resolve(),
+  ]);
+
+  return updated;
+};
+
+const rescheduleClinicAppointment = async (clinicId, userId, appointmentId, date, timeSlot) => {
+  await assertClinicOwner(clinicId, userId);
+
+  const appointment = await getClinicScopedAppointment(clinicId, appointmentId);
+
+  if (!['scheduled', 'confirmed'].includes(appointment.status)) {
+    throw new ApiError(400, 'Only scheduled or confirmed appointments can be rescheduled');
+  }
+
+  const { data: conflicts } = await supabaseAdmin
+    .from('appointments')
+    .select('id')
+    .eq('doctor_id', appointment.doctor_id)
+    .eq('appointment_date', date)
+    .eq('time_slot', timeSlot)
+    .in('status', ['scheduled', 'confirmed'])
+    .neq('id', appointment.id)
+    .limit(1);
+
+  if (conflicts && conflicts.length > 0) {
+    throw new ApiError(409, 'The new time slot is already booked');
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data: updated, error } = await supabaseAdmin
+    .from('appointments')
+    .update({
+      appointment_date: date,
+      time_slot: timeSlot,
+      status: appointment.status,
+      status_history: appendStatusHistory(appointment.status_history, {
+        from: 'reschedule',
+        to: `${date} ${timeSlot}`,
+        by: 'clinic',
+        actor_user_id: userId,
+        at: nowIso,
+      }),
+      updated_at: nowIso,
+    })
+    .eq('id', appointment.id)
+    .in('status', ['scheduled', 'confirmed'])
+    .select('*, patient:patients(id, name, user_id), doctor:doctors(id, name, specialization, user_id)')
+    .single();
+
+  if (error || !updated) {
+    throw new ApiError(409, 'Appointment was modified by another request. Please try again.');
+  }
+
+  const patientUser = updated.patient?.user_id;
+  const doctorUser = updated.doctor?.user_id;
+
+  await invalidatePatientDoctorCaches(patientUser, doctorUser);
+
+  eventEmitter.emitAppointmentUpdated({
+    ...updated,
+    doctor_id: doctorUser || updated.doctor_id,
+    patient_id: patientUser || updated.patient_id,
+  });
+
+  await Promise.allSettled([
+    patientUser ? notificationService.sendNotification(patientUser, {
+      title: '🔁 Appointment Rescheduled',
+      message: `Your clinic appointment is now on ${date} at ${timeSlot}.`,
+      type: 'appointment_rescheduled',
+      data: { appointmentId: updated.id, date, timeSlot },
+    }) : Promise.resolve(),
+    doctorUser ? notificationService.sendNotification(doctorUser, {
+      title: '🔁 Appointment Rescheduled',
+      message: `A clinic appointment was rescheduled to ${date} at ${timeSlot}.`,
+      type: 'appointment_rescheduled',
+      data: { appointmentId: updated.id, date, timeSlot },
+    }) : Promise.resolve(),
+  ]);
+
+  return updated;
+};
+
+const checkInAppointment = async (clinicId, userId, appointmentId) => {
+  await assertClinicOwner(clinicId, userId);
+
+  const appointment = await getClinicScopedAppointment(clinicId, appointmentId);
+
+  if (!['scheduled', 'confirmed'].includes(appointment.status)) {
+    throw new ApiError(400, `Only scheduled or confirmed appointments can be checked in (current: ${appointment.status})`);
+  }
+
+  if (appointment.checked_in_at) {
+    throw new ApiError(409, 'Patient is already checked in');
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data: updated, error } = await supabaseAdmin
+    .from('appointments')
+    .update({
+      checked_in_at: nowIso,
+      checked_in_by: userId,
+      status_history: appendStatusHistory(appointment.status_history, {
+        from: appointment.status,
+        to: 'checked_in',
+        by: 'clinic',
+        actor_user_id: userId,
+        at: nowIso,
+      }),
+      updated_at: nowIso,
+    })
+    .eq('id', appointment.id)
+    .select('*, patient:patients(id, name, user_id), doctor:doctors(id, name, specialization, user_id)')
+    .single();
+
+  if (error || !updated) throw error || new ApiError(404, 'Appointment not found');
+
+  const patientUser = updated.patient?.user_id;
+  const doctorUser = updated.doctor?.user_id;
+
+  await invalidatePatientDoctorCaches(patientUser, doctorUser);
+
+  // Real-time: clinic dashboard refresh + doctor "patient arrived" signal.
+  eventEmitter.emitAppointmentUpdated({
+    ...updated,
+    doctor_id: doctorUser || updated.doctor_id,
+    patient_id: patientUser || updated.patient_id,
+  });
+  if (doctorUser) {
+    eventEmitter.notifyUser(doctorUser, 'appointment:check-in', {
+      appointmentId: updated.id,
+      appointmentDate: updated.appointment_date,
+      timeSlot: updated.time_slot,
+      patientName: updated.patient?.name || 'Patient',
+      checkedInAt: nowIso,
+    });
+  }
+
+  await Promise.allSettled([
+    doctorUser ? notificationService.sendNotification(doctorUser, {
+      title: '✅ Patient Checked In',
+      message: `${updated.patient?.name || 'Patient'} has checked in for the ${updated.time_slot} appointment.`,
+      type: 'appointment_check_in',
+      data: { appointmentId: updated.id, appointmentDate: updated.appointment_date, timeSlot: updated.time_slot },
+    }) : Promise.resolve(),
+    patientUser ? notificationService.sendNotification(patientUser, {
+      title: '✅ You Are Checked In',
+      message: `You have been checked in at the clinic. ${updated.doctor?.name ? `Dr. ${updated.doctor.name} will see you shortly.` : ''}`,
+      type: 'appointment_check_in',
+      data: { appointmentId: updated.id },
+    }) : Promise.resolve(),
+  ]);
+
+  return updated;
+};
+
 module.exports = {
   searchClinics,
   findNearby,
@@ -958,4 +1651,11 @@ module.exports = {
   updateDepartment,
   deleteDepartment,
   getAnalytics,
+  getClinicInvites,
+  cancelClinicInvite,
+  getClinicPatients,
+  getClinicPatientDetails,
+  updateAppointmentStatusForClinic,
+  rescheduleClinicAppointment,
+  checkInAppointment,
 };

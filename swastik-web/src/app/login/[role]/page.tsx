@@ -33,15 +33,6 @@ const ROLE_CONFIG: Record<string, {
     bgColor: string;
     hoverColor: string;
 }> = {
-    admin: {
-        role: 'admin',
-        title: 'Admin Portal',
-        subtitle: 'Platform control center',
-        icon: Shield,
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-600',
-        hoverColor: 'hover:bg-blue-700',
-    },
     doctor: {
         role: 'doctor',
         title: 'Doctor Portal',

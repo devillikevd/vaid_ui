@@ -2,8 +2,36 @@ import React, { useRef, useState } from 'react';
 import { Upload, FileText, Image as ImageIcon, X, CheckCircle2 } from 'lucide-react';
 
 export function Step4Documents({ data, updateData, nextStep, prevStep }: any) {
+    const [errorMsg, setErrorMsg] = useState('');
+
     const handleContinue = (e: React.FormEvent) => {
         e.preventDefault();
+        setErrorMsg('');
+
+        if (!data.registrationCert) {
+            setErrorMsg('Medical Registration Certificate is required.');
+            return;
+        }
+
+        if (!data.mbbsCert) {
+            setErrorMsg('MBBS/Degree Certificate is required.');
+            return;
+        }
+        
+        const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+        if (data.profilePhoto && data.profilePhoto.size > MAX_SIZE) {
+            setErrorMsg('Profile photo must be less than 10MB.');
+            return;
+        }
+        if (data.registrationCert && data.registrationCert.size > MAX_SIZE) {
+            setErrorMsg('Registration certificate must be less than 10MB.');
+            return;
+        }
+        if (data.mbbsCert && data.mbbsCert.size > MAX_SIZE) {
+            setErrorMsg('Degree certificate must be less than 10MB.');
+            return;
+        }
+
         nextStep();
     };
 
@@ -127,6 +155,12 @@ export function Step4Documents({ data, updateData, nextStep, prevStep }: any) {
                         field="aadhaarCard" 
                     />
                 </div>
+
+                {errorMsg && (
+                    <div className="text-red-500 text-[13px] bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg flex items-center gap-2">
+                        <span>{errorMsg}</span>
+                    </div>
+                )}
 
                 <div className="pt-6 flex gap-4">
                     <button

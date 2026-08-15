@@ -94,8 +94,8 @@ export const ROLE_HOME_ROUTES: Record<UserRole, string> = {
 };
 
 export const ROLE_LOGIN_ROUTES: Record<UserRole, string> = {
-    admin: '/login/admin',
-    super_admin: '/login/admin',
+    admin: '/admin/login',
+    super_admin: '/admin/login',
     doctor: '/login/doctor',
     patient: '/',
     hospital_owner: '/login/hospital',
