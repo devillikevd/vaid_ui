@@ -560,6 +560,14 @@ const register = async (userData) => {
   // Cleanup the verified OTP record so it cannot be reused
   await supabaseAdmin.from('otp_verifications').delete().eq('id', verifiedOtp.id);
 
+  // Link any pending platform invites to this newly registered user
+  try {
+    const platformInviteService = require('./platformInviteService');
+    await platformInviteService.linkPlatformInvites(user.id, user.email);
+  } catch (inviteError) {
+    console.error('Failed to link platform invites during registration:', inviteError);
+  }
+
   const { password_hash: _, ...safeUser } = user;
 
   return {

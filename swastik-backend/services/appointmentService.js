@@ -285,7 +285,7 @@ const bookAppointment = async (patientId, appointmentData) => {
   // Verify doctor exists
   const { data: doctor } = await supabaseAdmin
     .from('doctors')
-    .select('id, user_id, name, consultation_fee, hospital_id')
+    .select('id, user_id, name, consultation_fee, hospital_id, is_approved')
     .eq('id', doctorId)
     .single();
 
@@ -334,6 +334,52 @@ const bookAppointment = async (patientId, appointmentData) => {
       resolvedClinicId = Array.from(doctorClinicIds)[0];
     } else if (doctorHospitalIds.size === 1 && doctorClinicIds.size === 0) {
       resolvedHospitalId = Array.from(doctorHospitalIds)[0];
+    }
+  }
+
+  if (normalizedType === 'in_person') {
+    // 1. Verified
+    if (!doctor.is_approved) {
+      throw new ApiError(400, 'Doctor must be verified to offer in-person consultations');
+    }
+
+    // 2. Active Affiliation
+    if (!resolvedHospitalId && !resolvedClinicId) {
+      throw new ApiError(400, 'In-person consultations require an active clinic or hospital affiliation');
+    }
+
+    // 3. Organization Enabled
+    if (resolvedClinicId) {
+      const { data: clinic } = await supabaseAdmin.from('clinics').select('is_active').eq('id', resolvedClinicId).single();
+      if (!clinic || !clinic.is_active) {
+        throw new ApiError(400, 'Selected clinic is not currently active');
+      }
+    } else if (resolvedHospitalId) {
+      const { data: hospital } = await supabaseAdmin.from('hospitals').select('is_active').eq('id', resolvedHospitalId).single();
+      if (!hospital || !hospital.is_active) {
+        throw new ApiError(400, 'Selected hospital is not currently active');
+      }
+    }
+
+    // 4. Valid Schedule
+    const dayOfWeek = new Date(date).toLocaleString('en-US', { weekday: 'long' });
+    let scheduleQuery = supabaseAdmin
+      .from('doctor_schedules')
+      .select('id')
+      .eq('doctor_id', doctorId)
+      .eq('day_of_week', dayOfWeek)
+      .eq('is_active', true)
+      .eq('consultation_mode', 'in-person');
+
+    if (resolvedClinicId) {
+      scheduleQuery = scheduleQuery.eq('clinic_id', resolvedClinicId);
+    } else if (resolvedHospitalId) {
+      scheduleQuery = scheduleQuery.eq('hospital_id', resolvedHospitalId);
+    }
+
+    const { data: schedules } = await scheduleQuery;
+    if (!schedules || schedules.length === 0) {
+      throw new ApiError(400, `Doctor does not have a valid in-person schedule at the selected location on ${dayOfWeek}s`);
     }
   }
 

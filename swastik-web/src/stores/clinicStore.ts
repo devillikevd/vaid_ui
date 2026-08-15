@@ -88,6 +88,9 @@ export interface ClinicInvite {
         profile_image_url?: string | null;
         is_approved: boolean;
     };
+    is_join_request?: boolean;
+    message?: string;
+    department?: string;
 }
 
 export interface ClinicPatient {
@@ -195,6 +198,8 @@ function normalizeClinicInvite(raw: Record<string, any>): ClinicInvite {
         respondedAt: raw.respondedAt || raw.responded_at || null,
         expiresAt: raw.expiresAt || raw.expires_at || null,
         invitedByName: raw.invitedByName || 'Clinic Owner',
+        message: raw.message || null,
+        department: raw.department || null,
         doctor: {
             id: doctor.id || '',
             name: doctor.name || 'Doctor',
@@ -204,6 +209,7 @@ function normalizeClinicInvite(raw: Record<string, any>): ClinicInvite {
             profile_image_url: doctor.profile_image_url || null,
             is_approved: doctor.is_approved === true,
         },
+        is_join_request: raw.is_join_request === true || raw.type === 'join_request',
     };
 }
 
@@ -280,10 +286,13 @@ interface ClinicState {
     consultationsPagination: PaginationState;
     analytics: ClinicAnalytics | null;
     invites: ClinicInvite[];
+    joinRequests: ClinicInvite[];
     invitesPagination: PaginationState;
+    joinRequestsPagination: PaginationState;
     patients: ClinicPatient[];
     patientsPagination: PaginationState;
     loadingInvites: boolean;
+    loadingJoinRequests: boolean;
     loadingPatients: boolean;
 
     fetchDashboardData: () => Promise<void>;
@@ -292,7 +301,7 @@ interface ClinicState {
     fetchSchedule: () => Promise<void>;
     fetchReviews: (page?: number) => Promise<void>;
     updateSchedule: (schedule: Record<string, unknown>) => Promise<boolean>;
-    addDoctor: (data: Record<string, string>) => Promise<boolean>;
+    addDoctor: (data: Record<string, any>) => Promise<boolean>;
     removeDoctor: (doctorId: string) => Promise<boolean>;
     fetchDepartments: () => Promise<void>;
     addDepartment: (data: Record<string, unknown>) => Promise<boolean>;
@@ -301,7 +310,9 @@ interface ClinicState {
     fetchConsultations: (params?: { page?: number; limit?: number; search?: string; status?: string }) => Promise<void>;
     fetchAnalytics: (period?: string) => Promise<void>;
     fetchInvites: (params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
+    fetchJoinRequests: (params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
     cancelInvite: (inviteId: string) => Promise<boolean>;
+    respondToJoinRequest: (requestId: string, decision: 'accept' | 'reject', message?: string) => Promise<boolean>;
     fetchPatients: (params?: { page?: number; limit?: number; search?: string }) => Promise<void>;
     updateAppointmentStatus: (appointmentId: string, status: string, reason?: string) => Promise<boolean>;
     rescheduleAppointment: (appointmentId: string, date: string, timeSlot: string) => Promise<boolean>;
@@ -347,10 +358,13 @@ const clinicInitialState = {
     consultationsPagination: { ...defaultPagination },
     analytics: null as ClinicAnalytics | null,
     invites: [] as ClinicInvite[],
+    joinRequests: [] as ClinicInvite[],
     invitesPagination: { ...defaultPagination },
+    joinRequestsPagination: { ...defaultPagination },
     patients: [] as ClinicPatient[],
     patientsPagination: { ...defaultPagination },
     loadingInvites: false,
+    loadingJoinRequests: false,
     loadingPatients: false,
 };
 
@@ -740,6 +754,56 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
         } catch (error) {
             console.error('Error cancelling invite:', error);
             set({ error: 'Failed to cancel invite.' });
+            return false;
+        }
+    },
+
+    fetchJoinRequests: async (params = {}) => {
+        set({ loadingJoinRequests: true, error: null });
+        try {
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await clinicApi.getJoinRequests({ page, limit, status: params.status });
+            if (!response.success) {
+                set({ error: response.error || 'Failed to load join requests', loadingJoinRequests: false });
+                return;
+            }
+            const rawData = response.data;
+            const joinRequests = (Array.isArray(rawData) ? rawData : (rawData as any)?.requests || (rawData as any)?.data || [])
+                .map((r: any) => normalizeClinicInvite({ ...r, type: 'join_request' })) as ClinicInvite[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
+            set({
+                joinRequests,
+                joinRequestsPagination: pagination ? {
+                    page: pagination.page || page,
+                    totalPages: pagination.totalPages || 1,
+                    total: pagination.total || joinRequests.length,
+                    hasMore: (pagination.page || page) < (pagination.totalPages || 1),
+                } : { ...defaultPagination, total: joinRequests.length },
+                loadingJoinRequests: false,
+            });
+        } catch (error) {
+            console.error('Error fetching join requests:', error);
+            set({ error: 'Failed to load join requests.', loadingJoinRequests: false });
+        }
+    },
+
+    respondToJoinRequest: async (requestId, decision, message) => {
+        try {
+            const response = await clinicApi.respondToJoinRequest(requestId, decision, message);
+            if (response.success) {
+                await Promise.allSettled([
+                    get().fetchJoinRequests({ status: 'pending' }),
+                    get().fetchDoctors(),
+                    get().fetchDashboardData(),
+                ]);
+                return true;
+            }
+            set({ error: response.error || `Failed to ${decision} join request` });
+            return false;
+        } catch (error) {
+            console.error(`Error responding to join request:`, error);
+            set({ error: `Failed to ${decision} join request.` });
             return false;
         }
     },

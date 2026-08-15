@@ -683,7 +683,7 @@ const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') =
 };
 
 // Add doctor to clinic
-const addDoctor = async (clinicId, userId, doctorId) => {
+const addDoctor = async (clinicId, userId, doctorId, options = {}) => {
   const { data: doctor, error: doctorError } = await supabaseAdmin
     .from('doctors')
     .select('id, name')
@@ -740,11 +740,39 @@ const addDoctor = async (clinicId, userId, doctorId) => {
       invited_by: userId,
       status: 'pending',
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      practice_type: options.practiceType || null,
+      consultation_modes: options.consultationModes || [],
+      schedule: options.schedule || {},
+      fee_amount: options.feeAmount || null,
+      payout_terms: options.payoutTerms || null,
+      start_date: options.startDate || null,
     })
     .select('*, clinic:clinics(name, city), doctor:doctors(name, specialization)')
     .single());
 
   if (error) throw error;
+
+  // Notify the doctor
+  if (doctor.user_id || data.doctor?.user_id) {
+    // If the select('*, doctor:doctors(...)') doesn't pull user_id, fetch it
+    let docUserId = doctor.user_id || data.doctor?.user_id;
+    if (!docUserId) {
+      const { data: d } = await supabaseAdmin.from('doctors').select('user_id').eq('id', doctorId).single();
+      docUserId = d?.user_id;
+    }
+    
+    if (docUserId) {
+      notificationService.sendNotification(docUserId, {
+        title: 'New Clinic Invitation',
+        message: `You have been invited to join ${data.clinic?.name || 'a clinic'}.`,
+        type: 'clinic_invite',
+        category: 'clinic',
+        data: { inviteId: data.id, clinicId },
+        action_url: '/doctor/care-networks?tab=invitations'
+      }).catch(err => console.error('Failed to notify doctor of clinic invite', err));
+    }
+  }
+
   return data;
 };
 
@@ -1210,6 +1238,154 @@ const cancelClinicInvite = async (clinicId, userId, inviteId) => {
   return { id: invite.id, status: 'cancelled' };
 };
 
+// ── Doctor Join Requests ──
+
+const getClinicJoinRequests = async (clinicId, userId, page = 1, limit = 10, status = 'all') => {
+  await assertClinicOwner(clinicId, userId);
+  const offset = (page - 1) * limit;
+
+  let query = supabaseAdmin
+    .from('doctor_clinic_join_requests')
+    .select(`
+      *,
+      doctor:doctors(id, name, specialization, profile_image_url, user_id, rating, total_reviews, experience_years)
+    `, { count: 'exact' })
+    .eq('clinic_id', clinicId);
+
+  if (status && status !== 'all') {
+    query = query.eq('status', status);
+  }
+
+  const { data, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    throw new ApiError(500, 'Failed to fetch join requests');
+  }
+
+  // Enrich with user email/phone
+  const userContactMap = await buildUserContactMap(
+    (data || []).map((req) => req?.doctor?.user_id)
+  );
+
+  const requests = (data || []).map((req) => {
+    const doctor = req?.doctor || {};
+    const doctorUser = doctor?.user_id ? userContactMap.get(doctor.user_id) : null;
+    return {
+      id: req.id,
+      clinicId: req.clinic_id,
+      doctorId: req.doctor_id,
+      status: req.status,
+      message: req.message,
+      specialization: req.specialization,
+      department: req.department,
+      practiceType: req.practice_type,
+      consultationModes: req.consultation_modes,
+      preferredDays: req.preferred_days,
+      preferredStartTime: req.preferred_start_time,
+      preferredEndTime: req.preferred_end_time,
+      preferredStartDate: req.preferred_start_date,
+      createdAt: req.created_at,
+      respondedAt: req.responded_at,
+      responseMessage: req.response_message,
+      doctor: {
+        id: doctor.id || '',
+        name: doctor.name || 'Doctor',
+        specialization: doctor.specialization || '',
+        email: doctorUser?.email || '',
+        phone: doctorUser?.phone || '',
+        profile_image_url: doctor.profile_image_url || null,
+        rating: doctor.rating,
+        total_reviews: doctor.total_reviews,
+        experience_years: doctor.experience_years,
+      },
+    };
+  });
+
+  return {
+    data: requests,
+    pagination: { page, limit, total: count || 0, totalPages: count > 0 ? Math.ceil(count / limit) : 1 },
+  };
+};
+
+const respondToJoinRequest = async (clinicId, userId, requestId, decision, responseMessage = '') => {
+  await assertClinicOwner(clinicId, userId);
+
+  if (!['accept', 'reject'].includes(decision)) {
+    throw new ApiError(400, "Decision must be 'accept' or 'reject'");
+  }
+
+  const { data: request, error } = await supabaseAdmin
+    .from('doctor_clinic_join_requests')
+    .select('*, doctor:doctors(id, name, user_id), clinic:clinics(name)')
+    .eq('id', requestId)
+    .eq('clinic_id', clinicId)
+    .single();
+
+  if (error || !request) {
+    throw new ApiError(404, 'Join request not found');
+  }
+
+  if (request.status !== 'pending') {
+    throw new ApiError(400, `This request has already been processed (status: ${request.status})`);
+  }
+
+  const newStatus = decision === 'accept' ? 'accepted' : 'rejected';
+
+  // 1. Update request status
+  const { error: updateError } = await supabaseAdmin
+    .from('doctor_clinic_join_requests')
+    .update({
+      status: newStatus,
+      response_message: responseMessage,
+      responded_at: new Date().toISOString(),
+      responded_by: userId
+    })
+    .eq('id', requestId);
+
+  if (updateError) {
+    throw new ApiError(500, 'Failed to update request status');
+  }
+
+  // 2. If accepted, create clinic_doctors association
+  if (decision === 'accept') {
+    const { error: assocError } = await supabaseAdmin
+      .from('clinic_doctors')
+      .upsert({
+        clinic_id: clinicId,
+        doctor_id: request.doctor_id,
+        is_active: true,
+        // Optional default empty schedule. The clinic can negotiate/edit this later.
+        schedule: []
+      }, { onConflict: 'clinic_id, doctor_id' });
+
+    if (assocError) {
+      console.error('Failed to create clinic_doctors association', assocError);
+    }
+  }
+
+  // 3. Notify the doctor
+  if (request.doctor?.user_id) {
+    const title = decision === 'accept' ? 'Join Request Accepted' : 'Join Request Declined';
+    const message = decision === 'accept' 
+      ? `Your request to join ${request.clinic?.name} has been approved.`
+      : `Your request to join ${request.clinic?.name} was declined. ${responseMessage ? `Reason: ${responseMessage}` : ''}`;
+
+    notificationService.sendNotification(request.doctor.user_id, {
+      title,
+      message,
+      type: 'join_request_response',
+      category: 'clinic',
+      data: { joinRequestId: request.id, clinicId, status: newStatus },
+      action_url: '/doctor/care-networks?tab=requests'
+    }).catch(err => console.error('Failed to notify doctor', err));
+  }
+
+  return { id: requestId, status: newStatus };
+};
+
+
 // ── Clinic Patients ──
 const getClinicPatients = async (clinicId, userId, { search = '' } = {}, page = 1, limit = 20) => {
   await assertClinicOwner(clinicId, userId);
@@ -1653,6 +1829,8 @@ module.exports = {
   getAnalytics,
   getClinicInvites,
   cancelClinicInvite,
+  getClinicJoinRequests,
+  respondToJoinRequest,
   getClinicPatients,
   getClinicPatientDetails,
   updateAppointmentStatusForClinic,

@@ -131,6 +131,42 @@ router.delete('/doctors/:doctorId', requireRole(ROLES.HOSPITAL_OWNER), [
     res.json({ success: true });
 }));
 
+// ── Doctor Join Requests (Doctor Initiated) ──
+
+router.get('/join-requests', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const { status, page = 1, limit = 20 } = req.query;
+    const result = await hospitalManagerService.getHospitalJoinRequests(hospital.id, req.user.id, parseInt(page), parseInt(limit), status);
+    res.json({ success: true, ...result });
+}));
+
+router.post('/join-requests/:requestId/respond', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    param('requestId').isUUID().withMessage('Invalid request ID'),
+    body('decision').isIn(['accept', 'reject']).withMessage('Decision must be accept or reject'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const result = await hospitalManagerService.respondToJoinRequest(hospital.id, req.user.id, req.params.requestId, req.body.decision, req.body.message);
+    res.json({ success: true, ...result });
+}));
+
+// ── Platform Invites (Unknown Emails) ──
+
+router.post('/platform-invite', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    body('email').isEmail().withMessage('Valid email is required'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const platformInviteService = require('../services/platformInviteService');
+    const result = await platformInviteService.sendPlatformInvite(
+        req.user.id,
+        req.body.email,
+        'hospital',
+        hospital.id,
+        req.body.message
+    );
+    res.json({ success: true, ...result });
+}));
 // Associated pharmacies
 router.get('/pharmacies', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);

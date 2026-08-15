@@ -507,14 +507,41 @@ const inviteDoctor = async (hospitalId, userId, data) => {
       doctor_id: resolvedDoctorId,
       invited_by: userId,
       department,
-      schedule,
+      schedule: schedule || {},
       status: 'pending',
       expires_at: inviteExpiresAt,
+      practice_type: data.practiceType || null,
+      consultation_modes: data.consultationModes || [],
+      fee_amount: data.feeAmount || null,
+      payout_terms: data.payoutTerms || null,
+      start_date: data.startDate || null,
     })
     .select('*, doctor:doctors(name, specialization), hospital:hospitals(name, city)')
     .single();
 
   if (error) throw error;
+
+  // Notify the doctor
+  if (doctor.user_id || invite.doctor?.user_id) {
+    let docUserId = doctor.user_id || invite.doctor?.user_id;
+    if (!docUserId) {
+      const { data: d } = await supabaseAdmin.from('doctors').select('user_id').eq('id', resolvedDoctorId).single();
+      docUserId = d?.user_id;
+    }
+
+    if (docUserId) {
+      const notificationService = require('./notificationService');
+      notificationService.sendNotification(docUserId, {
+        title: 'New Hospital Invitation',
+        message: `You have been invited to join ${invite.hospital?.name || 'a hospital'}.`,
+        type: 'hospital_invite',
+        category: 'hospital',
+        data: { inviteId: invite.id, hospitalId },
+        action_url: '/doctor/care-networks?tab=invitations'
+      }).catch(err => console.error('Failed to notify doctor of hospital invite', err));
+    }
+  }
+
   return { data: invite, message: 'Invitation sent. Doctor must accept before being assigned.' };
 };
 
@@ -1012,6 +1039,113 @@ const deleteReel = async (hospitalId, userId, reelId) => {
   return true;
 };
 
+// ── Doctor Join Requests ──
+
+const getHospitalJoinRequests = async (hospitalId, userId, page = 1, limit = 10, status = 'all') => {
+  const offset = (page - 1) * limit;
+
+  let query = supabaseAdmin
+    .from('doctor_hospital_join_requests')
+    .select(`
+      *,
+      doctor:doctors(id, name, specialization, profile_image_url, user_id, rating, total_reviews, experience_years)
+    `, { count: 'exact' })
+    .eq('hospital_id', hospitalId);
+
+  if (status && status !== 'all') {
+    query = query.eq('status', status);
+  }
+
+  const { data, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    throw new ApiError(500, 'Failed to fetch join requests');
+  }
+
+  return {
+    data: data || [],
+    pagination: { page, limit, total: count || 0, totalPages: count > 0 ? Math.ceil(count / limit) : 1 },
+  };
+};
+
+const respondToJoinRequest = async (hospitalId, userId, requestId, decision, responseMessage = '') => {
+  if (!['accept', 'reject'].includes(decision)) {
+    throw new ApiError(400, "Decision must be 'accept' or 'reject'");
+  }
+
+  const { data: request, error } = await supabaseAdmin
+    .from('doctor_hospital_join_requests')
+    .select('*, doctor:doctors(id, name, user_id), hospital:hospitals(name)')
+    .eq('id', requestId)
+    .eq('hospital_id', hospitalId)
+    .single();
+
+  if (error || !request) {
+    throw new ApiError(404, 'Join request not found');
+  }
+
+  if (request.status !== 'pending') {
+    throw new ApiError(400, `This request has already been processed (status: ${request.status})`);
+  }
+
+  const newStatus = decision === 'accept' ? 'accepted' : 'rejected';
+
+  // 1. Update request status
+  const { error: updateError } = await supabaseAdmin
+    .from('doctor_hospital_join_requests')
+    .update({
+      status: newStatus,
+      response_message: responseMessage,
+      responded_at: new Date().toISOString(),
+      responded_by: userId
+    })
+    .eq('id', requestId);
+
+  if (updateError) {
+    throw new ApiError(500, 'Failed to update request status');
+  }
+
+  // 2. If accepted, create hospital_doctors association
+  if (decision === 'accept') {
+    const { error: assocError } = await supabaseAdmin
+      .from('hospital_doctors')
+      .upsert({
+        hospital_id: hospitalId,
+        doctor_id: request.doctor_id,
+        is_active: true,
+        department: request.department || null,
+        designation: request.practice_type === 'full_time' ? 'Consultant' : 'Visiting Consultant',
+        schedule: []
+      }, { onConflict: 'hospital_id, doctor_id' });
+
+    if (assocError) {
+      console.error('Failed to create hospital_doctors association', assocError);
+    }
+  }
+
+  // 3. Notify the doctor
+  if (request.doctor?.user_id) {
+    const notificationService = require('./notificationService');
+    const title = decision === 'accept' ? 'Join Request Accepted' : 'Join Request Declined';
+    const message = decision === 'accept' 
+      ? `Your request to join ${request.hospital?.name} has been approved.`
+      : `Your request to join ${request.hospital?.name} was declined. ${responseMessage ? `Reason: ${responseMessage}` : ''}`;
+
+    notificationService.sendNotification(request.doctor.user_id, {
+      title,
+      message,
+      type: 'join_request_response',
+      category: 'hospital',
+      data: { joinRequestId: request.id, hospitalId, status: newStatus },
+      action_url: '/doctor/care-networks?tab=requests'
+    }).catch(err => console.error('Failed to notify doctor', err));
+  }
+
+  return { id: requestId, status: newStatus };
+};
+
 module.exports = {
   getHospitalByOwner,
   getDashboard,
@@ -1033,4 +1167,6 @@ module.exports = {
   removeAffiliatedAmbulance,
   addReel,
   deleteReel,
+  getHospitalJoinRequests,
+  respondToJoinRequest,
 };

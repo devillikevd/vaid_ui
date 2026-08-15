@@ -140,6 +140,8 @@ export interface DoctorProfile {
     is_approved?: boolean;
     approval_status?: string;
     approval_block_reason?: string;
+    practice_setup_type?: string;
+    onboarding_completed_at?: string;
     degree_certificate_url?: string;
     license_document_url?: string;
     government_id_url?: string;

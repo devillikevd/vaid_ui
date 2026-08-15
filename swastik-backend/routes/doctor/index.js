@@ -174,11 +174,11 @@ router.post('/me/hospital-invites/:inviteId/respond',
   authorize('doctor'),
   [
     param('inviteId').isUUID().withMessage('Invalid invite ID'),
-    body('decision').isIn(['accept', 'reject']).withMessage('Decision must be accept or reject'),
+    body('decision').isIn(['accept', 'reject', 'changes_requested']).withMessage('Decision must be accept, reject, or changes_requested'),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const result = await doctorService.respondHospitalInvite(req.user.id, req.params.inviteId, req.body.decision);
+    const result = await doctorService.respondHospitalInvite(req.user.id, req.params.inviteId, req.body.decision, req.body);
     res.json({ success: true, ...result });
   })
 );
@@ -197,11 +197,85 @@ router.post('/me/clinic-invites/:inviteId/respond',
   authorize('doctor'),
   [
     param('inviteId').isUUID().withMessage('Invalid invite ID'),
-    body('decision').isIn(['accept', 'reject']).withMessage('Decision must be accept or reject'),
+    body('decision').isIn(['accept', 'reject', 'changes_requested']).withMessage('Decision must be accept, reject, or changes_requested'),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const result = await doctorService.respondClinicInvite(req.user.id, req.params.inviteId, req.body.decision);
+    const result = await doctorService.respondClinicInvite(req.user.id, req.params.inviteId, req.body.decision, req.body);
+    res.json({ success: true, ...result });
+  })
+);
+
+// ── Organization Search & Join Requests (Doctor Initiated) ──
+
+router.get('/search-organizations',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const { query, type, lat, lng } = req.query;
+    const result = await doctorService.searchOrganizations(query, type, lat, lng);
+    res.json({ success: true, ...result });
+  })
+);
+
+router.post('/me/onboarding',
+  authenticate,
+  authorize('doctor'),
+  [
+    body('practiceSetupType').isIn(['own_clinic', 'join_organization', 'video_only']).withMessage('Invalid practice setup type'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.completeOnboarding(req.user.id, req.body.practiceSetupType);
+    res.json({ success: true, ...result });
+  })
+);
+
+router.get('/me/join-requests',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const requests = await doctorService.getMyJoinRequests(req.user.id);
+    res.json({ success: true, data: requests });
+  })
+);
+
+router.post('/me/join-requests/clinic',
+  authenticate,
+  authorize('doctor'),
+  [
+    body('clinicId').isUUID().withMessage('Invalid clinic ID'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.requestToJoinClinic(req.user.id, req.body.clinicId, req.body);
+    res.json({ success: true, data: result, message: 'Join request sent successfully' });
+  })
+);
+
+router.post('/me/join-requests/hospital',
+  authenticate,
+  authorize('doctor'),
+  [
+    body('hospitalId').isUUID().withMessage('Invalid hospital ID'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.requestToJoinHospital(req.user.id, req.body.hospitalId, req.body);
+    res.json({ success: true, data: result, message: 'Join request sent successfully' });
+  })
+);
+
+router.post('/me/join-requests/:requestId/cancel',
+  authenticate,
+  authorize('doctor'),
+  [
+    param('requestId').isUUID().withMessage('Invalid request ID'),
+    body('type').isIn(['clinic', 'hospital']).withMessage('Type must be clinic or hospital'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.cancelJoinRequest(req.user.id, req.params.requestId, req.body.type);
     res.json({ success: true, ...result });
   })
 );

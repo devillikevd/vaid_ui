@@ -139,6 +139,23 @@ router.put('/owner/profile', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async
 router.use('/owner', requireRole(ROLES.CLINIC_OWNER), requireApproval);
 
 // Doctors
+router.get('/owner/doctors/lookup-by-email', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    // 1. Ensure clinic context exists (authorization)
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
+
+    const doctorService = require('../services/doctorService');
+    const lookupResult = await doctorService.lookupDoctorByEmail(email, clinic.id);
+
+    if (!lookupResult) {
+        return res.json({ success: true, data: null, message: 'Doctor account not available yet.' });
+    }
+
+    res.json({ success: true, data: lookupResult });
+}));
+
 router.get('/owner/doctors', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     const { page = 1, limit = 20, search } = req.query;
@@ -181,7 +198,7 @@ router.post('/owner/doctors/:doctorId?', requireRole(ROLES.CLINIC_OWNER), asyncH
         return res.status(400).json({ success: false, message: 'Doctor ID or email is required' });
     }
 
-    const invite = await clinicService.addDoctor(clinic.id, req.user.id, doctorId);
+    const invite = await clinicService.addDoctor(clinic.id, req.user.id, doctorId, req.body);
     res.json({ success: true, data: invite, message: 'Invitation sent. Doctor must accept before appearing in your clinic roster.' });
 }));
 
@@ -324,6 +341,43 @@ router.post('/owner/invites/:inviteId/cancel', requireRole(ROLES.CLINIC_OWNER), 
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     const result = await clinicService.cancelClinicInvite(clinic.id, req.user.id, req.params.inviteId);
     res.json({ success: true, data: result });
+}));
+
+// ── Doctor Join Requests (Doctor Initiated) ──
+
+router.get('/owner/join-requests', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const { status, page = 1, limit = 20 } = req.query;
+    const result = await clinicService.getClinicJoinRequests(clinic.id, req.user.id, parseInt(page), parseInt(limit), status);
+    res.json({ success: true, ...result });
+}));
+
+router.post('/owner/join-requests/:requestId/respond', requireRole(ROLES.CLINIC_OWNER), [
+    param('requestId').isUUID().withMessage('Invalid request ID'),
+    body('decision').isIn(['accept', 'reject']).withMessage('Decision must be accept or reject'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const result = await clinicService.respondToJoinRequest(clinic.id, req.user.id, req.params.requestId, req.body.decision, req.body.message);
+    res.json({ success: true, ...result });
+}));
+
+// ── Platform Invites (Unknown Emails) ──
+
+router.post('/owner/platform-invite', requireRole(ROLES.CLINIC_OWNER), [
+    body('email').isEmail().withMessage('Valid email is required'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const platformInviteService = require('../services/platformInviteService');
+    const result = await platformInviteService.sendPlatformInvite(
+        req.user.id,
+        req.body.email,
+        'clinic',
+        clinic.id,
+        req.body.message
+    );
+    res.json({ success: true, ...result });
 }));
 
 // Patients — aggregated clinic patient view (from real appointment records)

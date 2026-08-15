@@ -151,6 +151,93 @@ const isMissingSchemaError = (error) => {
 };
 
 class DoctorService {
+  /**
+   * Look up a doctor by their exact registered email address.
+   * Returns a limited profile for invitation purposes, and their relationship status if clinicId is provided.
+   */
+  async lookupDoctorByEmail(email, clinicId = null) {
+    if (!email) throw new ApiError(400, 'Email is required');
+    
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // 1. Find user by exact email and verify role
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('id, role')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    if (userError) {
+      console.error('Error looking up user by email:', userError);
+      throw new ApiError(500, 'Error verifying doctor account');
+    }
+
+    // 2. Exact match and role check
+    if (!user || user.role !== 'doctor') {
+      return null; // Treat as not found to prevent role enumeration
+    }
+
+    // 3. Fetch limited doctor profile
+    const { data: doctor, error: doctorError } = await supabaseAdmin
+      .from('doctors')
+      .select('id, name, specialization, is_approved, profile_image_url, experience_years')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (doctorError) {
+      console.error('Error looking up doctor profile:', doctorError);
+      throw new ApiError(500, 'Error fetching doctor profile');
+    }
+
+    if (!doctor) {
+      return null;
+    }
+
+    const doctorProfile = {
+      id: doctor.id,
+      name: doctor.name,
+      specialization: doctor.specialization,
+      verification: doctor.is_approved ? 'verified' : 'unverified',
+      profile_image_url: doctor.profile_image_url,
+      experience_years: doctor.experience_years
+    };
+
+    let relationship = 'NOT_CONNECTED';
+
+    if (clinicId) {
+      // Check active affiliation
+      const { data: activeAssoc } = await supabaseAdmin
+        .from('clinic_doctors')
+        .select('id')
+        .eq('clinic_id', clinicId)
+        .eq('doctor_id', doctor.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (activeAssoc) {
+        relationship = 'ACTIVE';
+      } else {
+        // Check pending invitation
+        const { data: pendingInvite } = await supabaseAdmin
+          .from('clinic_doctor_invites')
+          .select('id')
+          .eq('clinic_id', clinicId)
+          .eq('doctor_id', doctor.id)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+        if (pendingInvite) {
+          relationship = 'INVITATION_PENDING';
+        }
+      }
+    }
+
+    return {
+      doctor: doctorProfile,
+      relationship
+    };
+  }
+
   // Get doctor profile
   async getProfile(userId) {
     // HIGH-13 Fix: Explicit field selection prevents leaking internal credentials or raw metadata
@@ -1453,6 +1540,11 @@ class DoctorService {
         created_at,
         responded_at,
         expires_at,
+        practice_type,
+        consultation_modes,
+        fee_amount,
+        payout_terms,
+        start_date,
         hospital:hospitals(id, name, city, address),
         invitedBy:users!hospital_doctor_invites_invited_by_fkey(id, name, email)
       `)
@@ -1464,10 +1556,10 @@ class DoctorService {
     return data || [];
   }
 
-  async respondHospitalInvite(userId, inviteId, decision) {
+  async respondHospitalInvite(userId, inviteId, decision, options = {}) {
     const action = (decision || '').toLowerCase();
-    if (!['accept', 'reject'].includes(action)) {
-      throw new ApiError(400, 'Decision must be either accept or reject');
+    if (!['accept', 'reject', 'changes_requested'].includes(action)) {
+      throw new ApiError(400, 'Decision must be accept, reject, or changes_requested');
     }
 
     const { data: doctor } = await supabaseAdmin
@@ -1512,6 +1604,20 @@ class DoctorService {
 
       if (error) throw error;
       return { message: 'Invite rejected successfully' };
+    }
+
+    if (action === 'changes_requested') {
+      const { error } = await supabaseAdmin
+        .from('hospital_doctor_invites')
+        .update({ 
+          status: 'changes_requested', 
+          responded_at: nowIso,
+          counter_proposal: options.counterProposal || null
+        })
+        .eq('id', invite.id);
+
+      if (error) throw error;
+      return { message: 'Changes requested successfully' };
     }
 
     // Accept flow
@@ -1595,6 +1701,12 @@ class DoctorService {
         created_at,
         responded_at,
         expires_at,
+        practice_type,
+        consultation_modes,
+        schedule,
+        fee_amount,
+        payout_terms,
+        start_date,
         clinic:clinics(id, name, city, address),
         invitedBy:users!clinic_doctor_invites_invited_by_fkey(id, name, email)
       `)
@@ -1606,10 +1718,10 @@ class DoctorService {
     return data || [];
   }
 
-  async respondClinicInvite(userId, inviteId, decision) {
+  async respondClinicInvite(userId, inviteId, decision, options = {}) {
     const action = (decision || '').toLowerCase();
-    if (!['accept', 'reject'].includes(action)) {
-      throw new ApiError(400, 'Decision must be either accept or reject');
+    if (!['accept', 'reject', 'changes_requested'].includes(action)) {
+      throw new ApiError(400, 'Decision must be accept, reject, or changes_requested');
     }
 
     const { data: doctor } = await supabaseAdmin
@@ -1655,6 +1767,21 @@ class DoctorService {
       if (error) throw error;
       await this.notifyClinicOwnerOfResponse(invite.clinic_id, invite.id, 'rejected', doctor.id);
       return { message: 'Invite rejected successfully' };
+    }
+
+    if (action === 'changes_requested') {
+      const { error } = await supabaseAdmin
+        .from('clinic_doctor_invites')
+        .update({ 
+          status: 'changes_requested', 
+          responded_at: nowIso,
+          counter_proposal: options.counterProposal || null
+        })
+        .eq('id', invite.id);
+
+      if (error) throw error;
+      await this.notifyClinicOwnerOfResponse(invite.clinic_id, invite.id, 'changes_requested', doctor.id);
+      return { message: 'Changes requested successfully' };
     }
 
     const { data: existingAssoc } = await supabaseAdmin
@@ -2110,6 +2237,346 @@ class DoctorService {
     });
 
     return { message: 'Profile submitted for review successfully', data: updatedDoctor };
+  }
+
+  // ── Doctor Join Requests ──────────────────────────────────────
+
+  /**
+   * Doctor requests to join a clinic.
+   */
+  async requestToJoinClinic(userId, clinicId, requestData = {}) {
+    const doctor = await this._resolveDoctor(userId);
+
+    // Verify clinic exists and is active
+    const { data: clinic, error: clinicError } = await supabaseAdmin
+      .from('clinics')
+      .select('id, name, owner_id, is_active, approval_status')
+      .eq('id', clinicId)
+      .single();
+
+    if (clinicError || !clinic) throw new ApiError(404, 'Clinic not found');
+    if (!clinic.is_active || clinic.approval_status !== 'approved') {
+      throw new ApiError(400, 'This clinic is not currently accepting requests');
+    }
+
+    // Check if already affiliated
+    const { data: existingAffiliation } = await supabaseAdmin
+      .from('clinic_doctors')
+      .select('id')
+      .eq('clinic_id', clinicId)
+      .eq('doctor_id', doctor.id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (existingAffiliation) {
+      throw new ApiError(409, 'You are already affiliated with this clinic');
+    }
+
+    // Check for existing pending invite from clinic
+    const { data: existingInvite } = await supabaseAdmin
+      .from('clinic_doctor_invites')
+      .select('id')
+      .eq('clinic_id', clinicId)
+      .eq('doctor_id', doctor.id)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (existingInvite) {
+      throw new ApiError(409, 'This clinic already has a pending invitation for you. Check your invitations.');
+    }
+
+    // Insert join request
+    const { data: joinRequest, error: insertError } = await supabaseAdmin
+      .from('doctor_clinic_join_requests')
+      .insert({
+        doctor_id: doctor.id,
+        clinic_id: clinicId,
+        specialization: requestData.specialization || doctor.specialization,
+        department: requestData.department || null,
+        practice_type: requestData.practiceType || null,
+        consultation_modes: requestData.consultationModes || [],
+        preferred_days: requestData.preferredDays || [],
+        preferred_start_time: requestData.preferredStartTime || null,
+        preferred_end_time: requestData.preferredEndTime || null,
+        preferred_start_date: requestData.preferredStartDate || null,
+        message: requestData.message || null,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      if (insertError.code === '23505') {
+        throw new ApiError(409, 'You already have a pending request for this clinic');
+      }
+      throw insertError;
+    }
+
+    // Notify clinic owner
+    if (clinic.owner_id) {
+      notificationService.sendNotification(clinic.owner_id, {
+        title: 'New Doctor Join Request',
+        message: `Dr. ${doctor.name} has requested to join ${clinic.name}`,
+        type: 'join_request',
+        category: 'clinic',
+        data: { joinRequestId: joinRequest.id, doctorId: doctor.id, doctorName: doctor.name },
+        action_url: '/clinic/doctors?tab=join-requests',
+      }).catch(err => console.error('Failed to notify clinic owner of join request', err));
+    }
+
+    return joinRequest;
+  }
+
+  /**
+   * Doctor requests to join a hospital.
+   */
+  async requestToJoinHospital(userId, hospitalId, requestData = {}) {
+    const doctor = await this._resolveDoctor(userId);
+
+    const { data: hospital, error: hospError } = await supabaseAdmin
+      .from('hospitals')
+      .select('id, name, owner_id, is_active, approval_status')
+      .eq('id', hospitalId)
+      .single();
+
+    if (hospError || !hospital) throw new ApiError(404, 'Hospital not found');
+    if (!hospital.is_active || hospital.approval_status !== 'approved') {
+      throw new ApiError(400, 'This hospital is not currently accepting requests');
+    }
+
+    // Check if already affiliated
+    const { data: existingAffiliation } = await supabaseAdmin
+      .from('hospital_doctors')
+      .select('id')
+      .eq('hospital_id', hospitalId)
+      .eq('doctor_id', doctor.id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (existingAffiliation) {
+      throw new ApiError(409, 'You are already affiliated with this hospital');
+    }
+
+    // Check for existing pending invite
+    const { data: existingInvite } = await supabaseAdmin
+      .from('hospital_doctor_invites')
+      .select('id')
+      .eq('hospital_id', hospitalId)
+      .eq('doctor_id', doctor.id)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (existingInvite) {
+      throw new ApiError(409, 'This hospital already has a pending invitation for you. Check your invitations.');
+    }
+
+    const { data: joinRequest, error: insertError } = await supabaseAdmin
+      .from('doctor_hospital_join_requests')
+      .insert({
+        doctor_id: doctor.id,
+        hospital_id: hospitalId,
+        specialization: requestData.specialization || doctor.specialization,
+        department: requestData.department || null,
+        practice_type: requestData.practiceType || null,
+        consultation_modes: requestData.consultationModes || [],
+        preferred_days: requestData.preferredDays || [],
+        preferred_start_time: requestData.preferredStartTime || null,
+        preferred_end_time: requestData.preferredEndTime || null,
+        preferred_start_date: requestData.preferredStartDate || null,
+        message: requestData.message || null,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      if (insertError.code === '23505') {
+        throw new ApiError(409, 'You already have a pending request for this hospital');
+      }
+      throw insertError;
+    }
+
+    // Notify hospital owner
+    if (hospital.owner_id) {
+      notificationService.sendNotification(hospital.owner_id, {
+        title: 'New Doctor Join Request',
+        message: `Dr. ${doctor.name} has requested to join ${hospital.name}`,
+        type: 'join_request',
+        category: 'hospital',
+        data: { joinRequestId: joinRequest.id, doctorId: doctor.id, doctorName: doctor.name },
+        action_url: '/hospital/doctors?tab=join-requests',
+      }).catch(err => console.error('Failed to notify hospital owner of join request', err));
+    }
+
+    return joinRequest;
+  }
+
+  /**
+   * Doctor sees all their join requests (clinic + hospital).
+   */
+  async getMyJoinRequests(userId) {
+    const doctor = await this._resolveDoctor(userId);
+
+    const [clinicRes, hospitalRes] = await Promise.all([
+      supabaseAdmin
+        .from('doctor_clinic_join_requests')
+        .select('*, clinic:clinics(id, name, city, address, profile_image_url, image_url, phone, email, rating)')
+        .eq('doctor_id', doctor.id)
+        .order('created_at', { ascending: false }),
+      supabaseAdmin
+        .from('doctor_hospital_join_requests')
+        .select('*, hospital:hospitals(id, name, city, address, image_url, phone, email, rating)')
+        .eq('doctor_id', doctor.id)
+        .order('created_at', { ascending: false }),
+    ]);
+
+    if (clinicRes.error) throw clinicRes.error;
+    if (hospitalRes.error) throw hospitalRes.error;
+
+    const clinicRequests = (clinicRes.data || []).map(r => ({
+      ...r,
+      organization_type: 'clinic',
+      organization: r.clinic,
+    }));
+
+    const hospitalRequests = (hospitalRes.data || []).map(r => ({
+      ...r,
+      organization_type: 'hospital',
+      organization: r.hospital,
+    }));
+
+    return [...clinicRequests, ...hospitalRequests].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }
+
+  /**
+   * Doctor cancels own pending join request.
+   */
+  async cancelJoinRequest(userId, requestId, type) {
+    const doctor = await this._resolveDoctor(userId);
+    const table = type === 'clinic' ? 'doctor_clinic_join_requests' : 'doctor_hospital_join_requests';
+
+    const { data: request, error } = await supabaseAdmin
+      .from(table)
+      .select('*')
+      .eq('id', requestId)
+      .eq('doctor_id', doctor.id)
+      .single();
+
+    if (error || !request) throw new ApiError(404, 'Join request not found');
+    if (request.status !== 'pending') {
+      throw new ApiError(409, `Only pending requests can be cancelled (current: ${request.status})`);
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from(table)
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', requestId);
+
+    if (updateError) throw updateError;
+    return { id: requestId, status: 'cancelled' };
+  }
+
+  /**
+   * Search clinics and hospitals for the "Find & Join" flow.
+   */
+  async searchOrganizations(query = '', type = 'all', latitude, longitude) {
+    const results = { clinics: [], hospitals: [] };
+
+    if (type === 'all' || type === 'clinic') {
+      let clinicQuery = supabaseAdmin
+        .from('clinics')
+        .select('id, name, city, address, state, pincode, latitude, longitude, specializations, phone, email, image_url, profile_image_url, rating, total_reviews, is_active, approval_status')
+        .eq('is_active', true)
+        .eq('approval_status', 'approved')
+        .limit(20);
+
+      if (query) {
+        clinicQuery = clinicQuery.or(`name.ilike.%${query}%,city.ilike.%${query}%,specializations.cs.{${query}}`);
+      }
+
+      const { data: clinics, error } = await clinicQuery;
+      if (!error && clinics) {
+        results.clinics = clinics.map(c => ({
+          ...c,
+          organization_type: 'clinic',
+          distance_km: (latitude && longitude && c.latitude && c.longitude)
+            ? haversineDistance(latitude, longitude, c.latitude, c.longitude)
+            : null,
+        }));
+      }
+    }
+
+    if (type === 'all' || type === 'hospital') {
+      let hospitalQuery = supabaseAdmin
+        .from('hospitals')
+        .select('id, name, city, address, state, pincode, latitude, longitude, specializations, departments, phone, email, image_url, rating, total_reviews, is_active, approval_status')
+        .eq('is_active', true)
+        .eq('approval_status', 'approved')
+        .limit(20);
+
+      if (query) {
+        hospitalQuery = hospitalQuery.or(`name.ilike.%${query}%,city.ilike.%${query}%,specializations.cs.{${query}}`);
+      }
+
+      const { data: hospitals, error } = await hospitalQuery;
+      if (!error && hospitals) {
+        results.hospitals = hospitals.map(h => ({
+          ...h,
+          organization_type: 'hospital',
+          distance_km: (latitude && longitude && h.latitude && h.longitude)
+            ? haversineDistance(latitude, longitude, h.latitude, h.longitude)
+            : null,
+        }));
+      }
+    }
+
+    // Sort by distance if available
+    const all = [...results.clinics, ...results.hospitals].sort((a, b) => {
+      if (a.distance_km !== null && b.distance_km !== null) return a.distance_km - b.distance_km;
+      if (a.distance_km !== null) return -1;
+      if (b.distance_km !== null) return 1;
+      return 0;
+    });
+
+    return { data: all, clinics: results.clinics, hospitals: results.hospitals };
+  }
+
+  /**
+   * Complete doctor onboarding.
+   */
+  async completeOnboarding(userId, practiceSetupType) {
+    const doctor = await this._resolveDoctor(userId);
+
+    const validTypes = ['own_clinic', 'join_organization', 'video_only'];
+    if (!validTypes.includes(practiceSetupType)) {
+      throw new ApiError(400, `Invalid practice setup type. Must be one of: ${validTypes.join(', ')}`);
+    }
+
+    const { error } = await supabaseAdmin
+      .from('doctors')
+      .update({
+        onboarding_completed: true,
+        practice_setup_type: practiceSetupType,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', doctor.id);
+
+    if (error) throw error;
+    await cacheDel(`auth_user:${userId}`);
+    return { message: 'Onboarding completed', practiceSetupType };
+  }
+
+  // ── Helper ────────────────────────────────────────────────────
+
+  async _resolveDoctor(userId) {
+    const { data: doctor, error } = await supabaseAdmin
+      .from('doctors')
+      .select('id, name, specialization, user_id')
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !doctor) throw new ApiError(404, 'Doctor profile not found');
+    return doctor;
   }
 }
 

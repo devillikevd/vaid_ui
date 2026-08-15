@@ -35,6 +35,7 @@ import { VerificationProgressCard } from '@/components/doctor/VerificationProgre
 import { RejectionBanner } from '@/components/doctor/RejectionBanner';
 import { OnboardingChecklist } from '@/components/doctor/OnboardingChecklist';
 import { WelcomeTour } from '@/components/doctor/WelcomeTour';
+import OnboardingPopup from '@/components/doctor/OnboardingPopup';
 import { useAppointmentUpdates, type AppointmentUpdate } from '@/hooks/useSocket';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import { KeyboardShortcutHelp, usePageShortcuts } from '@/components/shared/KeyboardShortcutHelp';
@@ -55,6 +56,16 @@ export default function DoctorDashboard() {
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [recentQuestions, setRecentQuestions] = useState<any[]>([]);
     const [loadingQuestions, setLoadingQuestions] = useState(true);
+
+    const [showOnboardingPopup, setShowOnboardingPopup] = useState(false);
+
+    useEffect(() => {
+        if (doctorProfile && !doctorProfile.practice_setup_type && !doctorProfile.onboarding_completed_at) {
+            setShowOnboardingPopup(true);
+        } else {
+            setShowOnboardingPopup(false);
+        }
+    }, [doctorProfile]);
 
     const shortcuts = useMemo(() => [
         { key: 'a', description: 'Go to Appointments', action: () => router.push('/doctor/appointments') },
@@ -236,6 +247,12 @@ export default function DoctorDashboard() {
         <>
         <div className="space-y-6">
             <WelcomeTour />
+            <OnboardingPopup 
+                isOpen={showOnboardingPopup} 
+                onClose={() => setShowOnboardingPopup(false)} 
+                onComplete={() => fetchDashboardData()} 
+            />
+
             {/* Real-time Appointment Alert */}
             {newApptAlert && (
                 <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg flex items-center gap-3 animate-pulse">

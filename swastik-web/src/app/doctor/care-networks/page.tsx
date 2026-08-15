@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
     Building2, Clock3, CheckCircle2, XCircle, RefreshCw, MailOpen, UserCheck, 
-    ShieldAlert, HeartPulse, Building, FileText, CheckCircle, MailX, Check, MapPin, 
+    ShieldAlert, HeartPulse, Building, FileText, CheckCircle, MailX, Check, MapPin, IndianRupee, 
     ChevronRight, Info, Search, Stethoscope, Briefcase, ExternalLink, CalendarDays, Share2, HelpCircle,
     Calendar, Star, Clock, BadgeCheck, Phone, Mail, Loader2
 } from 'lucide-react';
@@ -17,7 +17,7 @@ import { useDoctorStore } from '@/stores/doctorStore';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-type InviteStatus = 'pending' | 'accepted' | 'rejected' | 'expired' | 'cancelled' | 'active';
+type InviteStatus = 'pending' | 'accepted' | 'rejected' | 'expired' | 'cancelled' | 'active' | 'changes_requested';
 type InviteKind = 'hospital' | 'clinic';
 
 interface ProviderInvite {
@@ -27,6 +27,18 @@ interface ProviderInvite {
     providerLabel: string;
     department?: string | null;
     role?: string | null;
+    specialization?: string | null;
+    practice_type?: string | null;
+    consultation_modes?: string[] | null;
+    preferred_days?: string[] | null;
+    preferred_start_time?: string | null;
+    preferred_end_time?: string | null;
+    start_date?: string | null;
+    fee_amount?: number | null;
+    payout_terms?: string | null;
+    schedule?: any | null;
+    response_message?: string | null;
+    counter_proposal?: string | null;
     status: InviteStatus;
     created_at: string;
     expires_at?: string | null;
@@ -46,6 +58,7 @@ interface ProviderInvite {
         name?: string | null;
         email?: string | null;
     };
+    is_sent_request?: boolean;
 }
 
 function InitialsAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
@@ -65,6 +78,7 @@ const statusConfig: Record<string, { label: string; color: string; dot: string }
     rejected:  { label: 'Declined',  color: 'text-red-400 bg-red-500/10 border-red-500/20',             dot: 'bg-red-500'    },
     expired:   { label: 'Expired',   color: 'text-gray-400 bg-gray-500/10 border-gray-500/20',          dot: 'bg-gray-500'   },
     cancelled: { label: 'Cancelled', color: 'text-gray-400 bg-gray-500/10 border-gray-500/20',          dot: 'bg-gray-500'   },
+    changes_requested: { label: 'Changes Requested', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20', dot: 'bg-purple-500' },
 };
 
 export default function MyCareNetworksPage() {
@@ -73,15 +87,18 @@ export default function MyCareNetworksPage() {
     const searchParams = useSearchParams();
     
     const [invites, setInvites] = useState<ProviderInvite[]>([]);
+    const [sentRequests, setSentRequests] = useState<ProviderInvite[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionId, setActionId] = useState<string | null>(null);
     
-    type TabType = 'all' | 'hospitals' | 'clinics' | 'invitations' | 'history';
+    type TabType = 'all' | 'hospitals' | 'clinics' | 'invitations' | 'requests' | 'history';
     const initialTab = (searchParams?.get('tab') as TabType) || 'all';
     const [activeTab, setActiveTab] = useState<TabType>(initialTab);
     
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedInvite, setSelectedInvite] = useState<ProviderInvite | null>(null);
+    const [showCounterProposal, setShowCounterProposal] = useState(false);
+    const [counterProposalText, setCounterProposalText] = useState('');
     const [showSuccess, setShowSuccess] = useState(false);
     const { todaysAppointments, doctorProfile } = useDoctorStore();
     const hasLoadedRef = useRef(false);
@@ -89,9 +106,10 @@ export default function MyCareNetworksPage() {
     const fetchInvites = useCallback(async () => {
         setLoading(true);
         try {
-            const [hospitalResponse, clinicResponse] = await Promise.all([
+            const [hospitalResponse, clinicResponse, myRequestsResponse] = await Promise.all([
                 doctorApi.getHospitalInvites(),
                 doctorApi.getClinicInvites(),
+                doctorApi.getMyJoinRequests(),
             ]);
 
             if (!hospitalResponse.success || !clinicResponse.success) {
@@ -100,6 +118,7 @@ export default function MyCareNetworksPage() {
                     hospitalResponse.error || clinicResponse.error || 'Please try again.'
                 );
                 setInvites([]);
+                setSentRequests([]);
                 return;
             }
 
@@ -140,9 +159,40 @@ export default function MyCareNetworksPage() {
             setInvites([...hospitalInvites, ...clinicInvites].sort((a, b) => {
                 return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
             }));
+
+            if (myRequestsResponse.success && Array.isArray(myRequestsResponse.data)) {
+                const requests = myRequestsResponse.data.map((req: any) => ({
+                    id: req.id,
+                    kind: req.organization_type as 'clinic' | 'hospital',
+                    providerId: req.organization_type === 'clinic' ? req.clinic_id : req.hospital_id,
+                    providerLabel: req.organization_type === 'clinic' ? 'Clinic' : 'Hospital',
+                    status: req.status,
+                    created_at: req.created_at,
+                    is_sent_request: true,
+                    specialization: req.specialization,
+                    department: req.department,
+                    practice_type: req.practice_type,
+                    consultation_modes: req.consultation_modes,
+                    preferred_days: req.preferred_days,
+                    preferred_start_time: req.preferred_start_time,
+                    preferred_end_time: req.preferred_end_time,
+                    start_date: req.start_date,
+                    response_message: req.response_message,
+                    provider: req.organization ? {
+                        id: req.organization.id,
+                        name: req.organization.name,
+                        city: req.organization.city,
+                        address: req.organization.address,
+                        profile_image_url: req.organization.profile_image_url || req.organization.image_url
+                    } : undefined
+                }));
+                setSentRequests(requests);
+            }
+
         } catch {
             toast.error('Unable to load networks', 'Network error. Please try again.');
             setInvites([]);
+            setSentRequests([]);
         } finally {
             setLoading(false);
         }
@@ -157,7 +207,7 @@ export default function MyCareNetworksPage() {
     // Update tab if URL param changes
     useEffect(() => {
         const tab = searchParams?.get('tab');
-        if (tab && ['all', 'hospitals', 'clinics', 'invitations', 'history'].includes(tab)) {
+        if (tab && ['all', 'hospitals', 'clinics', 'invitations', 'requests', 'history'].includes(tab)) {
             setActiveTab(tab as TabType);
         }
     }, [searchParams]);
@@ -175,18 +225,24 @@ export default function MyCareNetworksPage() {
     const clinicsOnly = useMemo(() => activeAffiliations.filter(i => i.kind === 'clinic'), [activeAffiliations]);
     
     const pendingInvites = useMemo(() => filteredInvites.filter(i => i.status === 'pending'), [filteredInvites]);
+    const pendingJoinRequests = useMemo(() => sentRequests.filter(i => i.status === 'pending'), [sentRequests]);
     const historyInvites = useMemo(() => filteredInvites.filter(i => ['rejected', 'expired', 'cancelled'].includes(i.status)), [filteredInvites]);
 
-    const handleRespond = async (invite: ProviderInvite, decision: 'accept' | 'reject') => {
+    const handleRespond = async (invite: ProviderInvite, decision: 'accept' | 'reject' | 'cancel' | 'changes_requested', options?: { counterProposal?: string }) => {
         const inviteId = invite.id;
         setActionId(inviteId);
         try {
-            const response = invite.kind === 'hospital'
-                ? await doctorApi.respondHospitalInvite(inviteId, decision)
-                : await doctorApi.respondClinicInvite(inviteId, decision);
+            let response;
+            if (decision === 'cancel' && invite.is_sent_request) {
+                response = await doctorApi.cancelJoinRequest(inviteId, invite.kind);
+            } else {
+                response = invite.kind === 'hospital'
+                    ? await doctorApi.respondHospitalInvite(inviteId, decision as 'accept' | 'reject')
+                    : await doctorApi.respondClinicInvite(inviteId, decision as 'accept' | 'reject');
+            }
             if (!response.success) {
                 toast.error(
-                    decision === 'accept' ? 'Unable to accept invite' : 'Unable to reject invite',
+                    decision === 'cancel' ? 'Unable to cancel request' : decision === 'accept' ? 'Unable to accept invite' : 'Unable to reject invite',
                     response.error || 'Please try again.'
                 );
                 return;
@@ -194,6 +250,10 @@ export default function MyCareNetworksPage() {
 
             if (decision === 'accept') {
                 setShowSuccess(true);
+                setSelectedInvite(null);
+            } else if (decision === 'cancel') {
+                toast.success('Request cancelled', 'Successfully cancelled the join request.');
+                setActiveTab('requests');
                 setSelectedInvite(null);
             } else {
                 toast.success('Invite rejected', 'Successfully declined affiliation.');
@@ -219,6 +279,7 @@ export default function MyCareNetworksPage() {
             case 'hospitals': return hospitalsOnly;
             case 'clinics': return clinicsOnly;
             case 'invitations': return pendingInvites;
+            case 'requests': return sentRequests;
             case 'history': return historyInvites;
             default: return [];
         }
@@ -327,12 +388,13 @@ export default function MyCareNetworksPage() {
             )}
 
             {/* Premium Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {[
                     { id: 'all', label: 'Total Affiliations', value: activeAffiliations.length, icon: Building2, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
                     { id: 'hospitals', label: 'Hospitals', value: hospitalsOnly.length, icon: HeartPulse, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
                     { id: 'clinics', label: 'Clinics', value: clinicsOnly.length, icon: Stethoscope, color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-900/20' },
                     { id: 'invitations', label: 'Pending Invites', value: pendingInvites.length, icon: MailOpen, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
+                    { id: 'requests', label: 'Pending Join Requests', value: pendingJoinRequests.length, icon: FileText, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
                 ].map((stat) => (
                     <div 
                         key={stat.id}
@@ -362,6 +424,7 @@ export default function MyCareNetworksPage() {
                     { id: 'hospitals', label: 'Hospitals' },
                     { id: 'clinics', label: 'Clinics' },
                     { id: 'invitations', label: 'Invitations' },
+                    { id: 'requests', label: 'Join Requests' },
                     { id: 'history', label: 'History' },
                 ].map(tab => (
                     <button
@@ -374,6 +437,11 @@ export default function MyCareNetworksPage() {
                         }`}
                     >
                         {tab.label}
+                        {tab.id === 'requests' && sentRequests.length > 0 && (
+                            <span className="ml-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-0.5 px-2 rounded-full text-xs">
+                                {sentRequests.length}
+                            </span>
+                        )}
                     </button>
                 ))}
             </div>
@@ -389,12 +457,23 @@ export default function MyCareNetworksPage() {
                     <div className="w-20 h-20 bg-gray-50 dark:bg-gray-800/50 rounded-full flex items-center justify-center mb-6">
                         <Briefcase className="w-10 h-10 text-gray-400" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No items found</h3>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                        {activeTab === 'invitations' ? "No pending invitations" : activeTab === 'requests' ? "You haven't sent any join requests yet." : "No items found"}
+                    </h3>
                     <p className="text-gray-500 dark:text-gray-400 max-w-md">
                         {activeTab === 'invitations' 
-                            ? "You don't have any pending invitations from hospitals or clinics."
+                            ? "Hospitals and clinics that invite you to join their network will appear here."
+                            : activeTab === 'requests'
+                            ? "Find a clinic or hospital where you'd like to practice."
                             : "You don't have any active affiliations in this category yet."}
                     </p>
+                    {activeTab === 'requests' && (
+                        <Link href="/doctor/care-networks/find">
+                            <Button className="mt-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-6 py-5 font-bold shadow-lg shadow-emerald-500/20">
+                                Find Clinics & Hospitals
+                            </Button>
+                        </Link>
+                    )}
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -430,7 +509,7 @@ export default function MyCareNetworksPage() {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
-                            onClick={() => setSelectedInvite(null)}
+                            onClick={() => { setSelectedInvite(null); setShowCounterProposal(false); setCounterProposalText(''); }}
                         />
                         <motion.div 
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -463,7 +542,7 @@ export default function MyCareNetworksPage() {
                                     </div>
                                 </div>
                                 <button 
-                                    onClick={() => setSelectedInvite(null)}
+                                    onClick={() => { setSelectedInvite(null); setShowCounterProposal(false); setCounterProposalText(''); }}
                                     className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
                                 >
                                     <XCircle className="w-6 h-6" />
@@ -490,7 +569,23 @@ export default function MyCareNetworksPage() {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <DetailItem icon={<Building />} label="Department" value={selectedInvite.department || 'General'} />
                                         <DetailItem icon={<UserCheck />} label="Role" value={selectedInvite.role || 'Consultant'} />
-                                        <DetailItem icon={<CalendarDays />} label="Invited On" value={new Date(selectedInvite.created_at).toLocaleDateString()} />
+                                        {selectedInvite.is_sent_request ? (
+                                            <>
+                                                <DetailItem icon={<Stethoscope />} label="Specialization" value={selectedInvite.specialization || 'Not specified'} />
+                                                <DetailItem icon={<Briefcase />} label="Practice Type" value={selectedInvite.practice_type ? selectedInvite.practice_type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Not specified'} />
+                                                <DetailItem icon={<Clock />} label="Preferred Time" value={selectedInvite.preferred_start_time && selectedInvite.preferred_end_time ? `${selectedInvite.preferred_start_time} - ${selectedInvite.preferred_end_time}` : 'Flexible'} />
+                                                <DetailItem icon={<CalendarDays />} label="Available Days" value={selectedInvite.preferred_days?.length ? selectedInvite.preferred_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ') : 'Flexible'} />
+                                            </>
+                                        ) : (
+                                            <>
+                                                {selectedInvite.practice_type && <DetailItem icon={<Briefcase />} label="Practice Type" value={selectedInvite.practice_type.replace('_', ' ')} />}
+                                                {selectedInvite.fee_amount && <DetailItem icon={<IndianRupee />} label="Fee Amount" value={`₹${selectedInvite.fee_amount}`} />}
+                                                {selectedInvite.payout_terms && <DetailItem icon={<IndianRupee />} label="Payout Terms" value={selectedInvite.payout_terms} />}
+                                                {selectedInvite.start_date && <DetailItem icon={<CalendarDays />} label="Start Date" value={new Date(selectedInvite.start_date).toLocaleDateString()} />}
+                                                {selectedInvite.schedule?.description && <DetailItem icon={<Clock />} label="Schedule" value={selectedInvite.schedule.description} />}
+                                            </>
+                                        )}
+                                        <DetailItem icon={<CalendarDays />} label={selectedInvite.is_sent_request ? "Requested On" : "Invited On"} value={new Date(selectedInvite.created_at).toLocaleDateString()} />
                                         <DetailItem icon={<Mail />} label="Contact Email" value={selectedInvite.provider?.email || selectedInvite.invitedBy?.email || 'N/A'} />
                                         <DetailItem icon={<Phone />} label="Phone" value={selectedInvite.provider?.phone || 'N/A'} />
                                         <DetailItem icon={<Star />} label="Rating" value={selectedInvite.provider?.rating ? `${selectedInvite.provider.rating} / 5` : 'New'} />
@@ -507,24 +602,67 @@ export default function MyCareNetworksPage() {
 
                             {/* Modal Footer Actions */}
                             <div className="p-6 md:p-8 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-[#1a2332] shrink-0">
-                                {selectedInvite.status === 'pending' ? (
+                                {selectedInvite.is_sent_request && selectedInvite.status === 'pending' ? (
                                     <div className="flex gap-3">
                                         <Button 
                                             variant="outline" 
-                                            onClick={() => handleRespond(selectedInvite, 'reject')}
+                                            onClick={() => handleRespond(selectedInvite, 'cancel')}
                                             disabled={actionId === selectedInvite.id}
                                             className="flex-1 h-12 rounded-xl text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 dark:border-red-900/30 dark:hover:bg-red-900/20 font-bold"
                                         >
-                                            {actionId === selectedInvite.id ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Decline'}
-                                        </Button>
-                                        <Button 
-                                            onClick={() => handleRespond(selectedInvite, 'accept')}
-                                            disabled={actionId === selectedInvite.id}
-                                            className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                                        >
-                                            {actionId === selectedInvite.id ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Accept Invitation'}
+                                            {actionId === selectedInvite.id ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Cancel Request'}
                                         </Button>
                                     </div>
+                                ) : selectedInvite.status === 'pending' ? (
+                                    showCounterProposal ? (
+                                        <div className="flex flex-col gap-3">
+                                            <textarea 
+                                                className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0f1929] p-3 text-sm focus:ring-2 focus:ring-pink-500 outline-none text-gray-900 dark:text-white"
+                                                placeholder="Suggest changes to schedule, fee, etc..."
+                                                rows={3}
+                                                value={counterProposalText}
+                                                onChange={e => setCounterProposalText(e.target.value)}
+                                            />
+                                            <div className="flex gap-3">
+                                                <Button variant="outline" onClick={() => setShowCounterProposal(false)} className="flex-1 rounded-xl">Cancel</Button>
+                                                <Button 
+                                                    onClick={() => handleRespond(selectedInvite, 'changes_requested', { counterProposal: counterProposalText })}
+                                                    disabled={actionId === selectedInvite.id || !counterProposalText.trim()}
+                                                    className="flex-1 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold"
+                                                >
+                                                    {actionId === selectedInvite.id ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit Proposal'}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-3">
+                                            <div className="flex gap-3">
+                                                <Button 
+                                                    variant="outline" 
+                                                    onClick={() => handleRespond(selectedInvite, 'reject')}
+                                                    disabled={actionId === selectedInvite.id}
+                                                    className="flex-1 h-12 rounded-xl text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 dark:border-red-900/30 dark:hover:bg-red-900/20 font-bold"
+                                                >
+                                                    {actionId === selectedInvite.id ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Decline'}
+                                                </Button>
+                                                <Button 
+                                                    onClick={() => handleRespond(selectedInvite, 'accept')}
+                                                    disabled={actionId === selectedInvite.id}
+                                                    className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                                                >
+                                                    {actionId === selectedInvite.id ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Accept Invitation'}
+                                                </Button>
+                                            </div>
+                                            <Button 
+                                                variant="outline"
+                                                onClick={() => setShowCounterProposal(true)}
+                                                disabled={actionId === selectedInvite.id}
+                                                className="w-full rounded-xl border-gray-200 text-gray-700 font-bold hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                                            >
+                                                Propose Changes
+                                            </Button>
+                                        </div>
+                                    )
                                 ) : ['accepted', 'active'].includes(selectedInvite.status) ? (
                                     <div className="flex gap-3">
                                         <Link href="/doctor/schedule" className="flex-1">
@@ -567,7 +705,7 @@ function DetailItem({ icon, label, value }: { icon: React.ReactNode, label: stri
     );
 }
 
-function NetworkCard({ item, todaysCount, onRespond, actionId, onClick }: { item: ProviderInvite, todaysCount: number, onRespond: (i: ProviderInvite, d: 'accept'|'reject')=>void, actionId: string | null, onClick: () => void }) {
+function NetworkCard({ item, todaysCount, onRespond, actionId, onClick }: { item: ProviderInvite, todaysCount: number, onRespond: (i: ProviderInvite, d: 'accept'|'reject'|'cancel')=>void, actionId: string | null, onClick: () => void }) {
     const isHospital = item.kind === 'hospital';
     const name = item.provider?.name || (isHospital ? 'Hospital' : 'Clinic');
     const location = item.provider?.city || item.provider?.address || '';
@@ -625,13 +763,32 @@ function NetworkCard({ item, todaysCount, onRespond, actionId, onClick }: { item
             {/* Tags */}
             <div className="flex flex-wrap gap-1.5 mb-4 flex-1 content-start">
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">{isHospital ? 'Hospital' : 'Clinic'}</span>
-                {item.role && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 capitalize">{item.role}</span>}
+                
+                {/* Directional Badges */}
+                {item.is_sent_request ? (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 tracking-wide">REQUEST SENT</span>
+                ) : (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20 tracking-wide">
+                        {isHospital ? 'INVITED BY HOSPITAL' : 'INVITED BY CLINIC'}
+                    </span>
+                )}
+
+                {item.role && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-400 border border-gray-500/20 capitalize">{item.role}</span>}
                 {['accepted', 'active'].includes(item.status) && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">In-Person Authorized</span>}
             </div>
 
             {/* Actions */}
             <div className="pt-4 border-t border-gray-200 dark:border-gray-800/50 mt-auto">
-                {item.status === 'pending' ? (
+                {item.is_sent_request && item.status === 'pending' ? (
+                    <Button 
+                        variant="outline"
+                        onClick={(e) => { e.stopPropagation(); onRespond(item, 'cancel'); }}
+                        disabled={actionId === item.id}
+                        className="w-full h-9 rounded-xl text-gray-500 hover:text-red-600 border-gray-200 hover:border-red-200 hover:bg-red-50 text-xs"
+                    >
+                        {actionId === item.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cancel Request'}
+                    </Button>
+                ) : item.status === 'pending' ? (
                     <div className="flex gap-2">
                         <Button 
                             variant="outline"

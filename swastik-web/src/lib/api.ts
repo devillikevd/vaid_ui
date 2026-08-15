@@ -899,6 +899,42 @@ export const doctorApi = {
             body: JSON.stringify({ decision }),
         }),
 
+    // ── Organization Join Requests ──
+    searchOrganizations: (query: string = '', type: string = 'all', lat?: number, lng?: number) => {
+        const params = new URLSearchParams();
+        if (query) params.set('query', query);
+        if (type) params.set('type', type);
+        if (lat) params.set('lat', String(lat));
+        if (lng) params.set('lng', String(lng));
+        return fetchWithAuth(`/doctors/search-organizations?${params}`);
+    },
+
+    completeOnboarding: (practiceSetupType: string) =>
+        fetchWithAuth('/doctors/me/onboarding', {
+            method: 'POST',
+            body: JSON.stringify({ practiceSetupType }),
+        }),
+
+    getMyJoinRequests: () => fetchWithAuth('/doctors/me/join-requests'),
+
+    requestToJoinClinic: (clinicId: string, data: Record<string, unknown>) =>
+        fetchWithAuth('/doctors/me/join-requests/clinic', {
+            method: 'POST',
+            body: JSON.stringify({ clinicId, ...data }),
+        }),
+
+    requestToJoinHospital: (hospitalId: string, data: Record<string, unknown>) =>
+        fetchWithAuth('/doctors/me/join-requests/hospital', {
+            method: 'POST',
+            body: JSON.stringify({ hospitalId, ...data }),
+        }),
+
+    cancelJoinRequest: (requestId: string, type: 'clinic' | 'hospital') =>
+        fetchWithAuth(`/doctors/me/join-requests/${requestId}/cancel`, {
+            method: 'POST',
+            body: JSON.stringify({ type }),
+        }),
+
     getPatientVitals: (page: number = 1, patientId?: string) => {
         const params = new URLSearchParams({ page: page.toString() });
         if (patientId) params.set('patientId', patientId);
@@ -988,6 +1024,29 @@ export const hospitalApi = {
 
     removeDoctor: (doctorId: string) =>
         fetchWithAuth(`/hospital-manager/doctors/${doctorId}`, { method: 'DELETE' }),
+
+    // ── Doctor Join Requests ──
+    getJoinRequests: (params: { page?: number; limit?: number; status?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 20),
+        });
+        if (params.status) query.set('status', params.status);
+        return fetchWithAuth(`/hospital-manager/join-requests?${query}`);
+    },
+
+    respondToJoinRequest: (requestId: string, decision: 'accept' | 'reject', message?: string) =>
+        fetchWithAuth(`/hospital-manager/join-requests/${requestId}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ decision, message }),
+        }),
+
+    // ── Platform Invites ──
+    sendPlatformInvite: (email: string, message?: string) =>
+        fetchWithAuth('/hospital-manager/platform-invite', {
+            method: 'POST',
+            body: JSON.stringify({ email, message }),
+        }),
 
     getAssociatedPharmacies: () => fetchWithAuth('/hospital-manager/pharmacies'),
 
@@ -1284,6 +1343,9 @@ export const clinicApi = {
         });
     },
 
+    lookupDoctorByEmail: (email: string) =>
+        fetchWithAuth<{ doctor: any, relationship: 'ACTIVE' | 'INVITATION_PENDING' | 'NOT_CONNECTED' }>(`/clinics/owner/doctors/lookup-by-email?email=${encodeURIComponent(email)}`),
+
     removeDoctor: (doctorId: string) =>
         fetchWithAuth(`/clinics/owner/doctors/${doctorId}`, { method: 'DELETE' }),
 
@@ -1384,6 +1446,28 @@ export const clinicApi = {
     cancelInvite: (inviteId: string) =>
         fetchWithAuth(`/clinics/owner/invites/${inviteId}/cancel`, { method: 'POST' }),
 
+    // ── Platform Invites ──
+    sendPlatformInvite: (email: string, message?: string) =>
+        fetchWithAuth('/clinics/owner/platform-invite', {
+            method: 'POST',
+            body: JSON.stringify({ email, message }),
+        }),
+
+    // ── Doctor Join Requests ──
+    getJoinRequests: (params: { page?: number; limit?: number; status?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 20),
+        });
+        if (params.status) query.set('status', params.status);
+        return fetchWithAuth(`/clinics/owner/join-requests?${query}`);
+    },
+
+    respondToJoinRequest: (requestId: string, decision: 'accept' | 'reject', message?: string) =>
+        fetchWithAuth(`/clinics/owner/join-requests/${requestId}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ decision, message }),
+        }),
     // ── Clinic Patients ──
     getPatients: (params: { page?: number; limit?: number; search?: string } = {}) => {
         const query = new URLSearchParams({
