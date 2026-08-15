@@ -2,12 +2,12 @@
 /* eslint-disable jsx-a11y/alt-text */
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
     Building2, Clock3, CheckCircle2, XCircle, RefreshCw, MailOpen, UserCheck, 
     ShieldAlert, HeartPulse, Building, FileText, CheckCircle, MailX, Check, MapPin, IndianRupee, 
     ChevronRight, Info, Search, Stethoscope, Briefcase, ExternalLink, CalendarDays, Share2, HelpCircle,
-    Calendar, Star, Clock, BadgeCheck, Phone, Mail, Loader2
+    Calendar, Star, Clock, BadgeCheck, Phone, Mail, Loader2, Video, Send, MessageSquare, AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { doctorApi } from '@/lib/api';
@@ -61,6 +61,16 @@ interface ProviderInvite {
     is_sent_request?: boolean;
 }
 
+const DAYS_OF_WEEK = [
+    { key: 'Monday', label: 'Mon' },
+    { key: 'Tuesday', label: 'Tue' },
+    { key: 'Wednesday', label: 'Wed' },
+    { key: 'Thursday', label: 'Thu' },
+    { key: 'Friday', label: 'Fri' },
+    { key: 'Saturday', label: 'Sat' },
+    { key: 'Sunday', label: 'Sun' },
+];
+
 function InitialsAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
     const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
     const sizeClass = size === 'sm' ? 'h-10 w-10 text-sm' : size === 'lg' ? 'h-16 w-16 text-xl' : 'h-12 w-12 text-base';
@@ -78,7 +88,7 @@ const statusConfig: Record<string, { label: string; color: string; dot: string }
     rejected:  { label: 'Declined',  color: 'text-red-400 bg-red-500/10 border-red-500/20',             dot: 'bg-red-500'    },
     expired:   { label: 'Expired',   color: 'text-gray-400 bg-gray-500/10 border-gray-500/20',          dot: 'bg-gray-500'   },
     cancelled: { label: 'Cancelled', color: 'text-gray-400 bg-gray-500/10 border-gray-500/20',          dot: 'bg-gray-500'   },
-    changes_requested: { label: 'Changes Requested', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20', dot: 'bg-purple-500' },
+    changes_requested: { label: 'Changes Proposed', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20', dot: 'bg-purple-500' },
 };
 
 export default function MyCareNetworksPage() {
@@ -98,9 +108,18 @@ export default function MyCareNetworksPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedInvite, setSelectedInvite] = useState<ProviderInvite | null>(null);
     const [showCounterProposal, setShowCounterProposal] = useState(false);
-    const [counterProposalText, setCounterProposalText] = useState('');
-    const [showSuccess, setShowSuccess] = useState(false);
-    const { todaysAppointments, doctorProfile } = useDoctorStore();
+    
+    // Counter-proposal form states
+    const [counterPracticeType, setCounterPracticeType] = useState('visiting');
+    const [counterModes, setCounterModes] = useState<string[]>(['in_clinic', 'video']);
+    const [counterDays, setCounterDays] = useState<string[]>(['Monday', 'Wednesday']);
+    const [counterStartTime, setCounterStartTime] = useState('10:00');
+    const [counterEndTime, setCounterEndTime] = useState('14:00');
+    const [counterStartDate, setCounterStartDate] = useState('');
+    const [counterFeeAmount, setCounterFeeAmount] = useState('');
+    const [counterMessage, setCounterMessage] = useState('');
+
+    const { todaysAppointments } = useDoctorStore();
     const hasLoadedRef = useRef(false);
 
     const fetchInvites = useCallback(async () => {
@@ -134,6 +153,13 @@ export default function MyCareNetworksPage() {
                     created_at: invite.created_at,
                     expires_at: invite.expires_at,
                     responded_at: invite.responded_at,
+                    practice_type: invite.practice_type,
+                    consultation_modes: invite.consultation_modes,
+                    schedule: invite.schedule,
+                    fee_amount: invite.fee_amount,
+                    payout_terms: invite.payout_terms,
+                    start_date: invite.start_date,
+                    counter_proposal: invite.counter_proposal,
                     provider: invite.hospital,
                     invitedBy: invite.invitedBy,
                   }))
@@ -151,6 +177,13 @@ export default function MyCareNetworksPage() {
                     created_at: invite.created_at,
                     expires_at: invite.expires_at,
                     responded_at: invite.responded_at,
+                    practice_type: invite.practice_type,
+                    consultation_modes: invite.consultation_modes,
+                    schedule: invite.schedule,
+                    fee_amount: invite.fee_amount,
+                    payout_terms: invite.payout_terms,
+                    start_date: invite.start_date,
+                    counter_proposal: invite.counter_proposal,
                     provider: invite.clinic,
                     invitedBy: invite.invitedBy,
                   }))
@@ -220,321 +253,257 @@ export default function MyCareNetworksPage() {
     }, [invites, searchQuery]);
 
     const activeAffiliations = useMemo(() => filteredInvites.filter(i => ['accepted', 'active'].includes(i.status)), [filteredInvites]);
-    
     const hospitalsOnly = useMemo(() => activeAffiliations.filter(i => i.kind === 'hospital'), [activeAffiliations]);
     const clinicsOnly = useMemo(() => activeAffiliations.filter(i => i.kind === 'clinic'), [activeAffiliations]);
-    
-    const pendingInvites = useMemo(() => filteredInvites.filter(i => i.status === 'pending'), [filteredInvites]);
-    const pendingJoinRequests = useMemo(() => sentRequests.filter(i => i.status === 'pending'), [sentRequests]);
+    const pendingInvites = useMemo(() => filteredInvites.filter(i => ['pending', 'changes_requested'].includes(i.status)), [filteredInvites]);
+    const pendingJoinRequests = useMemo(() => sentRequests.filter(i => ['pending', 'changes_requested'].includes(i.status)), [sentRequests]);
     const historyInvites = useMemo(() => filteredInvites.filter(i => ['rejected', 'expired', 'cancelled'].includes(i.status)), [filteredInvites]);
 
-    const handleRespond = async (invite: ProviderInvite, decision: 'accept' | 'reject' | 'cancel' | 'changes_requested', options?: { counterProposal?: string }) => {
+    const handleRespond = async (
+        invite: ProviderInvite, 
+        decision: 'accept' | 'reject' | 'cancel' | 'changes_requested', 
+        payload?: Record<string, any>
+    ) => {
         const inviteId = invite.id;
         setActionId(inviteId);
         try {
             let response;
             if (decision === 'cancel' && invite.is_sent_request) {
                 response = await doctorApi.cancelJoinRequest(inviteId, invite.kind);
-            } else {
+            } else if (decision !== 'cancel') {
+                const callPayload = decision === 'changes_requested' ? payload : undefined;
                 response = invite.kind === 'hospital'
-                    ? await doctorApi.respondHospitalInvite(inviteId, decision as 'accept' | 'reject')
-                    : await doctorApi.respondClinicInvite(inviteId, decision as 'accept' | 'reject');
+                    ? await doctorApi.respondHospitalInvite(inviteId, decision, callPayload)
+                    : await doctorApi.respondClinicInvite(inviteId, decision, callPayload);
+            } else {
+                return;
             }
             if (!response.success) {
                 toast.error(
-                    decision === 'cancel' ? 'Unable to cancel request' : decision === 'accept' ? 'Unable to accept invite' : 'Unable to reject invite',
+                    decision === 'cancel' ? 'Unable to cancel request' : decision === 'accept' ? 'Unable to accept invite' : decision === 'changes_requested' ? 'Unable to submit changes' : 'Unable to reject invite',
                     response.error || 'Please try again.'
                 );
                 return;
             }
 
-            if (decision === 'accept') {
-                setShowSuccess(true);
-                setSelectedInvite(null);
-            } else if (decision === 'cancel') {
-                toast.success('Request cancelled', 'Successfully cancelled the join request.');
-                setActiveTab('requests');
-                setSelectedInvite(null);
-            } else {
-                toast.success('Invite rejected', 'Successfully declined affiliation.');
-                setActiveTab('history');
-                setSelectedInvite(null);
-            }
-            await fetchInvites();
+            toast.success(
+                decision === 'accept' ? 'Invitation Accepted!' : decision === 'cancel' ? 'Request Cancelled' : decision === 'changes_requested' ? 'Counter-Proposal Sent' : 'Invitation Declined',
+                decision === 'accept' 
+                    ? `You are now affiliated with ${invite.provider?.name}. In-person and video consultations enabled.`
+                    : decision === 'changes_requested'
+                    ? `Your proposed changes have been sent to ${invite.provider?.name}.`
+                    : 'The update was processed successfully.'
+            );
+            
+            setSelectedInvite(null);
+            setShowCounterProposal(false);
+            void fetchInvites();
         } catch {
-            toast.error('Action failed', 'Network error. Please try again.');
+            toast.error('Operation Failed', 'Please try again later.');
         } finally {
             setActionId(null);
         }
     };
 
-    const handleSuccessContinue = () => {
-        setShowSuccess(false);
-        setActiveTab('all');
+    const handleOpenModal = (invite: ProviderInvite) => {
+        setSelectedInvite(invite);
+        setShowCounterProposal(false);
+        // Pre-populate counter-proposal with initial invite values
+        setCounterPracticeType(invite.practice_type || 'visiting');
+        setCounterModes(invite.consultation_modes || ['in_clinic', 'video']);
+        setCounterFeeAmount(invite.fee_amount ? String(invite.fee_amount) : '');
+        setCounterStartDate(invite.start_date || '');
+        setCounterMessage('');
     };
 
-    const getDisplayedItems = () => {
-        switch (activeTab) {
-            case 'all': return activeAffiliations;
-            case 'hospitals': return hospitalsOnly;
-            case 'clinics': return clinicsOnly;
-            case 'invitations': return pendingInvites;
-            case 'requests': return sentRequests;
-            case 'history': return historyInvites;
-            default: return [];
-        }
-    };
-
-    const displayedItems = getDisplayedItems();
-
-    if (showSuccess) {
-        return (
-            <div className="max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[70vh] px-4 animate-in fade-in duration-500">
-                <div className="w-32 h-32 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-full flex items-center justify-center mb-8 relative">
-                    <div className="absolute inset-0 border-4 border-emerald-500/30 rounded-full animate-ping [animation-duration:3s]"></div>
-                    <CheckCircle2 className="w-16 h-16 text-emerald-500 drop-shadow-md" />
+    return (
+        <div className="max-w-7xl mx-auto space-y-6 pb-20 px-4 sm:px-6">
+            
+            {/* Top Workspace Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
+                <div>
+                    <span className="text-[11px] font-extrabold uppercase tracking-widest text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/30 px-3 py-1 rounded-full border border-brand-200 dark:border-brand-800/50 inline-block mb-1.5">
+                        Clinical Workspace
+                    </span>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                        My Care Networks
+                    </h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Manage your clinic & hospital affiliations, review invitations, and negotiate practice schedules.
+                    </p>
                 </div>
-                <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white mb-4 tracking-tight text-center">
-                    Affiliation Accepted
-                </h1>
-                <p className="text-lg text-gray-500 dark:text-gray-400 max-w-lg text-center mb-10 font-medium">
-                    You are now affiliated with this provider network. You can begin accepting in-person appointments immediately.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+
+                <div className="flex items-center gap-2.5">
                     <Button 
-                        onClick={handleSuccessContinue}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 px-8 rounded-xl shadow-lg shadow-emerald-500/25 transition-all hover:-translate-y-0.5"
+                        variant="outline" 
+                        onClick={() => void fetchInvites()} 
+                        disabled={loading}
+                        className="rounded-2xl border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-sm"
                     >
-                        View Care Networks
+                        <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
                     </Button>
-                    <Link href="/doctor">
-                        <Button 
-                            variant="outline"
-                            className="w-full sm:w-auto border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 font-bold h-12 px-8 rounded-xl transition-all"
-                        >
-                            Go to Dashboard
+                    <Link href="/doctor/care-networks/find">
+                        <Button className="rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold shadow-md shadow-brand-600/20">
+                            <Search className="h-4 w-4 mr-2" /> Find Organizations
                         </Button>
                     </Link>
                 </div>
             </div>
-        );
-    }
 
-    return (
-        <div className="max-w-7xl mx-auto space-y-8 pb-24 relative">
-            
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 py-2">
-                <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30 mb-3 text-xs font-bold tracking-widest uppercase text-blue-600 dark:text-blue-400 shadow-sm">
-                        <Briefcase className="h-3.5 w-3.5" />
-                        Workspace
-                    </div>
-                    <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white leading-tight">
-                        My Care Networks
-                    </h1>
-                    <p className="mt-2 text-base font-medium text-gray-500 dark:text-gray-400 max-w-xl">
-                        Manage your affiliations, pending invitations, and in-person consultation networks.
-                    </p>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                    <div className="relative group flex-1 sm:w-64">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-emerald-500 transition-colors z-10">
-                            <Search className="h-4 w-4" />
-                        </div>
-                        <input 
-                            type="text"
-                            placeholder="Search network..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full h-12 pl-11 pr-4 bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800 rounded-xl text-sm font-bold text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all shadow-sm"
-                        />
-                    </div>
-                    <Button 
-                        onClick={fetchInvites} 
-                        disabled={loading}
-                        className="h-12 px-5 bg-white dark:bg-[#0f1929] text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-[#1a2332] transition-all shadow-sm rounded-xl font-bold"
-                    >
-                        <RefreshCw className={`h-4 w-4 mr-2 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
-                        Refresh
-                    </Button>
-                </div>
-            </div>
-
-            {/* In-Person Consultation Status */}
-            {!loading && activeAffiliations.length === 0 && doctorProfile && (
-                <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                        <div className="p-3 bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl shrink-0">
-                            <ShieldAlert className="h-6 w-6" />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">In-person consultations are unavailable</h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                You must join a verified hospital or clinic network before accepting in-person bookings.
-                            </p>
-                        </div>
-                    </div>
-                    {pendingInvites.length > 0 && (
-                        <Button 
-                            onClick={() => setActiveTab('invitations')}
-                            className="bg-amber-500 hover:bg-amber-600 text-white border-0 shadow-lg shadow-amber-500/20 whitespace-nowrap"
+            {/* Metrics Overview Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+                {[
+                    { id: 'all', label: 'Active Networks', value: activeAffiliations.length, icon: Building2, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-100 dark:border-emerald-900/30' },
+                    { id: 'hospitals', label: 'Hospitals', value: hospitalsOnly.length, icon: HeartPulse, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/20', border: 'border-blue-100 dark:border-blue-900/30' },
+                    { id: 'clinics', label: 'Clinics', value: clinicsOnly.length, icon: Stethoscope, color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950/20', border: 'border-teal-100 dark:border-teal-900/30' },
+                    { id: 'invitations', label: 'Invitations', value: pendingInvites.length, icon: MailOpen, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/20', border: 'border-amber-100 dark:border-amber-900/30' },
+                    { id: 'requests', label: 'Join Requests', value: pendingJoinRequests.length, icon: FileText, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/20', border: 'border-purple-100 dark:border-purple-900/30' },
+                ].map(stat => {
+                    const Icon = stat.icon;
+                    const isActive = activeTab === stat.id;
+                    return (
+                        <button
+                            key={stat.id}
+                            type="button"
+                            onClick={() => setActiveTab(stat.id as TabType)}
+                            className={`p-4 rounded-3xl border text-left transition-all ${stat.bg} ${stat.border} ${
+                                isActive ? 'ring-2 ring-brand-500 shadow-md scale-[1.02]' : 'hover:shadow-sm'
+                            }`}
                         >
-                            View Invitations <ChevronRight className="h-4 w-4 ml-2" />
-                        </Button>
-                    )}
-                </div>
-            )}
-
-            {/* Premium Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                {[
-                    { id: 'all', label: 'Total Affiliations', value: activeAffiliations.length, icon: Building2, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-                    { id: 'hospitals', label: 'Hospitals', value: hospitalsOnly.length, icon: HeartPulse, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
-                    { id: 'clinics', label: 'Clinics', value: clinicsOnly.length, icon: Stethoscope, color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-900/20' },
-                    { id: 'invitations', label: 'Pending Invites', value: pendingInvites.length, icon: MailOpen, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-                    { id: 'requests', label: 'Pending Join Requests', value: pendingJoinRequests.length, icon: FileText, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
-                ].map((stat) => (
-                    <div 
-                        key={stat.id}
-                        onClick={() => setActiveTab(stat.id as TabType)}
-                        className={`relative rounded-2xl p-5 cursor-pointer transition-all duration-300 border ${
-                            activeTab === stat.id 
-                                ? `bg-white dark:bg-[#0f1929] border-emerald-500 ring-1 ring-emerald-500 shadow-md` 
-                                : 'bg-white dark:bg-[#0f1929] border-gray-100 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
-                        }`}
-                    >
-                        <div className="flex items-center justify-between mb-4">
-                            <div className={`p-2.5 rounded-xl ${stat.bg} ${stat.color}`}>
-                                <stat.icon className="w-5 h-5" />
+                            <div className="flex items-center justify-between mb-2">
+                                <Icon className={`w-5 h-5 ${stat.color}`} />
+                                <span className="text-xl font-extrabold text-gray-900 dark:text-white leading-none">{stat.value}</span>
                             </div>
-                            {activeTab === stat.id && <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />}
-                        </div>
-                        <h3 className="text-3xl font-extrabold text-gray-900 dark:text-white">{stat.value}</h3>
-                        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider">{stat.label}</p>
-                    </div>
-                ))}
+                            <span className="text-xs font-bold text-gray-600 dark:text-gray-300 block">{stat.label}</span>
+                        </button>
+                    );
+                })}
             </div>
 
-            {/* Tabs */}
-            <div className="flex overflow-x-auto hide-scrollbar gap-2 pb-2 border-b border-gray-200 dark:border-gray-800">
-                {[
-                    { id: 'all', label: 'All Networks' },
-                    { id: 'hospitals', label: 'Hospitals' },
-                    { id: 'clinics', label: 'Clinics' },
-                    { id: 'invitations', label: 'Invitations' },
-                    { id: 'requests', label: 'Join Requests' },
-                    { id: 'history', label: 'History' },
-                ].map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id as TabType)}
-                        className={`px-5 py-3 rounded-t-xl font-bold text-sm whitespace-nowrap transition-all ${
-                            activeTab === tab.id
-                                ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500'
-                                : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                        }`}
-                    >
-                        {tab.label}
-                        {tab.id === 'requests' && sentRequests.length > 0 && (
-                            <span className="ml-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-0.5 px-2 rounded-full text-xs">
-                                {sentRequests.length}
-                            </span>
-                        )}
-                    </button>
-                ))}
-            </div>
-
-            {/* Main Content Area */}
-            {loading ? (
-                <div className="flex flex-col items-center justify-center py-20">
-                    <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-                    <p className="text-gray-500 font-medium">Syncing Care Networks...</p>
+            {/* Navigation Tabs & Search */}
+            <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-3 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1 sm:pb-0">
+                    {[
+                        { id: 'all', label: 'All Active' },
+                        { id: 'hospitals', label: 'Hospitals' },
+                        { id: 'clinics', label: 'Clinics' },
+                        { id: 'invitations', label: `Invitations (${pendingInvites.length})` },
+                        { id: 'requests', label: `Join Requests (${pendingJoinRequests.length})` },
+                        { id: 'history', label: 'History' },
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setActiveTab(tab.id as TabType)}
+                            className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
+                                activeTab === tab.id
+                                    ? 'bg-brand-600 text-white shadow-sm shadow-brand-600/20'
+                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                            }`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
-            ) : displayedItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#0f1929] border border-gray-100 dark:border-gray-800 rounded-3xl text-center px-4">
-                    <div className="w-20 h-20 bg-gray-50 dark:bg-gray-800/50 rounded-full flex items-center justify-center mb-6">
-                        <Briefcase className="w-10 h-10 text-gray-400" />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                        {activeTab === 'invitations' ? "No pending invitations" : activeTab === 'requests' ? "You haven't sent any join requests yet." : "No items found"}
-                    </h3>
-                    <p className="text-gray-500 dark:text-gray-400 max-w-md">
-                        {activeTab === 'invitations' 
-                            ? "Hospitals and clinics that invite you to join their network will appear here."
-                            : activeTab === 'requests'
-                            ? "Find a clinic or hospital where you'd like to practice."
-                            : "You don't have any active affiliations in this category yet."}
-                    </p>
-                    {activeTab === 'requests' && (
-                        <Link href="/doctor/care-networks/find">
-                            <Button className="mt-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-6 py-5 font-bold shadow-lg shadow-emerald-500/20">
-                                Find Clinics & Hospitals
-                            </Button>
-                        </Link>
-                    )}
+
+                <div className="relative w-full sm:w-72">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder="Search networks by name or city..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-3.5 py-2 text-xs rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                </div>
+            </div>
+
+            {/* Content List Section */}
+            {loading ? (
+                <div className="py-24 flex flex-col items-center justify-center gap-3">
+                    <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Loading your network affiliations...</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <AnimatePresence>
-                        {displayedItems.map((item) => (
-                            <motion.div
-                                key={item.id}
-                                layout
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                className="h-full"
-                            >
-                                <NetworkCard 
-                                    item={item} 
-                                    todaysCount={todaysAppointments?.filter(a => (a as any).hospital_id === item.providerId || (a as any).clinic_id === item.providerId).length || 0}
-                                    onRespond={handleRespond}
-                                    actionId={actionId}
-                                    onClick={() => setSelectedInvite(item)}
-                                />
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
+                <div>
+                    {(() => {
+                        let displayItems: ProviderInvite[] = [];
+                        if (activeTab === 'all') displayItems = activeAffiliations;
+                        else if (activeTab === 'hospitals') displayItems = hospitalsOnly;
+                        else if (activeTab === 'clinics') displayItems = clinicsOnly;
+                        else if (activeTab === 'invitations') displayItems = pendingInvites;
+                        else if (activeTab === 'requests') displayItems = pendingJoinRequests;
+                        else if (activeTab === 'history') displayItems = historyInvites;
+
+                        if (displayItems.length === 0) {
+                            return (
+                                <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-12 text-center border border-gray-100 dark:border-gray-800 shadow-sm space-y-4">
+                                    <div className="w-16 h-16 bg-gray-50 dark:bg-gray-900 rounded-3xl flex items-center justify-center mx-auto text-gray-400">
+                                        <Building2 className="w-8 h-8" />
+                                    </div>
+                                    <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                                        {activeTab === 'invitations' ? 'No pending invitations' : activeTab === 'requests' ? 'No active join requests' : 'No networks found'}
+                                    </h3>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
+                                        {activeTab === 'invitations' 
+                                            ? 'Invitations from clinics and hospitals will appear here. You can review explicit terms and accept or propose changes.'
+                                            : 'Search the organization directory to discover and request to join partner clinics and hospitals.'}
+                                    </p>
+                                    <Link href="/doctor/care-networks/find">
+                                        <Button className="rounded-2xl bg-brand-600 text-white font-bold text-xs">
+                                            <Search className="w-3.5 h-3.5 mr-1.5" /> Find Organizations
+                                        </Button>
+                                    </Link>
+                                </div>
+                            );
+                        }
+
+                        return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                {displayItems.map(item => (
+                                    <NetworkCard
+                                        key={item.id}
+                                        item={item}
+                                        todaysCount={todaysAppointments.length}
+                                        actionId={actionId}
+                                        onRespond={handleRespond}
+                                        onClick={() => handleOpenModal(item)}
+                                    />
+                                ))}
+                            </div>
+                        );
+                    })()}
                 </div>
             )}
 
-            {/* Details Modal */}
+            {/* Detailed Invitation & Network Modal */}
             <AnimatePresence>
                 {selectedInvite && (
-                    <>
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md">
                         <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
-                            onClick={() => { setSelectedInvite(null); setShowCounterProposal(false); setCounterProposalText(''); }}
-                        />
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            initial={{ opacity: 0, scale: 0.96, y: 15 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-2xl bg-white dark:bg-[#0f1929] rounded-3xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-[90vh]"
+                            exit={{ opacity: 0, scale: 0.96, y: 15 }}
+                            className="bg-white dark:bg-[#0f172a] rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh] border border-gray-100 dark:border-gray-800"
                         >
                             {/* Modal Header */}
-                            <div className="flex items-start justify-between p-6 md:p-8 border-b border-gray-100 dark:border-gray-800 shrink-0">
-                                <div className="flex items-center gap-4">
+                            <div className="flex items-start justify-between p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-900/50 shrink-0">
+                                <div className="flex items-center gap-4 min-w-0">
                                     {selectedInvite.provider?.profile_image_url ? (
-                                        <img src={selectedInvite.provider.profile_image_url} alt={selectedInvite.provider.name} className="h-16 w-16 rounded-2xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm" />
+                                        <img src={selectedInvite.provider.profile_image_url} alt={selectedInvite.provider.name} className="h-14 w-14 rounded-2xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm shrink-0" />
                                     ) : (
                                         <InitialsAvatar name={selectedInvite.provider?.name || 'Network'} size="lg" />
                                     )}
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
-                                            {selectedInvite.provider?.name || 'Care Network'}
+                                    <div className="min-w-0">
+                                        <h2 className="text-xl font-bold text-gray-900 dark:text-white truncate">
+                                            {selectedInvite.provider?.name || 'Healthcare Network'}
                                         </h2>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 capitalize">
+                                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 capitalize border border-blue-200 dark:border-blue-800/40">
                                                 {selectedInvite.kind}
                                             </span>
                                             {selectedInvite.provider?.city && (
-                                                <span className="text-sm text-gray-500 flex items-center gap-1">
+                                                <span className="text-xs text-gray-500 flex items-center gap-1">
                                                     <MapPin className="h-3 w-3" /> {selectedInvite.provider.city}
                                                 </span>
                                             )}
@@ -542,198 +511,322 @@ export default function MyCareNetworksPage() {
                                     </div>
                                 </div>
                                 <button 
-                                    onClick={() => { setSelectedInvite(null); setShowCounterProposal(false); setCounterProposalText(''); }}
-                                    className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+                                    onClick={() => { setSelectedInvite(null); setShowCounterProposal(false); }}
+                                    className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors shrink-0"
                                 >
-                                    <XCircle className="w-6 h-6" />
+                                    <XCircle className="w-5 h-5" />
                                 </button>
                             </div>
 
                             {/* Modal Body */}
-                            <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar flex-1">
-                                <div className="space-y-6">
-                                    {/* Status Box */}
-                                    <div className={`p-4 rounded-2xl border flex items-center gap-3 ${statusConfig[selectedInvite.status]?.color || 'bg-gray-50 border-gray-200 text-gray-700'}`}>
-                                        <Info className="h-5 w-5 shrink-0" />
-                                        <div>
-                                            <div className="font-bold">Status: {statusConfig[selectedInvite.status]?.label || selectedInvite.status}</div>
-                                            <div className="text-sm opacity-80 mt-0.5">
-                                                {selectedInvite.status === 'pending' ? 'This invitation requires your response.' :
-                                                 selectedInvite.status === 'accepted' ? 'You are actively affiliated with this network.' :
-                                                 `Updated on ${new Date(selectedInvite.responded_at || selectedInvite.created_at).toLocaleDateString()}`}
-                                            </div>
+                            <div className="p-5 sm:p-7 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+                                
+                                {/* Status Banner */}
+                                <div className={`p-4 rounded-2xl border flex items-center gap-3 ${statusConfig[selectedInvite.status]?.color || 'bg-gray-50 border-gray-200 text-gray-700'}`}>
+                                    <Info className="h-5 w-5 shrink-0" />
+                                    <div className="min-w-0 text-xs">
+                                        <div className="font-bold text-sm">Status: {statusConfig[selectedInvite.status]?.label || selectedInvite.status}</div>
+                                        <div className="opacity-90 mt-0.5">
+                                            {selectedInvite.status === 'pending' && !selectedInvite.is_sent_request ? 'This invitation requires your review and acceptance.' :
+                                             selectedInvite.status === 'pending' && selectedInvite.is_sent_request ? 'Join request sent. Awaiting organization response.' :
+                                             selectedInvite.status === 'changes_requested' ? 'Counter-proposal has been submitted. Awaiting organization approval.' :
+                                             selectedInvite.status === 'accepted' ? 'You are actively affiliated with this healthcare network.' :
+                                             `Updated on ${new Date(selectedInvite.responded_at || selectedInvite.created_at).toLocaleDateString()}`}
                                         </div>
                                     </div>
+                                </div>
 
-                                    {/* Details Grid */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <DetailItem icon={<Building />} label="Department" value={selectedInvite.department || 'General'} />
-                                        <DetailItem icon={<UserCheck />} label="Role" value={selectedInvite.role || 'Consultant'} />
-                                        {selectedInvite.is_sent_request ? (
-                                            <>
-                                                <DetailItem icon={<Stethoscope />} label="Specialization" value={selectedInvite.specialization || 'Not specified'} />
-                                                <DetailItem icon={<Briefcase />} label="Practice Type" value={selectedInvite.practice_type ? selectedInvite.practice_type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Not specified'} />
-                                                <DetailItem icon={<Clock />} label="Preferred Time" value={selectedInvite.preferred_start_time && selectedInvite.preferred_end_time ? `${selectedInvite.preferred_start_time} - ${selectedInvite.preferred_end_time}` : 'Flexible'} />
-                                                <DetailItem icon={<CalendarDays />} label="Available Days" value={selectedInvite.preferred_days?.length ? selectedInvite.preferred_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ') : 'Flexible'} />
-                                            </>
-                                        ) : (
-                                            <>
-                                                {selectedInvite.practice_type && <DetailItem icon={<Briefcase />} label="Practice Type" value={selectedInvite.practice_type.replace('_', ' ')} />}
-                                                {selectedInvite.fee_amount && <DetailItem icon={<IndianRupee />} label="Fee Amount" value={`₹${selectedInvite.fee_amount}`} />}
-                                                {selectedInvite.payout_terms && <DetailItem icon={<IndianRupee />} label="Payout Terms" value={selectedInvite.payout_terms} />}
-                                                {selectedInvite.start_date && <DetailItem icon={<CalendarDays />} label="Start Date" value={new Date(selectedInvite.start_date).toLocaleDateString()} />}
-                                                {selectedInvite.schedule?.description && <DetailItem icon={<Clock />} label="Schedule" value={selectedInvite.schedule.description} />}
-                                            </>
-                                        )}
-                                        <DetailItem icon={<CalendarDays />} label={selectedInvite.is_sent_request ? "Requested On" : "Invited On"} value={new Date(selectedInvite.created_at).toLocaleDateString()} />
-                                        <DetailItem icon={<Mail />} label="Contact Email" value={selectedInvite.provider?.email || selectedInvite.invitedBy?.email || 'N/A'} />
-                                        <DetailItem icon={<Phone />} label="Phone" value={selectedInvite.provider?.phone || 'N/A'} />
-                                        <DetailItem icon={<Star />} label="Rating" value={selectedInvite.provider?.rating ? `${selectedInvite.provider.rating} / 5` : 'New'} />
-                                    </div>
+                                {/* Proposed Practice Terms Breakdown */}
+                                <div className="space-y-3">
+                                    <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Briefcase className="w-3.5 h-3.5 text-brand-500" />
+                                        {selectedInvite.is_sent_request ? 'Requested Practice Terms' : 'Proposed Terms from Organization'}
+                                    </h4>
 
-                                    <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
-                                        <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Location Address</h4>
-                                        <p className="text-gray-600 dark:text-gray-400 text-sm bg-gray-50 dark:bg-[#1a2332] p-3 rounded-xl border border-gray-100 dark:border-gray-800">
-                                            {selectedInvite.provider?.address || 'Address not provided'}
-                                        </p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <DetailItem icon={<Building />} label="Department" value={selectedInvite.department || 'General Practice'} />
+                                        <DetailItem icon={<UserCheck />} label="Role" value={selectedInvite.role || 'Consultant Doctor'} />
+                                        <DetailItem 
+                                            icon={<Briefcase />} 
+                                            label="Practice Type" 
+                                            value={selectedInvite.practice_type ? selectedInvite.practice_type.replace('_', ' ').toUpperCase() : 'Visiting / Flexible'} 
+                                        />
+                                        <DetailItem 
+                                            icon={<Video />} 
+                                            label="Consultation Modes" 
+                                            value={selectedInvite.consultation_modes?.length ? selectedInvite.consultation_modes.map(m => m === 'in_clinic' ? 'In-Person' : 'Video').join(' & ') : 'In-Person OPD & Video'} 
+                                        />
+                                        {selectedInvite.fee_amount ? (
+                                            <DetailItem icon={<IndianRupee />} label="Consultation Fee / Share" value={`₹${selectedInvite.fee_amount}`} />
+                                        ) : null}
+                                        {selectedInvite.payout_terms ? (
+                                            <DetailItem icon={<IndianRupee />} label="Payout Terms" value={selectedInvite.payout_terms} />
+                                        ) : null}
+                                        {selectedInvite.start_date ? (
+                                            <DetailItem icon={<CalendarDays />} label="Proposed Start Date" value={new Date(selectedInvite.start_date).toLocaleDateString()} />
+                                        ) : null}
+                                        {selectedInvite.schedule?.description ? (
+                                            <DetailItem icon={<Clock />} label="Proposed Schedule" value={selectedInvite.schedule.description} />
+                                        ) : null}
+                                        {selectedInvite.preferred_days?.length ? (
+                                            <DetailItem icon={<CalendarDays />} label="Preferred Days" value={selectedInvite.preferred_days.join(', ')} />
+                                        ) : null}
+                                        {selectedInvite.preferred_start_time && selectedInvite.preferred_end_time ? (
+                                            <DetailItem icon={<Clock />} label="Preferred Timings" value={`${selectedInvite.preferred_start_time} - ${selectedInvite.preferred_end_time}`} />
+                                        ) : null}
                                     </div>
                                 </div>
+
+                                {/* Previous Counter-Proposal Note if any */}
+                                {selectedInvite.counter_proposal && (
+                                    <div className="bg-purple-50 dark:bg-purple-950/30 p-4 rounded-2xl border border-purple-200 dark:border-purple-900/50 space-y-1.5">
+                                        <span className="text-xs font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
+                                            <MessageSquare className="w-3.5 h-3.5" /> Doctor Counter-Proposal Note:
+                                        </span>
+                                        <p className="text-xs text-purple-800 dark:text-purple-200 italic leading-relaxed">
+                                            "{selectedInvite.counter_proposal}"
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Location Details */}
+                                <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                                    <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Facility Address</h4>
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/60 p-3 rounded-2xl border border-gray-100 dark:border-gray-800">
+                                        {selectedInvite.provider?.address || 'Address registered on facility profile'}
+                                    </p>
+                                </div>
+
+                                {/* Counter-Proposal Form if Doctor clicked "Suggest Changes" */}
+                                {showCounterProposal && selectedInvite.status === 'pending' && !selectedInvite.is_sent_request && (
+                                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 p-5 rounded-3xl border border-purple-200 dark:border-purple-800/40 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-xs font-bold text-purple-950 dark:text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
+                                                <Send className="w-3.5 h-3.5 text-purple-600" /> Propose Alternative Terms
+                                            </h4>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setShowCounterProposal(false)}
+                                                className="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 font-semibold"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                                                    Counter Practice Type
+                                                </label>
+                                                <select
+                                                    value={counterPracticeType}
+                                                    onChange={e => setCounterPracticeType(e.target.value)}
+                                                    className="w-full p-2.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                                                >
+                                                    <option value="visiting">Visiting Consultant</option>
+                                                    <option value="part_time">Part-Time</option>
+                                                    <option value="full_time">Full-Time</option>
+                                                    <option value="contract">Contract</option>
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                                                    Proposed Start Date
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    value={counterStartDate}
+                                                    onChange={e => setCounterStartDate(e.target.value)}
+                                                    className="w-full p-2.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                                                    Start Time
+                                                </label>
+                                                <input
+                                                    type="time"
+                                                    value={counterStartTime}
+                                                    onChange={e => setCounterStartTime(e.target.value)}
+                                                    className="w-full p-2.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                                                    End Time
+                                                </label>
+                                                <input
+                                                    type="time"
+                                                    value={counterEndTime}
+                                                    onChange={e => setCounterEndTime(e.target.value)}
+                                                    className="w-full p-2.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                                                Doctor Explanation / Specific Rationale
+                                            </label>
+                                            <textarea
+                                                rows={3}
+                                                value={counterMessage}
+                                                onChange={e => setCounterMessage(e.target.value)}
+                                                placeholder="e.g. Wednesday is unavailable after 8:30 PM. Prefer Mon/Wed morning OPD shifts..."
+                                                className="w-full p-3 text-xs rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white outline-none resize-none focus:ring-2 focus:ring-purple-500"
+                                            />
+                                        </div>
+
+                                        <div className="flex justify-end gap-2 pt-1">
+                                            <Button
+                                                onClick={() => {
+                                                    const fullProposalText = `Practice: ${counterPracticeType}, Timings: ${counterStartTime}-${counterEndTime}, Start: ${counterStartDate || 'Immediate'}. Note: ${counterMessage}`;
+                                                    handleRespond(selectedInvite, 'changes_requested', {
+                                                        counterProposal: fullProposalText,
+                                                        practiceType: counterPracticeType,
+                                                        preferredStartTime: counterStartTime,
+                                                        preferredEndTime: counterEndTime,
+                                                        startDate: counterStartDate || null,
+                                                    });
+                                                }}
+                                                disabled={actionId === selectedInvite.id}
+                                                className="rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-5 py-2.5"
+                                            >
+                                                {actionId === selectedInvite.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit Counter-Proposal'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Modal Footer Actions */}
-                            <div className="p-6 md:p-8 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-[#1a2332] shrink-0">
+                            <div className="p-4 sm:p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur shrink-0">
                                 {selectedInvite.is_sent_request && selectedInvite.status === 'pending' ? (
-                                    <div className="flex gap-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-xs text-gray-500">Awaiting organization review</p>
                                         <Button 
                                             variant="outline" 
                                             onClick={() => handleRespond(selectedInvite, 'cancel')}
                                             disabled={actionId === selectedInvite.id}
-                                            className="flex-1 h-12 rounded-xl text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 dark:border-red-900/30 dark:hover:bg-red-900/20 font-bold"
+                                            className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/40 dark:hover:bg-red-900/20 font-bold text-xs rounded-xl"
                                         >
-                                            {actionId === selectedInvite.id ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Cancel Request'}
+                                            {actionId === selectedInvite.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cancel Join Request'}
                                         </Button>
                                     </div>
-                                ) : selectedInvite.status === 'pending' ? (
-                                    showCounterProposal ? (
-                                        <div className="flex flex-col gap-3">
-                                            <textarea 
-                                                className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0f1929] p-3 text-sm focus:ring-2 focus:ring-pink-500 outline-none text-gray-900 dark:text-white"
-                                                placeholder="Suggest changes to schedule, fee, etc..."
-                                                rows={3}
-                                                value={counterProposalText}
-                                                onChange={e => setCounterProposalText(e.target.value)}
-                                            />
-                                            <div className="flex gap-3">
-                                                <Button variant="outline" onClick={() => setShowCounterProposal(false)} className="flex-1 rounded-xl">Cancel</Button>
-                                                <Button 
-                                                    onClick={() => handleRespond(selectedInvite, 'changes_requested', { counterProposal: counterProposalText })}
-                                                    disabled={actionId === selectedInvite.id || !counterProposalText.trim()}
-                                                    className="flex-1 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold"
-                                                >
-                                                    {actionId === selectedInvite.id ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit Proposal'}
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col gap-3">
-                                            <div className="flex gap-3">
-                                                <Button 
-                                                    variant="outline" 
-                                                    onClick={() => handleRespond(selectedInvite, 'reject')}
-                                                    disabled={actionId === selectedInvite.id}
-                                                    className="flex-1 h-12 rounded-xl text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 dark:border-red-900/30 dark:hover:bg-red-900/20 font-bold"
-                                                >
-                                                    {actionId === selectedInvite.id ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Decline'}
-                                                </Button>
-                                                <Button 
-                                                    onClick={() => handleRespond(selectedInvite, 'accept')}
-                                                    disabled={actionId === selectedInvite.id}
-                                                    className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                                                >
-                                                    {actionId === selectedInvite.id ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Accept Invitation'}
-                                                </Button>
-                                            </div>
+                                ) : selectedInvite.status === 'pending' && !showCounterProposal ? (
+                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                                        <Button 
+                                            variant="outline" 
+                                            onClick={() => handleRespond(selectedInvite, 'reject')}
+                                            disabled={actionId === selectedInvite.id}
+                                            className="w-full sm:w-auto text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/40 dark:hover:bg-red-900/20 font-bold text-xs rounded-xl"
+                                        >
+                                            Decline
+                                        </Button>
+                                        <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
                                             <Button 
                                                 variant="outline"
                                                 onClick={() => setShowCounterProposal(true)}
                                                 disabled={actionId === selectedInvite.id}
-                                                className="w-full rounded-xl border-gray-200 text-gray-700 font-bold hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                                                className="flex-1 sm:flex-none border-purple-200 text-purple-700 dark:border-purple-800 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 font-bold text-xs rounded-xl"
                                             >
-                                                Propose Changes
+                                                Suggest Changes
+                                            </Button>
+                                            <Button 
+                                                onClick={() => handleRespond(selectedInvite, 'accept')}
+                                                disabled={actionId === selectedInvite.id}
+                                                className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20"
+                                            >
+                                                {actionId === selectedInvite.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Accept Terms'}
                                             </Button>
                                         </div>
-                                    )
+                                    </div>
                                 ) : ['accepted', 'active'].includes(selectedInvite.status) ? (
-                                    <div className="flex gap-3">
-                                        <Link href="/doctor/schedule" className="flex-1">
-                                            <Button className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-                                                <Calendar className="w-4 h-4 mr-2" /> View Schedule
-                                            </Button>
-                                        </Link>
-                                        <Link href="/doctor/appointments" className="flex-1">
-                                            <Button variant="outline" className="w-full h-12 rounded-xl border-gray-300 dark:border-gray-600 font-bold">
-                                                <Clock className="w-4 h-4 mr-2" /> Appointments
+                                    <div className="flex items-center justify-end gap-3">
+                                        <Link href="/doctor/schedule">
+                                            <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs">
+                                                <Calendar className="w-3.5 h-3.5 mr-1.5" /> View Practice Schedule
                                             </Button>
                                         </Link>
                                     </div>
                                 ) : (
-                                    <div className="text-center text-gray-500 font-medium">
-                                        No further actions available for this {selectedInvite.status} invitation.
+                                    <div className="flex justify-end">
+                                        <Button 
+                                            variant="outline"
+                                            onClick={() => setSelectedInvite(null)}
+                                            className="rounded-xl text-xs"
+                                        >
+                                            Close
+                                        </Button>
                                     </div>
                                 )}
                             </div>
                         </motion.div>
-                    </>
+                    </div>
                 )}
             </AnimatePresence>
-
         </div>
     );
 }
 
 function DetailItem({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) {
     return (
-        <div className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-[#1a2332] border border-gray-100 dark:border-gray-800">
-            <div className="p-2 rounded-lg bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0 shadow-sm">
+        <div className="flex items-start gap-3 p-3 rounded-2xl bg-gray-50 dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800">
+            <div className="p-2 rounded-xl bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0 shadow-sm">
                 {icon}
             </div>
-            <div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold mb-0.5">{label}</div>
-                <div className="text-sm font-bold text-gray-900 dark:text-white line-clamp-1" title={value}>{value}</div>
+            <div className="min-w-0">
+                <div className="text-[11px] text-gray-500 dark:text-gray-400 font-semibold mb-0.5 uppercase tracking-wider">{label}</div>
+                <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white line-clamp-1" title={value}>{value}</div>
             </div>
         </div>
     );
 }
 
-function NetworkCard({ item, todaysCount, onRespond, actionId, onClick }: { item: ProviderInvite, todaysCount: number, onRespond: (i: ProviderInvite, d: 'accept'|'reject'|'cancel')=>void, actionId: string | null, onClick: () => void }) {
+function NetworkCard({ 
+    item, 
+    todaysCount, 
+    onRespond, 
+    actionId, 
+    onClick 
+}: { 
+    item: ProviderInvite, 
+    todaysCount: number, 
+    onRespond: (i: ProviderInvite, d: 'accept'|'reject'|'cancel'|'changes_requested') => void, 
+    actionId: string | null, 
+    onClick: () => void 
+}) {
     const isHospital = item.kind === 'hospital';
-    const name = item.provider?.name || (isHospital ? 'Hospital' : 'Clinic');
-    const location = item.provider?.city || item.provider?.address || '';
+    const name = item.provider?.name || (isHospital ? 'Hospital Facility' : 'Clinic Facility');
+    const location = [item.provider?.city, item.provider?.address].filter(Boolean).join(', ') || '';
     const rating = item.provider?.rating;
     const cfg = statusConfig[item.status] || statusConfig.pending;
 
     return (
-        <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800/50 rounded-2xl p-5 hover:border-gray-300 dark:hover:border-gray-700/60 transition-all duration-200 group flex flex-col h-full hover:shadow-lg hover:shadow-gray-100/50 dark:hover:shadow-black/20">
+        <div className="bg-white dark:bg-[#0f172a] border border-gray-100 dark:border-gray-800/80 rounded-3xl p-5 sm:p-6 hover:border-brand-200 dark:hover:border-brand-800/60 transition-all duration-200 group flex flex-col h-full hover:shadow-xl hover:shadow-gray-100/50 dark:hover:shadow-black/20">
             {/* Header */}
             <div className="flex items-start gap-4 mb-4 cursor-pointer" onClick={onClick}>
                 {item.provider?.profile_image_url ? (
-                    <img src={item.provider.profile_image_url} alt={name} className="h-12 w-12 rounded-2xl object-cover shrink-0 border border-gray-200 dark:border-gray-800"/>
+                    <img src={item.provider.profile_image_url} alt={name} className="h-12 w-12 rounded-2xl object-cover shrink-0 border border-gray-200 dark:border-gray-800 shadow-sm"/>
                 ) : (
                     <InitialsAvatar name={name}/>
                 )}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                            <h3 className="font-semibold text-gray-900 dark:text-white text-[15px] truncate">{name}</h3>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-base truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{name}</h3>
                             {item.department && <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-0.5 truncate">{item.department}</p>}
                             {location && (
-                                <div className="flex items-center gap-1 mt-1">
-                                    <MapPin className="h-3 w-3 text-gray-400 dark:text-gray-600 shrink-0"/>
-                                    <span className="text-xs text-gray-500 truncate">{location}</span>
-                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1 truncate">
+                                    <MapPin className="h-3 w-3 text-gray-400 shrink-0"/>
+                                    <span className="truncate">{location}</span>
+                                </p>
                             )}
                         </div>
-                        <span className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border shrink-0 ${cfg.color}`}>
+                        <span className={`flex items-center gap-1.5 text-[11px] font-extrabold px-2.5 py-1 rounded-full border shrink-0 ${cfg.color}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} ${item.status === 'accepted' ? 'animate-pulse' : ''}`}/>
                             {cfg.label}
                         </span>
@@ -741,85 +834,51 @@ function NetworkCard({ item, todaysCount, onRespond, actionId, onClick }: { item
                 </div>
             </div>
 
-            {/* Stats Row */}
-            <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-2.5 text-center border border-gray-200 dark:border-gray-800/30">
-                    <Calendar className="h-3.5 w-3.5 text-blue-400 mx-auto mb-1"/>
-                    <div className="text-lg font-bold text-gray-900 dark:text-white leading-none">{todaysCount}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-600 mt-0.5">Today's Appts</div>
-                </div>
-                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-2.5 text-center border border-gray-200 dark:border-gray-800/30">
-                    <Star className="h-3.5 w-3.5 text-amber-400 mx-auto mb-1"/>
-                    <div className="text-lg font-bold text-gray-900 dark:text-white leading-none">{rating ? rating.toFixed(1) : '—'}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-600 mt-0.5">Rating</div>
-                </div>
-                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-2.5 text-center border border-gray-200 dark:border-gray-800/30">
-                    <Clock className="h-3.5 w-3.5 text-purple-400 mx-auto mb-1"/>
-                    <div className="text-[11px] font-bold text-gray-900 dark:text-white leading-none">{new Date(item.created_at).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-600 mt-0.5">Added</div>
-                </div>
-            </div>
-
-            {/* Tags */}
-            <div className="flex flex-wrap gap-1.5 mb-4 flex-1 content-start">
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">{isHospital ? 'Hospital' : 'Clinic'}</span>
+            {/* Quick Badges */}
+            <div className="flex flex-wrap gap-1.5 mb-4 flex-1 content-start text-xs">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800/30 uppercase tracking-wider">
+                    {isHospital ? 'Hospital' : 'Clinic'}
+                </span>
                 
-                {/* Directional Badges */}
                 {item.is_sent_request ? (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 tracking-wide">REQUEST SENT</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800/30 tracking-wider uppercase">
+                        Request Sent by You
+                    </span>
                 ) : (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20 tracking-wide">
-                        {isHospital ? 'INVITED BY HOSPITAL' : 'INVITED BY CLINIC'}
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border border-orange-200 dark:border-orange-800/30 tracking-wider uppercase">
+                        Invited by Facility
                     </span>
                 )}
 
-                {item.role && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-400 border border-gray-500/20 capitalize">{item.role}</span>}
-                {['accepted', 'active'].includes(item.status) && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">In-Person Authorized</span>}
+                {item.practice_type && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 capitalize">
+                        {item.practice_type.replace('_', ' ')}
+                    </span>
+                )}
+
+                {['accepted', 'active'].includes(item.status) && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/30">
+                        In-Person OPD Active
+                    </span>
+                )}
             </div>
 
-            {/* Actions */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-800/50 mt-auto">
-                {item.is_sent_request && item.status === 'pending' ? (
+            {/* Actions: View Details Primary Action for Safety & Clarity */}
+            <div className="pt-3.5 border-t border-gray-100 dark:border-gray-800/80 mt-auto flex items-center gap-2">
+                <Button 
+                    onClick={onClick} 
+                    variant="outline" 
+                    className="flex-1 h-9 rounded-xl border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-xs font-bold text-gray-800 dark:text-gray-200"
+                >
+                    View Details
+                </Button>
+
+                {item.status === 'pending' && !item.is_sent_request && (
                     <Button 
-                        variant="outline"
-                        onClick={(e) => { e.stopPropagation(); onRespond(item, 'cancel'); }}
-                        disabled={actionId === item.id}
-                        className="w-full h-9 rounded-xl text-gray-500 hover:text-red-600 border-gray-200 hover:border-red-200 hover:bg-red-50 text-xs"
+                        onClick={onClick} 
+                        className="flex-1 h-9 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm shadow-brand-600/20"
                     >
-                        {actionId === item.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cancel Request'}
-                    </Button>
-                ) : item.status === 'pending' ? (
-                    <div className="flex gap-2">
-                        <Button 
-                            variant="outline"
-                            onClick={(e) => { e.stopPropagation(); onRespond(item, 'reject'); }}
-                            disabled={actionId === item.id}
-                            className="flex-1 h-9 rounded-xl text-red-600 border-red-200 hover:bg-red-50 text-xs"
-                        >
-                            Decline
-                        </Button>
-                        <Button 
-                            onClick={(e) => { e.stopPropagation(); onRespond(item, 'accept'); }}
-                            disabled={actionId === item.id}
-                            className="flex-1 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
-                        >
-                            Accept
-                        </Button>
-                    </div>
-                ) : ['accepted', 'active'].includes(item.status) ? (
-                    <div className="flex gap-2">
-                        <Link href="/doctor/schedule" className="flex-1">
-                            <Button variant="outline" className="w-full h-9 rounded-xl border-gray-200 dark:border-gray-700 hover:bg-gray-50 text-xs font-semibold">
-                                <Calendar className="h-3.5 w-3.5 mr-1"/> Schedule
-                            </Button>
-                        </Link>
-                        <Button onClick={onClick} className="flex-1 h-9 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20 text-xs font-semibold">
-                            Details
-                        </Button>
-                    </div>
-                ) : (
-                    <Button onClick={onClick} variant="outline" className="w-full h-9 rounded-xl text-xs">
-                        View Details
+                        Review & Respond
                     </Button>
                 )}
             </div>

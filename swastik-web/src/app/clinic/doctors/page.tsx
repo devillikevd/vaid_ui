@@ -371,48 +371,97 @@ export default function ClinicDoctorsPage() {
                         </Card>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {invites.map((invite) => (
-                                <Card key={invite.id} className="p-5 flex flex-col hover:shadow-md transition-shadow border border-amber-100 dark:border-amber-900/20">
-                                    <div className="flex items-start justify-between gap-3 mb-4">
-                                        <div className="flex items-center gap-3">
-                                            {invite.doctor.profile_image_url ? (
-                                                <img src={invite.doctor.profile_image_url} alt={invite.doctor.name} className="h-10 w-10 rounded-full object-cover border border-gray-200 dark:border-gray-700 opacity-80 grayscale" />
-                                            ) : (
-                                                <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0">
-                                                    <span className="text-sm font-bold text-gray-500 dark:text-gray-400">{invite.doctor.name.charAt(0)}</span>
+                            {invites.map((invite) => {
+                                const isChangesRequested = invite.status === 'changes_requested';
+                                return (
+                                    <Card 
+                                        key={invite.id} 
+                                        className={`p-5 flex flex-col hover:shadow-md transition-shadow border ${
+                                            isChangesRequested 
+                                                ? 'border-purple-200 dark:border-purple-900/40 bg-purple-50/30 dark:bg-purple-950/10 ring-1 ring-purple-500/20' 
+                                                : 'border-amber-100 dark:border-amber-900/20'
+                                        }`}
+                                    >
+                                        <div className="flex items-start justify-between gap-3 mb-3">
+                                            <div className="flex items-center gap-3">
+                                                {invite.doctor.profile_image_url ? (
+                                                    <img src={invite.doctor.profile_image_url} alt={invite.doctor.name} className="h-11 w-11 rounded-2xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm" />
+                                                ) : (
+                                                    <div className="h-11 w-11 rounded-2xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold text-sm shrink-0">
+                                                        <span>{invite.doctor.name.charAt(0)}</span>
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <h4 className="font-bold text-gray-900 dark:text-gray-100 text-sm">Dr. {invite.doctor.name}</h4>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate w-36 sm:w-48">{invite.doctor.email}</p>
                                                 </div>
-                                            )}
-                                            <div>
-                                                <h4 className="font-semibold text-gray-900 dark:text-gray-100">Dr. {invite.doctor.name}</h4>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate w-32 sm:w-48">{invite.doctor.email}</p>
                                             </div>
+                                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                                isChangesRequested 
+                                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800' 
+                                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                                            }`}>
+                                                {isChangesRequested ? 'Changes Proposed' : 'Pending Review'}
+                                            </span>
                                         </div>
-                                    </div>
-                                    <div className="flex-1 flex flex-col gap-2 justify-center mb-4 text-sm text-gray-600 dark:text-gray-400 bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg border border-amber-100 dark:border-amber-900/30">
-                                        <div className="flex items-center gap-2">
-                                            <Clock className="h-4 w-4 text-amber-500" />
-                                            <span>Sent {invite.createdAt ? new Date(invite.createdAt).toLocaleDateString() : 'Unknown date'}</span>
+
+                                        {/* Doctor Counter-Proposal Note */}
+                                        {isChangesRequested && invite.counter_proposal && (
+                                            <div className="mb-3 p-3 rounded-xl bg-purple-100/60 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/40 text-xs text-purple-950 dark:text-purple-200">
+                                                <span className="font-bold block mb-0.5">Doctor's Proposed Changes:</span>
+                                                <p className="italic leading-relaxed">{invite.counter_proposal}</p>
+                                            </div>
+                                        )}
+
+                                        {/* Proposed Terms Pills */}
+                                        <div className="flex flex-wrap gap-1.5 mb-3 text-[11px]">
+                                            {invite.practice_type && (
+                                                <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 capitalize font-medium">
+                                                    {invite.practice_type.replace('_', ' ')}
+                                                </span>
+                                            )}
+                                            {invite.fee_amount ? (
+                                                <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-bold">
+                                                    ₹{invite.fee_amount}
+                                                </span>
+                                            ) : null}
+                                            {invite.start_date && (
+                                                <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 font-medium">
+                                                    Starts {new Date(invite.start_date).toLocaleDateString()}
+                                                </span>
+                                            )}
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <AlertCircle className="h-4 w-4 text-amber-500" />
-                                            <span>Waiting for doctor's approval</span>
+
+                                        <div className="flex items-center gap-2 mb-4 text-xs text-gray-500 dark:text-gray-400">
+                                            <Clock className="h-3.5 w-3.5 text-gray-400" />
+                                            <span>Sent {invite.createdAt ? new Date(invite.createdAt).toLocaleDateString() : 'Recently'}</span>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center justify-between mt-auto">
-                                        <StatusBadge status="pending" size="sm" />
-                                        <Button 
-                                            variant="ghost" 
-                                            size="sm" 
-                                            className="text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                            onClick={() => void handleCancelInvite(invite.id)}
-                                            disabled={actionLoading === invite.id}
-                                            leftIcon={actionLoading === invite.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
-                                        >
-                                            Cancel
-                                        </Button>
-                                    </div>
-                                </Card>
-                            ))}
+
+                                        <div className="flex items-center justify-between gap-2 mt-auto pt-3 border-t border-gray-100 dark:border-gray-800">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                className="text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs"
+                                                onClick={() => void handleCancelInvite(invite.id)}
+                                                disabled={actionLoading === invite.id}
+                                                leftIcon={actionLoading === invite.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}
+                                            >
+                                                Withdraw
+                                            </Button>
+
+                                            {isChangesRequested && (
+                                                <Button
+                                                    size="sm"
+                                                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs"
+                                                    onClick={() => setShowInviteModal(true)}
+                                                >
+                                                    Propose New Terms
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </Card>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -429,56 +478,85 @@ export default function ClinicDoctorsPage() {
                             </div>
                             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">No join requests</h3>
                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-sm mx-auto">
-                                Doctors who want to join your clinic will appear here.
+                                Doctors who want to partner and join your clinic will appear here.
                             </p>
                         </Card>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {joinRequests.map((request: any) => (
                                 <Card key={request.id} className="p-5 flex flex-col hover:shadow-md transition-shadow border border-blue-100 dark:border-blue-900/20">
-                                    <div className="flex items-start justify-between gap-3 mb-4">
+                                    <div className="flex items-start justify-between gap-3 mb-3">
                                         <div className="flex items-center gap-3">
                                             {request.doctor.profile_image_url ? (
-                                                <img src={request.doctor.profile_image_url} alt={request.doctor.name} className="h-10 w-10 rounded-full object-cover border border-gray-200 dark:border-gray-700 opacity-80" />
+                                                <img src={request.doctor.profile_image_url} alt={request.doctor.name} className="h-11 w-11 rounded-2xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm" />
                                             ) : (
-                                                <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center shrink-0">
-                                                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{request.doctor.name.charAt(0)}</span>
+                                                <div className="h-11 w-11 rounded-2xl bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center font-bold text-sm text-blue-600 dark:text-blue-400 shrink-0">
+                                                    <span>{request.doctor.name.charAt(0)}</span>
                                                 </div>
                                             )}
                                             <div>
-                                                <h4 className="font-semibold text-gray-900 dark:text-gray-100">Dr. {request.doctor.name}</h4>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate w-32 sm:w-48">{request.doctor.specialization || 'Doctor'}</p>
+                                                <h4 className="font-bold text-gray-900 dark:text-gray-100 text-sm">Dr. {request.doctor.name}</h4>
+                                                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium truncate w-36 sm:w-48">{request.doctor.specialization || request.specialization || 'Consultant Doctor'}</p>
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Request Terms Breakdown */}
+                                    <div className="space-y-2 mb-3 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-2xl border border-gray-100 dark:border-gray-800 text-xs">
+                                        {request.practice_type && (
+                                            <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
+                                                <span>Practice Type:</span>
+                                                <span className="font-bold text-gray-900 dark:text-white capitalize">{request.practice_type.replace('_', ' ')}</span>
+                                            </div>
+                                        )}
+                                        {request.preferred_days?.length ? (
+                                            <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
+                                                <span>Preferred Days:</span>
+                                                <span className="font-bold text-gray-900 dark:text-white">{request.preferred_days.join(', ')}</span>
+                                            </div>
+                                        ) : null}
+                                        {request.preferred_start_time && request.preferred_end_time && (
+                                            <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
+                                                <span>Hours:</span>
+                                                <span className="font-bold text-gray-900 dark:text-white">{request.preferred_start_time} - {request.preferred_end_time}</span>
+                                            </div>
+                                        )}
+                                        {request.start_date && (
+                                            <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
+                                                <span>Start Date:</span>
+                                                <span className="font-bold text-gray-900 dark:text-white">{new Date(request.start_date).toLocaleDateString()}</span>
+                                            </div>
+                                        )}
+                                    </div>
                                     
                                     {request.message && (
-                                        <div className="mb-4 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg italic">
+                                        <div className="mb-3 text-xs text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-900/80 p-3 rounded-xl border border-gray-100 dark:border-gray-800 italic leading-relaxed">
                                             "{request.message}"
                                         </div>
                                     )}
 
-                                    <div className="flex-1 flex flex-col gap-2 justify-center mb-4 text-sm text-gray-600 dark:text-gray-400">
-                                        <div className="flex items-center gap-2">
-                                            <Clock className="h-4 w-4 text-blue-500" />
-                                            <span>Requested {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'Unknown date'}</span>
-                                        </div>
+                                    <div className="flex items-center gap-2 mb-3 text-xs text-gray-400">
+                                        <Clock className="h-3.5 w-3.5 text-blue-500" />
+                                        <span>Requested {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'Recently'}</span>
                                     </div>
-                                    <div className="flex gap-2 mt-auto">
+
+                                    <div className="flex gap-2 mt-auto pt-3 border-t border-gray-100 dark:border-gray-800">
                                         <Button 
                                             variant="outline" 
-                                            className="flex-1 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                                            size="sm"
+                                            className="flex-1 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 font-bold text-xs rounded-xl"
                                             onClick={() => void handleRespondRequest(request.id, request.doctor.name, 'reject')}
                                             disabled={actionLoading === request.id}
                                         >
                                             Decline
                                         </Button>
                                         <Button 
-                                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                                            size="sm"
+                                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm"
                                             onClick={() => void handleRespondRequest(request.id, request.doctor.name, 'accept')}
                                             disabled={actionLoading === request.id}
                                         >
-                                            Accept
+                                            Accept & Affiliate
                                         </Button>
                                     </div>
                                 </Card>

@@ -885,18 +885,18 @@ export const doctorApi = {
 
     getHospitalInvites: () => fetchWithAuth('/doctors/me/hospital-invites'),
 
-    respondHospitalInvite: (inviteId: string, decision: 'accept' | 'reject') =>
+    respondHospitalInvite: (inviteId: string, decision: 'accept' | 'reject' | 'changes_requested', data?: Record<string, unknown>) =>
         fetchWithAuth(`/doctors/me/hospital-invites/${inviteId}/respond`, {
             method: 'POST',
-            body: JSON.stringify({ decision }),
+            body: JSON.stringify({ decision, ...data }),
         }),
 
     getClinicInvites: () => fetchWithAuth('/doctors/me/clinic-invites'),
 
-    respondClinicInvite: (inviteId: string, decision: 'accept' | 'reject') =>
+    respondClinicInvite: (inviteId: string, decision: 'accept' | 'reject' | 'changes_requested', data?: Record<string, unknown>) =>
         fetchWithAuth(`/doctors/me/clinic-invites/${inviteId}/respond`, {
             method: 'POST',
-            body: JSON.stringify({ decision }),
+            body: JSON.stringify({ decision, ...data }),
         }),
 
     // ── Organization Join Requests ──
@@ -907,6 +907,12 @@ export const doctorApi = {
         if (lat) params.set('lat', String(lat));
         if (lng) params.set('lng', String(lng));
         return fetchWithAuth(`/doctors/search-organizations?${params}`);
+    },
+
+    getOrganizationDetails: (orgId: string, type?: string) => {
+        const params = new URLSearchParams();
+        if (type) params.set('type', type);
+        return fetchWithAuth(`/doctors/organizations/${orgId}${type ? `?${params}` : ''}`);
     },
 
     completeOnboarding: (practiceSetupType: string) =>

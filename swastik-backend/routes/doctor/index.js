@@ -218,6 +218,15 @@ router.get('/search-organizations',
   })
 );
 
+router.get('/organizations/:orgId',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.getOrganizationDetails(req.params.orgId, req.query.type);
+    res.json({ success: true, data: result });
+  })
+);
+
 router.post('/me/onboarding',
   authenticate,
   authorize('doctor'),

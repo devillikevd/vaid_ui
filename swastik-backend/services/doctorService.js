@@ -2485,7 +2485,7 @@ class DoctorService {
     if (type === 'all' || type === 'clinic') {
       let clinicQuery = supabaseAdmin
         .from('clinics')
-        .select('id, name, city, address, state, pincode, latitude, longitude, specializations, phone, email, image_url, profile_image_url, rating, total_reviews, is_active, approval_status')
+        .select('id, name, city, address, state, pincode, latitude, longitude, specializations, facilities, opening_hours, is_24_hours, phone, email, image_url, profile_image_url, rating, total_reviews, is_active, approval_status, description')
         .eq('is_active', true)
         .eq('approval_status', 'approved')
         .limit(20);
@@ -2499,6 +2499,7 @@ class DoctorService {
         results.clinics = clinics.map(c => ({
           ...c,
           organization_type: 'clinic',
+          type: 'clinic',
           distance_km: (latitude && longitude && c.latitude && c.longitude)
             ? haversineDistance(latitude, longitude, c.latitude, c.longitude)
             : null,
@@ -2509,7 +2510,7 @@ class DoctorService {
     if (type === 'all' || type === 'hospital') {
       let hospitalQuery = supabaseAdmin
         .from('hospitals')
-        .select('id, name, city, address, state, pincode, latitude, longitude, specializations, departments, phone, email, image_url, rating, total_reviews, is_active, approval_status')
+        .select('id, name, city, address, state, pincode, latitude, longitude, specializations, departments, facilities, opening_hours, is_24_hours, is_emergency_available, ambulance_available, phone, email, website, emergency_phone, type, description, image_url, rating, total_reviews, is_active, approval_status')
         .eq('is_active', true)
         .eq('approval_status', 'approved')
         .limit(20);
@@ -2523,6 +2524,7 @@ class DoctorService {
         results.hospitals = hospitals.map(h => ({
           ...h,
           organization_type: 'hospital',
+          type: 'hospital',
           distance_km: (latitude && longitude && h.latitude && h.longitude)
             ? haversineDistance(latitude, longitude, h.latitude, h.longitude)
             : null,
@@ -2539,6 +2541,89 @@ class DoctorService {
     });
 
     return { data: all, clinics: results.clinics, hospitals: results.hospitals };
+  }
+
+  /**
+   * Get single organization details with public profile, departments, active doctors
+   */
+  async getOrganizationDetails(orgId, type) {
+    if (!orgId) throw new ApiError(400, 'Organization ID is required');
+
+    let organization = null;
+
+    if (type === 'clinic' || !type) {
+      const { data: clinic, error: clinicErr } = await supabaseAdmin
+        .from('clinics')
+        .select('*')
+        .eq('id', orgId)
+        .maybeSingle();
+
+      if (!clinicErr && clinic) {
+        // Fetch affiliated active doctors
+        const { data: activeInvites } = await supabaseAdmin
+          .from('clinic_doctor_invites')
+          .select('id, role, department, practice_type, doctor:doctors(id, name, specialization, experience_years, profile_image_url, rating)')
+          .eq('clinic_id', orgId)
+          .eq('status', 'accepted')
+          .limit(10);
+
+        organization = {
+          ...clinic,
+          organization_type: 'clinic',
+          type: 'clinic',
+          doctors: (activeInvites || []).map(i => ({
+            ...i.doctor,
+            role: i.role,
+            department: i.department,
+            practice_type: i.practice_type,
+          })).filter(d => !!d && !!d.id),
+        };
+      }
+    }
+
+    if (!organization && (type === 'hospital' || !type)) {
+      const { data: hospital, error: hospErr } = await supabaseAdmin
+        .from('hospitals')
+        .select('*')
+        .eq('id', orgId)
+        .maybeSingle();
+
+      if (!hospErr && hospital) {
+        // Fetch departments
+        const { data: depts } = await supabaseAdmin
+          .from('hospital_departments')
+          .select('*')
+          .eq('hospital_id', orgId)
+          .eq('is_active', true);
+
+        // Fetch affiliated active doctors
+        const { data: activeInvites } = await supabaseAdmin
+          .from('hospital_doctor_invites')
+          .select('id, role, department, practice_type, doctor:doctors(id, name, specialization, experience_years, profile_image_url, rating)')
+          .eq('hospital_id', orgId)
+          .eq('status', 'accepted')
+          .limit(10);
+
+        organization = {
+          ...hospital,
+          organization_type: 'hospital',
+          type: 'hospital',
+          department_list: depts || [],
+          doctors: (activeInvites || []).map(i => ({
+            ...i.doctor,
+            role: i.role,
+            department: i.department,
+            practice_type: i.practice_type,
+          })).filter(d => !!d && !!d.id),
+        };
+      }
+    }
+
+    if (!organization) {
+      throw new ApiError(404, 'Organization not found');
+    }
+
+    return organization;
   }
 
   /**

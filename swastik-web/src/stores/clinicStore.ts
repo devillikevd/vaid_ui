@@ -79,6 +79,16 @@ export interface ClinicInvite {
     respondedAt?: string | null;
     expiresAt?: string | null;
     invitedByName?: string;
+    practice_type?: string | null;
+    consultation_modes?: string[] | null;
+    schedule?: any | null;
+    fee_amount?: number | null;
+    payout_terms?: string | null;
+    start_date?: string | null;
+    counter_proposal?: string | null;
+    preferred_days?: string[] | null;
+    preferred_start_time?: string | null;
+    preferred_end_time?: string | null;
     doctor: {
         id: string;
         name: string;
@@ -200,10 +210,20 @@ function normalizeClinicInvite(raw: Record<string, any>): ClinicInvite {
         invitedByName: raw.invitedByName || 'Clinic Owner',
         message: raw.message || null,
         department: raw.department || null,
+        practice_type: raw.practice_type || raw.practiceType || null,
+        consultation_modes: raw.consultation_modes || raw.consultationModes || null,
+        schedule: raw.schedule || null,
+        fee_amount: raw.fee_amount || raw.feeAmount || null,
+        payout_terms: raw.payout_terms || raw.payoutTerms || null,
+        start_date: raw.start_date || raw.startDate || null,
+        counter_proposal: raw.counter_proposal || raw.counterProposal || null,
+        preferred_days: raw.preferred_days || raw.preferredDays || null,
+        preferred_start_time: raw.preferred_start_time || raw.preferredStartTime || null,
+        preferred_end_time: raw.preferred_end_time || raw.preferredEndTime || null,
         doctor: {
-            id: doctor.id || '',
+            id: doctor.id || raw.doctorId || raw.doctor_id || '',
             name: doctor.name || 'Doctor',
-            specialization: doctor.specialization || '',
+            specialization: doctor.specialization || raw.specialization || '',
             email: doctor.email || raw.email || '',
             phone: doctor.phone || raw.phone || '',
             profile_image_url: doctor.profile_image_url || null,
