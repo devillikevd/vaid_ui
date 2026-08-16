@@ -17,7 +17,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -31,7 +31,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -45,7 +45,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -59,7 +59,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -73,7 +73,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -87,7 +87,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -101,7 +101,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -115,7 +115,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -129,7 +129,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -143,7 +143,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -157,7 +157,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -171,7 +171,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -185,7 +185,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -199,7 +199,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -213,7 +213,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -227,7 +227,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -241,7 +241,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -255,7 +255,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -269,7 +269,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -283,7 +283,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -297,7 +297,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -311,7 +311,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -325,7 +325,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -339,7 +339,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -353,7 +353,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -367,7 +367,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -381,7 +381,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -395,7 +395,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -409,7 +409,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -423,7 +423,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -437,7 +437,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -451,7 +451,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -465,7 +465,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -479,7 +479,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -493,7 +493,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -507,7 +507,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -521,7 +521,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -535,7 +535,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -549,7 +549,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -563,7 +563,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     />
@@ -577,7 +577,7 @@ export default function AnimatedLogo({ className }: { className?: string }) {
       initial={{ pathLength: 0, fillOpacity: 0 }}
       animate={{ pathLength: 1, fillOpacity: 1 }}
       transition={{ 
-        pathLength: { duration: 1.5, ease: "easeInOut", delay: 0.2 },
+        pathLength: { duration: 1.5, ease: "easeInOut", delay: Math.random() * 0.5 },
         fillOpacity: { duration: 0.8, ease: "easeIn", delay: 1.2 }
       }}
     /></motion.svg>

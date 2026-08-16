@@ -13,7 +13,7 @@ export default function Footer() {
           <div className="col-span-2 md:col-span-3 lg:col-span-2 pr-4">
             <Link href="/" className="flex items-center gap-2.5 mb-6 group">
               <VaidideaLogo className="w-8 h-8" />
-              <span className="font-heading text-2xl font-semibold text-vd-forest">Vaididea</span>
+              <span className="font-heading text-2xl font-semibold text-vd-forest uppercase">VAIDIDEA</span>
             </Link>
             <p className="text-sm leading-relaxed max-w-xs">
               Seamless, fast, and fully connected for the modern urban healthcare experience.

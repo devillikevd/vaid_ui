@@ -7,10 +7,27 @@ import VaidideaLogo from "@/components/shared/VaidideaLogo";
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+      
+      const darkSections = document.querySelectorAll('#providers');
+      let overDark = false;
+      const navbarHeight = 80;
+      
+      darkSections.forEach(section => {
+        const rect = section.getBoundingClientRect();
+        if (rect.top <= navbarHeight && rect.bottom >= navbarHeight / 2) {
+          overDark = true;
+        }
+      });
+      setIsDarkTheme(overDark);
+    };
+    
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll(); // Initial check
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -23,25 +40,47 @@ export default function Navbar() {
     { href: "/#ecosystem", label: "Ecosystem" },
     { href: "/#patient-app", label: "Patient App" },
     { href: "/#providers", label: "For Providers" },
-    { href: "/#vision", label: "Our Vision" },
     { href: "/#health-library-section", label: "Health Library" },
+    { href: "/#vision", label: "Our Vision" },
   ];
+
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (href.startsWith('/#')) {
+      const targetId = href.replace('/#', '');
+      const element = document.getElementById(targetId);
+      if (element) {
+        e.preventDefault();
+        element.scrollIntoView({ behavior: 'smooth' });
+        window.history.pushState(null, '', href);
+      }
+    }
+    setMobileMenuOpen(false);
+  };
+
+  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (window.location.pathname === '/') {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   return (
     <>
       <nav
         className={`fixed w-full top-0 z-50 transition-all duration-500 ease-out ${
           scrolled
-            ? 'py-3 bg-white/70 backdrop-blur-2xl shadow-[0_4px_30px_rgba(0,0,0,0.03)] border-b border-white/50'
+            ? isDarkTheme 
+              ? 'py-3 bg-black/70 backdrop-blur-2xl shadow-[0_4px_30px_rgba(0,0,0,0.5)] border-b border-white/10'
+              : 'py-3 bg-white/70 backdrop-blur-2xl shadow-[0_4px_30px_rgba(0,0,0,0.03)] border-b border-white/50'
             : 'py-5 bg-transparent'
         }`}
       >
         <div className="max-w-7xl mx-auto px-5 sm:px-8 flex justify-between items-center">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <VaidideaLogo className="w-9 h-9 transition-transform duration-300 group-hover:scale-105" />
-            <span className="font-heading text-2xl font-semibold tracking-tight text-vd-forest uppercase">
-              Vaididea
+          <Link href="/" onClick={handleLogoClick} className="flex items-center gap-2.5 group">
+            <VaidideaLogo className={`w-9 h-9 transition-transform duration-300 group-hover:scale-105 ${isDarkTheme ? 'text-white' : ''}`} />
+            <span className={`font-heading text-2xl font-semibold tracking-tight uppercase transition-colors duration-500 ${isDarkTheme ? 'text-white' : 'text-vd-forest'}`}>
+              VAIDIDEA
             </span>
           </Link>
 
@@ -51,7 +90,12 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-[15px] font-medium text-vd-muted hover:text-vd-forest transition-colors duration-200"
+                onClick={(e) => handleNavClick(e, link.href)}
+                className={`text-[15px] font-medium transition-colors duration-200 ${
+                  isDarkTheme 
+                    ? 'text-white/70 hover:text-white' 
+                    : 'text-vd-muted hover:text-vd-forest'
+                }`}
               >
                 {link.label}
               </Link>
@@ -68,9 +112,9 @@ export default function Navbar() {
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle menu"
             >
-              <span className={`block h-[2px] w-full bg-vd-forest rounded-full transition-all duration-300 origin-center ${mobileMenuOpen ? 'rotate-45 translate-y-[7px]' : ''}`} />
-              <span className={`block h-[2px] w-full bg-vd-forest rounded-full transition-all duration-300 ${mobileMenuOpen ? 'opacity-0' : ''}`} />
-              <span className={`block h-[2px] w-full bg-vd-forest rounded-full transition-all duration-300 origin-center ${mobileMenuOpen ? '-rotate-45 -translate-y-[7px]' : ''}`} />
+              <span className={`block h-[2px] w-full rounded-full transition-all duration-300 origin-center ${isDarkTheme ? 'bg-white' : 'bg-vd-forest'} ${mobileMenuOpen ? 'rotate-45 translate-y-[7px]' : ''}`} />
+              <span className={`block h-[2px] w-full rounded-full transition-all duration-300 ${isDarkTheme ? 'bg-white' : 'bg-vd-forest'} ${mobileMenuOpen ? 'opacity-0' : ''}`} />
+              <span className={`block h-[2px] w-full rounded-full transition-all duration-300 origin-center ${isDarkTheme ? 'bg-white' : 'bg-vd-forest'} ${mobileMenuOpen ? '-rotate-45 -translate-y-[7px]' : ''}`} />
             </button>
           </div>
         </div>
@@ -85,7 +129,7 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={(e) => handleNavClick(e, link.href)}
               className={`text-3xl font-heading font-semibold text-vd-forest hover:text-vd-sage transition-colors ${mobileMenuOpen ? 'fade-in-up' : 'opacity-0'}`}
               style={{ animationDelay: `${i * 80}ms` }}
             >

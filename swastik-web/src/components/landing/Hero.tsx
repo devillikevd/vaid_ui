@@ -38,9 +38,9 @@ export default function Hero() {
         <div className="absolute inset-0 opacity-[0.015] mix-blend-overlay" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")' }} />
       </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto px-5 sm:px-8 text-center pt-28 pb-20 animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out fill-mode-both">
+      <div className="relative z-10 max-w-5xl mx-auto px-5 sm:px-8 text-center pt-24 pb-10 animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out fill-mode-both flex flex-col justify-center min-h-[calc(100vh-80px)]">
         {/* Animated Logo Mark */}
-        <div className="flex justify-center mb-10">
+        <div className="flex justify-center mb-6">
           <div className="relative hero-logo-animated group cursor-pointer">
 
             {/* Secondary pulsing glow */}
@@ -58,7 +58,7 @@ export default function Hero() {
 
             {/* Main logo with heartbeat + shimmer */}
             <div className="relative z-10 logo-heartbeat">
-              <VaidideaLogo className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 drop-shadow-2xl" />
+              <VaidideaLogo className="w-36 h-36 sm:w-40 sm:h-40 md:w-48 md:h-48 drop-shadow-2xl" />
               {/* Shimmer sweep overlay */}
               <div className="absolute inset-0 logo-shimmer overflow-hidden pointer-events-none" />
             </div>
@@ -66,12 +66,12 @@ export default function Hero() {
         </div>
 
         {/* Brand Name */}
-        <h1 className="font-cursive text-7xl sm:text-8xl md:text-9xl text-vd-forest mb-6 leading-none drop-shadow-sm tracking-tight" style={{ letterSpacing: '-0.02em' }}>
+        <h1 className="font-cursive text-6xl sm:text-7xl md:text-8xl text-vd-forest mb-4 leading-none drop-shadow-sm tracking-tight" style={{ letterSpacing: '-0.02em' }}>
           Vaididea
         </h1>
 
         {/* Premium Badge */}
-        <div className="flex items-center justify-center gap-4 mb-10 opacity-90 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 fill-mode-both">
+        <div className="flex items-center justify-center gap-4 mb-6 opacity-90 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300 fill-mode-both">
           <div className="h-px w-12 bg-gradient-to-r from-transparent to-vd-forest/20" />
           <div className="px-5 py-1.5 rounded-full apple-glass shadow-sm">
             <span className="text-[10px] sm:text-xs font-bold tracking-[0.25em] uppercase text-vd-forest/80">
@@ -82,19 +82,20 @@ export default function Hero() {
         </div>
 
         {/* Headline */}
-        <h2 className="font-heading text-4xl sm:text-5xl md:text-6xl lg:text-[4rem] text-vd-forest mb-6 leading-[1.1] tracking-tight animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500 fill-mode-both">
-          A refined approach to{" "}
-          <br className="hidden sm:block" />
-          <em className="text-vd-sage font-medium italic relative inline-block">
-            holistic well-being.
+        <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl lg:text-[3.5rem] text-vd-forest mb-4 leading-[1.1] tracking-tight animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500 fill-mode-both">
+          <span className="relative inline-block">
+            Your Health{" "}
+            <em className="text-vd-sage font-medium italic">
+              Our Priority.
+            </em>
             <svg className="absolute w-full h-3 -bottom-1 left-0 text-vd-sage/30 opacity-70" viewBox="0 0 100 10" preserveAspectRatio="none">
               <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round"/>
             </svg>
-          </em>
+          </span>
         </h2>
 
         {/* Subtext */}
-        <p className="text-lg sm:text-xl text-vd-muted max-w-2xl mx-auto mb-12 leading-relaxed font-light tracking-wide animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-700 fill-mode-both">
+        <p className="text-base sm:text-lg text-vd-muted max-w-2xl mx-auto mb-8 leading-relaxed font-light tracking-wide animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-700 fill-mode-both">
           Vaididea seamlessly blends traditional healing wisdom with modern medical
           excellence. Experience a unified, personalized healthcare network designed
           entirely around you.
