@@ -55,6 +55,7 @@ fun CommunityQAScreen(
     val currentSortBy by viewModel.currentSortBy.collectAsState()
     val focusManager = LocalFocusManager.current
     var showSortMenu by remember { mutableStateOf(false) }
+    var reportTarget by remember { mutableStateOf<Pair<String, String>?>(null) } // pair of (targetType, id)
 
     LaunchedEffect(Unit) {
         viewModel.fetchTrendingTopics()
@@ -271,7 +272,11 @@ fun CommunityQAScreen(
                                     }
                                 },
                                 onBookmark = { viewModel.toggleBookmark(question.id, isBookmarked) },
-                                onTopicClick = { viewModel.setTopic(question.topic) }
+                                onTopicClick = {
+                                    if (currentTopic == question.topic) viewModel.setTopic(null)
+                                    else viewModel.setTopic(question.topic)
+                                },
+                                onReport = if (!isOwner) { { reportTarget = "question" to question.id } } else null
                             )
                         }
                     }
@@ -321,6 +326,23 @@ fun CommunityQAScreen(
             }
         }
     }
+
+    reportTarget?.let { target ->
+        ReportBottomSheet(
+            targetType = target.first,
+            onDismiss = { reportTarget = null },
+            onSubmit = { reason, details ->
+                reportTarget = null
+                if (target.first == "question") {
+                    viewModel.reportQuestion(target.second, reason, details) {
+                        pagedQuestions.refresh()
+                    }
+                } else {
+                    viewModel.reportAnswer(target.second, reason, details) {}
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -333,7 +355,8 @@ fun QuestionCard(
     onUpvote: () -> Unit,
     onDelete: () -> Unit = {},
     onBookmark: () -> Unit,
-    onTopicClick: () -> Unit
+    onTopicClick: () -> Unit,
+    onReport: (() -> Unit)? = null
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showOptionsMenu by remember { mutableStateOf(false) }
@@ -475,6 +498,18 @@ fun QuestionCard(
                         tint = if (isBookmarked) SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                
+                if (!isOwner && onReport != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(onClick = { onReport.invoke() }, modifier = Modifier.size(24.dp)) {
+                        Icon(
+                            Icons.Default.Flag,
+                            contentDescription = "Report",
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(12.dp))
             Text(
@@ -496,20 +531,49 @@ fun QuestionCard(
             
             
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (!question.topic.isNullOrEmpty()) {
+                if (!question.category.isNullOrEmpty()) {
+                    SuggestionChip(
+                        onClick = onTopicClick, // Could rename this to onCategoryClick later
+                        label = { Text(question.category.toString(), color = SwastikPrimary, fontSize = 12.sp) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = SwastikPrimaryLight.copy(alpha = 0.5f)
+                        ),
+                        border = SuggestionChipDefaults.suggestionChipBorder(
+                            enabled = true,
+                            borderColor = Color.Transparent
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                
+                if (!question.specialtyTarget.isNullOrEmpty()) {
+                    SuggestionChip(
+                        onClick = onTopicClick,
+                        label = { Text(question.specialtyTarget.toString(), color = SwastikPrimary, fontSize = 12.sp) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = SwastikPrimaryLight.copy(alpha = 0.5f)
+                        ),
+                        border = SuggestionChipDefaults.suggestionChipBorder(
+                            enabled = true,
+                            borderColor = Color.Transparent
+                        )
+                    )
+                } else if (!question.topic.isNullOrEmpty() && question.category.isNullOrEmpty()) {
                     SuggestionChip(
                         onClick = onTopicClick,
                         label = { Text("#${question.topic}", color = SwastikPrimary, fontSize = 12.sp) },
                         colors = SuggestionChipDefaults.suggestionChipColors(
                             containerColor = SwastikPrimaryLight.copy(alpha = 0.5f)
                         ),
-                        border = null,
-                        modifier = Modifier.height(28.dp)
+                        border = SuggestionChipDefaults.suggestionChipBorder(
+                            enabled = true,
+                            borderColor = Color.Transparent
+                        )
                     )
                 }
                 
                 if (!question.attachments.isNullOrEmpty()) {
-                    if (!question.topic.isNullOrEmpty()) {
+                    if (!question.category.isNullOrEmpty() || !question.specialtyTarget.isNullOrEmpty() || !question.topic.isNullOrEmpty()) {
                         Spacer(modifier = Modifier.width(8.dp))
                     }
                     Surface(

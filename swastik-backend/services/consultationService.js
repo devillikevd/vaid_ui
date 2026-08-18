@@ -1142,6 +1142,7 @@ const addPrescription = async (doctorUserId, options, prescriptionData) => {
   if (enrichedItems.length > 0) {
     const medicines = enrichedItems.map((item) => ({
       prescription_id: prescription.id,
+      medicine_id: item.medicineId || null,
       medicine_name: item.medicineName,
       dosage: item.dosage,
       frequency: item.frequency,

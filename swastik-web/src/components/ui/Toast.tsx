@@ -230,7 +230,7 @@ export function useToast() {
 
     const { addToast, removeToast, clearToasts } = context;
 
-    const toast = {
+    const toast = useMemo(() => ({
         success: (title: string, message?: string, options?: Partial<Toast>) =>
             addToast({ type: 'success', title, message, ...options }),
         error: (title: string, message?: string, options?: Partial<Toast>) =>
@@ -242,7 +242,7 @@ export function useToast() {
         custom: (toast: Omit<Toast, 'id'>) => addToast(toast),
         dismiss: removeToast,
         dismissAll: clearToasts,
-    };
+    }), [addToast, removeToast, clearToasts]);
 
     return toast;
 }
@@ -305,6 +305,12 @@ export function NotificationPanel({
     const [activeFilter, setActiveFilter] = useState('All');
     const { user } = useAuthStore();
     const role = user?.role || 'doctor';
+    const getPortalPrefix = (r: string) => {
+        if (r === 'hospital_admin') return 'hospital';
+        if (r === 'diagnostic_center_owner') return 'diagnostic-center';
+        return r.replace('_owner', '');
+    };
+    const portalPrefix = getPortalPrefix(role);
 
     if (!isOpen) return null;
 
@@ -524,21 +530,19 @@ export function NotificationPanel({
                 </div>
 
                 {/* Footer */}
-                {notifications.length > 0 && (
-                    <div className="p-3 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#0B1020] flex items-center justify-between gap-2">
-                        {onClear && (
-                            <button 
-                                onClick={onClear}
-                                className="text-xs font-bold text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-                            >
-                                Clear read
-                            </button>
-                        )}
-                        <Link href={`/${role.replace('_owner', '')}/notifications`} onClick={onClose} className="flex-1 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
-                            View all notifications <ArrowRight className="w-4 h-4" />
-                        </Link>
-                    </div>
-                )}
+                <div className="p-3 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#0B1020] flex items-center justify-between gap-2">
+                    {onClear && (
+                        <button 
+                            onClick={onClear}
+                            className="text-xs font-bold text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+                        >
+                            Clear read
+                        </button>
+                    )}
+                    <Link href={`/${portalPrefix}/notifications`} onClick={onClose} className="flex-1 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
+                        View all notifications <ArrowRight className="w-4 h-4" />
+                    </Link>
+                </div>
             </div>
         </>
     );

@@ -37,9 +37,9 @@ class CommunityRepository @Inject constructor(
         }
     }
 
-    suspend fun createQuestion(title: String, content: String, topic: String? = null, isAnonymous: Boolean = false, attachments: List<String> = emptyList()): Result<CommunityQuestion> {
+    suspend fun createQuestion(title: String, content: String, topic: String? = null, isAnonymous: Boolean = false, attachments: List<String> = emptyList(), category: String? = null, specialtyTarget: String? = null): Result<CommunityQuestion> {
         return try {
-            val response = apiService.createQuestion(PostQuestionRequest(title, content, topic, isAnonymous, attachments))
+            val response = apiService.createQuestion(PostQuestionRequest(title, content, topic, category, specialtyTarget, isAnonymous, attachments))
             if (response.isSuccessful && response.body() != null) {
                 Result.Success(response.body()!!)
             } else {
@@ -134,13 +134,40 @@ class CommunityRepository @Inject constructor(
         return try {
             val response = apiService.toggleBookmark(questionId)
             if (response.isSuccessful && response.body() != null) {
-                val bookmarked = response.body()?.get("bookmarked")?.asBoolean ?: false
-                Result.Success(bookmarked)
+                Result.Success(response.body()!!.get("bookmarked").asBoolean)
             } else {
                 Result.Error("Failed to toggle bookmark")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Unknown error")
+            Result.Error("Error: ${e.message}")
+        }
+    }
+
+    suspend fun reportQuestion(questionId: String, reason: String, details: String?): Result<Unit> {
+        return try {
+            val response = apiService.reportQuestion(questionId, PostReportRequest(reason, details))
+            if (response.isSuccessful) {
+                Result.Success(Unit)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Result.Error(if (errorBody?.contains("already reported") == true) "You have already reported this content." else "Failed to submit report")
+            }
+        } catch (e: Exception) {
+            Result.Error("Error: ${e.message}")
+        }
+    }
+
+    suspend fun reportAnswer(answerId: String, reason: String, details: String?): Result<Unit> {
+        return try {
+            val response = apiService.reportAnswer(answerId, PostReportRequest(reason, details))
+            if (response.isSuccessful) {
+                Result.Success(Unit)
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Result.Error(if (errorBody?.contains("already reported") == true) "You have already reported this content." else "Failed to submit report")
+            }
+        } catch (e: Exception) {
+            Result.Error("Error: ${e.message}")
         }
     }
 

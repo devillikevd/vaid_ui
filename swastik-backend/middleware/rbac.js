@@ -12,6 +12,8 @@ const ROLES = {
   HOSPITAL_OWNER: 'hospital_owner',
   HOSPITAL_MANAGER: 'hospital_manager',
   PHARMACY_OWNER: 'pharmacy_owner',
+  PHARMACY_MANAGER: 'pharmacy_manager',
+  PHARMACY_STAFF: 'pharmacy_staff',
   CLINIC_OWNER: 'clinic_owner',
   DIAGNOSTIC_CENTER_OWNER: 'diagnostic_center_owner',
   WELLNESS_COACH: 'wellness_coach',
@@ -59,6 +61,8 @@ const ROLE_HIERARCHY = [
   ROLES.DIAGNOSTIC_CENTER_OWNER,
   ROLES.WELLNESS_COACH,
   ROLES.FITNESS_CENTER_OWNER,
+  ROLES.PHARMACY_STAFF,
+  ROLES.PHARMACY_MANAGER,
   ROLES.PHARMACY_OWNER,
   ROLES.AMBULANCE_OPERATOR,
   ROLES.ADMIN,
@@ -100,6 +104,8 @@ const ROLE_TO_TABLE = {
   [ROLES.HOSPITAL_OWNER]: 'hospitals',
   [ROLES.HOSPITAL_MANAGER]: 'hospitals',
   [ROLES.PHARMACY_OWNER]: 'pharmacies',
+  [ROLES.PHARMACY_MANAGER]: 'pharmacies', // approval checked via linked pharmacy
+  [ROLES.PHARMACY_STAFF]: 'pharmacies',   // approval checked via linked pharmacy
   [ROLES.CLINIC_OWNER]: 'clinics',
   [ROLES.DIAGNOSTIC_CENTER_OWNER]: 'diagnostic_centers',
   [ROLES.WELLNESS_COACH]: 'wellness_coaches',
@@ -158,6 +164,28 @@ const requireApproval = async (req, res, next) => {
           .eq('id', managerEntry.hospital_id)
           .single();
         provider = hospital;
+      }
+    } else if (req.user.role === ROLES.PHARMACY_MANAGER || req.user.role === ROLES.PHARMACY_STAFF) {
+      // Pharmacy members: resolve via pharmacy_members → pharmacies
+      const { data: memberEntry } = await supabaseAdmin
+        .from('pharmacy_members')
+        .select('pharmacy_id, status')
+        .eq('user_id', req.user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (memberEntry) {
+        const { data: pharmacy } = await supabaseAdmin
+          .from('pharmacies')
+          .select('approval_status')
+          .eq('id', memberEntry.pharmacy_id)
+          .single();
+        provider = pharmacy;
+      } else {
+        // No active membership found
+        return res.status(403).json({
+          success: false,
+          message: 'Your pharmacy membership is not active. Contact your pharmacy owner.',
+        });
       }
     } else {
       const ownerField = ROLE_TO_USER_FIELD[req.user.role];
@@ -239,3 +267,106 @@ const requireMfa = (req, res, next) => {
 };
 
 module.exports = { ROLES, requireRole, requireMinRole, requireApproval, requireMfa, isAdminRole };
+
+/**
+ * requirePharmacyMember — live membership check for pharmacy_manager and pharmacy_staff.
+ *
+ * For every protected Pharmacy API call, this middleware:
+ * 1. Resolves the pharmacy context: owner → via pharmacies.owner_id; member → via pharmacy_members.
+ * 2. Verifies the membership status is 'active' (not invited/suspended/removed).
+ * 3. Attaches req.pharmacyId so downstream handlers never trust frontend-supplied pharmacyId.
+ *
+ * pharmacy_owner: uses pharmacies.owner_id (no pharmacy_members row required — backward compatible).
+ * pharmacy_manager / pharmacy_staff: requires an 'active' row in pharmacy_members.
+ *
+ * Constraint enforcement:
+ * - pharmacyId is NEVER read from req.body or req.params.
+ * - Role escalation is impossible: only the role in req.user (from verified JWT) is used.
+ */
+const requirePharmacyMember = async (req, res, next) => {
+  try {
+    const { role, id: userId } = req.user || {};
+
+    if (role === ROLES.PHARMACY_OWNER) {
+      // Owner path: resolve pharmacy directly from owner_id
+      const { data: pharmacy, error } = await supabaseAdmin
+        .from('pharmacies')
+        .select('id, is_active, approval_status')
+        .eq('owner_id', userId)
+        .maybeSingle();
+
+      if (error || !pharmacy) {
+        return res.status(404).json({ success: false, message: 'Pharmacy not found for this owner.' });
+      }
+      if (!pharmacy.is_active) {
+        return res.status(403).json({ success: false, message: 'Pharmacy account is deactivated.' });
+      }
+
+      req.pharmacyId = pharmacy.id;
+      req.pharmacyApprovalStatus = pharmacy.approval_status;
+      return next();
+    }
+
+    if (role === ROLES.PHARMACY_MANAGER || role === ROLES.PHARMACY_STAFF) {
+      // Member path: live status check — no caching to ensure revoked/suspended is caught immediately
+      const { data: member, error: memberError } = await supabaseAdmin
+        .from('pharmacy_members')
+        .select('pharmacy_id, status, member_role')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (memberError || !member) {
+        return res.status(403).json({
+          success: false,
+          message: 'Pharmacy membership not found. Contact your pharmacy owner.',
+        });
+      }
+
+      if (member.status !== 'active') {
+        const statusMessages = {
+          invited: 'Your invitation is pending acceptance.',
+          suspended: 'Your pharmacy access has been suspended.',
+          removed: 'Your pharmacy access has been removed.',
+        };
+        return res.status(403).json({
+          success: false,
+          message: statusMessages[member.status] || 'Pharmacy access denied.',
+          code: 'PHARMACY_MEMBER_INACTIVE',
+        });
+      }
+
+      // Verify the linked pharmacy is still active and approved
+      const { data: pharmacy, error: pharmacyError } = await supabaseAdmin
+        .from('pharmacies')
+        .select('id, is_active, approval_status')
+        .eq('id', member.pharmacy_id)
+        .maybeSingle();
+
+      if (pharmacyError || !pharmacy) {
+        return res.status(404).json({ success: false, message: 'Linked pharmacy not found.' });
+      }
+      if (!pharmacy.is_active) {
+        return res.status(403).json({ success: false, message: 'Pharmacy account is deactivated.' });
+      }
+
+      req.pharmacyId = pharmacy.id;
+      req.pharmacyMemberRole = member.member_role; // 'manager' or 'staff'
+      req.pharmacyApprovalStatus = pharmacy.approval_status;
+      return next();
+    }
+
+    // Role not permitted for pharmacy operations
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Pharmacy role required.',
+    });
+  } catch (err) {
+    console.error('requirePharmacyMember error:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to verify pharmacy access. Please try again.',
+    });
+  }
+};
+
+module.exports = { ROLES, requireRole, requireMinRole, requireApproval, requireMfa, isAdminRole, requirePharmacyMember };

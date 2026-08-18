@@ -8,6 +8,8 @@ data class CommunityQuestion(
     val title: String,
     val content: String,
     val topic: String?,
+    val category: String?,
+    @SerializedName("specialty_target") val specialtyTarget: String?,
     val upvotes: Int,
     val views: Int,
     @SerializedName("is_bookmarked") val isBookmarked: Boolean? = null,
@@ -29,7 +31,11 @@ data class CommunityAnswer(
     val upvotes: Int,
     @SerializedName("created_at") val createdAt: String,
     val doctor: DoctorInfo?,
-    val patient: PatientInfo?
+    val patient: PatientInfo?,
+    @SerializedName("responder_type") val responderType: String? = null,
+    @SerializedName("responder_organization_id") val responderOrganizationId: String? = null,
+    @SerializedName("responder_name") val responderName: String? = null,
+    @SerializedName("responder_verified") val responderVerified: Boolean? = null
 )
 
 data class PatientInfo(
@@ -59,10 +65,17 @@ data class PostQuestionRequest(
     val title: String,
     val content: String,
     val topic: String? = null,
+    val category: String? = null,
+    @SerializedName("specialty_target") val specialtyTarget: String? = null,
     @SerializedName("is_anonymous") val isAnonymous: Boolean = false,
     val attachments: List<String> = emptyList()
 )
 
 data class PostAnswerRequest(
     val content: String
+)
+
+data class PostReportRequest(
+    val reason: String,
+    val details: String? = null
 )

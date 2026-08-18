@@ -3,7 +3,7 @@
 import { useCallback, useDeferredValue, useEffect, useState } from 'react';
 import {
     ShoppingCart, Search, Loader2, RefreshCw, CheckCircle, XCircle,
-    AlertCircle, Package, Bell, MapPin, Clock, IndianRupee, ChevronDown, ChevronUp, Send, FileText,
+    AlertCircle, Package, Bell, MapPin, IndianRupee, ChevronDown, ChevronUp, Send, FileText,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -24,6 +24,7 @@ export default function PharmacyOrdersPage() {
     const deferredSearchQuery = useDeferredValue(searchQuery.trim());
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [tab, setTab] = useState<'all' | 'pending' | 'active' | 'completed'>('all');
+    const [sourceFilter, setSourceFilter] = useState<'all' | 'patient' | 'prescription' | 'clinic' | 'hospital' | 'pos'>('all');
     const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
     const [newOrderAlert, setNewOrderAlert] = useState(false);
     const [page, setPage] = useState(1);
@@ -57,7 +58,7 @@ export default function PharmacyOrdersPage() {
 
     useEffect(() => {
         setPage(1);
-    }, [deferredSearchQuery, tab]);
+    }, [deferredSearchQuery, tab, sourceFilter]);
 
     const handleStatus = async (orderId: string, status: string) => {
         if (status === 'cancelled') {
@@ -75,6 +76,23 @@ export default function PharmacyOrdersPage() {
         setActionLoading(null);
     };
 
+    const filteredOrders = orders.filter((order: any) => {
+        if (sourceFilter === 'all') return true;
+        
+        const isClinic = !!order.clinic_id;
+        const isHospital = !!order.hospital_id;
+        const isPrescription = !!(order.prescription_id || order.prescription_url || order.prescription);
+        const isPos = order.source === 'pos';
+        
+        if (sourceFilter === 'clinic') return isClinic;
+        if (sourceFilter === 'hospital') return isHospital;
+        if (sourceFilter === 'pos') return isPos;
+        if (sourceFilter === 'patient') return !isPrescription && !isClinic && !isHospital && !isPos;
+        if (sourceFilter === 'prescription') return isPrescription && !isClinic && !isHospital && !isPos;
+        
+        return true;
+    });
+
     if (loadingOrders && orders.length === 0) {
         return (
             <div className="flex h-96 items-center justify-center">
@@ -88,7 +106,7 @@ export default function PharmacyOrdersPage() {
         return (
             <div className="flex h-96 flex-col items-center justify-center gap-4">
                 <AlertCircle className="h-12 w-12 text-red-400" />
-                <p className="text-red-600">{error}</p>
+                <p className="text-red-600">Unable to load orders.</p>
                 <Button onClick={() => { clearError(); loadOrders(); }} leftIcon={<RefreshCw className="h-4 w-4" />}>Retry</Button>
             </div>
         );
@@ -99,9 +117,11 @@ export default function PharmacyOrdersPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Orders</h1>
-                    <p className="mt-1 text-gray-600 dark:text-gray-400">Medicine orders from patients with server-backed search and status tracking</p>
+                    <p className="mt-1 text-gray-600 dark:text-gray-400">Manage and fulfill pharmacy orders across your connected care channels.</p>
                 </div>
-                <Button onClick={loadOrders} variant="outline" leftIcon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
+                <div className="flex items-center gap-3">
+                    <Button onClick={loadOrders} variant="outline" leftIcon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
+                </div>
             </div>
 
             {newOrderAlert ? (
@@ -115,19 +135,19 @@ export default function PharmacyOrdersPage() {
             {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-orange-100 p-2.5"><ShoppingCart className="h-5 w-5 text-orange-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.total}</p><p className="text-xs text-gray-500 dark:text-gray-400">Total</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-yellow-100 p-2.5"><Clock className="h-5 w-5 text-yellow-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.pending}</p><p className="text-xs text-gray-500 dark:text-gray-400">Pending</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-orange-100 p-2.5"><ShoppingCart className="h-5 w-5 text-orange-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.total}</p><p className="text-xs text-gray-500 dark:text-gray-400">Total Orders</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-yellow-100 p-2.5"><ShoppingCart className="h-5 w-5 text-yellow-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.pending}</p><p className="text-xs text-gray-500 dark:text-gray-400">Pending</p></div></div></Card>
                 <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-blue-100 p-2.5"><Package className="h-5 w-5 text-blue-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.active}</p><p className="text-xs text-gray-500 dark:text-gray-400">Active</p></div></div></Card>
                 <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-green-100 p-2.5"><CheckCircle className="h-5 w-5 text-green-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.completed}</p><p className="text-xs text-gray-500 dark:text-gray-400">Completed</p></div></div></Card>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
                 <div className="flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-700">
                     {([
-                        { key: 'all' as const, label: 'All' },
-                        { key: 'pending' as const, label: `Pending${orderSummary.pending ? ` (${orderSummary.pending})` : ''}` },
-                        { key: 'active' as const, label: `Active${orderSummary.active ? ` (${orderSummary.active})` : ''}` },
-                        { key: 'completed' as const, label: `Completed${orderSummary.completed ? ` (${orderSummary.completed})` : ''}` },
+                        { key: 'all' as const, label: 'All Status' },
+                        { key: 'pending' as const, label: 'Pending' },
+                        { key: 'active' as const, label: 'Active' },
+                        { key: 'completed' as const, label: 'Completed' },
                     ]).map((currentTab) => (
                         <button
                             key={currentTab.key}
@@ -142,9 +162,23 @@ export default function PharmacyOrdersPage() {
                         </button>
                     ))}
                 </div>
-                <div className="flex-1">
+                
+                <select
+                    value={sourceFilter}
+                    onChange={(e) => setSourceFilter(e.target.value as any)}
+                    className="h-9 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                >
+                    <option value="all">All Sources</option>
+                    <option value="patient">Patient Orders</option>
+                    <option value="prescription">Prescription Orders</option>
+                    <option value="clinic">Partner Clinic</option>
+                    <option value="hospital">Partner Hospital</option>
+                    <option value="pos">POS / Walk-in</option>
+                </select>
+
+                <div className="flex-1 min-w-[200px]">
                     <Input
-                        placeholder="Search by patient, order ID, address, or medicine..."
+                        placeholder="Search by patient, order ID, address..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         leftIcon={<Search className="h-5 w-5" />}
@@ -153,71 +187,110 @@ export default function PharmacyOrdersPage() {
             </div>
 
             <div className="space-y-3">
-                {orders.length === 0 ? (
-                    <Card padding="lg"><div className="p-8 text-center text-gray-500 dark:text-gray-400"><ShoppingCart className="mx-auto mb-2 h-10 w-10 text-gray-300" />No orders found for the current filters</div></Card>
-                ) : orders.map((order: any) => {
+                {filteredOrders.length === 0 ? (
+                    <Card padding="lg">
+                        <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                            <ShoppingCart className="mx-auto mb-2 h-10 w-10 text-gray-300" />
+                            <p className="font-medium text-gray-900 dark:text-gray-100">No orders found</p>
+                            <p className="mt-1 text-sm">Try changing your filters or search terms.</p>
+                        </div>
+                    </Card>
+                ) : filteredOrders.map((order: any) => {
                     const isExpanded = expandedOrderId === order.id;
                     const items = order.items || [];
                     const patientName = order.patient?.name || order.patientName || 'Patient';
                     const patientPhone = order.patient?.user?.phone || 'No phone';
                     const total = order.total_amount || order.total || items.reduce((sum: number, item: any) => sum + (item.subtotal || (item.price || 0) * (item.quantity || 1)), 0);
                     const createdAt = order.created_at || order.time;
+                    
+                    const isClinic = !!order.clinic_id;
+                    const isHospital = !!order.hospital_id;
+                    const isPrescription = !!(order.prescription_id || order.prescription_url || order.prescription);
+                    const isPos = order.source === 'pos';
+                    
+                    let sourceBadgeLabel = 'PATIENT ORDER';
+                    let sourceBadgeClass = 'bg-purple-50 text-purple-700 ring-purple-700/10 dark:bg-purple-900/30 dark:text-purple-400 dark:ring-purple-400/20';
+                    
+                    if (isPos) {
+                        sourceBadgeLabel = 'POS WALK-IN';
+                        sourceBadgeClass = 'bg-orange-50 text-orange-700 ring-orange-700/10 dark:bg-orange-900/30 dark:text-orange-400 dark:ring-orange-400/20';
+                    } else if (isClinic) {
+                        sourceBadgeLabel = 'PARTNER CLINIC';
+                        sourceBadgeClass = 'bg-teal-50 text-teal-700 ring-teal-700/10 dark:bg-teal-900/30 dark:text-teal-400 dark:ring-teal-400/20';
+                    } else if (isHospital) {
+                        sourceBadgeLabel = 'PARTNER HOSPITAL';
+                        sourceBadgeClass = 'bg-indigo-50 text-indigo-700 ring-indigo-700/10 dark:bg-indigo-900/30 dark:text-indigo-400 dark:ring-indigo-400/20';
+                    } else if (isPrescription) {
+                        sourceBadgeLabel = 'PRESCRIPTION ORDER';
+                        sourceBadgeClass = 'bg-blue-50 text-blue-700 ring-blue-700/10 dark:bg-blue-900/30 dark:text-blue-400 dark:ring-blue-400/20';
+                    }
 
                     return (
                         <Card key={order.id} padding="none">
-                            <div className="flex cursor-pointer items-center justify-between gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}>
-                                <div className="flex min-w-0 items-center gap-4">
-                                    <div className={`flex-shrink-0 rounded-xl p-2.5 ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : order.status === 'processing' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
-                                        <ShoppingCart className="h-5 w-5" />
-                                    </div>
+                            <div className="flex cursor-pointer items-start justify-between gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}>
+                                <div className="flex min-w-0 items-start gap-4">
                                     <div className="min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <p className="font-semibold text-gray-900 dark:text-gray-100">#{order.id?.slice(-6).toUpperCase()}</p>
-                                            <StatusBadge status={order.status || 'pending'} size="sm" />
+                                        <div className="mb-2 flex items-center gap-2">
+                                            <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold uppercase tracking-wider ring-1 ring-inset ${sourceBadgeClass}`}>
+                                                {sourceBadgeLabel}
+                                            </span>
                                         </div>
-                                        <p className="truncate text-sm text-gray-500 dark:text-gray-400">{patientName} ({patientPhone}) · {items.length} item{items.length !== 1 ? 's' : ''}</p>
-                                        <p className="text-xs text-gray-400">
-                                            {createdAt ? new Date(createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
-                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-bold text-gray-900 dark:text-gray-100">#{order.id?.slice(-6).toUpperCase()}</p>
+                                        </div>
+                                        <div className="mt-1 flex flex-col gap-0.5">
+                                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{isPos ? 'Customer: Walk-in' : `Patient: ${patientName}`}</p>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">{items.length} medicine{items.length !== 1 ? 's' : ''}</p>
+                                            <p className="text-xs text-gray-400">
+                                                Received {createdAt ? new Date(createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex flex-shrink-0 items-center gap-4">
-                                    {total > 0 ? <div className="flex items-center gap-1 font-bold text-gray-900 dark:text-gray-100"><IndianRupee className="h-4 w-4" />{Number(total).toFixed(0)}</div> : null}
+                                <div className="flex flex-col items-end gap-3 flex-shrink-0">
+                                    <div className="flex flex-col items-end gap-1">
+                                        <StatusBadge status={order.status || 'pending'} size="sm" />
+                                        {order.status === 'pending' && <p className="text-xs font-medium text-orange-600">Stock Reserved</p>}
+                                    </div>
+                                    {total > 0 ? <div className="font-bold text-gray-900 dark:text-gray-100">₹{Number(total).toFixed(0)}</div> : null}
+                                    
                                     {['pending', 'confirmed', 'processing', 'ready', 'dispatched', 'out_for_delivery'].includes(order.status) ? (
-                                        <div className="flex gap-1" onClick={(event) => event.stopPropagation()}>
+                                        <div className="flex gap-2 mt-2" onClick={(event) => event.stopPropagation()}>
                                             {order.status === 'pending' ? (
-                                                <button onClick={() => void handleStatus(order.id, 'confirmed')} disabled={actionLoading === order.id} className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50" title="Confirm">
-                                                    {actionLoading === order.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
-                                                </button>
+                                                <>
+                                                    <Button size="sm" variant="outline" onClick={() => void handleStatus(order.id, 'cancelled')} disabled={actionLoading === order.id} className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
+                                                        Reject
+                                                    </Button>
+                                                    <Button size="sm" onClick={() => void handleStatus(order.id, 'confirmed')} disabled={actionLoading === order.id} className="h-8 bg-blue-600 hover:bg-blue-700 text-white">
+                                                        {actionLoading === order.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Accept'}
+                                                    </Button>
+                                                </>
                                             ) : null}
                                             {order.status === 'confirmed' ? (
-                                                <button onClick={() => void handleStatus(order.id, 'processing')} disabled={actionLoading === order.id} className="rounded-lg p-1.5 text-indigo-600 hover:bg-indigo-50" title="Start Processing">
-                                                    <Package className="h-4 w-4" />
-                                                </button>
+                                                <Button size="sm" onClick={() => void handleStatus(order.id, 'processing')} disabled={actionLoading === order.id} className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white">
+                                                    Start Processing
+                                                </Button>
                                             ) : null}
                                             {order.status === 'processing' ? (
-                                                <button onClick={() => void handleStatus(order.id, 'ready')} disabled={actionLoading === order.id} className="rounded-lg p-1.5 text-orange-600 hover:bg-orange-50" title="Mark Ready">
-                                                    <CheckCircle className="h-4 w-4" />
-                                                </button>
+                                                <Button size="sm" onClick={() => void handleStatus(order.id, 'ready')} disabled={actionLoading === order.id} className="h-8 bg-orange-600 hover:bg-orange-700 text-white">
+                                                    Mark Ready
+                                                </Button>
                                             ) : null}
                                             {order.status === 'ready' ? (
-                                                <button onClick={() => setAssigningOrderId(order.id)} className="rounded-lg p-1.5 text-purple-600 hover:bg-purple-50" title="Dispatch Order">
-                                                    <Send className="h-4 w-4" />
-                                                </button>
+                                                <Button size="sm" onClick={() => setAssigningOrderId(order.id)} className="h-8 bg-purple-600 hover:bg-purple-700 text-white">
+                                                    Dispatch
+                                                </Button>
                                             ) : null}
                                             {order.status === 'dispatched' || order.status === 'out_for_delivery' ? (
-                                                <button onClick={() => void handleStatus(order.id, 'delivered')} disabled={actionLoading === order.id} className="rounded-lg p-1.5 text-green-600 hover:bg-green-50" title="Mark Delivered">
-                                                    <CheckCircle className="h-4 w-4" />
-                                                </button>
-                                            ) : null}
-                                            {order.status !== 'dispatched' ? (
-                                                <button onClick={() => void handleStatus(order.id, 'cancelled')} disabled={actionLoading === order.id} className="rounded-lg p-1.5 text-red-500 hover:bg-red-50" title="Cancel">
-                                                    <XCircle className="h-4 w-4" />
-                                                </button>
+                                                <Button size="sm" onClick={() => void handleStatus(order.id, 'delivered')} disabled={actionLoading === order.id} className="h-8 bg-green-600 hover:bg-green-700 text-white">
+                                                    Complete
+                                                </Button>
                                             ) : null}
                                         </div>
                                     ) : null}
-                                    {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                                    <div className="mt-1">
+                                        {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                                    </div>
                                 </div>
                             </div>
 
@@ -227,15 +300,30 @@ export default function PharmacyOrdersPage() {
                                         <h4 className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Order Items</h4>
                                         {items.length > 0 ? (
                                             <div className="space-y-2">
-                                                {items.map((item: any, index: number) => (
-                                                    <div key={index} className="flex items-center justify-between rounded-lg border border-gray-100 bg-white px-3 py-2 dark:border-gray-800 dark:bg-gray-900">
-                                                        <div>
-                                                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.name || item.medicineName || 'Medicine'}</p>
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Qty: {item.quantity || 1}</p>
+                                                {items.map((item: any, index: number) => {
+                                                    // Display real-time availability if populated
+                                                    let stockStatus = null;
+                                                    if (item.available_quantity !== undefined && item.minimum_stock !== undefined) {
+                                                        if (item.available_quantity < item.quantity) {
+                                                            stockStatus = <span className="text-xs font-medium text-red-600">Low Stock</span>;
+                                                        } else {
+                                                            stockStatus = <span className="text-xs font-medium text-green-600">Available</span>;
+                                                        }
+                                                    }
+
+                                                    return (
+                                                        <div key={index} className="flex items-center justify-between rounded-lg border border-gray-100 bg-white px-3 py-2 dark:border-gray-800 dark:bg-gray-900">
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.name || item.medicineName || 'Medicine'}</p>
+                                                                    {stockStatus}
+                                                                </div>
+                                                                <p className="text-xs text-gray-500 dark:text-gray-400">Qty: {item.quantity || 1}</p>
+                                                            </div>
+                                                            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">₹{item.subtotal || ((item.price || 0) * (item.quantity || 1))}</p>
                                                         </div>
-                                                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">₹{item.subtotal || ((item.price || 0) * (item.quantity || 1))}</p>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         ) : (
                                             <div className="rounded-lg border border-yellow-100 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-900/50 dark:bg-yellow-900/20 dark:text-yellow-200">
@@ -243,11 +331,35 @@ export default function PharmacyOrdersPage() {
                                                 <p className="mt-1 text-xs">This order requires manual review of the prescription to determine items and total cost.</p>
                                             </div>
                                         )}
-                                        {order.prescription_url && (
+                                        {isPrescription && (
                                             <div className="mt-3">
-                                                <a href={order.prescription_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50">
-                                                    <FileText className="h-4 w-4" /> View Prescription
-                                                </a>
+                                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Prescription Reference</p>
+                                                <div className="flex flex-col gap-2">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                            {order.prescription?.prescription_number || order.prescription_id?.slice(-6).toUpperCase() || 'RX-ATTACHED'}
+                                                        </span>
+                                                        {order.prescription_url && (
+                                                            <a href={order.prescription_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50">
+                                                                <FileText className="h-3 w-3" /> View Prescription
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                    {isClinic && order.clinic && (
+                                                        <div className="mt-1 flex items-center gap-2">
+                                                            <span className="inline-flex items-center rounded-md bg-teal-50 px-2 py-1 text-xs font-medium text-teal-700 ring-1 ring-inset ring-teal-700/10 dark:bg-teal-900/30 dark:text-teal-400 dark:ring-teal-400/20">
+                                                                Routed by: {order.clinic.name}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {isHospital && order.hospital && (
+                                                        <div className="mt-1 flex items-center gap-2">
+                                                            <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10 dark:bg-indigo-900/30 dark:text-indigo-400 dark:ring-indigo-400/20">
+                                                                Routed by: {order.hospital.name}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                     </div>

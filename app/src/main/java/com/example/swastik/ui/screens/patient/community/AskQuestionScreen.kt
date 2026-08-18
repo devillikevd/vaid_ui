@@ -62,14 +62,21 @@ fun AskQuestionScreen(
         }
     }
     
+    var selectedSpecialty by remember { mutableStateOf<String?>(null) }
+    
     val isLoading by viewModel.isLoading.collectAsState()
 
-    val topics = listOf(
-        TopicCategory("General Health", Icons.Default.Favorite),
-        TopicCategory("Child Care", Icons.Default.ChildCare),
-        TopicCategory("Women's Health", Icons.Default.Female),
-        TopicCategory("Skin", Icons.Default.WaterDrop),
-        TopicCategory("More", Icons.Default.KeyboardArrowDown)
+    val categories = listOf(
+        TopicCategory("Medical", Icons.Default.MedicalServices),
+        TopicCategory("Medications", Icons.Default.Medication),
+        TopicCategory("Diagnostics", Icons.Default.Science),
+        TopicCategory("Hospital / Referral", Icons.Default.LocalHospital),
+        TopicCategory("Clinic / Healthcare Services", Icons.Default.LocalPharmacy),
+        TopicCategory("General Health", Icons.Default.Favorite)
+    )
+
+    val medicalSpecialties = listOf(
+        "Cardiology", "Dermatology", "ENT", "General Physician", "Orthopedics", "Pediatrics"
     )
 
     Scaffold(
@@ -114,7 +121,7 @@ fun AskQuestionScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "Select a Topic",
+                "Select a Category",
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurface
@@ -126,8 +133,8 @@ fun AskQuestionScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(topics) { topic ->
-                    val isSelected = selectedCategory == topic.name
+                items(categories) { category ->
+                    val isSelected = selectedCategory == category.name
                     Surface(
                         color = if (isSelected) SwastikPrimary else MaterialTheme.colorScheme.surface,
                         shape = RoundedCornerShape(24.dp),
@@ -135,10 +142,12 @@ fun AskQuestionScreen(
                         modifier = Modifier
                             .clip(RoundedCornerShape(24.dp))
                             .clickable { 
-                                if (selectedCategory == topic.name) {
+                                if (selectedCategory == category.name) {
                                     selectedCategory = null
+                                    selectedSpecialty = null
                                 } else {
-                                    selectedCategory = topic.name 
+                                    selectedCategory = category.name 
+                                    selectedSpecialty = null
                                 }
                             }
                     ) {
@@ -146,7 +155,7 @@ fun AskQuestionScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
-                            if (topic.icon != null) {
+                            if (category.icon != null) {
                                 Box(
                                     modifier = Modifier
                                         .size(24.dp)
@@ -155,7 +164,7 @@ fun AskQuestionScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = topic.icon, 
+                                        imageVector = category.icon, 
                                         contentDescription = null, 
                                         tint = if (isSelected) SwastikPrimary else SwastikPrimary,
                                         modifier = Modifier.size(14.dp)
@@ -164,7 +173,7 @@ fun AskQuestionScreen(
                                 Spacer(modifier = Modifier.width(6.dp))
                             }
                             Text(
-                                text = topic.name,
+                                text = category.name,
                                 color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
                                 fontSize = 14.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
@@ -174,22 +183,46 @@ fun AskQuestionScreen(
                 }
             }
             
-            if (selectedCategory == "More") {
+            if (selectedCategory == "Medical") {
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = customTopic,
-                    onValueChange = { customTopic = it },
-                    placeholder = { Text("Enter your custom topic", color = MaterialTheme.colorScheme.outline) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = SwastikPrimary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                    )
+                Text(
+                    "Select Specialty (Optional)",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(medicalSpecialties) { specialty ->
+                        val isSpecSelected = selectedSpecialty == specialty
+                        Surface(
+                            color = if (isSpecSelected) SwastikPrimary else MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(16.dp),
+                            border = if (!isSpecSelected) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable { 
+                                    if (selectedSpecialty == specialty) {
+                                        selectedSpecialty = null
+                                    } else {
+                                        selectedSpecialty = specialty 
+                                    }
+                                }
+                        ) {
+                            Text(
+                                text = specialty,
+                                color = if (isSpecSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                fontSize = 13.sp,
+                                fontWeight = if (isSpecSelected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
             }
-            
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
@@ -323,13 +356,14 @@ fun AskQuestionScreen(
             Button(
                 onClick = {
                     if (title.isNotBlank() && content.isNotBlank()) {
-                        val finalTopic = if (selectedCategory == "More") customTopic.takeIf { it.isNotBlank() } ?: "General" else selectedCategory
                         viewModel.askQuestion(
                             title = title, 
                             content = content, 
-                            topic = finalTopic,
+                            topic = null, // Migrating away from raw topic
                             isAnonymous = isAnonymous,
-                            attachments = attachments
+                            attachments = attachments,
+                            category = selectedCategory,
+                            specialtyTarget = selectedSpecialty
                         ) {
                             navController.popBackStack()
                         }
@@ -340,7 +374,7 @@ fun AskQuestionScreen(
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
-                enabled = !isLoading && title.isNotBlank() && content.isNotBlank() && (selectedCategory != "More" || customTopic.isNotBlank())
+                enabled = !isLoading && title.isNotBlank() && content.isNotBlank() && selectedCategory != null
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))

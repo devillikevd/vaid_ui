@@ -87,7 +87,7 @@ export function MasterCatalogSearch({ onSelect }: MasterCatalogSearchProps) {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-brand-500 z-10" />
                 <Input
                     type="text"
-                    placeholder="Search Master Catalog to Auto-fill (e.g. Dolo 650)..."
+                    placeholder="Search by medicine name or generic name..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     className="pl-10 pr-10 border-brand-300 dark:border-brand-700 focus:ring-brand-500 bg-brand-50 dark:bg-brand-900/20 placeholder:text-brand-400 h-12 text-base"

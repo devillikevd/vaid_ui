@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
+import VaidideaLogo from '@/components/shared/VaidideaLogo';
 import { Check, Shield, Calendar, Video, FileText, HeartPulse, Wallet, Circle, Lock, CheckCircle2, ChevronRight } from 'lucide-react';
 import { Step1Basic } from './Step1Basic';
 import { Step2Professional } from './Step2Professional';
@@ -151,7 +152,7 @@ export default function PremiumDoctorWizard() {
 
                 <div className="relative z-10 flex-1 flex flex-col">
                     <div className="flex items-center gap-3 mb-10">
-                        <Image src="/logo.png" alt="Vaididea" width={40} height={40} className="rounded-xl" />
+                        <VaidideaLogo className="w-10 h-10" />
                         <span className="text-2xl font-bold tracking-tight">Vaididea</span>
                     </div>
 

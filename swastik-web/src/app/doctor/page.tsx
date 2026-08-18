@@ -24,8 +24,11 @@ import { formatDoctorName } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { StatusBadge as OldStatusBadge } from '@/components/ui/StatusBadge';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
+import { MetricCard } from '@/components/doctor/MetricCard';
+import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
+import { StatusBadge } from '@/components/doctor/StatusBadge';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
@@ -278,7 +281,7 @@ export default function DoctorDashboard() {
                     </div>
                     <div className="hidden md:flex items-center gap-6">
                         <Link href="/doctor/journey">
-                            <Button variant="secondary" className="bg-emerald-500/30 text-emerald-50 hover:bg-emerald-500/50 border border-emerald-400/40 gap-2 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all hover:scale-105">
+                            <Button variant="secondary" className="bg-emerald-500/30 text-emerald-50 hover:bg-emerald-500/50 border border-emerald-400/40 gap-2 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all hover:-translate-y-0.5">
                                 <Star className="h-4 w-4 text-emerald-200 fill-emerald-200" /> My Journey
                             </Button>
                         </Link>
@@ -325,41 +328,29 @@ export default function DoctorDashboard() {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {STATS.map((stat) => {
-                    const Icon = stat.icon;
-                    return (
-                        <Link href={stat.href} key={stat.label} className="block transition-transform hover:-translate-y-1">
-                            <Card className="h-full cursor-pointer hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors shadow-sm hover:shadow-md">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</p>
-                                        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{stat.value}</p>
-                                        {stat.change && (
-                                            <p className={`text-sm mt-1 ${stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-                                                {stat.change} from yesterday
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div className={`p-3 rounded-xl ${stat.bg}`}>
-                                        <Icon className={`h-6 w-6 ${stat.color}`} />
-                                    </div>
-                                </div>
-                            </Card>
-                        </Link>
-                    );
-                })}
+                {STATS.map((stat) => (
+                    <Link href={stat.href} key={stat.label} className="block group">
+                        <MetricCard
+                            title={stat.label}
+                            value={stat.value}
+                            icon={<stat.icon className={`h-5 w-5 ${stat.color}`} />}
+                            iconClassName={stat.bg}
+                            className="group-hover:border-emerald-300 dark:group-hover:border-emerald-700 transition-all shadow-sm group-hover:shadow-md cursor-pointer"
+                        />
+                    </Link>
+                ))}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Today's Appointments */}
-                <Card className="lg:col-span-2">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Today&apos;s Schedule</CardTitle>
-                        <Link href="/doctor/appointments" className="text-sm text-emerald-600 hover:underline">
+                <DoctorPortalCard variant="standard" className="lg:col-span-2">
+                    <div className="flex items-center justify-between mb-5">
+                        <h3 className="font-bold text-gray-900 dark:text-white text-lg">Today&apos;s Schedule</h3>
+                        <Link href="/doctor/appointments" className="text-sm font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-500 dark:hover:text-emerald-400">
                             View all
                         </Link>
-                    </CardHeader>
-                    <CardContent>
+                    </div>
+                    <div>
                         <div className="space-y-3">
                             {todaysAppointments.length === 0 ? (
                                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -492,17 +483,17 @@ export default function DoctorDashboard() {
                                 })()
                             )))}
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </DoctorPortalCard>
 
-                {/* Quick Actions & Upcoming */}
-                <div className="space-y-6">
+                {/* Right Column: Quick Actions & Widgets */}
+                <div className="space-y-6 lg:col-span-1">
                     {/* Quick Actions */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Quick Actions</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <DoctorPortalCard variant="compact">
+                        <div className="mb-4">
+                            <h3 className="font-bold text-gray-900 dark:text-white text-lg">Quick Actions</h3>
+                        </div>
+                        <div>
                             <div className="grid grid-cols-2 gap-3">
                                 <Link
                                     href="/doctor/prescriptions/new"
@@ -540,18 +531,18 @@ export default function DoctorDashboard() {
                                     <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Scan Patient QR</p>
                                 </Link>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </DoctorPortalCard>
 
                     {/* Recent Reviews */}
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle>Recent Reviews</CardTitle>
-                            <Link href="/doctor/reviews">
-                                <Button variant="ghost" size="sm" className="text-xs text-emerald-600 hover:text-emerald-700">View All</Button>
+                    <DoctorPortalCard variant="compact">
+                        <div className="flex flex-row items-center justify-between mb-4">
+                            <h3 className="font-bold text-gray-900 dark:text-white text-lg">Recent Reviews</h3>
+                            <Link href="/doctor/reviews" className="text-sm font-bold text-emerald-600 hover:text-emerald-700">
+                                View All
                             </Link>
-                        </CardHeader>
-                        <CardContent>
+                        </div>
+                        <div>
                             <div className="space-y-3">
                                 {(() => {
                                     if (loadingReviews && reviews.length === 0) {
@@ -581,22 +572,22 @@ export default function DoctorDashboard() {
                                     ));
                                 })()}
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </DoctorPortalCard>
 
 
                     {/* Recent Community Questions */}
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="flex items-center gap-2">
+                    <DoctorPortalCard variant="compact">
+                        <div className="flex flex-row items-center justify-between mb-4">
+                            <h3 className="font-bold text-gray-900 dark:text-white text-lg flex items-center gap-2">
                                 <MessageCircleQuestion className="w-5 h-5 text-indigo-600" />
                                 Community Q&A
-                            </CardTitle>
-                            <Link href="/doctor/community">
-                                <Button variant="ghost" size="sm" className="text-xs text-indigo-600 hover:text-indigo-700">View All</Button>
+                            </h3>
+                            <Link href="/doctor/community" className="text-sm font-bold text-indigo-600 hover:text-indigo-700">
+                                View All
                             </Link>
-                        </CardHeader>
-                        <CardContent>
+                        </div>
+                        <div>
                             <div className="space-y-3 mt-2">
                                 {(() => {
                                     if (loadingQuestions) {
@@ -635,15 +626,15 @@ export default function DoctorDashboard() {
                                     ));
                                 })()}
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </DoctorPortalCard>
 
                     {/* Upcoming Appointments */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Upcoming</CardTitle>
-                        </CardHeader>
-                        <CardContent>
+                    <DoctorPortalCard variant="compact">
+                        <div className="mb-4">
+                            <h3 className="font-bold text-gray-900 dark:text-white text-lg">Upcoming</h3>
+                        </div>
+                        <div>
                             <div className="space-y-3">
                                 {(!upcomingAppointments || upcomingAppointments.length === 0) ? (
                                     <div className="py-6 text-center text-gray-500 dark:text-gray-400">
@@ -667,8 +658,8 @@ export default function DoctorDashboard() {
                                     ))
                                 )}
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </DoctorPortalCard>
                 </div>
             </div>
         </div>

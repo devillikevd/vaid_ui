@@ -15,14 +15,133 @@ export interface PharmacyDashboardStats {
     todaysRevenue: number;
 }
 
+export interface PharmacyOverviewAnalytics {
+    totalOrders: number;
+    pendingOrders: number;
+    grossSales: number;
+    netSales: number;
+    averageOrderValue: number;
+    paidOrders: number;
+    refundedOrders: number;
+    refundedAmount: number;
+}
+
+export interface PharmacyTrendPoint {
+    date: string;
+    orders: number;
+    revenue: number;
+}
+
+export interface PharmacySalesSource {
+    source: string;
+    source_label: string;
+    order_count: number;
+    revenue: number;
+}
+
+export interface PharmacyInventoryIntelligence {
+    total_items: number;
+    total_units: number;
+    reserved_units: number;
+    available_units: number;
+    low_stock: number;
+    out_of_stock: number;
+    expired: number;
+    expiring_30: number;
+    expiring_60: number;
+    expiring_90: number;
+    inventory_value: number;
+}
+
+export interface PharmacyTopMedicine {
+    medicine_id: string | null;
+    inventory_id: string | null;
+    name: string;
+    units_sold: number;
+    revenue: number;
+}
+
+export interface PharmacySlowMedicine {
+    inventory_id: string;
+    medicine_id: string | null;
+    name: string;
+    current_stock: number;
+    units_sold: number;
+    velocity: number;
+    formula: string;
+}
+
+export interface PharmacyPartnerItem {
+    partner_id: string;
+    partner_type: string;
+    partner_name: string;
+    orders: number;
+    revenue: number;
+}
+
+export interface PharmacyPartnersAnalytics {
+    clinic_orders: number;
+    clinic_revenue: number;
+    hospital_orders: number;
+    hospital_revenue: number;
+    top_partners: PharmacyPartnerItem[];
+}
+
+export interface PharmacyCampaignItem {
+    campaign_id: string;
+    campaign_name: string;
+    redemptions: number;
+    discount_amount: number;
+}
+
+export interface PharmacyCampaignsAnalytics {
+    total_redemptions: number;
+    total_discount_given: number;
+    campaigns: PharmacyCampaignItem[];
+}
+
+export interface PharmacyDeliveryAgentStat {
+    agent_id: string;
+    agent_name: string;
+    delivered_orders: number;
+    active_orders: number;
+}
+
+export interface PharmacyDeliveryAnalytics {
+    total_delivery_orders: number;
+    assigned_orders: number;
+    dispatched_orders: number;
+    delivered_orders: number;
+    pending_delivery: number;
+    average_delivery_time_minutes: number;
+    agents: PharmacyDeliveryAgentStat[];
+}
+
 export interface PharmacyAnalytics {
     period: string;
+    // Legacy top-level metrics for backward compatibility
     totalOrders: number;
     pendingOrders: number;
     totalInventoryItems: number;
     lowStockItems: number;
     totalInventoryValue: number;
+
+    // Advanced analytics
+    overview?: PharmacyOverviewAnalytics;
+    trends?: PharmacyTrendPoint[];
+    sources?: PharmacySalesSource[];
+    inventory?: PharmacyInventoryIntelligence;
+    topMedicines?: PharmacyTopMedicine[];
+    slowMedicines?: PharmacySlowMedicine[];
+    partners?: PharmacyPartnersAnalytics;
+    campaigns?: PharmacyCampaignsAnalytics;
+    delivery?: PharmacyDeliveryAnalytics;
+    meta?: {
+        period_days: number;
+        generated_at: string;
+    };
 }
+
 
 export interface InventoryItem {
     id: string;
@@ -43,6 +162,7 @@ export interface InventoryItem {
     manufacturer?: string;
     isLowStock: boolean;
     requiresPrescription?: boolean;
+    medicine?: any;
 }
 
 export interface OrderItem {
@@ -114,6 +234,8 @@ interface InventoryQuery {
     search?: string;
     lowStock?: boolean;
     category?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
 }
 
 interface OrdersQuery {
@@ -224,13 +346,111 @@ function normalizePrescription(raw: Record<string, any>): Prescription {
 }
 
 function normalizeAnalytics(raw: Record<string, any>, fallbackPeriod: string): PharmacyAnalytics {
+    const ov = raw.overview || {};
+    const inv = raw.inventory || {};
+    const pt = raw.partners || {};
+    const cp = raw.campaigns || {};
+    const dl = raw.delivery || {};
+
     return {
         period: String(raw.period || fallbackPeriod),
-        totalOrders: Number(raw.totalOrders || 0),
-        pendingOrders: Number(raw.pendingOrders || 0),
-        totalInventoryItems: Number(raw.totalInventoryItems || 0),
-        lowStockItems: Number(raw.lowStockItems || 0),
-        totalInventoryValue: Number(raw.totalInventoryValue || 0),
+        totalOrders: Number(raw.totalOrders ?? ov.totalOrders ?? 0),
+        pendingOrders: Number(raw.pendingOrders ?? ov.pendingOrders ?? 0),
+        totalInventoryItems: Number(raw.totalInventoryItems ?? inv.total_items ?? 0),
+        lowStockItems: Number(raw.lowStockItems ?? inv.low_stock ?? 0),
+        totalInventoryValue: Number(raw.totalInventoryValue ?? inv.inventory_value ?? 0),
+
+        overview: {
+            totalOrders: Number(ov.totalOrders ?? raw.totalOrders ?? 0),
+            pendingOrders: Number(ov.pendingOrders ?? raw.pendingOrders ?? 0),
+            grossSales: Number(ov.grossSales ?? 0),
+            netSales: Number(ov.netSales ?? 0),
+            averageOrderValue: Number(ov.averageOrderValue ?? 0),
+            paidOrders: Number(ov.paidOrders ?? 0),
+            refundedOrders: Number(ov.refundedOrders ?? 0),
+            refundedAmount: Number(ov.refundedAmount ?? 0),
+        },
+        trends: Array.isArray(raw.trends) ? raw.trends.map((t: any) => ({
+            date: String(t.date || ''),
+            orders: Number(t.orders || 0),
+            revenue: Number(t.revenue || 0),
+        })) : [],
+        sources: Array.isArray(raw.sources) ? raw.sources.map((s: any) => ({
+            source: String(s.source || 'unknown'),
+            source_label: String(s.source_label || s.source || 'Unknown'),
+            order_count: Number(s.order_count || 0),
+            revenue: Number(s.revenue || 0),
+        })) : [],
+        inventory: {
+            total_items: Number(inv.total_items ?? raw.totalInventoryItems ?? 0),
+            total_units: Number(inv.total_units ?? 0),
+            reserved_units: Number(inv.reserved_units ?? 0),
+            available_units: Number(inv.available_units ?? 0),
+            low_stock: Number(inv.low_stock ?? raw.lowStockItems ?? 0),
+            out_of_stock: Number(inv.out_of_stock ?? 0),
+            expired: Number(inv.expired ?? 0),
+            expiring_30: Number(inv.expiring_30 ?? 0),
+            expiring_60: Number(inv.expiring_60 ?? 0),
+            expiring_90: Number(inv.expiring_90 ?? 0),
+            inventory_value: Number(inv.inventory_value ?? raw.totalInventoryValue ?? 0),
+        },
+        topMedicines: Array.isArray(raw.topMedicines || raw.top_medicines) ? (raw.topMedicines || raw.top_medicines).map((m: any) => ({
+            medicine_id: m.medicine_id || null,
+            inventory_id: m.inventory_id || null,
+            name: String(m.name || 'Medicine'),
+            units_sold: Number(m.units_sold || 0),
+            revenue: Number(m.revenue || 0),
+        })) : [],
+        slowMedicines: Array.isArray(raw.slowMedicines || raw.slow_medicines) ? (raw.slowMedicines || raw.slow_medicines).map((m: any) => ({
+            inventory_id: String(m.inventory_id || ''),
+            medicine_id: m.medicine_id || null,
+            name: String(m.name || 'Medicine'),
+            current_stock: Number(m.current_stock || 0),
+            units_sold: Number(m.units_sold || 0),
+            velocity: Number(m.velocity || 0),
+            formula: String(m.formula || ''),
+        })) : [],
+        partners: {
+            clinic_orders: Number(pt.clinic_orders || 0),
+            clinic_revenue: Number(pt.clinic_revenue || 0),
+            hospital_orders: Number(pt.hospital_orders || 0),
+            hospital_revenue: Number(pt.hospital_revenue || 0),
+            top_partners: Array.isArray(pt.top_partners) ? pt.top_partners.map((p: any) => ({
+                partner_id: String(p.partner_id || ''),
+                partner_type: String(p.partner_type || ''),
+                partner_name: String(p.partner_name || 'Partner'),
+                orders: Number(p.orders || 0),
+                revenue: Number(p.revenue || 0),
+            })) : [],
+        },
+        campaigns: {
+            total_redemptions: Number(cp.total_redemptions || 0),
+            total_discount_given: Number(cp.total_discount_given || 0),
+            campaigns: Array.isArray(cp.campaigns) ? cp.campaigns.map((c: any) => ({
+                campaign_id: String(c.campaign_id || ''),
+                campaign_name: String(c.campaign_name || 'Campaign'),
+                redemptions: Number(c.redemptions || 0),
+                discount_amount: Number(c.discount_amount || 0),
+            })) : [],
+        },
+        delivery: {
+            total_delivery_orders: Number(dl.total_delivery_orders || 0),
+            assigned_orders: Number(dl.assigned_orders || 0),
+            dispatched_orders: Number(dl.dispatched_orders || 0),
+            delivered_orders: Number(dl.delivered_orders || 0),
+            pending_delivery: Number(dl.pending_delivery || 0),
+            average_delivery_time_minutes: Number(dl.average_delivery_time_minutes || 0),
+            agents: Array.isArray(dl.agents) ? dl.agents.map((a: any) => ({
+                agent_id: String(a.agent_id || ''),
+                agent_name: String(a.agent_name || 'Agent'),
+                delivered_orders: Number(a.delivered_orders || 0),
+                active_orders: Number(a.active_orders || 0),
+            })) : [],
+        },
+        meta: raw.meta ? {
+            period_days: Number(raw.meta.period_days || 30),
+            generated_at: String(raw.meta.generated_at || new Date().toISOString()),
+        } : undefined,
     };
 }
 
@@ -254,6 +474,8 @@ interface PharmacyState {
     loadingAnalytics: boolean;
     loadingReviews: boolean;
     error: string | null;
+    dashboardError: string | null;
+    ordersError: string | null;
     reviews: Review[];
     inventoryQuery: InventoryQuery;
     ordersQuery: OrdersQuery;
@@ -299,6 +521,8 @@ const pharmacyInitialState = {
     inventoryQuery: { page: 1, limit: 10 } as InventoryQuery,
     ordersQuery: { page: 1, limit: 10 } as OrdersQuery,
     prescriptionsQuery: { page: 1, limit: 10 } as PrescriptionsQuery,
+    dashboardError: null as string | null,
+    ordersError: null as string | null,
 };
 
 export const usePharmacyStore = create<PharmacyState>((set, get) => ({
@@ -308,12 +532,12 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
     reset: () => set({ ...pharmacyInitialState }),
 
     fetchDashboardData: async () => {
-        set({ loadingDashboard: true, isLoading: true, error: null });
+        set({ loadingDashboard: true, isLoading: true, dashboardError: null });
         try {
             const response = await pharmacyApi.getDashboard();
             if (!response.success) {
                 set({
-                    error: response.error || 'Failed to load pharmacy dashboard',
+                    dashboardError: response.error || 'Failed to load pharmacy dashboard',
                     loadingDashboard: false,
                     isLoading: false,
                 });
@@ -336,7 +560,7 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
         } catch (error) {
             console.error('Error fetching pharmacy dashboard:', error);
             set({
-                error: 'Failed to connect to server. Please check your connection.',
+                dashboardError: 'Failed to connect to server. Please check your connection.',
                 loadingDashboard: false,
                 isLoading: false,
             });
@@ -380,7 +604,7 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
     },
 
     fetchOrders: async (params = {}) => {
-        set({ loadingOrders: true, error: null });
+        set({ loadingOrders: true, ordersError: null });
         try {
             const query = {
                 ...get().ordersQuery,
@@ -390,7 +614,7 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
             };
             const response = await pharmacyApi.getOrders(query);
             if (!response.success) {
-                set({ error: response.error || 'Failed to load orders', loadingOrders: false });
+                set({ ordersError: response.error || 'Failed to load orders', loadingOrders: false });
                 return;
             }
 
@@ -412,7 +636,7 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
         } catch (error) {
             console.error('Error fetching orders:', error);
             set({
-                error: 'Failed to load orders.',
+                ordersError: 'Failed to load orders.',
                 loadingOrders: false,
                 ordersPagination: { ...defaultPagination },
                 orderSummary: { ...defaultOrderSummary },

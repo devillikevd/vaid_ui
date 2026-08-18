@@ -536,6 +536,7 @@ app.use('/api/diseases', diseasesRoutes);
 app.use('/api/wellness', wellnessRoutes);
 app.use('/api/discounts', discountRoutes);
 app.use('/api/patients/consents', patientConsentRoutes);
+app.use('/api/feedback', require('./routes/feedback'));
 
 
 // Error handling

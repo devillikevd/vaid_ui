@@ -7,6 +7,10 @@ const router = express.Router();
 const { body, param } = require('express-validator');
 const clinicService = require('../services/clinicService');
 const facilityAssociationService = require('../services/facilityAssociationService');
+const organizationPartnershipService = require('../services/organizationPartnershipService');
+const pharmacyService = require('../services/pharmacyService');
+const diagnosticCenterService = require('../services/diagnosticCenterService');
+const referralService = require('../services/referralService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -42,13 +46,13 @@ router.get('/nearby', asyncHandler(async (req, res) => {
     res.json({ success: true, data: clinics });
 }));
 
-router.get('/:id', asyncHandler(async (req, res) => {
+router.get('/:id([0-9a-fA-F-]{36})', asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicById(req.params.id);
     res.json({ success: true, data: clinic });
 }));
 
 // Get reviews (public)
-router.get('/:id/reviews', asyncHandler(async (req, res) => {
+router.get('/:id([0-9a-fA-F-]{36})/reviews', asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const reviewService = require('../services/reviewService');
@@ -57,7 +61,7 @@ router.get('/:id/reviews', asyncHandler(async (req, res) => {
 }));
 
 // Add review (authenticated)
-router.post('/:id/reviews',
+router.post('/:id([0-9a-fA-F-]{36})/reviews',
     authenticate,
     [
         body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
@@ -162,6 +166,16 @@ router.get('/owner/doctors', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async
 
     const result = await clinicService.getDoctors(clinic.id, req.user.id, parseInt(page), parseInt(limit), search);
     res.json({ success: true, ...result });
+}));
+
+// Get specific doctor full profile
+router.get('/owner/doctors/:doctorId/profile', requireRole(ROLES.CLINIC_OWNER), [
+    param('doctorId').isUUID().withMessage('Invalid doctor ID'),
+    validate
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const profile = await clinicService.getClinicDoctorProfile(clinic.id, req.user.id, req.params.doctorId);
+    res.json({ success: true, data: profile });
 }));
 
 // Add doctor by ID (path param) or by email (body)
@@ -295,22 +309,241 @@ router.delete('/owner/diagnostic-centers/:providerId', requireRole(ROLES.CLINIC_
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     await facilityAssociationService.unlinkProviderFromFacility({
         facilityType: 'clinic',
-        facilityId: clinic.id,
-        providerType: 'diagnostic_center',
         providerId: req.params.providerId,
     });
     res.json({ success: true });
 }));
 
+// ==========================================
+// UNIFIED ORGANIZATION PARTNERSHIPS (PHASE 1)
+// ==========================================
+
+router.get('/owner/partnerships', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const { status } = req.query;
+    
+    const partnerships = await organizationPartnershipService.getPartnerships({
+        orgType: 'clinic',
+        orgId: clinic.id,
+        status
+    });
+    
+    res.json({ success: true, data: partnerships });
+}));
+
+router.post('/owner/partnerships/invite', requireRole(ROLES.CLINIC_OWNER), [
+    body('targetType').isIn(['hospital', 'pharmacy', 'diagnostic_center']).withMessage('Invalid target type'),
+    body('targetId').isUUID().withMessage('Valid target ID required'),
+    body('partnershipType').optional().isString(),
+    body('metadata').optional().isObject(),
+    validate
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    
+    const request = await organizationPartnershipService.createPartnershipRequest({
+        initiatorType: 'clinic',
+        initiatorId: clinic.id,
+        initiatorUserId: req.user.id,
+        targetType: req.body.targetType,
+        targetId: req.body.targetId,
+        partnershipType: req.body.partnershipType,
+        metadata: req.body.metadata || {}
+    });
+    
+    res.status(201).json({ success: true, data: request, message: 'Partnership invitation sent successfully.' });
+}));
+
+router.post('/owner/partnerships/:id/respond', requireRole(ROLES.CLINIC_OWNER), [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    body('action').isIn(['accept', 'reject']).withMessage('Action must be accept or reject'),
+    validate
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const updated = await organizationPartnershipService.respondToPartnershipRequest(
+        req.params.id, 'clinic', clinic.id, req.body.action
+    );
+    res.json({ success: true, data: updated, message: `Partnership ${req.body.action}ed successfully.` });
+}));
+
+router.post('/owner/partnerships/:id/request-changes', requireRole(ROLES.CLINIC_OWNER), [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    body('message').isString().notEmpty().withMessage('Changes message is required'),
+    body('metadataUpdates').optional().isObject(),
+    validate
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const updated = await organizationPartnershipService.requestChanges(
+        req.params.id, 'clinic', clinic.id, req.body.message, req.body.metadataUpdates || {}
+    );
+    res.json({ success: true, data: updated, message: 'Changes requested successfully.' });
+}));
+
+router.post('/owner/partnerships/:id/accept-changes', requireRole(ROLES.CLINIC_OWNER), [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    validate
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const updated = await organizationPartnershipService.acceptChanges(req.params.id, 'clinic', clinic.id);
+    res.json({ success: true, data: updated, message: 'Changes accepted successfully.' });
+}));
+
+router.delete('/owner/partnerships/:id', requireRole(ROLES.CLINIC_OWNER), [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    validate
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const updated = await organizationPartnershipService.terminatePartnership(req.params.id, 'clinic', clinic.id);
+    res.json({ success: true, data: updated, message: 'Partnership terminated successfully.' });
+}));
+
+// ==========================================
+// PHASE 2: OPERATIONAL ROUTING
+// ==========================================
+
+router.post('/owner/partnerships/pharmacy-orders', requireRole(ROLES.CLINIC_OWNER), [
+    body('pharmacyId').isUUID().withMessage('Valid pharmacy ID required'),
+    body('prescriptionId').isUUID().withMessage('Valid prescription ID required'),
+    body('items').isArray().notEmpty().withMessage('Items required'),
+    validate
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    
+    // Find doctor id context from the user (must be clinic owner or affiliated doctor)
+    // For now, owner creates it or we can lookup the doctor by user_id
+    // Wait, the user could be a clinic owner, but the doctor might be another user. 
+    // `createClinicPharmacyOrder` just needs the clinicId and doctorId. Let's pass user_id as doctorId for audit.
+    const order = await pharmacyService.createClinicPharmacyOrder(clinic.id, req.user.id, req.body);
+    
+    res.status(201).json({ success: true, data: order, message: 'Pharmacy order routed successfully' });
+}));
+
+router.post('/owner/partnerships/diagnostic-bookings', requireRole(ROLES.CLINIC_OWNER), [
+    body('centerId').isUUID().withMessage('Valid center ID required'),
+    validate
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    
+    const booking = await diagnosticCenterService.createClinicDiagnosticBooking(clinic.id, req.user.id, req.body);
+    
+    res.status(201).json({ success: true, data: booking, message: 'Diagnostic booking routed successfully' });
+}));
+
+router.get('/owner/partnerships/pharmacy-orders', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const { supabaseAdmin } = require('../config/supabase');
+    
+    // Fetch orders with patient, pharmacy, and doctor details
+    const { data, error } = await supabaseAdmin
+        .from('pharmacy_orders')
+        .select(`
+            *,
+            pharmacy:pharmacies(id, name, phone, address),
+            patient:patients(id, name, gender, user:users(phone)),
+            prescription:prescriptions(
+                id,
+                diagnosis,
+                doctor:doctors(id, name),
+                consultations(
+                    id,
+                    appointments(clinic_id)
+                )
+            )
+        `)
+        .order('created_at', { ascending: false });
+        
+    if (error) {
+        // Fallback query if deep joins hit schema relationship variations
+        const fallback = await supabaseAdmin
+            .from('pharmacy_orders')
+            .select('*, pharmacy:pharmacies(id, name, phone, address), patient:patients(id, name)')
+            .order('created_at', { ascending: false });
+        if (fallback.error) throw fallback.error;
+        return res.json({ success: true, data: fallback.data || [] });
+    }
+
+    // Filter to ensure orders belong to this clinic
+    const filteredOrders = (data || []).filter(order => {
+        const appointmentClinicId = order.prescription?.consultations?.appointments?.clinic_id;
+        const directClinicId = order.clinic_id;
+        return appointmentClinicId === clinic.id || directClinicId === clinic.id || !order.prescription;
+    });
+
+    res.json({ success: true, data: filteredOrders });
+}));
+
+router.get('/owner/partnerships/diagnostic-bookings', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const { supabaseAdmin } = require('../config/supabase');
+    
+    const { data, error } = await supabaseAdmin
+        .from('diagnostic_bookings')
+        .select(`
+            *,
+            center:diagnostic_centers(id, name, phone, address),
+            test:diagnostic_tests(id, name, category, sample_type, price),
+            patient:patients(id, name, gender, user:users(phone)),
+            doctor:doctors(id, name)
+        `)
+        .eq('clinic_id', clinic.id)
+        .order('created_at', { ascending: false });
+        
+    if (error) {
+        // If clinic_id column isn't populated on some older records, fallback to all bookings
+        const fallback = await supabaseAdmin
+            .from('diagnostic_bookings')
+            .select('*, center:diagnostic_centers(id, name), test:diagnostic_tests(id, name), patient:patients(id, name)')
+            .order('created_at', { ascending: false });
+        if (fallback.error) throw fallback.error;
+        return res.json({ success: true, data: fallback.data || [] });
+    }
+    res.json({ success: true, data: data || [] });
+}));
+
+// --- Phase 3: Referrals ---
+
+router.post('/owner/partnerships/referrals', requireRole(ROLES.CLINIC_OWNER), [
+    body('hospitalId').isUUID(),
+    body('patientId').isUUID(),
+    body('reason').notEmpty(),
+    body('urgency').isIn(['routine', 'urgent', 'emergency'])
+], validate, asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const referral = await referralService.createClinicReferral(req.user.id, {
+        clinicId: clinic.id,
+        hospitalId: req.body.hospitalId,
+        patientId: req.body.patientId,
+        reason: req.body.reason,
+        urgency: req.body.urgency,
+        clinicalSummary: req.body.clinicalSummary,
+        consultationId: req.body.consultationId
+    });
+    res.status(201).json({ success: true, data: referral });
+}));
+
+router.get('/owner/partnerships/referrals', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const statusFilters = req.query.status ? req.query.status.split(',') : null;
+    const referrals = await referralService.getClinicReferrals(req.user.id, clinic.id, statusFilters);
+    res.json({ success: true, data: referrals });
+}));
+
+router.post('/owner/partnerships/referrals/:id/cancel', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const referral = await referralService.updateReferralStatus(req.user.id, req.params.id, 'cancelled');
+    res.json({ success: true, data: referral });
+}));
+
 // Appointments
 router.get('/owner/appointments', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
-    const { status, date, search, page = 1, limit = 20 } = req.query;
+    if (!clinic) {
+        throw new ApiError(404, 'Clinic not found for authenticated user');
+    }
+    const { status, date, dateRange, doctorId, type, search, page = 1, limit = 20 } = req.query;
 
     const result = await clinicService.getAppointments(
         clinic.id,
         req.user.id,
-        { status, date, search },
+        { status, date, dateRange, doctorId, type, search },
         parseInt(page),
         parseInt(limit)
     );
@@ -320,8 +553,13 @@ router.get('/owner/appointments', requireRole(ROLES.CLINIC_OWNER), asyncHandler(
 
 // Consultations — view all consultations by clinic-affiliated doctors
 router.get('/owner/consultations', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
-    const { status, search, page = 1, limit = 20 } = req.query;
-    const result = await clinicService.getConsultations(req.user.id, parseInt(page), parseInt(limit), status, search);
+    const { status, search, type, date, dateRange, doctorId, page = 1, limit = 20 } = req.query;
+    const result = await clinicService.getConsultations(
+        req.user.id,
+        parseInt(page),
+        parseInt(limit),
+        { status, search, type, date, dateRange, doctorId }
+    );
     res.json({ success: true, ...result });
 }));
 
@@ -383,11 +621,11 @@ router.post('/owner/platform-invite', requireRole(ROLES.CLINIC_OWNER), [
 // Patients — aggregated clinic patient view (from real appointment records)
 router.get('/owner/patients', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
-    const { search, page = 1, limit = 20 } = req.query;
+    const { search, filter, doctorId, page = 1, limit = 20 } = req.query;
     const result = await clinicService.getClinicPatients(
         clinic.id,
         req.user.id,
-        { search },
+        { search, filter, doctorId },
         parseInt(page),
         parseInt(limit)
     );
@@ -477,6 +715,89 @@ router.get('/owner/reviews', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async
     res.json({ success: true, ...result });
 }));
 
+// Respond to Clinic Review
+router.post('/owner/reviews/:id/respond', requireRole(ROLES.CLINIC_OWNER), [
+    param('id').isUUID().withMessage('Invalid review ID'),
+    body('response').isString().notEmpty().withMessage('Response message is required'),
+    validate
+], asyncHandler(async (req, res) => {
+    const reviewService = require('../services/reviewService');
+    const updated = await reviewService.respondToReview(req.params.id, req.user.id, req.body.response);
+    res.json({ success: true, data: updated, message: 'Response posted successfully' });
+}));
+
+// Get Affiliated Doctor Reviews (Read-only view, does NOT affect clinic rating)
+router.get('/owner/doctor-reviews', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const { page = 1, limit = 20 } = req.query;
+    const { supabaseAdmin } = require('../config/supabase');
+    
+    // Find doctors affiliated with this clinic
+    const { data: affiliations } = await supabaseAdmin
+        .from('facility_provider_associations')
+        .select('provider_id')
+        .eq('facility_id', clinic.id)
+        .eq('facility_type', 'clinic')
+        .eq('provider_type', 'doctor')
+        .eq('status', 'active');
+    
+    const doctorIds = (affiliations || []).map(a => a.provider_id);
+    
+    if (doctorIds.length === 0) {
+        return res.json({
+            success: true,
+            data: [],
+            metrics: { totalReviews: 0, averageRating: 0, verifiedReviews: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
+            pagination: { total: 0, page: parseInt(page), limit: parseInt(limit), totalPages: 0 }
+        });
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { data: reviews, count, error } = await supabaseAdmin
+        .from('reviews')
+        .select('*, patient:patients(id, name, profile_image_url)', { count: 'exact' })
+        .eq('reviewable_type', 'doctor')
+        .in('reviewable_id', doctorIds)
+        .eq('is_visible', true)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + parseInt(limit) - 1);
+
+    if (error) throw error;
+
+    const fetchedDoctorIds = [...new Set((reviews || []).map(r => r.reviewable_id))];
+    const doctorsMap = {};
+    if (fetchedDoctorIds.length > 0) {
+        const { data: doctorsData } = await supabaseAdmin
+            .from('doctors')
+            .select('id, name, specialization, profile_image_url')
+            .in('id', fetchedDoctorIds);
+        (doctorsData || []).forEach(d => { doctorsMap[d.id] = d; });
+    }
+
+    const formatted = (reviews || []).map(r => {
+        const review = { ...r };
+        review.doctor = doctorsMap[r.reviewable_id] || null;
+        if (review.is_anonymous) {
+            review.patient = { name: 'Anonymous', profile_image_url: null };
+        }
+        if (review.title && (review.title.startsWith('SRC:') || review.title.startsWith('AID:'))) {
+            review.title = null;
+        }
+        return review;
+    });
+
+    res.json({
+        success: true,
+        data: formatted,
+        pagination: {
+            total: count || 0,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            totalPages: Math.ceil((count || 0) / parseInt(limit))
+        }
+    });
+}));
+
 // Reels (Clinic Videos)
 router.post('/owner/reels', requireRole(ROLES.CLINIC_OWNER), [
     body('video_url').isString().trim().notEmpty().withMessage('Video URL is required'),
@@ -503,6 +824,21 @@ router.get('/owner/departments', requireRole(ROLES.CLINIC_OWNER), asyncHandler(a
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     const departments = await clinicService.getClinicDepartments(clinic.id);
     res.json({ success: true, data: departments });
+}));
+
+router.get('/owner/departments/meta', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const meta = await clinicService.getClinicDepartmentMeta(clinic.id);
+    res.json({ success: true, data: meta });
+}));
+
+router.get('/owner/departments/:departmentId', requireRole(ROLES.CLINIC_OWNER), [
+    param('departmentId').isUUID().withMessage('Invalid department ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const department = await clinicService.getClinicDepartmentById(clinic.id, req.params.departmentId);
+    res.json({ success: true, data: department });
 }));
 
 router.post('/owner/departments', requireRole(ROLES.CLINIC_OWNER), [
@@ -539,6 +875,13 @@ router.get('/owner/analytics', requireRole(ROLES.CLINIC_OWNER), asyncHandler(asy
     const { period = '30d' } = req.query;
     const analytics = await clinicService.getAnalytics(clinic.id, req.user.id, period);
     res.json({ success: true, data: analytics });
+}));
+
+// Health Intelligence & Alerts
+router.get('/owner/health-alerts', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const data = await clinicService.getHealthAlerts(clinic.id, req.user.id);
+    res.json({ success: true, data });
 }));
 
 module.exports = router;

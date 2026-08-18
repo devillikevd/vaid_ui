@@ -127,15 +127,18 @@ export function ScheduleSection({ onDirtyChange }: { onDirtyChange: (dirty: bool
         setSchedule((prev) => prev.map((s) => (s.day === day ? { ...s, [field]: value } : s)));
     };
 
+    const [isEditing, setIsEditing] = useState(false);
+
     const handleSave = async () => {
+        // Validate each open slot: openTime < closeTime
         for (const slot of schedule) {
             if (slot.isOpen) {
                 if (!slot.openTime || !slot.closeTime) {
-                    setStatus({ type: 'error', message: `${slot.day}: set both open and close times.` });
+                    setStatus({ type: 'error', message: `Specify opening and closing times for ${slot.day}.` });
                     return;
                 }
-                if (slot.closeTime <= slot.openTime) {
-                    setStatus({ type: 'error', message: `${slot.day}: close time must be after open time.` });
+                if (slot.openTime >= slot.closeTime) {
+                    setStatus({ type: 'error', message: `On ${slot.day}, opening time must be before closing time.` });
                     return;
                 }
             }
@@ -151,6 +154,7 @@ export function ScheduleSection({ onDirtyChange }: { onDirtyChange: (dirty: bool
                 savedScheduleRef.current = normalized;
                 setSchedule(normalized);
                 setStatus({ type: 'success', message: 'Working hours saved. Patients and booking flows use this schedule.' });
+                setIsEditing(false);
             } else {
                 setStatus({ type: 'error', message: res.error || 'Failed to save schedule' });
             }
@@ -162,6 +166,7 @@ export function ScheduleSection({ onDirtyChange }: { onDirtyChange: (dirty: bool
 
     const handleCancel = () => {
         void fetchSchedule();
+        setIsEditing(false);
     };
 
     return (
@@ -171,15 +176,19 @@ export function ScheduleSection({ onDirtyChange }: { onDirtyChange: (dirty: bool
             description="Weekly operating hours shown on your profile and used by booking flows."
             icon={<Clock className="h-5 w-5" />}
             actions={
-                dirty && !isLoading && (
-                    <>
+                isEditing ? (
+                    <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={handleCancel} leftIcon={<X className="h-4 w-4" />}>
                             Cancel
                         </Button>
                         <Button size="sm" onClick={() => void handleSave()} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>
                             Save Schedule
                         </Button>
-                    </>
+                    </div>
+                ) : (
+                    <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                        Edit Working Hours
+                    </Button>
                 )
             }
         >
@@ -196,55 +205,92 @@ export function ScheduleSection({ onDirtyChange }: { onDirtyChange: (dirty: bool
             ) : (
                 <div className="space-y-4">
                     <StatusMessage status={status} />
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {schedule.map((slot) => (
-                            <div key={slot.day} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                                <div className="mb-3 flex items-center justify-between">
-                                    <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                        <Calendar className="h-4 w-4 text-primary-600" />
-                                        {slot.day}
-                                    </h4>
-                                    <button
-                                        type="button"
-                                        role="switch"
-                                        aria-checked={slot.isOpen}
-                                        aria-label={`Open on ${slot.day}`}
-                                        onClick={() => handleToggleDay(slot.day)}
-                                        className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
-                                            slot.isOpen ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
-                                        }`}
-                                    >
+
+                    {!isEditing ? (
+                        /* ── Read-Only View Mode ── */
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {schedule.map((slot) => (
+                                <div
+                                    key={slot.day}
+                                    className={`p-3.5 rounded-xl border transition-all ${
+                                        slot.isOpen
+                                            ? 'bg-gray-50 dark:bg-gray-800/40 border-gray-100 dark:border-gray-800'
+                                            : 'bg-gray-50/50 dark:bg-gray-800/20 border-dashed border-gray-200 dark:border-gray-800/60 opacity-70'
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <span className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                                            <Calendar className="h-3.5 w-3.5 text-pink-600 dark:text-pink-400" />
+                                            {slot.day}
+                                        </span>
                                         <span
-                                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                                slot.isOpen ? 'translate-x-5' : 'translate-x-0.5'
+                                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                                slot.isOpen
+                                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
+                                                    : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
                                             }`}
-                                        />
-                                    </button>
-                                </div>
-                                {slot.isOpen ? (
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="time"
-                                            value={slot.openTime}
-                                            onChange={(e) => handleTimeChange(slot.day, 'openTime', e.target.value)}
-                                            aria-label={`${slot.day} opening time`}
-                                            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                                        />
-                                        <span className="text-gray-400">–</span>
-                                        <input
-                                            type="time"
-                                            value={slot.closeTime}
-                                            onChange={(e) => handleTimeChange(slot.day, 'closeTime', e.target.value)}
-                                            aria-label={`${slot.day} closing time`}
-                                            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                                        />
+                                        >
+                                            {slot.isOpen ? 'Open' : 'Closed'}
+                                        </span>
                                     </div>
-                                ) : (
-                                    <p className="text-sm text-gray-400">Closed</p>
-                                )}
-                            </div>
-                        ))}
-                    </div>
+                                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                                        {slot.isOpen ? `${slot.openTime} – ${slot.closeTime}` : 'No consultations'}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        /* ── Edit Mode ── */
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {schedule.map((slot) => (
+                                <div key={slot.day} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-850">
+                                    <div className="mb-3 flex items-center justify-between">
+                                        <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                            <Calendar className="h-4 w-4 text-primary-600" />
+                                            {slot.day}
+                                        </h4>
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={slot.isOpen}
+                                            aria-label={`Open on ${slot.day}`}
+                                            onClick={() => handleToggleDay(slot.day)}
+                                            className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
+                                                slot.isOpen ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                    slot.isOpen ? 'translate-x-5' : 'translate-x-0.5'
+                                                }`}
+                                            />
+                                        </button>
+                                    </div>
+                                    {slot.isOpen ? (
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="time"
+                                                value={slot.openTime}
+                                                onChange={(e) => handleTimeChange(slot.day, 'openTime', e.target.value)}
+                                                aria-label={`${slot.day} opening time`}
+                                                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                            />
+                                            <span className="text-gray-400">–</span>
+                                            <input
+                                                type="time"
+                                                value={slot.closeTime}
+                                                onChange={(e) => handleTimeChange(slot.day, 'closeTime', e.target.value)}
+                                                aria-label={`${slot.day} closing time`}
+                                                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-400">Closed</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </SettingsSection>

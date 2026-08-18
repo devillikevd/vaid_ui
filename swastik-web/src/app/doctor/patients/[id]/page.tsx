@@ -417,25 +417,25 @@ export default function DoctorPatientRecordPage() {
                             <div className="p-6 flex-1 bg-white dark:bg-gray-900">
                                 {vitals.length > 0 ? (
                                     <div className="grid grid-cols-2 gap-4 h-full">
-                                        <div className="p-5 rounded-2xl bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 flex flex-col justify-center transition-transform hover:scale-[1.02]">
+                                        <div className="p-5 rounded-2xl bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 flex flex-col justify-center transition-transform hover:-translate-y-0.5">
                                             <p className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest mb-2">Heart Rate</p>
                                             <p className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">
                                                 {getSafeValue(vitals[0].heartRate)} <span className="text-sm font-semibold text-gray-500">bpm</span>
                                             </p>
                                         </div>
-                                        <div className="p-5 rounded-2xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex flex-col justify-center transition-transform hover:scale-[1.02]">
+                                        <div className="p-5 rounded-2xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex flex-col justify-center transition-transform hover:-translate-y-0.5">
                                             <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2">Blood Pressure</p>
                                             <p className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">
                                                 {getSafeValue(vitals[0].bloodPressure)}
                                             </p>
                                         </div>
-                                        <div className="p-5 rounded-2xl bg-cyan-50/50 dark:bg-cyan-900/10 border border-cyan-100 dark:border-cyan-900/30 flex flex-col justify-center transition-transform hover:scale-[1.02]">
+                                        <div className="p-5 rounded-2xl bg-cyan-50/50 dark:bg-cyan-900/10 border border-cyan-100 dark:border-cyan-900/30 flex flex-col justify-center transition-transform hover:-translate-y-0.5">
                                             <p className="text-[10px] font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-widest mb-2">SpO2</p>
                                             <p className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">
                                                 {getSafeValue(vitals[0].oxygenLevel)} <span className="text-sm font-semibold text-gray-500">%</span>
                                             </p>
                                         </div>
-                                        <div className="p-5 rounded-2xl bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 flex flex-col justify-center transition-transform hover:scale-[1.02]">
+                                        <div className="p-5 rounded-2xl bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 flex flex-col justify-center transition-transform hover:-translate-y-0.5">
                                             <p className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-2">Temperature</p>
                                             <p className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">
                                                 {getSafeValue(vitals[0].temperature)} <span className="text-sm font-semibold text-gray-500">°F</span>
@@ -524,7 +524,7 @@ export default function DoctorPatientRecordPage() {
                                     <div className="relative border-l-2 border-emerald-100 dark:border-emerald-900/30 ml-4 space-y-6 pb-2">
                                         {consultations.map((consultation) => (
                                             <div key={consultation.id} className="relative pl-6 group">
-                                                <div className="absolute w-3.5 h-3.5 bg-emerald-500 rounded-full -left-[9px] top-1.5 ring-4 ring-white dark:ring-gray-900 group-hover:scale-125 transition-transform" />
+                                                <div className="absolute w-3.5 h-3.5 bg-emerald-500 rounded-full -left-[9px] top-1.5 ring-4 ring-white dark:ring-gray-900 transition-transform" />
                                                 <div className="bg-gray-50/50 dark:bg-gray-800/20 border border-gray-100 dark:border-gray-800 rounded-2xl p-5 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
                                                     <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                                                         <p className="font-bold text-gray-900 dark:text-gray-100">{formatDate(consultation.created_at, true)}</p>

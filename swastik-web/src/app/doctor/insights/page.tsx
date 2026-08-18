@@ -9,6 +9,7 @@ import {
 import Link from 'next/link';
 import { doctorApi } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
+import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 
 interface Insight {
     id: string;
@@ -152,7 +153,7 @@ export default function DoctorInsightsPage() {
 
             {/* Practice Overview (Premium Cards) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <MetricCard 
+                <InsightMetricCard 
                     title="Consultations" 
                     value={analytics?.summary?.totalAppointments || 0} 
                     icon={Calendar} 
@@ -160,7 +161,7 @@ export default function DoctorInsightsPage() {
                     loading={loading}
                     subtitle="This month"
                 />
-                <MetricCard 
+                <InsightMetricCard 
                     title="Total Revenue" 
                     value={`₹${(analytics?.summary?.totalRevenue || 0).toLocaleString('en-IN')}`} 
                     icon={IndianRupee} 
@@ -168,7 +169,7 @@ export default function DoctorInsightsPage() {
                     loading={loading}
                     subtitle="This month"
                 />
-                <MetricCard 
+                <InsightMetricCard 
                     title="Completion Rate" 
                     value={`${analytics?.summary?.completionRate || 0}%`} 
                     icon={Activity} 
@@ -176,7 +177,7 @@ export default function DoctorInsightsPage() {
                     loading={loading}
                     subtitle="Successful visits"
                 />
-                <MetricCard 
+                <InsightMetricCard 
                     title="Lifetime Patients" 
                     value={journey?.stats?.totalPatients || 0} 
                     icon={Users} 
@@ -223,7 +224,7 @@ export default function DoctorInsightsPage() {
                 <div className="space-y-6">
                     
                     {/* What Changed / Trends */}
-                    <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm">
+                    <DoctorPortalCard className="!p-6">
                         <h3 className="text-base font-extrabold text-gray-900 dark:text-white mb-5 flex items-center gap-2">
                             <TrendingUp className="w-4 h-4 text-emerald-500" /> What Changed
                         </h3>
@@ -250,10 +251,10 @@ export default function DoctorInsightsPage() {
                                 />
                             </div>
                         )}
-                    </div>
+                    </DoctorPortalCard>
 
                     {/* Schedule Intelligence */}
-                    <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm">
+                    <DoctorPortalCard className="!p-6">
                         <h3 className="text-base font-extrabold text-gray-900 dark:text-white mb-5 flex items-center gap-2">
                             <Clock className="w-4 h-4 text-blue-500" /> Schedule Intelligence
                         </h3>
@@ -273,11 +274,11 @@ export default function DoctorInsightsPage() {
                         ) : (
                             <p className="text-sm text-gray-500 italic">Not enough schedule data yet.</p>
                         )}
-                    </div>
+                    </DoctorPortalCard>
 
                     {/* Goals & Progress */}
                     {journey?.doctorGoal && (
-                        <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm">
+                        <DoctorPortalCard className="!p-6">
                             <h3 className="text-base font-extrabold text-gray-900 dark:text-white mb-5 flex items-center gap-2">
                                 <Target className="w-4 h-4 text-amber-500" /> Goals & Progress
                             </h3>
@@ -300,7 +301,7 @@ export default function DoctorInsightsPage() {
                                     />
                                 </div>
                             )}
-                        </div>
+                        </DoctorPortalCard>
                     )}
 
                 </div>
@@ -311,38 +312,6 @@ export default function DoctorInsightsPage() {
 
 // ======================== Subcomponents ========================
 
-function MetricCard({ title, value, icon: Icon, trend, loading, subtitle }: any) {
-    const trendColors = {
-        positive: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10',
-        negative: 'text-red-500 bg-red-50 dark:bg-red-500/10',
-        neutral: 'text-gray-500 bg-gray-50 dark:bg-gray-500/10'
-    };
-
-    return (
-        <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-gray-50 to-transparent dark:from-gray-800/30 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
-            
-            <div className="flex justify-between items-start mb-4 relative z-10">
-                <div className={`p-2.5 rounded-xl ${trendColors[trend as keyof typeof trendColors]} border border-white/50 dark:border-white/5`}>
-                    <Icon className="w-5 h-5" />
-                </div>
-                {trend === 'positive' && <TrendingUp className="w-4 h-4 text-emerald-500" />}
-                {trend === 'negative' && <TrendingDown className="w-4 h-4 text-red-500" />}
-                {trend === 'neutral' && <Minus className="w-4 h-4 text-gray-400" />}
-            </div>
-            
-            <div className="relative z-10">
-                <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-1">{title}</p>
-                {loading ? (
-                    <div className="h-8 bg-gray-100 dark:bg-gray-800 rounded w-1/2 animate-pulse mb-1"></div>
-                ) : (
-                    <h4 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">{value}</h4>
-                )}
-                <p className="text-xs font-medium text-gray-400 mt-1">{subtitle}</p>
-            </div>
-        </div>
-    );
-}
 
 const typeConfig: Record<string, { border: string; bg: string; badge: string; icon: string }> = {
     positive: { border: 'border-emerald-500/25', bg: 'bg-emerald-500/5', badge: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400', icon: 'text-emerald-500' },
@@ -407,7 +376,7 @@ function RecommendationCard({ insight, isExpanded, onToggle }: { insight: Insigh
 
                             {insight.action && insight.actionHref && (
                                 <Link href={insight.actionHref}>
-                                    <button className={`mt-2 w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-sm transition-all hover:scale-105 active:scale-95 ${
+                                    <button className={`mt-2 w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 ${
                                         insight.type === 'warning' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/25' :
                                         insight.type === 'positive' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/25' :
                                         'bg-purple-500 hover:bg-purple-600 shadow-purple-500/25'
@@ -491,4 +460,37 @@ function EmptyState() {
 
 function Users(props: any) {
     return <User {...props} />;
+}
+
+function InsightMetricCard({ title, value, icon: Icon, trend, loading, subtitle }: any) {
+    const trendColors = {
+        positive: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10',
+        negative: 'text-red-500 bg-red-50 dark:bg-red-500/10',
+        neutral: 'text-gray-500 bg-gray-50 dark:bg-gray-500/10'
+    };
+
+    return (
+        <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-gray-50 to-transparent dark:from-gray-800/30 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+            
+            <div className="flex justify-between items-start mb-4 relative z-10">
+                <div className={`p-2.5 rounded-xl ${trendColors[trend as keyof typeof trendColors]} border border-white/50 dark:border-white/5`}>
+                    <Icon className="w-5 h-5" />
+                </div>
+                {trend === 'positive' && <TrendingUp className="w-4 h-4 text-emerald-500" />}
+                {trend === 'negative' && <TrendingDown className="w-4 h-4 text-red-500" />}
+                {trend === 'neutral' && <Minus className="w-4 h-4 text-gray-400" />}
+            </div>
+            
+            <div className="relative z-10">
+                <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-1">{title}</p>
+                {loading ? (
+                    <div className="h-8 bg-gray-100 dark:bg-gray-800 rounded w-1/2 animate-pulse mb-1"></div>
+                ) : (
+                    <h4 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">{value}</h4>
+                )}
+                <p className="text-xs font-medium text-gray-400 mt-1">{subtitle}</p>
+            </div>
+        </div>
+    );
 }

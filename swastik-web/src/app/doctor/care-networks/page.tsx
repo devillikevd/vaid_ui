@@ -61,34 +61,24 @@ interface ProviderInvite {
     is_sent_request?: boolean;
 }
 
-const DAYS_OF_WEEK = [
-    { key: 'Monday', label: 'Mon' },
-    { key: 'Tuesday', label: 'Tue' },
-    { key: 'Wednesday', label: 'Wed' },
-    { key: 'Thursday', label: 'Thu' },
-    { key: 'Friday', label: 'Fri' },
-    { key: 'Saturday', label: 'Sat' },
-    { key: 'Sunday', label: 'Sun' },
-];
-
 function InitialsAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
-    const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-    const sizeClass = size === 'sm' ? 'h-10 w-10 text-sm' : size === 'lg' ? 'h-16 w-16 text-xl' : 'h-12 w-12 text-base';
+    const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'CN';
+    const sizeClass = size === 'sm' ? 'h-10 w-10 text-xs' : size === 'lg' ? 'h-16 w-16 text-xl' : 'h-12 w-12 text-sm';
     return (
-        <div className={`${sizeClass} rounded-2xl bg-gradient-to-br from-emerald-500/30 to-blue-500/30 border border-emerald-500/20 flex items-center justify-center font-bold text-emerald-400 shrink-0`}>
+        <div className={`${sizeClass} rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center font-extrabold text-emerald-700 dark:text-emerald-300 shrink-0 shadow-sm`}>
             {initials}
         </div>
     );
 }
 
 const statusConfig: Record<string, { label: string; color: string; dot: string }> = {
-    accepted:  { label: 'Active',    color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-500' },
-    active:    { label: 'Active',    color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', dot: 'bg-emerald-500' },
-    pending:   { label: 'Pending',   color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',       dot: 'bg-amber-500'  },
-    rejected:  { label: 'Declined',  color: 'text-red-400 bg-red-500/10 border-red-500/20',             dot: 'bg-red-500'    },
-    expired:   { label: 'Expired',   color: 'text-gray-400 bg-gray-500/10 border-gray-500/20',          dot: 'bg-gray-500'   },
-    cancelled: { label: 'Cancelled', color: 'text-gray-400 bg-gray-500/10 border-gray-500/20',          dot: 'bg-gray-500'   },
-    changes_requested: { label: 'Changes Proposed', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20', dot: 'bg-purple-500' },
+    accepted:  { label: 'Active',    color: 'text-emerald-800 bg-emerald-100/90 dark:text-emerald-300 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800', dot: 'bg-emerald-500' },
+    active:    { label: 'Active',    color: 'text-emerald-800 bg-emerald-100/90 dark:text-emerald-300 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800', dot: 'bg-emerald-500' },
+    pending:   { label: 'Pending Review', color: 'text-amber-900 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800', dot: 'bg-amber-500' },
+    rejected:  { label: 'Declined',  color: 'text-red-800 bg-red-100 dark:text-red-300 dark:bg-red-950/60 border-red-300 dark:border-red-800', dot: 'bg-red-500' },
+    expired:   { label: 'Expired',   color: 'text-gray-700 bg-gray-100 dark:text-gray-300 dark:bg-gray-800/80 border-gray-300 dark:border-gray-700', dot: 'bg-gray-500' },
+    cancelled: { label: 'Cancelled', color: 'text-gray-700 bg-gray-100 dark:text-gray-300 dark:bg-gray-800/80 border-gray-300 dark:border-gray-700', dot: 'bg-gray-500' },
+    changes_requested: { label: 'Changes Proposed', color: 'text-purple-900 bg-purple-100 dark:text-purple-300 dark:bg-purple-950/60 border-purple-300 dark:border-purple-800', dot: 'bg-purple-500' },
 };
 
 export default function MyCareNetworksPage() {
@@ -261,7 +251,7 @@ export default function MyCareNetworksPage() {
 
     const handleRespond = async (
         invite: ProviderInvite, 
-        decision: 'accept' | 'reject' | 'cancel' | 'changes_requested', 
+        decision: 'accept' | 'reject' | 'cancel' | 'changes_requested' | 'decline', 
         payload?: Record<string, any>
     ) => {
         const inviteId = invite.id;
@@ -272,9 +262,17 @@ export default function MyCareNetworksPage() {
                 response = await doctorApi.cancelJoinRequest(inviteId, invite.kind);
             } else if (decision !== 'cancel') {
                 const callPayload = decision === 'changes_requested' ? payload : undefined;
-                response = invite.kind === 'hospital'
-                    ? await doctorApi.respondHospitalInvite(inviteId, decision, callPayload)
-                    : await doctorApi.respondClinicInvite(inviteId, decision, callPayload);
+                if (invite.is_sent_request) {
+                    // It's a join request counter-proposal response
+                    // map 'reject' to 'decline' if needed, or keep 'reject'
+                    const apiDecision = decision === 'reject' ? 'decline' : decision;
+                    response = await doctorApi.respondToJoinRequest(inviteId, invite.kind, apiDecision as any, callPayload);
+                } else {
+                    // It's an organization invitation
+                    response = invite.kind === 'hospital'
+                        ? await doctorApi.respondHospitalInvite(inviteId, decision as any, callPayload)
+                        : await doctorApi.respondClinicInvite(inviteId, decision as any, callPayload);
+                }
             } else {
                 return;
             }
@@ -322,13 +320,13 @@ export default function MyCareNetworksPage() {
             {/* Top Workspace Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
                 <div>
-                    <span className="text-[11px] font-extrabold uppercase tracking-widest text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/30 px-3 py-1 rounded-full border border-brand-200 dark:border-brand-800/50 inline-block mb-1.5">
+                    <span className="text-[11px] font-extrabold uppercase tracking-widest text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/50 px-3 py-1 rounded-full border border-brand-200 dark:border-brand-800/80 inline-block mb-1.5 shadow-sm">
                         Clinical Workspace
                     </span>
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
                         My Care Networks
                     </h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                         Manage your clinic & hospital affiliations, review invitations, and negotiate practice schedules.
                     </p>
                 </div>
@@ -338,12 +336,12 @@ export default function MyCareNetworksPage() {
                         variant="outline" 
                         onClick={() => void fetchInvites()} 
                         disabled={loading}
-                        className="rounded-2xl border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-sm"
+                        className="rounded-2xl border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold shadow-sm"
                     >
                         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
                     </Button>
                     <Link href="/doctor/care-networks/find">
-                        <Button className="rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold shadow-md shadow-brand-600/20">
+                        <Button className="rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-md shadow-emerald-600/20">
                             <Search className="h-4 w-4 mr-2" /> Find Organizations
                         </Button>
                     </Link>
@@ -353,11 +351,11 @@ export default function MyCareNetworksPage() {
             {/* Metrics Overview Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
                 {[
-                    { id: 'all', label: 'Active Networks', value: activeAffiliations.length, icon: Building2, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-100 dark:border-emerald-900/30' },
-                    { id: 'hospitals', label: 'Hospitals', value: hospitalsOnly.length, icon: HeartPulse, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/20', border: 'border-blue-100 dark:border-blue-900/30' },
-                    { id: 'clinics', label: 'Clinics', value: clinicsOnly.length, icon: Stethoscope, color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950/20', border: 'border-teal-100 dark:border-teal-900/30' },
-                    { id: 'invitations', label: 'Invitations', value: pendingInvites.length, icon: MailOpen, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/20', border: 'border-amber-100 dark:border-amber-900/30' },
-                    { id: 'requests', label: 'Join Requests', value: pendingJoinRequests.length, icon: FileText, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/20', border: 'border-purple-100 dark:border-purple-900/30' },
+                    { id: 'all', label: 'Active Networks', value: activeAffiliations.length, icon: Building2, color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50/90 dark:bg-emerald-950/30', border: 'border-emerald-200 dark:border-emerald-800/60' },
+                    { id: 'hospitals', label: 'Hospitals', value: hospitalsOnly.length, icon: HeartPulse, color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-50/90 dark:bg-blue-950/30', border: 'border-blue-200 dark:border-blue-800/60' },
+                    { id: 'clinics', label: 'Clinics', value: clinicsOnly.length, icon: Stethoscope, color: 'text-teal-700 dark:text-teal-400', bg: 'bg-teal-50/90 dark:bg-teal-950/30', border: 'border-teal-200 dark:border-teal-800/60' },
+                    { id: 'invitations', label: 'Invitations', value: pendingInvites.length, icon: MailOpen, color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50/90 dark:bg-amber-950/30', border: 'border-amber-200 dark:border-amber-800/60' },
+                    { id: 'requests', label: 'Join Requests', value: pendingJoinRequests.length, icon: FileText, color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-50/90 dark:bg-purple-950/30', border: 'border-purple-200 dark:border-purple-800/60' },
                 ].map(stat => {
                     const Icon = stat.icon;
                     const isActive = activeTab === stat.id;
@@ -374,14 +372,14 @@ export default function MyCareNetworksPage() {
                                 <Icon className={`w-5 h-5 ${stat.color}`} />
                                 <span className="text-xl font-extrabold text-gray-900 dark:text-white leading-none">{stat.value}</span>
                             </div>
-                            <span className="text-xs font-bold text-gray-600 dark:text-gray-300 block">{stat.label}</span>
+                            <span className="text-xs font-bold text-gray-700 dark:text-gray-300 block">{stat.label}</span>
                         </button>
                     );
                 })}
             </div>
 
             {/* Navigation Tabs & Search */}
-            <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-3 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="bg-white dark:bg-[#111c2e] rounded-3xl p-3 border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1 sm:pb-0">
                     {[
                         { id: 'all', label: 'All Active' },
@@ -398,7 +396,7 @@ export default function MyCareNetworksPage() {
                             className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
                                 activeTab === tab.id
                                     ? 'bg-brand-600 text-white shadow-sm shadow-brand-600/20'
-                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                             }`}
                         >
                             {tab.label}
@@ -407,13 +405,13 @@ export default function MyCareNetworksPage() {
                 </div>
 
                 <div className="relative w-full sm:w-72">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-gray-400" />
                     <input
                         type="text"
                         placeholder="Search networks by name or city..."
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-3.5 py-2 text-xs rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-900 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500"
+                        className="w-full pl-10 pr-3.5 py-2 text-xs rounded-2xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-[#0f172a] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-brand-500"
                     />
                 </div>
             </div>
@@ -422,7 +420,7 @@ export default function MyCareNetworksPage() {
             {loading ? (
                 <div className="py-24 flex flex-col items-center justify-center gap-3">
                     <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Loading your network affiliations...</p>
+                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">Loading your network affiliations...</p>
                 </div>
             ) : (
                 <div>
@@ -437,20 +435,20 @@ export default function MyCareNetworksPage() {
 
                         if (displayItems.length === 0) {
                             return (
-                                <div className="bg-white dark:bg-[#0f172a] rounded-3xl p-12 text-center border border-gray-100 dark:border-gray-800 shadow-sm space-y-4">
-                                    <div className="w-16 h-16 bg-gray-50 dark:bg-gray-900 rounded-3xl flex items-center justify-center mx-auto text-gray-400">
+                                <div className="bg-white dark:bg-[#111c2e] rounded-3xl p-12 text-center border border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
+                                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-3xl flex items-center justify-center mx-auto text-gray-500 dark:text-gray-400">
                                         <Building2 className="w-8 h-8" />
                                     </div>
                                     <h3 className="text-base font-bold text-gray-900 dark:text-white">
                                         {activeTab === 'invitations' ? 'No pending invitations' : activeTab === 'requests' ? 'No active join requests' : 'No networks found'}
                                     </h3>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
                                         {activeTab === 'invitations' 
                                             ? 'Invitations from clinics and hospitals will appear here. You can review explicit terms and accept or propose changes.'
                                             : 'Search the organization directory to discover and request to join partner clinics and hospitals.'}
                                     </p>
                                     <Link href="/doctor/care-networks/find">
-                                        <Button className="rounded-2xl bg-brand-600 text-white font-bold text-xs">
+                                        <Button className="rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs">
                                             <Search className="w-3.5 h-3.5 mr-1.5" /> Find Organizations
                                         </Button>
                                     </Link>
@@ -479,32 +477,32 @@ export default function MyCareNetworksPage() {
             {/* Detailed Invitation & Network Modal */}
             <AnimatePresence>
                 {selectedInvite && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md">
                         <motion.div 
                             initial={{ opacity: 0, scale: 0.96, y: 15 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.96, y: 15 }}
-                            className="bg-white dark:bg-[#0f172a] rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh] border border-gray-100 dark:border-gray-800"
+                            className="bg-white dark:bg-[#111c2e] rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh] border border-gray-200 dark:border-gray-700"
                         >
                             {/* Modal Header */}
-                            <div className="flex items-start justify-between p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-900/50 shrink-0">
+                            <div className="flex items-start justify-between p-5 sm:p-6 border-b border-gray-200 dark:border-gray-800 bg-gray-50/90 dark:bg-[#0c1422] shrink-0">
                                 <div className="flex items-center gap-4 min-w-0">
                                     {selectedInvite.provider?.profile_image_url ? (
-                                        <img src={selectedInvite.provider.profile_image_url} alt={selectedInvite.provider.name} className="h-14 w-14 rounded-2xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm shrink-0" />
+                                        <img src={selectedInvite.provider.profile_image_url} alt={selectedInvite.provider.name} className="h-14 w-14 rounded-2xl object-cover border border-gray-300 dark:border-gray-700 shadow-sm shrink-0" />
                                     ) : (
                                         <InitialsAvatar name={selectedInvite.provider?.name || 'Network'} size="lg" />
                                     )}
                                     <div className="min-w-0">
-                                        <h2 className="text-xl font-bold text-gray-900 dark:text-white truncate">
+                                        <h2 className="text-xl font-extrabold text-gray-900 dark:text-white truncate">
                                             {selectedInvite.provider?.name || 'Healthcare Network'}
                                         </h2>
                                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 capitalize border border-blue-200 dark:border-blue-800/40">
+                                            <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 capitalize border border-blue-300 dark:border-blue-800">
                                                 {selectedInvite.kind}
                                             </span>
                                             {selectedInvite.provider?.city && (
-                                                <span className="text-xs text-gray-500 flex items-center gap-1">
-                                                    <MapPin className="h-3 w-3" /> {selectedInvite.provider.city}
+                                                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                                                    <MapPin className="h-3.5 w-3.5 text-gray-500" /> {selectedInvite.provider.city}
                                                 </span>
                                             )}
                                         </div>
@@ -512,7 +510,7 @@ export default function MyCareNetworksPage() {
                                 </div>
                                 <button 
                                     onClick={() => { setSelectedInvite(null); setShowCounterProposal(false); }}
-                                    className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors shrink-0"
+                                    className="p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800 rounded-xl transition-colors shrink-0"
                                 >
                                     <XCircle className="w-5 h-5" />
                                 </button>
@@ -522,11 +520,11 @@ export default function MyCareNetworksPage() {
                             <div className="p-5 sm:p-7 overflow-y-auto custom-scrollbar flex-1 space-y-6">
                                 
                                 {/* Status Banner */}
-                                <div className={`p-4 rounded-2xl border flex items-center gap-3 ${statusConfig[selectedInvite.status]?.color || 'bg-gray-50 border-gray-200 text-gray-700'}`}>
+                                <div className={`p-4 rounded-2xl border flex items-center gap-3 ${statusConfig[selectedInvite.status]?.color || 'bg-gray-100 border-gray-300 text-gray-800'}`}>
                                     <Info className="h-5 w-5 shrink-0" />
                                     <div className="min-w-0 text-xs">
-                                        <div className="font-bold text-sm">Status: {statusConfig[selectedInvite.status]?.label || selectedInvite.status}</div>
-                                        <div className="opacity-90 mt-0.5">
+                                        <div className="font-extrabold text-sm">Status: {statusConfig[selectedInvite.status]?.label || selectedInvite.status}</div>
+                                        <div className="font-medium opacity-95 mt-0.5">
                                             {selectedInvite.status === 'pending' && !selectedInvite.is_sent_request ? 'This invitation requires your review and acceptance.' :
                                              selectedInvite.status === 'pending' && selectedInvite.is_sent_request ? 'Join request sent. Awaiting organization response.' :
                                              selectedInvite.status === 'changes_requested' ? 'Counter-proposal has been submitted. Awaiting organization approval.' :
@@ -538,8 +536,8 @@ export default function MyCareNetworksPage() {
 
                                 {/* Proposed Practice Terms Breakdown */}
                                 <div className="space-y-3">
-                                    <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
-                                        <Briefcase className="w-3.5 h-3.5 text-brand-500" />
+                                    <h4 className="text-xs font-extrabold text-gray-900 dark:text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Briefcase className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
                                         {selectedInvite.is_sent_request ? 'Requested Practice Terms' : 'Proposed Terms from Organization'}
                                     </h4>
 
@@ -579,35 +577,35 @@ export default function MyCareNetworksPage() {
 
                                 {/* Previous Counter-Proposal Note if any */}
                                 {selectedInvite.counter_proposal && (
-                                    <div className="bg-purple-50 dark:bg-purple-950/30 p-4 rounded-2xl border border-purple-200 dark:border-purple-900/50 space-y-1.5">
+                                    <div className="bg-purple-50 dark:bg-purple-950/40 p-4 rounded-2xl border border-purple-200 dark:border-purple-800/80 space-y-1.5 shadow-sm">
                                         <span className="text-xs font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
                                             <MessageSquare className="w-3.5 h-3.5" /> Doctor Counter-Proposal Note:
                                         </span>
-                                        <p className="text-xs text-purple-800 dark:text-purple-200 italic leading-relaxed">
+                                        <p className="text-xs text-purple-900 dark:text-purple-200 italic leading-relaxed">
                                             "{selectedInvite.counter_proposal}"
                                         </p>
                                     </div>
                                 )}
 
                                 {/* Location Details */}
-                                <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                                    <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Facility Address</h4>
-                                    <p className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/60 p-3 rounded-2xl border border-gray-100 dark:border-gray-800">
+                                <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-800">
+                                    <h4 className="text-xs font-extrabold text-gray-900 dark:text-gray-200 uppercase tracking-wider">Facility Address</h4>
+                                    <p className="text-xs text-gray-800 dark:text-gray-300 bg-gray-50 dark:bg-[#0c1422] p-3 rounded-2xl border border-gray-200 dark:border-gray-800 leading-relaxed font-medium">
                                         {selectedInvite.provider?.address || 'Address registered on facility profile'}
                                     </p>
                                 </div>
 
                                 {/* Counter-Proposal Form if Doctor clicked "Suggest Changes" */}
                                 {showCounterProposal && selectedInvite.status === 'pending' && !selectedInvite.is_sent_request && (
-                                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 p-5 rounded-3xl border border-purple-200 dark:border-purple-800/40 space-y-4">
+                                    <div className="bg-purple-50/80 dark:bg-purple-950/30 p-5 rounded-3xl border border-purple-300 dark:border-purple-800/80 space-y-4 shadow-sm">
                                         <div className="flex items-center justify-between">
-                                            <h4 className="text-xs font-bold text-purple-950 dark:text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
-                                                <Send className="w-3.5 h-3.5 text-purple-600" /> Propose Alternative Terms
+                                            <h4 className="text-xs font-extrabold text-purple-950 dark:text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
+                                                <Send className="w-3.5 h-3.5 text-purple-700 dark:text-purple-400" /> Propose Alternative Terms
                                             </h4>
                                             <button 
                                                 type="button" 
                                                 onClick={() => setShowCounterProposal(false)}
-                                                className="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 font-semibold"
+                                                className="text-xs text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white font-bold"
                                             >
                                                 Cancel
                                             </button>
@@ -615,13 +613,13 @@ export default function MyCareNetworksPage() {
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             <div>
-                                                <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                                                <label className="block text-[11px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-1">
                                                     Counter Practice Type
                                                 </label>
                                                 <select
                                                     value={counterPracticeType}
                                                     onChange={e => setCounterPracticeType(e.target.value)}
-                                                    className="w-full p-2.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                                                    className="w-full p-2.5 text-xs rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white font-semibold"
                                                 >
                                                     <option value="visiting">Visiting Consultant</option>
                                                     <option value="part_time">Part-Time</option>
@@ -631,44 +629,44 @@ export default function MyCareNetworksPage() {
                                             </div>
 
                                             <div>
-                                                <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                                                <label className="block text-[11px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-1">
                                                     Proposed Start Date
                                                 </label>
                                                 <input
                                                     type="date"
                                                     value={counterStartDate}
                                                     onChange={e => setCounterStartDate(e.target.value)}
-                                                    className="w-full p-2.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                                                    className="w-full p-2.5 text-xs rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white font-semibold"
                                                 />
                                             </div>
 
                                             <div>
-                                                <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                                                <label className="block text-[11px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-1">
                                                     Start Time
                                                 </label>
                                                 <input
                                                     type="time"
                                                     value={counterStartTime}
                                                     onChange={e => setCounterStartTime(e.target.value)}
-                                                    className="w-full p-2.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                                                    className="w-full p-2.5 text-xs rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white font-semibold"
                                                 />
                                             </div>
 
                                             <div>
-                                                <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                                                <label className="block text-[11px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-1">
                                                     End Time
                                                 </label>
                                                 <input
                                                     type="time"
                                                     value={counterEndTime}
                                                     onChange={e => setCounterEndTime(e.target.value)}
-                                                    className="w-full p-2.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                                                    className="w-full p-2.5 text-xs rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white font-semibold"
                                                 />
                                             </div>
                                         </div>
 
                                         <div>
-                                            <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                                            <label className="block text-[11px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-1">
                                                 Doctor Explanation / Specific Rationale
                                             </label>
                                             <textarea
@@ -676,7 +674,7 @@ export default function MyCareNetworksPage() {
                                                 value={counterMessage}
                                                 onChange={e => setCounterMessage(e.target.value)}
                                                 placeholder="e.g. Wednesday is unavailable after 8:30 PM. Prefer Mon/Wed morning OPD shifts..."
-                                                className="w-full p-3 text-xs rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white outline-none resize-none focus:ring-2 focus:ring-purple-500"
+                                                className="w-full p-3 text-xs rounded-2xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white outline-none resize-none focus:ring-2 focus:ring-purple-500 font-medium"
                                             />
                                         </div>
 
@@ -693,7 +691,7 @@ export default function MyCareNetworksPage() {
                                                     });
                                                 }}
                                                 disabled={actionId === selectedInvite.id}
-                                                className="rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-5 py-2.5"
+                                                className="rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xs px-5 py-2.5 shadow-sm"
                                             >
                                                 {actionId === selectedInvite.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit Counter-Proposal'}
                                             </Button>
@@ -703,26 +701,30 @@ export default function MyCareNetworksPage() {
                             </div>
 
                             {/* Modal Footer Actions */}
-                            <div className="p-4 sm:p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur shrink-0">
+                            <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#0c1422] shrink-0">
                                 {selectedInvite.is_sent_request && selectedInvite.status === 'pending' ? (
                                     <div className="flex items-center justify-between gap-3">
-                                        <p className="text-xs text-gray-500">Awaiting organization review</p>
+                                        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">Awaiting organization review</p>
                                         <Button 
                                             variant="outline" 
                                             onClick={() => handleRespond(selectedInvite, 'cancel')}
                                             disabled={actionId === selectedInvite.id}
-                                            className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/40 dark:hover:bg-red-900/20 font-bold text-xs rounded-xl"
+                                            className="text-red-700 dark:text-red-300 border-red-300 dark:border-red-900/60 hover:bg-red-50 dark:hover:bg-red-950/40 font-bold text-xs rounded-xl"
                                         >
                                             {actionId === selectedInvite.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cancel Join Request'}
                                         </Button>
                                     </div>
-                                ) : selectedInvite.status === 'pending' && !showCounterProposal ? (
+                                ) : !selectedInvite.is_sent_request && selectedInvite.status === 'changes_requested' ? (
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">Awaiting organization review of your counter-proposal</p>
+                                    </div>
+                                ) : (selectedInvite.status === 'pending' || (selectedInvite.is_sent_request && selectedInvite.status === 'changes_requested')) && !showCounterProposal ? (
                                     <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                                         <Button 
                                             variant="outline" 
                                             onClick={() => handleRespond(selectedInvite, 'reject')}
                                             disabled={actionId === selectedInvite.id}
-                                            className="w-full sm:w-auto text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/40 dark:hover:bg-red-900/20 font-bold text-xs rounded-xl"
+                                            className="w-full sm:w-auto text-red-700 dark:text-red-300 border-red-300 dark:border-red-900/60 hover:bg-red-50 dark:hover:bg-red-950/40 font-bold text-xs rounded-xl"
                                         >
                                             Decline
                                         </Button>
@@ -731,16 +733,16 @@ export default function MyCareNetworksPage() {
                                                 variant="outline"
                                                 onClick={() => setShowCounterProposal(true)}
                                                 disabled={actionId === selectedInvite.id}
-                                                className="flex-1 sm:flex-none border-purple-200 text-purple-700 dark:border-purple-800 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 font-bold text-xs rounded-xl"
+                                                className="flex-1 sm:flex-none border-purple-300 dark:border-purple-700 text-purple-800 dark:text-purple-300 hover:bg-purple-100/70 dark:hover:bg-purple-950/50 font-bold text-xs rounded-xl"
                                             >
                                                 Suggest Changes
                                             </Button>
                                             <Button 
                                                 onClick={() => handleRespond(selectedInvite, 'accept')}
                                                 disabled={actionId === selectedInvite.id}
-                                                className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20"
+                                                className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/20"
                                             >
-                                                {actionId === selectedInvite.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Accept Terms'}
+                                                {actionId === selectedInvite.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (selectedInvite.status === 'changes_requested' ? 'Accept Changes' : 'Accept Terms')}
                                             </Button>
                                         </div>
                                     </div>
@@ -757,7 +759,7 @@ export default function MyCareNetworksPage() {
                                         <Button 
                                             variant="outline"
                                             onClick={() => setSelectedInvite(null)}
-                                            className="rounded-xl text-xs"
+                                            className="rounded-xl text-xs font-bold border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-200"
                                         >
                                             Close
                                         </Button>
@@ -774,13 +776,13 @@ export default function MyCareNetworksPage() {
 
 function DetailItem({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) {
     return (
-        <div className="flex items-start gap-3 p-3 rounded-2xl bg-gray-50 dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800">
-            <div className="p-2 rounded-xl bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 shrink-0 shadow-sm">
+        <div className="flex items-start gap-3 p-3 rounded-2xl bg-gray-50 dark:bg-[#0f172a] border border-gray-200 dark:border-gray-800">
+            <div className="p-2 rounded-xl bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 shrink-0 shadow-sm">
                 {icon}
             </div>
             <div className="min-w-0">
-                <div className="text-[11px] text-gray-500 dark:text-gray-400 font-semibold mb-0.5 uppercase tracking-wider">{label}</div>
-                <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white line-clamp-1" title={value}>{value}</div>
+                <div className="text-[11px] text-gray-600 dark:text-gray-400 font-bold mb-0.5 uppercase tracking-wider">{label}</div>
+                <div className="text-xs sm:text-sm font-extrabold text-gray-900 dark:text-white line-clamp-1" title={value}>{value}</div>
             </div>
         </div>
     );
@@ -806,22 +808,22 @@ function NetworkCard({
     const cfg = statusConfig[item.status] || statusConfig.pending;
 
     return (
-        <div className="bg-white dark:bg-[#0f172a] border border-gray-100 dark:border-gray-800/80 rounded-3xl p-5 sm:p-6 hover:border-brand-200 dark:hover:border-brand-800/60 transition-all duration-200 group flex flex-col h-full hover:shadow-xl hover:shadow-gray-100/50 dark:hover:shadow-black/20">
+        <div className="bg-white dark:bg-[#111c2e] border border-gray-200 dark:border-gray-800 rounded-3xl p-5 sm:p-6 hover:border-brand-300 dark:hover:border-brand-700 transition-all duration-200 group flex flex-col h-full hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-black/30">
             {/* Header */}
             <div className="flex items-start gap-4 mb-4 cursor-pointer" onClick={onClick}>
                 {item.provider?.profile_image_url ? (
-                    <img src={item.provider.profile_image_url} alt={name} className="h-12 w-12 rounded-2xl object-cover shrink-0 border border-gray-200 dark:border-gray-800 shadow-sm"/>
+                    <img src={item.provider.profile_image_url} alt={name} className="h-12 w-12 rounded-2xl object-cover shrink-0 border border-gray-200 dark:border-gray-700 shadow-sm"/>
                 ) : (
                     <InitialsAvatar name={name}/>
                 )}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                            <h3 className="font-bold text-gray-900 dark:text-white text-base truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{name}</h3>
-                            {item.department && <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-0.5 truncate">{item.department}</p>}
+                            <h3 className="font-extrabold text-gray-900 dark:text-white text-base truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{name}</h3>
+                            {item.department && <p className="text-xs text-teal-700 dark:text-teal-400 font-bold mt-0.5 truncate">{item.department}</p>}
                             {location && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1 truncate">
-                                    <MapPin className="h-3 w-3 text-gray-400 shrink-0"/>
+                                <p className="text-xs text-gray-600 dark:text-gray-400 font-medium flex items-center gap-1 mt-1 truncate">
+                                    <MapPin className="h-3.5 w-3.5 text-gray-500 shrink-0"/>
                                     <span className="truncate">{location}</span>
                                 </p>
                             )}
@@ -836,39 +838,39 @@ function NetworkCard({
 
             {/* Quick Badges */}
             <div className="flex flex-wrap gap-1.5 mb-4 flex-1 content-start text-xs">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800/30 uppercase tracking-wider">
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300 dark:border-blue-800 uppercase tracking-wider">
                     {isHospital ? 'Hospital' : 'Clinic'}
                 </span>
                 
                 {item.is_sent_request ? (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800/30 tracking-wider uppercase">
-                        Request Sent by You
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300 dark:border-purple-800 tracking-wider uppercase">
+                        Request Sent
                     </span>
                 ) : (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border border-orange-200 dark:border-orange-800/30 tracking-wider uppercase">
-                        Invited by Facility
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 tracking-wider uppercase">
+                        Facility Invite
                     </span>
                 )}
 
                 {item.practice_type && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 capitalize">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-700 capitalize">
                         {item.practice_type.replace('_', ' ')}
                     </span>
                 )}
 
                 {['accepted', 'active'].includes(item.status) && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/30">
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                         In-Person OPD Active
                     </span>
                 )}
             </div>
 
             {/* Actions: View Details Primary Action for Safety & Clarity */}
-            <div className="pt-3.5 border-t border-gray-100 dark:border-gray-800/80 mt-auto flex items-center gap-2">
+            <div className="pt-3.5 border-t border-gray-200 dark:border-gray-800 mt-auto flex items-center gap-2">
                 <Button 
                     onClick={onClick} 
                     variant="outline" 
-                    className="flex-1 h-9 rounded-xl border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-xs font-bold text-gray-800 dark:text-gray-200"
+                    className="flex-1 h-9 rounded-xl border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs font-bold text-gray-900 dark:text-gray-100"
                 >
                     View Details
                 </Button>
@@ -876,7 +878,7 @@ function NetworkCard({
                 {item.status === 'pending' && !item.is_sent_request && (
                     <Button 
                         onClick={onClick} 
-                        className="flex-1 h-9 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm shadow-brand-600/20"
+                        className="flex-1 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm shadow-emerald-600/20"
                     >
                         Review & Respond
                     </Button>

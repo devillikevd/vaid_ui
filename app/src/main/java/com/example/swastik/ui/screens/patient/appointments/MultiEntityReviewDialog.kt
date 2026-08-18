@@ -29,11 +29,12 @@ fun MultiEntityReviewDialog(
     initialRating: Int = 0,
     initialComment: String = "",
     onDismiss: () -> Unit,
-    onSubmitReview: (targetType: String, rating: Int, comment: String) -> Unit
+    onSubmitReview: (targetType: String, rating: Int, comment: String, isAnonymous: Boolean) -> Unit
 ) {
     var selectedTarget by remember { mutableStateOf("doctor") } // "doctor", "hospital", "clinic"
     var rating by remember(initialRating) { mutableIntStateOf(initialRating) }
     var comment by remember(initialComment) { mutableStateOf(initialComment) }
+    var isAnonymous by remember { mutableStateOf(false) }
     
     val accentBlue = Color(0xFF4C8DFF)
     
@@ -155,10 +156,33 @@ fun MultiEntityReviewDialog(
                     )
                 )
                 
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isAnonymous = !isAnonymous }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = isAnonymous,
+                        onCheckedChange = { isAnonymous = it },
+                        colors = CheckboxDefaults.colors(checkedColor = accentBlue)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Submit Anonymously",
+                        fontSize = 14.sp,
+                        color = Color(0xFF334155),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 Button(
-                    onClick = { onSubmitReview(selectedTarget, rating, comment) },
+                    onClick = { onSubmitReview(selectedTarget, rating, comment, isAnonymous) },
                     enabled = rating > 0,
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = accentBlue),

@@ -15,12 +15,15 @@ export function Card({ children, className, padding = 'md', ...props }: CardProp
         lg: 'p-5 sm:p-8',
     };
 
+    const isInteractive = !!props.onClick;
+
     return (
         <div
             {...props}
             className={cn(
                 'bg-white rounded-lg border border-gray-200 shadow-sm',
                 'dark:bg-gray-900 dark:border-gray-700/60 dark:shadow-gray-950/20',
+                isInteractive && 'transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 dark:hover:shadow-black/40 hover:bg-gray-50/50 dark:hover:bg-gray-800/80',
                 paddingStyles[padding],
                 className
             )}

@@ -3,12 +3,12 @@
 import { useEffect, useCallback } from 'react';
 import { useDoctorStore } from '@/stores/doctorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { doctorApi } from '@/lib/api';
 import ReviewManager, { type Review } from '@/components/shared/ReviewManager';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
 
 export default function DoctorReviewsPage() {
     const { user } = useAuthStore();
-    const userId = user?.id;
     const { reviews, loadingReviews, error, fetchReviews } = useDoctorStore();
 
     const loadReviews = useCallback(async (page: number = 1) => {
@@ -18,6 +18,11 @@ export default function DoctorReviewsPage() {
     useEffect(() => {
         loadReviews();
     }, [loadReviews]);
+
+    const handleRespond = async (reviewId: string, responseText: string) => {
+        const res = await doctorApi.respondToReview(reviewId, responseText);
+        return res.success;
+    };
 
     if (!user) {
         return <DashboardSkeleton />;
@@ -31,6 +36,8 @@ export default function DoctorReviewsPage() {
                 error={error}
                 fetchReviews={loadReviews}
                 themeColor="emerald"
+                entityName="Doctor"
+                onRespond={handleRespond}
             />
         </div>
     );

@@ -383,6 +383,75 @@ const bookAppointment = async (patientId, appointmentData) => {
     }
   }
 
+  // --- Global Busy Calendar Conflict Check ---
+  const ts = timeSlot.length > 5 ? timeSlot.slice(0, 5) : timeSlot;
+  const reqStartParts = ts.split(':');
+  const reqStartMins = reqStartParts.length >= 2 ? (parseInt(reqStartParts[0], 10) * 60) + parseInt(reqStartParts[1], 10) : null;
+  const reqDuration = appointmentData.duration_minutes || 15;
+  
+  if (reqStartMins !== null) {
+    const reqEndMins = reqStartMins + reqDuration;
+    
+    // Check doctor active leaves
+    try {
+      const { data: activeLeaves } = await supabaseAdmin
+        .from('doctor_leaves')
+        .select('*')
+        .eq('doctor_id', doctorId)
+        .lte('start_date', date)
+        .gte('end_date', date);
+
+      const activeOnly = (activeLeaves || []).filter(l => !l.status || l.status === 'active');
+      for (const leave of activeOnly) {
+        const isGlobal = !leave.scope || leave.scope === 'global';
+        const isMatchingOrg = leave.scope === 'organization' && (
+          (resolvedClinicId && (leave.organization_id === resolvedClinicId || leave.clinic_id === resolvedClinicId)) ||
+          (resolvedHospitalId && (leave.organization_id === resolvedHospitalId || leave.hospital_id === resolvedHospitalId))
+        );
+
+        if (isGlobal || isMatchingOrg) {
+          if (!leave.leave_type || leave.leave_type === 'full_day') {
+            throw new ApiError(409, `The doctor is on leave on this date${isGlobal ? '' : ' at this organization'}.`);
+          } else if (leave.leave_type === 'partial_day' && leave.start_time && leave.end_time) {
+            const lTs = leave.start_time.slice(0, 5).split(':');
+            const lTe = leave.end_time.slice(0, 5).split(':');
+            const lStartMins = (parseInt(lTs[0], 10) * 60) + parseInt(lTs[1], 10);
+            const lEndMins = (parseInt(lTe[0], 10) * 60) + parseInt(lTe[1], 10);
+
+            if (Math.max(reqStartMins, lStartMins) < Math.min(reqEndMins, lEndMins)) {
+              throw new ApiError(409, `The doctor is on leave during this time slot${isGlobal ? '' : ' at this organization'}.`);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      // Gracefully ignore if doctor_leaves table is not yet created
+    }
+
+    const { data: existingAppts } = await supabaseAdmin
+      .from('appointments')
+      .select('time_slot, duration_minutes')
+      .eq('doctor_id', doctorId)
+      .eq('appointment_date', date)
+      .in('status', ['scheduled', 'confirmed', 'in_progress']);
+      
+    for (const a of (existingAppts || [])) {
+      if (!a.time_slot) continue;
+      const eTs = a.time_slot.length > 5 ? a.time_slot.slice(0, 5) : a.time_slot;
+      const eParts = eTs.split(':');
+      if (eParts.length < 2) continue;
+      const eStartMins = (parseInt(eParts[0], 10) * 60) + parseInt(eParts[1], 10);
+      const eDuration = a.duration_minutes || 15;
+      const eEndMins = eStartMins + eDuration;
+      
+      if (Math.max(reqStartMins, eStartMins) < Math.min(reqEndMins, eEndMins)) {
+        throw new ApiError(409, 'The doctor is already booked at this time in another organization or mode.');
+      }
+    }
+  }
+  // ------------------------------------------
+
   // Generate appointment number: VD-YYYY-MMDD-NNNN
   const bookingDate = new Date(date);
   const yyyy = bookingDate.getFullYear();
@@ -397,19 +466,7 @@ const bookAppointment = async (patientId, appointmentData) => {
   const seq = String((existingCount || 0) + 1).padStart(4, '0');
   const appointmentNumber = `VD-${yyyy}-${mm}${dd}-${seq}`;
 
-  // For in-person, timeSlot represents the window (e.g. 09:00-12:00). We append Token Number to bypass unique constraint and provide a token.
   let finalTimeSlot = timeSlot;
-  if (normalizedType === 'in_person') {
-    const { count: windowCount } = await supabaseAdmin
-      .from('appointments')
-      .select('id', { count: 'exact', head: true })
-      .eq('doctor_id', doctorId)
-      .eq('appointment_date', date)
-      .eq('type', 'in_person')
-      .like('time_slot', `${timeSlot}%`);
-    const tokenNumber = (windowCount || 0) + 1;
-    finalTimeSlot = `${timeSlot} (Token ${tokenNumber})`;
-  }
 
   const insertPayload = {
     patient_id: patient.id,

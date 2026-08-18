@@ -8,6 +8,8 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { MetricCard } from '@/components/doctor/MetricCard';
+import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 import { useDoctorStore } from '@/stores/doctorStore';
 import { doctorApi } from '@/lib/api';
 import { useVitalsUpdates } from '@/hooks/useSocket';
@@ -237,45 +239,33 @@ export default function DoctorVitalsPage() {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-3xl shadow-sm flex flex-col justify-center transition-all hover:shadow-md hover:border-gray-200 dark:hover:border-gray-700 relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-400 to-rose-500 opacity-50"></div>
-                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-red-50 dark:bg-red-900/10 rounded-full blur-xl group-hover:scale-110 transition-transform"></div>
-                    <div className="p-3 bg-red-50 dark:bg-red-900/30 rounded-2xl w-fit mb-4 border border-red-100 dark:border-red-800/50 relative z-10 text-red-600 dark:text-red-400">
-                        <Heart className="h-5 w-5" />
-                    </div>
-                    <p className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 relative z-10 tracking-tight">{vitals.length}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mt-1 relative z-10">Total Records</p>
-                </div>
+                <MetricCard
+                    title="Total Records"
+                    value={vitals.length.toString()}
+                    icon={<Heart className="h-5 w-5" />}
+                    trend={undefined}
+                />
                 
-                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-3xl shadow-sm flex flex-col justify-center transition-all hover:shadow-md hover:border-gray-200 dark:hover:border-gray-700 relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500 opacity-50"></div>
-                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-50 dark:bg-blue-900/10 rounded-full blur-xl group-hover:scale-110 transition-transform"></div>
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-2xl w-fit mb-4 border border-blue-100 dark:border-blue-800/50 relative z-10 text-blue-600 dark:text-blue-400">
-                        <User className="h-5 w-5" />
-                    </div>
-                    <p className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 relative z-10 tracking-tight">{uniquePatients}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mt-1 relative z-10">Patients Tracked</p>
-                </div>
+                <MetricCard
+                    title="Patients Tracked"
+                    value={uniquePatients.toString()}
+                    icon={<User className="h-5 w-5" />}
+                    trend={undefined}
+                />
 
-                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-3xl shadow-sm flex flex-col justify-center transition-all hover:shadow-md hover:border-gray-200 dark:hover:border-gray-700 relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-teal-500 opacity-50"></div>
-                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 dark:bg-emerald-900/10 rounded-full blur-xl group-hover:scale-110 transition-transform"></div>
-                    <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl w-fit mb-4 border border-emerald-100 dark:border-emerald-800/50 relative z-10 text-emerald-600 dark:text-emerald-400">
-                        <Activity className="h-5 w-5" />
-                    </div>
-                    <p className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 relative z-10 tracking-tight">{todayCount}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mt-1 relative z-10">Recorded Today</p>
-                </div>
+                <MetricCard
+                    title="Recorded Today"
+                    value={todayCount.toString()}
+                    icon={<Activity className="h-5 w-5" />}
+                    trend={undefined}
+                />
 
-                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-3xl shadow-sm flex flex-col justify-center transition-all hover:shadow-md hover:border-gray-200 dark:hover:border-gray-700 relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 to-amber-500 opacity-50"></div>
-                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-orange-50 dark:bg-orange-900/10 rounded-full blur-xl group-hover:scale-110 transition-transform"></div>
-                    <div className="p-3 bg-orange-50 dark:bg-orange-900/30 rounded-2xl w-fit mb-4 border border-orange-100 dark:border-orange-800/50 relative z-10 text-orange-600 dark:text-orange-400">
-                        <Thermometer className="h-5 w-5" />
-                    </div>
-                    <p className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 relative z-10 tracking-tight">{patientList.length}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mt-1 relative z-10">Your Patients</p>
-                </div>
+                <MetricCard
+                    title="Your Patients"
+                    value={patientList.length.toString()}
+                    icon={<Thermometer className="h-5 w-5" />}
+                    trend={undefined}
+                />
             </div>
 
             {/* Record Vitals Form Modal-style Inline */}
@@ -445,7 +435,7 @@ export default function DoctorVitalsPage() {
             )}
 
             {/* Vitals History Table */}
-            <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col">
+            <DoctorPortalCard className="!p-0 overflow-hidden bg-white dark:bg-gray-900 flex flex-col">
                 <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-5 bg-gray-50/30 dark:bg-gray-900/30">
                     <h2 className="text-lg font-extrabold text-gray-900 dark:text-gray-100">Vitals History</h2>
                     <div className="relative w-full sm:max-w-xs">
@@ -573,7 +563,7 @@ export default function DoctorVitalsPage() {
                         <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
                     </div>
                 )}
-            </div>
+            </DoctorPortalCard>
         </div>
     );
 }

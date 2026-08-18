@@ -4,9 +4,12 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, FileText, Pill, FileImage, Download, Printer, Clock, ClipboardList, Activity, Stethoscope } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, Pill, FileImage, Download, Printer, Clock, ClipboardList, Activity, Stethoscope, Building2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { useDoctorStore } from '@/stores/doctorStore';
+import { RoutePharmacyModal } from '@/components/clinic/RoutePharmacyModal';
+import { RouteDiagnosticModal } from '@/components/clinic/RouteDiagnosticModal';
+import { RouteHospitalModal } from '@/components/clinic/RouteHospitalModal';
 
 // --- Sub-components ---
 
@@ -49,6 +52,9 @@ export default function PrescriptionDetailsPage() {
     
     const { prescriptions, fetchPrescriptions } = useDoctorStore();
     const [isLoading, setIsLoading] = useState(true);
+    const [showRouteModal, setShowRouteModal] = useState(false);
+    const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
+    const [showHospitalModal, setShowHospitalModal] = useState(false);
 
     const prescription = prescriptions.find(p => p.id === id);
 
@@ -144,12 +150,33 @@ export default function PrescriptionDetailsPage() {
                             href={(prescription as any).file_url || (prescription as any).pdf_url} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                            className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-2.5 bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500/50"
                         >
                             <Download className="w-4 h-4" /> 
                             Download <span className="hidden sm:inline">PDF</span>
                         </a>
                     )}
+                    <button
+                        onClick={() => setShowRouteModal(true)}
+                        className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    >
+                        <Pill className="w-4 h-4" />
+                        Send to Partner Pharmacy
+                    </button>
+                    <button
+                        onClick={() => setShowDiagnosticModal(true)}
+                        className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    >
+                        <Stethoscope className="w-4 h-4" />
+                        Route to Diagnostic Center
+                    </button>
+                    <button
+                        onClick={() => setShowHospitalModal(true)}
+                        className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    >
+                        <Building2 className="w-4 h-4" />
+                        Refer to Hospital
+                    </button>
                 </div>
             </div>
 
@@ -342,6 +369,28 @@ export default function PrescriptionDetailsPage() {
                     </Card>
                 </div>
             </div>
+
+            {showRouteModal && (
+                <RoutePharmacyModal
+                    prescriptionId={prescription.id}
+                    items={prescription.medications || []}
+                    onClose={() => setShowRouteModal(false)}
+                />
+            )}
+            {showDiagnosticModal && (
+                <RouteDiagnosticModal
+                    prescriptionId={prescription.id}
+                    patientId={prescription.patientId || (prescription as any).patient_id}
+                    onClose={() => setShowDiagnosticModal(false)}
+                />
+            )}
+            {showHospitalModal && (
+                <RouteHospitalModal
+                    patientId={prescription.patientId || (prescription as any).patient_id}
+                    consultationId={prescription.consultationId || (prescription as any).consultation_id}
+                    onClose={() => setShowHospitalModal(false)}
+                />
+            )}
         </div>
     );
 }

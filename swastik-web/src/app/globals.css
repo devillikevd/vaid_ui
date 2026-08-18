@@ -6,8 +6,19 @@
   --color-brand-surface: #FFFFFF;
   --color-brand-darkSurface: #DBEAFE;
   --color-brand-darkText: #1E3A8A;
-  --color-brand-primary: #2563EB;
-  --color-brand-accent: #60A5FA;
+  --color-brand-primary: #059669;
+  --color-brand-accent: #10B981;
+  --color-brand-50: #ECFDF5;
+  --color-brand-100: #D1FAE5;
+  --color-brand-200: #A7F3D0;
+  --color-brand-300: #6EE7B7;
+  --color-brand-400: #34D399;
+  --color-brand-500: #10B981;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+  --color-brand-800: #065F46;
+  --color-brand-900: #064E3B;
+  --color-brand-950: #022C22;
 
   /* Vaididea Landing Page Palette — matched to logo */
   --color-vd-forest: #0F5F50;

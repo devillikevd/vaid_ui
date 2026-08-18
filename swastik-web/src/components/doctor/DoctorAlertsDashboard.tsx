@@ -20,6 +20,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import HealthAlertsView from '@/components/outbreak/HealthAlertsView';
 import { doctorApi } from '@/lib/api';
+import { MetricCard } from '@/components/doctor/MetricCard';
+import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 
 const DashboardSkeleton = () => (
     <div className="space-y-6 animate-pulse">
@@ -75,7 +77,7 @@ export default function DoctorAlertsDashboard() {
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-20">
             {/* Enterprise Hero Section */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 bg-white dark:bg-gray-900 p-8 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm relative overflow-hidden">
+            <DoctorPortalCard className="!p-8 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
                 
                 <div>
@@ -120,77 +122,35 @@ export default function DoctorAlertsDashboard() {
                         </button>
                     </div>
                 </div>
-            </div>
+            </DoctorPortalCard>
 
             {/* Premium Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div 
-                    onClick={() => setActiveTab('patients')}
-                    className="relative overflow-hidden bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 cursor-pointer group transition-all duration-300 hover:shadow-lg hover:shadow-rose-900/5 hover:border-rose-200 dark:hover:border-rose-800/50"
-                >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 dark:bg-rose-900/10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500" />
-                    <div className="relative z-10 flex items-start justify-between">
-                        <div>
-                            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-1">Critical Action</p>
-                            <h3 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">{criticalCount}</h3>
-                        </div>
-                        <div className="p-4 bg-rose-50 dark:bg-rose-900/20 rounded-2xl text-rose-600 dark:text-rose-400 ring-1 ring-rose-100 dark:ring-rose-800/50 group-hover:bg-rose-100 dark:group-hover:bg-rose-900/40 transition-colors">
-                            <HeartPulse className="w-7 h-7" />
-                        </div>
-                    </div>
-                    <div className="relative z-10 mt-4 flex items-center gap-2">
-                        <span className="flex h-2 w-2 relative">
-                            {criticalCount > 0 && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>}
-                            <span className={`relative inline-flex rounded-full h-2 w-2 ${criticalCount > 0 ? 'bg-rose-500' : 'bg-gray-300 dark:bg-gray-600'}`}></span>
-                        </span>
-                        <span className={`text-xs font-bold ${criticalCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-500'}`}>
-                            {criticalCount > 0 ? 'Immediate Attention Required' : 'No Critical Alerts'}
-                        </span>
-                    </div>
+                <div onClick={() => setActiveTab('patients')} className="cursor-pointer">
+                    <MetricCard
+                        title="Critical Action"
+                        value={criticalCount.toString()}
+                        icon={<HeartPulse className="h-5 w-5" />}
+                        trend={{ value: criticalCount > 0 ? 1 : 0, direction: 'down', label: criticalCount > 0 ? 'Immediate Attention Required' : 'No Critical Alerts' }}
+                    />
                 </div>
 
-                <div 
-                    onClick={() => setActiveTab('patients')}
-                    className="relative overflow-hidden bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 cursor-pointer group transition-all duration-300 hover:shadow-lg hover:shadow-amber-900/5 hover:border-amber-200 dark:hover:border-amber-800/50"
-                >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 dark:bg-amber-900/10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500" />
-                    <div className="relative z-10 flex items-start justify-between">
-                        <div>
-                            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-1">Observation</p>
-                            <h3 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">{warningCount}</h3>
-                        </div>
-                        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl text-amber-600 dark:text-amber-400 ring-1 ring-amber-100 dark:ring-amber-800/50 group-hover:bg-amber-100 dark:group-hover:bg-amber-900/40 transition-colors">
-                            <AlertTriangle className="w-7 h-7" />
-                        </div>
-                    </div>
-                    <div className="relative z-10 mt-4 flex items-center gap-2">
-                        <span className={`h-2 w-2 rounded-full ${warningCount > 0 ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}></span>
-                        <span className={`text-xs font-bold ${warningCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500'}`}>
-                            {warningCount > 0 ? 'Active Warnings' : 'Patients Stable'}
-                        </span>
-                    </div>
+                <div onClick={() => setActiveTab('patients')} className="cursor-pointer">
+                    <MetricCard
+                        title="Observation"
+                        value={warningCount.toString()}
+                        icon={<AlertTriangle className="h-5 w-5" />}
+                        trend={{ value: warningCount > 0 ? 1 : 0, direction: 'down', label: warningCount > 0 ? 'Active Warnings' : 'Patients Stable' }}
+                    />
                 </div>
 
-                <div 
-                    onClick={() => setActiveTab('community')}
-                    className="relative overflow-hidden bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 cursor-pointer group transition-all duration-300 hover:shadow-lg hover:shadow-blue-900/5 hover:border-blue-200 dark:hover:border-blue-800/50"
-                >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 dark:bg-blue-900/10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500" />
-                    <div className="relative z-10 flex items-start justify-between">
-                        <div>
-                            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-1">Advisories</p>
-                            <h3 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">Active</h3>
-                        </div>
-                        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-blue-600 dark:text-blue-400 ring-1 ring-blue-100 dark:ring-blue-800/50 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 transition-colors">
-                            <Map className="w-7 h-7" />
-                        </div>
-                    </div>
-                    <div className="relative z-10 mt-4 flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                            Community Intelligence
-                        </span>
-                    </div>
+                <div onClick={() => setActiveTab('community')} className="cursor-pointer">
+                    <MetricCard
+                        title="Advisories"
+                        value="Active"
+                        icon={<Map className="h-5 w-5" />}
+                        trend={{ value: 1, direction: 'up', label: 'Community Intelligence' }}
+                    />
                 </div>
             </div>
 

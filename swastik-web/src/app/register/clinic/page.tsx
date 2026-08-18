@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
+import VaidideaLogo from '@/components/shared/VaidideaLogo';
 import {
     Building2,
     Users,
@@ -253,8 +254,8 @@ export default function ClinicRegisterPage() {
             <div className="hidden md:flex w-[40%] lg:w-[42%] relative flex-col border-r border-white/[0.05] bg-gradient-to-br from-[#09090B] via-[#0b0e15] to-[#0c1520]">
                 {/* Glow */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className="absolute -top-[20%] -left-[10%] w-[65%] h-[65%] rounded-full bg-cyan-500/[0.07] blur-[110px]" />
-                    <div className="absolute bottom-0 -right-[20%] w-[55%] h-[55%] rounded-full bg-teal-500/[0.07] blur-[100px]" />
+                    <div className="absolute -top-[20%] -left-[10%] w-[65%] h-[65%] rounded-full bg-pink-500/[0.07] blur-[110px]" />
+                    <div className="absolute bottom-0 -right-[20%] w-[55%] h-[55%] rounded-full bg-rose-500/[0.07] blur-[100px]" />
                     <svg className="absolute inset-0 w-full h-full opacity-[0.025]" xmlns="http://www.w3.org/2000/svg">
                         <defs>
                             <pattern id="reg-grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -269,7 +270,7 @@ export default function ClinicRegisterPage() {
                     {/* Logo */}
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-2.5">
-                            <Image src="/logo.png" alt="Vaididea" width={34} height={34} className="rounded-xl" />
+                            <VaidideaLogo className="w-9 h-9" />
                             <span className="text-xl font-bold text-white tracking-tight">Vaididea</span>
                         </div>
                         <Link href="/login/clinic" className="flex items-center gap-1.5 text-xs text-[#A1A1AA] hover:text-white transition-colors">
@@ -280,14 +281,14 @@ export default function ClinicRegisterPage() {
 
                     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
                         {/* Badge */}
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cyan-500/20 bg-cyan-500/[0.06] mb-5">
-                            <Building2 className="w-3 h-3 text-cyan-400" />
-                            <span className="text-[11px] font-bold text-cyan-400 tracking-widest uppercase">Clinic Registration</span>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-pink-500/20 bg-pink-500/[0.06] mb-5">
+                            <Building2 className="w-3 h-3 text-pink-400" />
+                            <span className="text-[11px] font-bold text-pink-400 tracking-widest uppercase">Clinic Registration</span>
                         </div>
 
                         <h1 className="text-2xl lg:text-[28px] font-bold text-white leading-[1.2] tracking-tight mb-2.5">
                             Build a smarter clinic<br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-teal-400">with Vaididea</span>
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">with Vaididea</span>
                         </h1>
                         <p className="text-[#A1A1AA] text-sm leading-relaxed mb-6 max-w-xs">
                             Connect your doctors, appointments, patients and daily operations in one secure workspace.
@@ -302,8 +303,8 @@ export default function ClinicRegisterPage() {
                                     transition={{ duration: 0.35, delay: 0.12 + i * 0.06 }}
                                     className="flex items-center gap-3 text-[#A1A1AA] group hover:text-white transition-colors"
                                 >
-                                    <div className="w-6 h-6 shrink-0 rounded-full bg-cyan-500/[0.08] border border-cyan-500/20 flex items-center justify-center">
-                                        <b.icon className="w-3 h-3 text-cyan-400" />
+                                    <div className="w-6 h-6 shrink-0 rounded-full bg-pink-500/[0.08] border border-pink-500/20 flex items-center justify-center">
+                                        <b.icon className="w-3 h-3 text-pink-400" />
                                     </div>
                                     <span className="text-sm font-medium">{b.text}</span>
                                 </motion.div>
@@ -321,7 +322,7 @@ export default function ClinicRegisterPage() {
                                         <div key={s.id} className="flex items-center gap-3">
                                             {/* Node */}
                                             <div className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                                                done ? 'bg-cyan-500 text-white shadow-[0_0_10px_rgba(6,182,212,0.4)]'
+                                                done ? 'bg-pink-500 text-white shadow-[0_0_10px_rgba(236,72,153,0.4)]'
                                                     : active ? 'bg-white text-black shadow-md'
                                                     : 'bg-white/5 border border-white/10 text-white/30'
                                             }`}>
@@ -329,7 +330,7 @@ export default function ClinicRegisterPage() {
                                             </div>
                                             {/* Text */}
                                             <div>
-                                                <p className={`text-sm font-semibold leading-tight transition-colors ${active ? 'text-white' : done ? 'text-cyan-400' : 'text-white/30'}`}>
+                                                <p className={`text-sm font-semibold leading-tight transition-colors ${active ? 'text-white' : done ? 'text-pink-400' : 'text-white/30'}`}>
                                                     {s.label}
                                                 </p>
                                                 <p className={`text-[11px] transition-colors ${active ? 'text-[#A1A1AA]' : 'text-white/20'}`}>{s.desc}</p>
@@ -351,7 +352,7 @@ export default function ClinicRegisterPage() {
             <div className="flex-1 flex items-start justify-center p-5 sm:p-10 relative overflow-y-auto">
                 {/* Mobile bg glow */}
                 <div className="md:hidden absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                    <div className="absolute top-[5%] left-[10%] w-[80%] h-[50%] rounded-full bg-cyan-500/[0.07] blur-[100px]" />
+                    <div className="absolute top-[5%] left-[10%] w-[80%] h-[50%] rounded-full bg-pink-500/[0.07] blur-[100px]" />
                 </div>
 
                 <div className="w-full max-w-[480px] relative z-10 py-8 md:py-10">
@@ -359,7 +360,7 @@ export default function ClinicRegisterPage() {
                     {/* Mobile header */}
                     <div className="md:hidden flex flex-col items-center gap-3 mb-7">
                         <div className="flex items-center gap-2.5">
-                            <Image src="/logo.png" alt="Vaididea" width={32} height={32} className="rounded-xl" />
+                            <VaidideaLogo className="w-8 h-8" />
                             <span className="text-lg font-bold text-white tracking-tight">Vaididea</span>
                         </div>
                         <Link href="/login/clinic" className="flex items-center gap-1.5 text-xs text-[#A1A1AA] hover:text-white transition-colors">
@@ -369,7 +370,7 @@ export default function ClinicRegisterPage() {
                         {/* Mobile step dots */}
                         <div className="flex items-center gap-2 mt-1">
                             {STEPS.map((s) => (
-                                <div key={s.id} className={`h-1.5 rounded-full transition-all duration-300 ${step === s.id ? 'w-6 bg-cyan-400' : step > s.id ? 'w-3 bg-cyan-500/60' : 'w-3 bg-white/10'}`} />
+                                <div key={s.id} className={`h-1.5 rounded-full transition-all duration-300 ${step === s.id ? 'w-6 bg-pink-400' : step > s.id ? 'w-3 bg-pink-500/60' : 'w-3 bg-white/10'}`} />
                             ))}
                         </div>
                     </div>
@@ -377,8 +378,8 @@ export default function ClinicRegisterPage() {
                     {/* OTP / Completion screen */}
                     {verificationSent ? (
                         <div className="bg-[rgba(255,255,255,0.02)] backdrop-blur-xl border border-[rgba(255,255,255,0.06)] p-7 rounded-[22px] shadow-[0_8px_32px_rgba(0,0,0,0.4)] text-center">
-                            <div className="inline-flex p-3 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-4">
-                                <CheckCircle className="h-9 w-9 text-cyan-400" />
+                            <div className="inline-flex p-3 rounded-full bg-pink-500/10 border border-pink-500/20 mb-4">
+                                <CheckCircle className="h-9 w-9 text-pink-400" />
                             </div>
                             <h2 className="text-2xl font-bold text-white mb-2">
                                 {verificationComplete ? 'Account Created!' : 'Verify Your Email'}
@@ -409,13 +410,13 @@ export default function ClinicRegisterPage() {
                                         inputMode="numeric"
                                         maxLength={6}
                                         autoComplete="one-time-code"
-                                        className="w-full bg-[#09090B]/50 border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-lg tracking-[0.5em] font-mono placeholder:text-[#A1A1AA]/40 placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 transition-all text-center"
+                                        className="w-full bg-[#09090B]/50 border border-[rgba(255,255,255,0.1)] rounded-xl py-3 px-4 text-white text-lg tracking-[0.5em] font-mono placeholder:text-[#A1A1AA]/40 placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-pink-500/40 focus:border-pink-500 transition-all text-center"
                                     />
                                     <button
                                         type="button"
                                         disabled={verifyingOtp}
                                         onClick={handleVerifyOtp}
-                                        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-white py-3 px-4 rounded-xl font-semibold text-[15px] shadow-[0_0_18px_rgba(6,182,212,0.22)] transition-all disabled:opacity-70"
+                                        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white py-3 px-4 rounded-xl font-semibold text-[15px] shadow-[0_0_18px_rgba(236,72,153,0.22)] transition-all disabled:opacity-70"
                                     >
                                         {verifyingOtp ? <><Loader2 className="w-4 h-4 animate-spin" />Verifying...</> : 'Verify & Create Account'}
                                     </button>
@@ -444,8 +445,8 @@ export default function ClinicRegisterPage() {
 
                             {/* Card header */}
                             <div className="flex items-center gap-3 mb-5">
-                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/20 to-teal-500/20 border border-cyan-500/20 flex items-center justify-center shrink-0">
-                                    <Building2 className="text-cyan-400" style={{ width: '18px', height: '18px' }} />
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pink-500/20 to-rose-500/20 border border-pink-500/20 flex items-center justify-center shrink-0">
+                                    <Building2 className="text-pink-400" style={{ width: '18px', height: '18px' }} />
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-bold text-white tracking-tight">
@@ -458,7 +459,7 @@ export default function ClinicRegisterPage() {
                                 {/* Desktop step counter badge */}
                                 <div className="ml-auto hidden md:flex items-center gap-1.5">
                                     {STEPS.map((s) => (
-                                        <div key={s.id} className={`h-1.5 rounded-full transition-all duration-300 ${step === s.id ? 'w-5 bg-cyan-400' : step > s.id ? 'w-2.5 bg-cyan-500/60' : 'w-2.5 bg-white/10'}`} />
+                                        <div key={s.id} className={`h-1.5 rounded-full transition-all duration-300 ${step === s.id ? 'w-5 bg-pink-400' : step > s.id ? 'w-2.5 bg-pink-500/60' : 'w-2.5 bg-white/10'}`} />
                                     ))}
                                 </div>
                             </div>
@@ -615,7 +616,7 @@ export default function ClinicRegisterPage() {
                                                         id="emergency_avail"
                                                         checked={isEmergencyAvailable}
                                                         onChange={(e) => setIsEmergencyAvailable(e.target.checked)}
-                                                        className="peer appearance-none w-5 h-5 border border-white/20 rounded bg-white/[0.03] checked:bg-cyan-500 checked:border-cyan-500 transition-all cursor-pointer"
+                                                        className="peer appearance-none w-5 h-5 border border-white/20 rounded bg-white/[0.03] checked:bg-pink-500 checked:border-pink-500 transition-all cursor-pointer"
                                                     />
                                                     <svg className="absolute w-3 h-3 text-white left-1 top-1 opacity-0 peer-checked:opacity-100 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                                                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -665,7 +666,7 @@ export default function ClinicRegisterPage() {
                                                     <span className="text-[#A1A1AA]">City</span>
                                                     <span className="text-white font-medium">{city || '—'}</span>
                                                     <span className="text-[#A1A1AA]">Location</span>
-                                                    <span className={`font-medium ${latitude ? 'text-cyan-400' : 'text-white/40'}`}>
+                                                    <span className={`font-medium ${latitude ? 'text-pink-400' : 'text-white/40'}`}>
                                                         {latitude ? 'Pinned' : 'Not set'}
                                                     </span>
                                                 </div>
@@ -689,7 +690,7 @@ export default function ClinicRegisterPage() {
                                         <button
                                             type="button"
                                             onClick={goNext}
-                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-white font-semibold text-[15px] shadow-[0_0_16px_rgba(6,182,212,0.2)] hover:shadow-[0_0_22px_rgba(6,182,212,0.35)] transition-all"
+                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white font-semibold text-[15px] shadow-[0_0_16px_rgba(236,72,153,0.2)] hover:shadow-[0_0_22px_rgba(236,72,153,0.35)] transition-all"
                                         >
                                             Continue <ChevronRight className="w-4 h-4" />
                                         </button>
@@ -697,7 +698,7 @@ export default function ClinicRegisterPage() {
                                         <Button
                                             type="submit"
                                             isLoading={isLoading}
-                                            className="flex-1 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 !text-white py-2.5 rounded-xl font-semibold text-[15px] border-0 shadow-[0_0_16px_rgba(6,182,212,0.2)] hover:shadow-[0_0_22px_rgba(6,182,212,0.35)] transition-all"
+                                            className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 !text-white py-2.5 rounded-xl font-semibold text-[15px] border-0 shadow-[0_0_16px_rgba(236,72,153,0.2)] hover:shadow-[0_0_22px_rgba(236,72,153,0.35)] transition-all"
                                         >
                                             <span>Complete Registration</span>
                                         </Button>
@@ -711,7 +712,7 @@ export default function ClinicRegisterPage() {
                     {!verificationSent && (
                         <p className="mt-4 text-center text-[13px] text-[#A1A1AA]">
                             Already have an account?{' '}
-                            <Link href="/login/clinic" className="font-semibold text-white hover:text-cyan-400 transition-colors inline-flex items-center gap-1 group">
+                            <Link href="/login/clinic" className="font-semibold text-white hover:text-pink-400 transition-colors inline-flex items-center gap-1 group">
                                 Sign In <span className="group-hover:translate-x-0.5 transition-transform">&rarr;</span>
                             </Link>
                         </p>

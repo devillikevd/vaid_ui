@@ -18,6 +18,8 @@ import {
     Bell,
     Building2,
     ListChecks,
+    Network,
+    MessageCircle,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
@@ -45,20 +47,25 @@ const CLINIC_CONFIG: DashboardConfig = {
         { name: 'Departments', href: '/clinic/departments', icon: Building2, section: 'Clinical Ops' },
         { name: 'Schedule', href: '/clinic/schedule', icon: Clock, section: 'Clinical Ops' },
 
-        // PARTNERS
-        { name: 'Pharmacies', href: '/clinic/pharmacies', icon: Pill, section: 'Partners' },
-        { name: 'Diagnostics', href: '/clinic/diagnostic-centers', icon: Microscope, section: 'Partners' },
-
-        // GROWTH
-        { name: 'Reviews', href: '/clinic/reviews', icon: Star, section: 'Growth' },
-        { name: 'Reels', href: '/clinic/reels', icon: Star, section: 'Growth' },
-
         // OPERATIONS
+        { name: 'Pharmacy Orders', href: '/clinic/pharmacies', icon: Pill, section: 'Operations' },
+        { name: 'Diagnostic Orders', href: '/clinic/diagnostic-centers', icon: Microscope, section: 'Operations' },
+        { name: 'Hospital Referrals', href: '/clinic/referrals', icon: Building, section: 'Operations' },
         { name: 'Reports', href: '/clinic/reports', icon: ListChecks, section: 'Operations' },
         { name: 'Health Alerts', href: '/clinic/health-alerts', icon: Radar, section: 'Operations' },
 
+        // PARTNERS
+        { name: 'Partnerships', href: '/clinic/partnerships', icon: Network, section: 'Partners' },
+
+        // GROWTH & REPUTATION
+        { name: 'Reviews', href: '/clinic/reviews', icon: Star, section: 'Growth & Reputation' },
+        { name: 'Reels', href: '/clinic/reels', icon: Star, section: 'Growth & Reputation' },
+
         // COMMUNICATION
         { name: 'Notifications', href: '/clinic/notifications', icon: Bell, section: 'Communication' },
+        
+        // COMMUNITY
+        { name: 'Community Insights', href: '/clinic/community', icon: MessageCircle, section: 'Community' },
 
         // SETTINGS
         { name: 'Settings', href: '/clinic/settings', icon: Settings, section: 'Settings' },

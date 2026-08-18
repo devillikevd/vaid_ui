@@ -16,6 +16,8 @@ import {
     Radar,
     Ambulance,
     Star,
+    Network,
+    MessageCircle,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
@@ -34,6 +36,7 @@ const HOSPITAL_CONFIG: DashboardConfig = {
         { name: 'Dashboard', href: '/hospital', icon: LayoutDashboard },
         { name: 'Departments', href: '/hospital/departments', icon: Building2 },
         { name: 'Doctors', href: '/hospital/doctors', icon: Users },
+        { name: 'Partnerships', href: '/hospital/partnerships', icon: Network },
         { name: 'Pharmacies', href: '/hospital/pharmacies', icon: Pill },
         { name: 'Diagnostics', href: '/hospital/diagnostic-centers', icon: Microscope },
         { name: 'Appointments', href: '/hospital/appointments', icon: Calendar },
@@ -43,6 +46,7 @@ const HOSPITAL_CONFIG: DashboardConfig = {
         { name: 'Managers', href: '/hospital/managers', icon: UserCog },
         { name: 'Reports', href: '/hospital/reports', icon: BarChart3 },
         { name: 'Health Alerts', href: '/hospital/health-alerts', icon: Radar },
+        { name: 'Community Q&A', href: '/hospital/community', icon: MessageCircle, section: 'Community' },
         { name: 'Reviews', href: '/hospital/reviews', icon: Star },
         { name: 'Reels', href: '/hospital/reels', icon: Star },
         { name: 'Settings', href: '/hospital/settings', icon: Settings },

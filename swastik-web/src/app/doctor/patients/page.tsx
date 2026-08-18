@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useDeferredValue, useEffect, useState } from 'react';
 import { Search, User, Phone, Mail, Loader2, RefreshCw, AlertCircle, Download, Calendar, ArrowRight, Filter, ArrowDownUp, Users } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 import { Button } from '@/components/ui/Button';
 import { useDoctorStore, type DoctorPatient } from '@/stores/doctorStore';
 import { Pagination } from '@/components/ui/Pagination';
@@ -94,7 +94,7 @@ export default function DoctorPatientsPage() {
             </div>
 
             {/* Toolbar */}
-            <Card padding="md" className="bg-white dark:bg-gray-900 shadow-sm border border-gray-200/80 dark:border-gray-800 rounded-2xl">
+            <DoctorPortalCard variant="compact">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
                         <div className="relative w-full sm:w-[320px] group">
@@ -149,10 +149,10 @@ export default function DoctorPatientsPage() {
                         </span>
                     </div>
                 </div>
-            </Card>
+            </DoctorPortalCard>
 
             {/* Table */}
-            <Card padding="none" className="overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm rounded-2xl bg-white dark:bg-gray-900">
+            <DoctorPortalCard className="!p-0 overflow-hidden bg-white dark:bg-gray-900">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-gray-600 dark:text-gray-400">
                         <thead className="bg-gray-50/80 dark:bg-gray-900/60 text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold border-b border-gray-100 dark:border-gray-800">
@@ -249,9 +249,9 @@ export default function DoctorPatientsPage() {
                         </tbody>
                     </table>
                 </div>
-            </Card>
+            </DoctorPortalCard>
             
-            {!loadingPatients && patientsPagination.totalPages > 1 && (
+            {/* Pagination */}          {!loadingPatients && patientsPagination.totalPages > 1 && (
                 <div className="pt-2">
                     <Pagination
                         currentPage={page}

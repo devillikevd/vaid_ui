@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { consultationsApi, uploadApi, appointmentsApi } from '@/lib/api';
+import { consultationsApi, uploadApi, appointmentsApi, medicineApi } from '@/lib/api';
+import { useDebounce } from '@/hooks/useDebounce';
 import {
     ArrowLeft,
     Plus,
@@ -17,7 +18,86 @@ import {
     FileImage
 } from 'lucide-react';
 
+function MedicineSearchInput({ value, onChange, onSelect }: { value: string, onChange: (v: string) => void, onSelect: (med: any) => void }) {
+    const [results, setResults] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+    const debouncedValue = useDebounce(value, 300);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (debouncedValue.length < 2) {
+            setResults([]);
+            setIsOpen(false);
+            return;
+        }
+        
+        const fetchResults = async () => {
+            setLoading(true);
+            try {
+                const res = await medicineApi.search(debouncedValue, {}, 1);
+                if (res.success && res.data) {
+                    setResults(res.data as any[]);
+                    setIsOpen(true);
+                }
+            } catch (e) {
+                console.error("Failed to search medicines", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        // Don't search if the user just selected a result and the value matches the exact name
+        if (isOpen || debouncedValue.length >= 2) {
+            fetchResults();
+        }
+    }, [debouncedValue]);
+
+    return (
+        <div ref={wrapperRef} className="relative w-full">
+            <input
+                type="text"
+                value={value}
+                onChange={(e) => { onChange(e.target.value); setIsOpen(true); }}
+                placeholder="Enter medicine name"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                onFocus={() => { if (results.length > 0) setIsOpen(true); }}
+            />
+            {loading && <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-emerald-500" />}
+            
+            {isOpen && results.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {results.map((med) => (
+                        <div
+                            key={med.id}
+                            className="p-3 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 cursor-pointer border-b border-gray-100 dark:border-gray-800 last:border-0"
+                            onClick={() => {
+                                onSelect(med);
+                                setIsOpen(false);
+                            }}
+                        >
+                            <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{med.name}</div>
+                            {med.generic_name && <div className="text-xs text-gray-500 mt-0.5">{med.generic_name}</div>}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 interface PrescriptionItem {
+    medicineId: string | null;
     medicineName: string;
     dosage: string;
     frequency: string;
@@ -57,6 +137,7 @@ const DURATION_OPTIONS = [
 ];
 
 const emptyItem: PrescriptionItem = {
+    medicineId: null,
     medicineName: '',
     dosage: '',
     frequency: 'Twice daily',
@@ -407,12 +488,17 @@ export default function NewPrescriptionPage() {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <div className="md:col-span-2">
                                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Medicine Name *</label>
-                                    <input
-                                        type="text"
+                                    <MedicineSearchInput
                                         value={item.medicineName}
-                                        onChange={(e) => updateItem(index, 'medicineName', e.target.value)}
-                                        placeholder="Enter medicine name"
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                        onChange={(v) => {
+                                            updateItem(index, 'medicineName', v);
+                                            // Reset medicineId if they start typing manually again
+                                            updateItem(index, 'medicineId', '');
+                                        }}
+                                        onSelect={(med) => {
+                                            updateItem(index, 'medicineId', med.id);
+                                            updateItem(index, 'medicineName', med.name);
+                                        }}
                                     />
                                 </div>
                                 <div>

@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { FileText, Search, Calendar, Loader2, Plus, RefreshCw, Download, Inbox, SearchX, Pill, Clock } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 import { Button } from '@/components/ui/Button';
 import { useDoctorStore } from '@/stores/doctorStore';
 import { usePrescriptionUpdates } from '@/hooks/useSocket';
@@ -264,7 +264,7 @@ export default function DoctorPrescriptionsPage() {
                 </div>
             </div>
 
-            <Card padding="none" className="overflow-hidden shadow-sm border border-gray-200 dark:border-gray-800 rounded-2xl bg-white dark:bg-gray-900">
+            <DoctorPortalCard className="!p-0 overflow-hidden bg-white dark:bg-gray-900 flex flex-col">
                 <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
                     <div className="relative max-w-md group">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-emerald-500 transition-colors">
@@ -302,7 +302,7 @@ export default function DoctorPrescriptionsPage() {
                         itemsPerPage={itemsPerPage}
                     />
                 )}
-            </Card>
+            </DoctorPortalCard>
         </div>
     );
 }

@@ -9,7 +9,7 @@ import {
     ScanLine, Camera, ArrowLeft, Loader2, AlertTriangle,
     CheckCircle, Keyboard, ExternalLink
 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 import { Button } from '@/components/ui/Button';
 
 const HEALTH_CARD_TOKEN_PATTERN = '[A-Za-z0-9]{6,16}';
@@ -188,46 +188,44 @@ export default function ScanPatientQRPage() {
 
             {/* Camera Mode */}
             {mode === 'camera' && (
-                <Card>
-                    <CardContent>
-                        {cameraError ? (
-                            <div className="text-center py-12">
-                                <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-3" />
-                                <p className="text-gray-700 dark:text-gray-300 mb-4">{cameraError}</p>
-                                <Button variant="outline" onClick={() => setMode('manual')}>
-                                    <Keyboard className="h-4 w-4 mr-1" /> Use Manual Entry
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="relative">
-                                <video ref={videoRef} className="w-full max-h-[400px] rounded-xl bg-black object-cover" playsInline muted />
-                                <canvas ref={canvasRef} className="hidden" />
-                                {scanning && (
-                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                        <div className="w-48 h-48 border-2 border-purple-400 rounded-2xl relative">
-                                            <ScanLine className="absolute inset-0 m-auto h-6 w-6 text-purple-400 animate-pulse" />
-                                            <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-purple-500 rounded-tl-lg" />
-                                            <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-purple-500 rounded-tr-lg" />
-                                            <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-purple-500 rounded-bl-lg" />
-                                            <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-purple-500 rounded-br-lg" />
-                                        </div>
+                <DoctorPortalCard className="!p-6">
+                    {cameraError ? (
+                        <div className="text-center py-12">
+                            <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-3" />
+                            <p className="text-gray-700 dark:text-gray-300 mb-4">{cameraError}</p>
+                            <Button variant="outline" onClick={() => setMode('manual')}>
+                                <Keyboard className="h-4 w-4 mr-1" /> Use Manual Entry
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="relative">
+                            <video ref={videoRef} className="w-full max-h-[400px] rounded-xl bg-black object-cover" playsInline muted />
+                            <canvas ref={canvasRef} className="hidden" />
+                            {scanning && (
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <div className="w-48 h-48 border-2 border-purple-400 rounded-2xl relative">
+                                        <ScanLine className="absolute inset-0 m-auto h-6 w-6 text-purple-400 animate-pulse" />
+                                        <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-purple-500 rounded-tl-lg" />
+                                        <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-purple-500 rounded-tr-lg" />
+                                        <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-purple-500 rounded-bl-lg" />
+                                        <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-purple-500 rounded-br-lg" />
                                     </div>
-                                )}
-                                {scanning && (
-                                    <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-3">Point the camera at the patient&apos;s health card QR code</p>
-                                )}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                                </div>
+                            )}
+                            {scanning && (
+                                <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-3">Point the camera at the patient&apos;s health card QR code</p>
+                            )}
+                        </div>
+                    )}
+                </DoctorPortalCard>
             )}
 
             {/* Manual Mode */}
             {mode === 'manual' && (
                 <div className="max-w-md mx-auto mt-8">
-                    <Card className="border-purple-100 dark:border-purple-900/30 shadow-lg shadow-purple-500/5 overflow-hidden relative">
+                    <DoctorPortalCard className="!p-8 border-purple-100 dark:border-purple-900/30 shadow-lg shadow-purple-500/5 overflow-hidden relative">
                         <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/20 dark:to-gray-900 pointer-events-none" />
-                        <CardContent className="p-8 relative z-10">
+                        <div className="relative z-10">
                             <div className="flex flex-col items-center text-center mb-6">
                                 <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 rounded-2xl flex items-center justify-center mb-4 text-purple-600 dark:text-purple-400">
                                     <Keyboard className="w-6 h-6" />
@@ -264,68 +262,62 @@ export default function ScanPatientQRPage() {
                                     )}
                                 </Button>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </DoctorPortalCard>
                 </div>
             )}
 
             {/* Result */}
             {validating && (
-                <Card>
-                    <CardContent>
-                        <div className="flex items-center justify-center gap-3 py-4">
-                            <Loader2 className="h-5 w-5 animate-spin text-purple-600" />
-                            <span className="text-gray-600 dark:text-gray-400">Validating health card...</span>
-                        </div>
-                    </CardContent>
-                </Card>
+                <DoctorPortalCard className="!p-6 mt-6">
+                    <div className="flex items-center justify-center gap-3 py-4">
+                        <Loader2 className="h-5 w-5 animate-spin text-purple-600" />
+                        <span className="text-gray-600 dark:text-gray-400">Validating health card...</span>
+                    </div>
+                </DoctorPortalCard>
             )}
 
             {result && (
-                <Card className={result.success ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'}>
-                    <CardContent>
-                        <div className="flex items-center gap-3 py-2">
-                            {result.success ? (
-                                <>
-                                    <CheckCircle className="h-6 w-6 text-green-600 flex-shrink-0" />
-                                    <div className="flex-1">
-                                        <p className="font-medium text-green-800">{result.message}</p>
-                                        <p className="text-sm text-green-600 mt-1">Opening health record...</p>
-                                    </div>
-                                    {result.token && (
-                                        <Button size="sm" variant="outline"
-                                            onClick={() => window.open(`/health-card/${result.token}`, '_blank')}>
-                                            <ExternalLink className="h-4 w-4 mr-1" /> Open
-                                        </Button>
-                                    )}
-                                </>
-                            ) : (
-                                <>
-                                    <AlertTriangle className="h-6 w-6 text-red-500 flex-shrink-0" />
-                                    <div>
-                                        <p className="font-medium text-red-800">{result.message}</p>
-                                        <p className="text-sm text-red-600 mt-1">Ask the patient to generate a new QR code from their app.</p>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
+                <DoctorPortalCard className={`!p-6 mt-6 ${result.success ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'}`}>
+                    <div className="flex items-center gap-3 py-2">
+                        {result.success ? (
+                            <>
+                                <CheckCircle className="h-6 w-6 text-green-600 flex-shrink-0" />
+                                <div className="flex-1">
+                                    <p className="font-medium text-green-800">{result.message}</p>
+                                    <p className="text-sm text-green-600 mt-1">Opening health record...</p>
+                                </div>
+                                {result.token && (
+                                    <Button size="sm" variant="outline"
+                                        onClick={() => window.open(`/health-card/${result.token}`, '_blank')}>
+                                        <ExternalLink className="h-4 w-4 mr-1" /> Open
+                                    </Button>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <AlertTriangle className="h-6 w-6 text-red-500 flex-shrink-0" />
+                                <div>
+                                    <p className="font-medium text-red-800">{result.message}</p>
+                                    <p className="text-sm text-red-600 mt-1">Ask the patient to generate a new QR code from their app.</p>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </DoctorPortalCard>
             )}
 
             {/* Instructions */}
-            <Card>
-                <CardContent>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 mt-4">How it works</h3>
-                    <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                        <p>1️⃣ Patient opens the VAIDIDEA app → Home Screen → taps <strong>&quot;Digital Health Identity&quot;</strong> card</p>
-                        <p>2️⃣ Patient taps <strong>&quot;Generate QR Code&quot;</strong> to view the QR code and Link ID</p>
-                        <p>3️⃣ Scan the QR code here or click <strong>&quot;Manual Entry&quot;</strong> above to enter the Link ID</p>
-                        <p>4️⃣ Complete medical records open instantly — prescriptions, reports, vitals, allergies</p>
-                        <p className="text-xs text-gray-400 mt-3">🔒 Health cards are time-limited (24h) and patient-controlled. The patient can revoke access anytime.</p>
-                    </div>
-                </CardContent>
-            </Card>
+            <DoctorPortalCard className="!p-6 mt-6">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 mt-4">How it works</h3>
+                <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                    <p>1️⃣ Patient opens the VAIDIDEA app → Home Screen → taps <strong>&quot;Digital Health Identity&quot;</strong> card</p>
+                    <p>2️⃣ Patient taps <strong>&quot;Generate QR Code&quot;</strong> to view the QR code and Link ID</p>
+                    <p>3️⃣ Scan the QR code here or click <strong>&quot;Manual Entry&quot;</strong> above to enter the Link ID</p>
+                    <p>4️⃣ Complete medical records open instantly — prescriptions, reports, vitals, allergies</p>
+                    <p className="text-xs text-gray-400 mt-3">🔒 Health cards are time-limited (24h) and patient-controlled. The patient can revoke access anytime.</p>
+                </div>
+            </DoctorPortalCard>
         </div>
     );
 }

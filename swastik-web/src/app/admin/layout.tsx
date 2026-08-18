@@ -15,6 +15,7 @@ import {
     Package,
     BadgePercent,
     MessageSquare,
+    Star,
 } from 'lucide-react';
 import { BaseDashboardLayout, type DashboardConfig } from '@/components/shared/DashboardLayout';
 import { useAuthStore } from '@/stores/authStore';
@@ -41,7 +42,8 @@ const ADMIN_CONFIG: DashboardConfig = {
         { name: 'Emergencies', href: '/admin/emergencies', icon: AlertTriangle },
         { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
         { name: 'Outbreak Monitor', href: '/admin/outbreaks', icon: Radar },
-        { name: 'Doctor Feedback', href: '/admin/feedback', icon: MessageSquare },
+        { name: 'Public Reviews', href: '/admin/reviews', icon: Star },
+        { name: 'Platform Feedback', href: '/admin/feedback', icon: MessageSquare },
         { name: 'Compliance', href: '/admin/compliance', icon: FileCheck },
         { name: 'Audit Trail', href: '/admin/audit', icon: History },
         { name: 'Settings', href: '/admin/settings', icon: Settings },

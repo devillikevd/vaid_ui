@@ -87,6 +87,22 @@ router.get('/me/reviews',
   })
 );
 
+// Respond to review
+router.post('/me/reviews/:id/respond',
+  authenticate,
+  authorize('doctor'),
+  [
+    param('id').isUUID().withMessage('Invalid review ID'),
+    body('response').isString().notEmpty().withMessage('Response message is required')
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const reviewService = require('../../services/reviewService');
+    const updated = await reviewService.respondToReview(req.params.id, req.user.id, req.body.response);
+    res.json({ success: true, data: updated, message: 'Response posted successfully' });
+  })
+);
+
 // Update doctor profile
 router.put('/me/profile',
   authenticate,
@@ -213,7 +229,7 @@ router.get('/search-organizations',
   authorize('doctor'),
   asyncHandler(async (req, res) => {
     const { query, type, lat, lng } = req.query;
-    const result = await doctorService.searchOrganizations(query, type, lat, lng);
+    const result = await doctorService.searchOrganizations(query, type, lat, lng, req.user.id);
     res.json({ success: true, ...result });
   })
 );
@@ -222,7 +238,7 @@ router.get('/organizations/:orgId',
   authenticate,
   authorize('doctor'),
   asyncHandler(async (req, res) => {
-    const result = await doctorService.getOrganizationDetails(req.params.orgId, req.query.type);
+    const result = await doctorService.getOrganizationDetails(req.params.orgId, req.query.type, req.user.id);
     res.json({ success: true, data: result });
   })
 );
@@ -285,6 +301,21 @@ router.post('/me/join-requests/:requestId/cancel',
   validate,
   asyncHandler(async (req, res) => {
     const result = await doctorService.cancelJoinRequest(req.user.id, req.params.requestId, req.body.type);
+    res.json({ success: true, ...result });
+  })
+);
+
+router.post('/me/join-requests/:requestId/respond',
+  authenticate,
+  authorize('doctor'),
+  [
+    param('requestId').isUUID().withMessage('Invalid request ID'),
+    body('type').isIn(['clinic', 'hospital']).withMessage('Type must be clinic or hospital'),
+    body('decision').isIn(['accept', 'reject', 'decline', 'suggest_changes']).withMessage('Invalid decision'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.respondJoinRequest(req.user.id, req.params.requestId, req.body.type, req.body.decision, req.body);
     res.json({ success: true, ...result });
   })
 );
@@ -672,6 +703,81 @@ router.put('/me/slots',
   })
 );
 
+// ============ ORGANIZATION-SPECIFIC SCHEDULING ============
+
+// Active affiliations for the In-Person schedule "Organization" dropdown
+router.get('/me/organizations',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const organizations = await doctorService.getMyOrganizations(req.user.id);
+    res.json({ success: true, data: organizations });
+  })
+);
+
+// Create a single schedule (video OR organization-specific in-person)
+router.post('/me/schedules',
+  authenticate,
+  authorize('doctor'),
+  [
+    body('consultation_mode').optional().isIn(['video', 'in_person']),
+    body('slot_date').optional().isString(),
+    body('date').optional().isString(),
+    body('startTime').optional().isString(),
+    body('endTime').optional().isString(),
+    body('start_time').optional().isString(),
+    body('end_time').optional().isString(),
+    body('slotDuration').optional().isInt(),
+    body('slot_duration').optional().isInt(),
+    body('bufferTime').optional().isInt(),
+    body('buffer_time').optional().isInt(),
+    body('recurringWeeks').optional().isInt(),
+    body('organization_type').optional().isIn(['clinic', 'hospital']),
+    body('organization_id').optional().isString(),
+    body('department_id').optional().isString(),
+    body('department_name').optional().isString(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.createSchedule(req.user.id, req.body);
+    res.json({ success: true, data: result });
+  })
+);
+
+// Update an existing schedule (edit times, pause/resume)
+router.put('/me/schedules/:scheduleId',
+  authenticate,
+  authorize('doctor'),
+  [
+    param('scheduleId').isUUID().withMessage('Valid schedule id is required'),
+    body('is_active').optional().isBoolean(),
+    body('slot_date').optional().isString(),
+    body('startTime').optional().isString(),
+    body('endTime').optional().isString(),
+    body('slotDuration').optional().isInt(),
+    body('bufferTime').optional().isInt(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.updateSchedule(req.user.id, req.params.scheduleId, req.body);
+    res.json({ success: true, data: result });
+  })
+);
+
+// Disable/end a schedule (never silently wipes appointments)
+router.delete('/me/schedules/:scheduleId',
+  authenticate,
+  authorize('doctor'),
+  [
+    param('scheduleId').isUUID().withMessage('Valid schedule id is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.disableSchedule(req.user.id, req.params.scheduleId);
+    res.json({ success: true, data: result });
+  })
+);
+
 // ============ LEAVE MANAGEMENT (Phase 6) ============
 
 router.get('/me/leaves',
@@ -683,6 +789,26 @@ router.get('/me/leaves',
   })
 );
 
+router.post('/me/leaves/check-affected',
+  authenticate,
+  authorize('doctor'),
+  [
+    body('start_date').isDate().withMessage('Valid start date is required'),
+    body('end_date').isDate().withMessage('Valid end date is required'),
+    body('scope').optional().isIn(['global', 'organization']),
+    body('organization_type').optional().isIn(['clinic', 'hospital']),
+    body('organization_id').optional().isUUID(),
+    body('leave_type').optional().isIn(['full_day', 'partial_day']),
+    body('start_time').optional().isString(),
+    body('end_time').optional().isString(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.checkAffectedAppointments(req.user.id, req.body);
+    res.json({ success: true, data: result });
+  })
+);
+
 router.post('/me/leaves',
   authenticate,
   authorize('doctor'),
@@ -690,11 +816,28 @@ router.post('/me/leaves',
     body('start_date').isDate().withMessage('Valid start date is required'),
     body('end_date').isDate().withMessage('Valid end date is required'),
     body('reason').optional().isString(),
+    body('scope').optional().isIn(['global', 'organization']),
+    body('organization_type').optional().isIn(['clinic', 'hospital']),
+    body('organization_id').optional().isUUID(),
+    body('leave_type').optional().isIn(['full_day', 'partial_day']),
+    body('start_time').optional().isString(),
+    body('end_time').optional().isString(),
   ],
   validate,
   asyncHandler(async (req, res) => {
     const leave = await doctorService.addLeave(req.user.id, req.body);
     res.json({ success: true, data: leave });
+  })
+);
+
+router.post('/me/leaves/:id/cancel',
+  authenticate,
+  authorize('doctor'),
+  param('id').isUUID().withMessage('Valid leave ID is required'),
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.cancelLeave(req.user.id, req.params.id);
+    res.json({ success: true, data: result, message: 'Leave cancelled successfully' });
   })
 );
 
@@ -704,8 +847,8 @@ router.delete('/me/leaves/:id',
   param('id').isUUID().withMessage('Valid leave ID is required'),
   validate,
   asyncHandler(async (req, res) => {
-    await doctorService.deleteLeave(req.user.id, req.params.id);
-    res.json({ success: true, message: 'Leave deleted successfully' });
+    const result = await doctorService.deleteLeave(req.user.id, req.params.id);
+    res.json({ success: true, data: result, message: 'Leave cancelled successfully' });
   })
 );
 
@@ -972,6 +1115,113 @@ router.get('/me/prescriptions',
       data: prescriptions,
       pagination: { page: parseInt(page), limit: parseInt(limit), total: count || 0, totalPages: Math.ceil((count || 0) / parseInt(limit)) },
     });
+  })
+);
+
+// Get active pharmacy partners for a prescription's organization (clinic or hospital)
+router.get('/prescriptions/:id/pharmacy-partners',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../../config/supabase');
+    const organizationPartnershipService = require('../../services/organizationPartnershipService');
+    
+    // Validate doctor
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+    if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found' });
+
+    // Find prescription and its org context
+    const { data: prescription, error } = await supabaseAdmin
+      .from('prescriptions')
+      .select(`
+        id, doctor_id,
+        consultations (
+          appointments ( clinic_id, hospital_id )
+        )
+      `)
+      .eq('id', req.params.id)
+      .single();
+    if (error || !prescription) return res.status(404).json({ success: false, message: 'Prescription not found' });
+    if (prescription.doctor_id !== doctor.id) return res.status(403).json({ success: false, message: 'Prescription does not belong to you' });
+
+    const clinicId = prescription.consultations?.appointments?.clinic_id;
+    const hospitalId = prescription.consultations?.appointments?.hospital_id;
+
+    let orgType, orgId;
+    if (clinicId) { orgType = 'clinic'; orgId = clinicId; }
+    else if (hospitalId) { orgType = 'hospital'; orgId = hospitalId; }
+    else return res.status(400).json({ success: false, message: 'Prescription has no clinic or hospital context' });
+
+    const partnerships = await organizationPartnershipService.getPartnerships({
+      orgType, orgId, status: 'active'
+    });
+    
+    // Filter only pharmacy partners
+    const pharmacyPartners = (partnerships || []).filter(p => p.partner?.type === 'pharmacy');
+    res.json({ success: true, data: pharmacyPartners });
+  })
+);
+
+// Route a prescription to a partner pharmacy
+router.post('/prescriptions/:id/route-to-pharmacy',
+  authenticate,
+  authorize('doctor'),
+  [
+    require('express-validator').body('pharmacyId').isUUID(),
+    require('express-validator').body('items').isArray(),
+    require('../../middleware/validate').validate
+  ],
+  asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../../config/supabase');
+    const pharmacyService = require('../../services/pharmacyService');
+    
+    // Validate doctor
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+    if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found' });
+
+    // Find prescription and its org context
+    const { data: prescription, error } = await supabaseAdmin
+      .from('prescriptions')
+      .select(`
+        id, doctor_id, patient_id,
+        consultations (
+          appointments ( clinic_id, hospital_id )
+        )
+      `)
+      .eq('id', req.params.id)
+      .single();
+      
+    if (error || !prescription) return res.status(404).json({ success: false, message: 'Prescription not found' });
+    if (prescription.doctor_id !== doctor.id) return res.status(403).json({ success: false, message: 'Prescription does not belong to you' });
+
+    const clinicId = prescription.consultations?.appointments?.clinic_id;
+    const hospitalId = prescription.consultations?.appointments?.hospital_id;
+
+    const orderData = {
+      prescriptionId: req.params.id,
+      pharmacyId: req.body.pharmacyId,
+      items: req.body.items,
+      deliveryType: req.body.deliveryType || 'pickup'
+    };
+
+    let order;
+    if (hospitalId) {
+      order = await pharmacyService.createHospitalPharmacyOrder(hospitalId, doctor.id, orderData);
+    } else if (clinicId) {
+      order = await pharmacyService.createClinicPharmacyOrder(clinicId, doctor.id, orderData);
+    } else {
+      return res.status(400).json({ success: false, message: 'Prescription has no clinic or hospital context' });
+    }
+
+    res.status(201).json({ success: true, data: order });
   })
 );
 

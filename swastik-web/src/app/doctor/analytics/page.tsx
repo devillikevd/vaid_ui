@@ -13,6 +13,8 @@ import {
     AreaChart, Area, PieChart, Pie, Cell
 } from 'recharts';
 import Link from 'next/link';
+import { MetricCard } from '@/components/doctor/MetricCard';
+import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 
 interface AnalyticsSummary {
     totalAppointments: number;
@@ -95,28 +97,23 @@ export default function DoctorAnalyticsPage() {
         return h;
     }, [data]);
 
-    const renderTrend = (current: number, previous: number | undefined, inverseGood = false, isCurrency = false) => {
-        if (previous === undefined || previous === null || current === undefined) return null;
-        if (previous === 0 && current === 0) return null;
+    const getTrendData = (current: number, previous: number | undefined, inverseGood = false) => {
+        if (previous === undefined || previous === null || current === undefined) return undefined;
+        if (previous === 0 && current === 0) return undefined;
         
         const diff = current - previous;
         const pct = previous === 0 ? 100 : Math.round((Math.abs(diff) / previous) * 100);
         
-        if (diff === 0) return (
-            <div className="flex items-center gap-1 text-xs text-gray-500 font-medium mt-1">
-                <Minus className="w-3.5 h-3.5" /> No change vs previous {period}
-            </div>
-        );
+        if (diff === 0) return { value: 0, label: `vs previous ${period}`, direction: 'neutral' as const };
 
         const isPositiveDiff = diff > 0;
         const isGood = inverseGood ? !isPositiveDiff : isPositiveDiff;
 
-        return (
-            <div className={`flex items-center gap-1 text-xs font-medium mt-1 ${isGood ? 'text-emerald-500' : 'text-red-500'}`}>
-                {isPositiveDiff ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                {pct}% vs previous {period}
-            </div>
-        );
+        return {
+            value: pct,
+            label: `vs previous ${period}`,
+            direction: isGood ? 'up' as const : 'down' as const
+        };
     };
 
     const maxRevenueItem = data?.charts.daily.reduce((max, item) => item.revenue > max.revenue ? item : max, { revenue: 0, date: '' });
@@ -196,44 +193,35 @@ export default function DoctorAnalyticsPage() {
             <div className={`space-y-6 ${loading && data ? 'opacity-50 pointer-events-none' : 'opacity-100'} transition-opacity duration-300`}>
                 {/* KPI Cards */}
                 {data && data.summary.totalAppointments > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800/50 rounded-2xl p-5 hover:border-gray-300 dark:hover:border-gray-700/60 transition-all">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="inline-flex p-2.5 rounded-xl bg-blue-500/15 text-blue-500"><Calendar className="h-5 w-5" /></div>
-                            </div>
-                            <div className="text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{data.summary.totalAppointments}</div>
-                            <div className="text-sm font-medium text-gray-500">Total Appointments</div>
-                            {renderTrend(data.summary.totalAppointments, data.previousSummary?.totalAppointments)}
-                        </div>
-
-                        <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800/50 rounded-2xl p-5 hover:border-gray-300 dark:hover:border-gray-700/60 transition-all">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="inline-flex p-2.5 rounded-xl bg-emerald-500/15 text-emerald-500"><IndianRupee className="h-5 w-5" /></div>
-                            </div>
-                            <div className="text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{formatCurrency(data.summary.totalRevenue)}</div>
-                            <div className="text-sm font-medium text-gray-500">Total Revenue</div>
-                            {renderTrend(data.summary.totalRevenue, data.previousSummary?.totalRevenue)}
-                        </div>
-
-                        <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800/50 rounded-2xl p-5 hover:border-gray-300 dark:hover:border-gray-700/60 transition-all">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="inline-flex p-2.5 rounded-xl bg-green-500/15 text-green-500"><CheckCircle2 className="h-5 w-5" /></div>
-                                <TooltipIcon content="Completed appointments ÷ total appointments in the selected period." />
-                            </div>
-                            <div className="text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{data.summary.completionRate}%</div>
-                            <div className="text-sm font-medium text-gray-500">Completion Rate</div>
-                            {renderTrend(data.summary.completionRate, data.previousSummary?.completionRate)}
-                        </div>
-
-                        <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800/50 rounded-2xl p-5 hover:border-gray-300 dark:hover:border-gray-700/60 transition-all">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="inline-flex p-2.5 rounded-xl bg-amber-500/15 text-amber-500"><XCircle className="h-5 w-5" /></div>
-                                <TooltipIcon content="Cancelled appointments ÷ total appointments in the selected period." />
-                            </div>
-                            <div className="text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{data.summary.cancellationRate}%</div>
-                            <div className="text-sm font-medium text-gray-500">Cancellation Rate</div>
-                            {renderTrend(data.summary.cancellationRate, data.previousSummary?.cancellationRate, true)}
-                        </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        <MetricCard
+                            title="Total Appointments"
+                            value={data.summary.totalAppointments}
+                            icon={<Calendar className="h-5 w-5" />}
+                            iconClassName="bg-blue-500/15 text-blue-500"
+                            trend={getTrendData(data.summary.totalAppointments, data.previousSummary?.totalAppointments)}
+                        />
+                        <MetricCard
+                            title="Total Revenue"
+                            value={formatCurrency(data.summary.totalRevenue)}
+                            icon={<IndianRupee className="h-5 w-5" />}
+                            iconClassName="bg-emerald-500/15 text-emerald-500"
+                            trend={getTrendData(data.summary.totalRevenue, data.previousSummary?.totalRevenue)}
+                        />
+                        <MetricCard
+                            title="Completion Rate"
+                            value={`${data.summary.completionRate}%`}
+                            icon={<CheckCircle2 className="h-5 w-5" />}
+                            iconClassName="bg-green-500/15 text-green-500"
+                            trend={getTrendData(data.summary.completionRate, data.previousSummary?.completionRate)}
+                        />
+                        <MetricCard
+                            title="Cancellation Rate"
+                            value={`${data.summary.cancellationRate}%`}
+                            icon={<XCircle className="h-5 w-5" />}
+                            iconClassName="bg-amber-500/15 text-amber-500"
+                            trend={getTrendData(data.summary.cancellationRate, data.previousSummary?.cancellationRate, true)}
+                        />
                     </div>
                 )}
 
@@ -242,15 +230,15 @@ export default function DoctorAnalyticsPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         
                         {/* Appointment Trends */}
-                        <div className="lg:col-span-2 bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800/50 rounded-2xl p-5 sm:p-6">
-                            <div className="flex items-center justify-between mb-6">
+                        <DoctorPortalCard variant="compact" className="lg:col-span-2">
+                            <div className="flex items-center justify-between mb-4">
                                 <div>
                                     <h3 className="font-bold text-gray-900 dark:text-white">Appointment Trends</h3>
                                     <p className="text-xs text-gray-500 mt-1">Daily appointment volume</p>
                                 </div>
                                 <Activity className="h-5 w-5 text-gray-400" />
                             </div>
-                            <div className="h-[280px] w-full">
+                            <div className="h-[260px] md:h-[300px] xl:h-[320px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={data.charts.daily} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-gray-100 dark:text-gray-800" />
@@ -264,10 +252,10 @@ export default function DoctorAnalyticsPage() {
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
-                        </div>
+                        </DoctorPortalCard>
 
-                        {/* Revenue Trends */}
-                        <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800/50 rounded-2xl p-5 sm:p-6">
+                        {/* Revenue Trend */}
+                        <DoctorPortalCard variant="compact">
                             <div className="flex items-center justify-between mb-6">
                                 <div>
                                     <h3 className="font-bold text-gray-900 dark:text-white">Revenue Trend</h3>
@@ -275,7 +263,7 @@ export default function DoctorAnalyticsPage() {
                                 </div>
                                 <IndianRupee className="h-5 w-5 text-gray-400" />
                             </div>
-                            <div className="h-[200px] w-full mb-4">
+                            <div className="h-[260px] md:h-[300px] xl:h-[320px] w-full mt-2">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={data.charts.daily} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                         <defs>
@@ -304,7 +292,7 @@ export default function DoctorAnalyticsPage() {
                                     <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(maxRevenueItem?.revenue || 0)}</p>
                                 </div>
                             </div>
-                        </div>
+                        </DoctorPortalCard>
 
                     </div>
                 )}
@@ -313,7 +301,7 @@ export default function DoctorAnalyticsPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         
                         {/* Peak Hours Breakdown */}
-                        <div className="lg:col-span-1 bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800/50 rounded-2xl p-5 sm:p-6">
+                        <DoctorPortalCard variant="compact" className="lg:col-span-1">
                             <div className="flex items-center justify-between mb-6">
                                 <div>
                                     <h3 className="font-bold text-gray-900 dark:text-white">Peak Booking Hours</h3>
@@ -346,12 +334,12 @@ export default function DoctorAnalyticsPage() {
                                     })}
                                 </div>
                             ) : (
-                                <p className="text-sm text-gray-400 italic py-4">No slot data available yet.</p>
+                                <div className="text-center py-6 text-sm text-gray-500">No peak hour data available</div>
                             )}
-                        </div>
+                        </DoctorPortalCard>
 
                         {/* Consultation Type */}
-                        <div className="lg:col-span-1 bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800/50 rounded-2xl p-5 sm:p-6">
+                        <DoctorPortalCard variant="compact" className="lg:col-span-1">
                             <div className="flex items-center justify-between mb-6">
                                 <div>
                                     <h3 className="font-bold text-gray-900 dark:text-white">Consultation Type</h3>
@@ -400,12 +388,12 @@ export default function DoctorAnalyticsPage() {
                                     ))}
                                 </div>
                             </div>
-                        </div>
+                        </DoctorPortalCard>
 
                         {/* Performance Details & Highlights */}
                         <div className="lg:col-span-1 space-y-6">
                             
-                            <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800/50 rounded-2xl p-5 sm:p-6">
+                            <DoctorPortalCard variant="compact">
                                 <div className="flex items-center justify-between mb-5">
                                     <h3 className="font-bold text-gray-900 dark:text-white">Doctor Performance</h3>
                                     <Target className="h-5 w-5 text-gray-400" />
@@ -432,9 +420,9 @@ export default function DoctorAnalyticsPage() {
                                         </span>
                                     </div>
                                 </div>
-                            </div>
+                            </DoctorPortalCard>
 
-                            <div className="bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border border-indigo-500/10 rounded-2xl p-5 sm:p-6">
+                            <DoctorPortalCard variant="compact" className="bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border-indigo-500/10">
                                 <h3 className="font-bold text-indigo-900 dark:text-indigo-300 mb-4 flex items-center gap-2">
                                     <Info className="w-4 h-4" /> Practice Highlights
                                 </h3>
@@ -447,9 +435,9 @@ export default function DoctorAnalyticsPage() {
                                         ))}
                                     </ul>
                                 ) : (
-                                    <p className="text-sm text-gray-500 italic">Not enough data to generate highlights.</p>
+                                    <div className="text-center py-6 text-sm text-gray-500">More data needed for insights</div>
                                 )}
-                            </div>
+                            </DoctorPortalCard>
 
                         </div>
                     </div>

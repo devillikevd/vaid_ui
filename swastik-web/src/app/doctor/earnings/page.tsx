@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { IndianRupee, Users, ArrowLeft, Loader2, Calendar, ChevronDown, ChevronUp, Clock, Star, FileText, Activity, Wallet, CreditCard, Receipt, TrendingUp, CheckCircle2, ShieldCheck, PieChart, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { MetricCard } from '@/components/doctor/MetricCard';
+import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 import { useRouter } from 'next/navigation';
 import { fetchWithAuth } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -182,64 +184,33 @@ export default function EarningsPage() {
 
             {/* Premium Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-                <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-3xl p-6 shadow-xl shadow-emerald-500/20 border border-emerald-400/30 group transition-transform duration-300 hover:-translate-y-1">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3"></div>
-                    <div className="relative z-10 flex flex-col h-full justify-between">
-                        <div className="flex items-start justify-between mb-4">
-                            <p className="text-emerald-100 text-sm font-bold uppercase tracking-widest">Total Earnings</p>
-                            <div className="p-2.5 bg-white/20 backdrop-blur-md rounded-xl text-white group-hover:scale-110 transition-transform">
-                                <IndianRupee className="h-5 w-5" />
-                            </div>
-                        </div>
-                        <div>
-                            <h2 className="text-4xl font-extrabold text-white tracking-tight drop-shadow-sm">
-                                {isLoading ? '-' : `₹${totalEarnings.toLocaleString('en-IN')}`}
-                            </h2>
-                        </div>
-                    </div>
-                </div>
+                <MetricCard
+                    title="Total Earnings"
+                    value={isLoading ? '-' : `₹${totalEarnings.toLocaleString('en-IN')}`}
+                    icon={<IndianRupee className="h-5 w-5" />}
+                    trend={undefined}
+                />
                 
-                <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300 hover:shadow-xl hover:shadow-gray-200/20 dark:hover:shadow-black/20 hover:-translate-y-1 group">
-                    <div className="flex items-start justify-between mb-4">
-                        <p className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-widest">Total Consultations</p>
-                        <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl group-hover:scale-110 transition-transform">
-                            <Users className="h-5 w-5" />
-                        </div>
-                    </div>
-                    <div>
-                        <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                            {isLoading ? '-' : totalConsultations}
-                        </h2>
-                    </div>
-                </div>
+                <MetricCard
+                    title="Total Consultations"
+                    value={isLoading ? '-' : totalConsultations}
+                    icon={<Users className="h-5 w-5" />}
+                    trend={undefined}
+                />
 
-                <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300 hover:shadow-xl hover:shadow-gray-200/20 dark:hover:shadow-black/20 hover:-translate-y-1 group">
-                    <div className="flex items-start justify-between mb-4">
-                        <p className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-widest">Average / Consult</p>
-                        <div className="p-2.5 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-xl group-hover:scale-110 transition-transform">
-                            <PieChart className="h-5 w-5" />
-                        </div>
-                    </div>
-                    <div>
-                        <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                            {isLoading ? '-' : `₹${averageEarnings.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
-                        </h2>
-                    </div>
-                </div>
+                <MetricCard
+                    title="Average / Consult"
+                    value={isLoading ? '-' : `₹${averageEarnings.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                    icon={<PieChart className="h-5 w-5" />}
+                    trend={undefined}
+                />
 
-                <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300 hover:shadow-xl hover:shadow-gray-200/20 dark:hover:shadow-black/20 hover:-translate-y-1 group">
-                    <div className="flex items-start justify-between mb-4">
-                        <p className="text-gray-500 dark:text-gray-400 text-sm font-bold uppercase tracking-widest">Pending Settlement</p>
-                        <div className="p-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-xl group-hover:scale-110 transition-transform">
-                            <Clock className="h-5 w-5" />
-                        </div>
-                    </div>
-                    <div>
-                        <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                            {isLoading ? '-' : `₹${pendingSettlement.toLocaleString('en-IN')}`}
-                        </h2>
-                    </div>
-                </div>
+                <MetricCard
+                    title="Pending Settlement"
+                    value={isLoading ? '-' : `₹${pendingSettlement.toLocaleString('en-IN')}`}
+                    icon={<Clock className="h-5 w-5" />}
+                    trend={undefined}
+                />
             </div>
 
             {/* Consultation Earnings List */}

@@ -336,7 +336,7 @@ fun AppointmentHistoryScreen(
                     initialRating = if (appointment.isReviewed) reviewUiState.existingReview?.rating ?: 0 else 0,
                     initialComment = if (appointment.isReviewed) reviewUiState.existingReview?.comment ?: "" else "",
                     onDismiss = { showReviewDialog = null },
-                    onSubmitReview = { targetType, rating, comment ->
+                    onSubmitReview = { targetType, rating, comment, isAnonymous ->
                         val reviewableId = when(targetType) {
                             "doctor" -> appointment.doctorId
                             "clinic" -> appointment.clinic?.id ?: ""
@@ -349,7 +349,8 @@ fun AppointmentHistoryScreen(
                                 reviewableId = reviewableId,
                                 consultationId = appointment.id,
                                 rating = rating,
-                                comment = comment
+                                comment = comment,
+                                isAnonymous = isAnonymous
                             )
                         }
                         showReviewDialog = null

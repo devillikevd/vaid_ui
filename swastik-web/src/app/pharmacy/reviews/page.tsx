@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from 'react';
 import { usePharmacyStore } from '@/stores/pharmacyStore';
+import { pharmacyApi } from '@/lib/api';
 import ReviewManager, { type Review } from '@/components/shared/ReviewManager';
 
 export default function PharmacyReviewsPage() {
@@ -15,6 +16,11 @@ export default function PharmacyReviewsPage() {
         loadReviews();
     }, [loadReviews]);
 
+    const handleRespond = async (reviewId: string, responseText: string) => {
+        const res = await pharmacyApi.respondToReview(reviewId, responseText);
+        return res.success;
+    };
+
     return (
         <div className="max-w-6xl mx-auto space-y-6">
             <ReviewManager 
@@ -23,6 +29,9 @@ export default function PharmacyReviewsPage() {
                 error={error}
                 fetchReviews={loadReviews}
                 themeColor="orange"
+                isFacility={true}
+                entityName="Pharmacy"
+                onRespond={handleRespond}
             />
         </div>
     );

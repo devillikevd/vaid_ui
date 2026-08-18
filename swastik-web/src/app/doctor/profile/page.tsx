@@ -11,6 +11,7 @@ import {
 import Link from 'next/link';
 import { useDoctorStore } from '@/stores/doctorStore';
 import { doctorApi } from '@/lib/api';
+import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 
 function InitialsAvatar({ name, className = "" }: { name: string; className?: string }) {
     const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -42,13 +43,13 @@ function ProgressRing({ percentage }: { percentage: number }) {
 
 function Section({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
     return (
-        <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800/50 rounded-2xl p-6">
+        <DoctorPortalCard className="!p-6">
             <div className="flex items-center gap-2.5 mb-5 pb-4 border-b border-gray-200 dark:border-gray-800/50">
                 <Icon className="h-5 w-5 text-emerald-500 dark:text-emerald-400"/>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">{title}</h2>
             </div>
             {children}
-        </div>
+        </DoctorPortalCard>
     );
 }
 
@@ -101,7 +102,7 @@ export default function DoctorProfilePage() {
             </div>
 
             {/* Profile Hero */}
-            <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800/50 rounded-3xl p-6 lg:p-8 relative overflow-hidden">
+            <DoctorPortalCard className="!p-6 lg:!p-8 relative overflow-hidden bg-white dark:bg-gray-900">
                 <div className="absolute top-0 right-0 p-32 bg-emerald-500/5 rounded-bl-full blur-3xl pointer-events-none"/>
                 
                 <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative">
@@ -166,7 +167,7 @@ export default function DoctorProfilePage() {
                         )}
                     </div>
                 </div>
-            </div>
+            </DoctorPortalCard>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column */}

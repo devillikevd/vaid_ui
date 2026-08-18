@@ -11,7 +11,7 @@ import {
     Stethoscope, Award, Trophy, UserPlus, Target, Activity, Flame 
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 import { Input } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
 import { 
@@ -172,34 +172,34 @@ export default function DoctorJourneyPage() {
                         <p className="text-gray-500 dark:text-gray-400">The lives you have touched since joining.</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <Card className="p-8 text-center bg-white dark:bg-gray-900/50 border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+                        <DoctorPortalCard className="!p-8 text-center bg-white dark:bg-gray-900/50 hover:shadow-md transition-shadow">
                             <Users className="h-10 w-10 text-blue-500 mx-auto mb-4" />
                             <div className="text-4xl font-black text-gray-900 dark:text-white mb-2">
                                 <Counter to={stats.totalPatients} />
                             </div>
                             <p className="text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider text-sm">Patients Treated</p>
-                        </Card>
-                        <Card className="p-8 text-center bg-white dark:bg-gray-900/50 border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+                        </DoctorPortalCard>
+                        <DoctorPortalCard className="!p-8 text-center bg-white dark:bg-gray-900/50 hover:shadow-md transition-shadow">
                             <CalendarCheck className="h-10 w-10 text-emerald-500 mx-auto mb-4" />
                             <div className="text-4xl font-black text-gray-900 dark:text-white mb-2">
                                 <Counter to={stats.totalConsultations} />
                             </div>
                             <p className="text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider text-sm">Consultations</p>
-                        </Card>
-                        <Card className="p-8 text-center bg-white dark:bg-gray-900/50 border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+                        </DoctorPortalCard>
+                        <DoctorPortalCard className="!p-8 text-center bg-white dark:bg-gray-900/50 hover:shadow-md transition-shadow">
                             <Star className="h-10 w-10 text-yellow-500 mx-auto mb-4" />
                             <div className="text-4xl font-black text-gray-900 dark:text-white mb-2">
                                 {stats.averageRating.toFixed(1)}
                             </div>
                             <p className="text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider text-sm">Average Rating ({stats.totalReviews} reviews)</p>
-                        </Card>
+                        </DoctorPortalCard>
                     </div>
                 </section>
 
                 {/* 3. GROWTH ANALYTICS & GOALS */}
                 <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Charts */}
-                    <Card className="lg:col-span-2 p-6 bg-white dark:bg-gray-900/50 border-gray-100 dark:border-gray-800 shadow-sm">
+                    <DoctorPortalCard className="lg:col-span-2 !p-6 bg-white dark:bg-gray-900/50">
                         <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
                             <div>
                                 <h2 className="text-2xl font-bold">Growth Analytics</h2>
@@ -254,10 +254,10 @@ export default function DoctorJourneyPage() {
                                 <div className="h-full flex items-center justify-center text-gray-500">Not enough data to display chart.</div>
                             )}
                         </div>
-                    </Card>
+                    </DoctorPortalCard>
 
                     {/* Goals */}
-                    <Card className="p-6 bg-white dark:bg-gray-900/50 border-gray-100 dark:border-gray-800 shadow-sm flex flex-col">
+                    <DoctorPortalCard className="!p-6 bg-white dark:bg-gray-900/50 flex flex-col">
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-xl font-bold flex items-center gap-2"><Target className="w-5 h-5 text-emerald-500" /> Personal Goals</h2>
                             <Button variant="ghost" size="sm" onClick={() => setIsEditingGoals(!isEditingGoals)} className="text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20">
@@ -327,7 +327,7 @@ export default function DoctorJourneyPage() {
                                 </div>
                             </div>
                         )}
-                    </Card>
+                    </DoctorPortalCard>
                 </section>
 
                 {/* 4. MILESTONES TIMELINE & ACHIEVEMENTS */}
@@ -363,14 +363,14 @@ export default function DoctorJourneyPage() {
                         <div>
                             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Flame className="w-6 h-6 text-orange-500" /> Consistency Streaks</h2>
                             <div className="grid grid-cols-2 gap-4">
-                                <Card className="p-5 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 border-orange-100 dark:border-orange-900/30">
+                                <DoctorPortalCard className="!p-5 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 border-orange-100 dark:border-orange-900/30">
                                     <div className="text-3xl font-black text-orange-600 dark:text-orange-400 mb-1">{stats.totalConsultations > 0 ? 'Active' : 'None'}</div>
                                     <p className="text-sm font-medium text-orange-700 dark:text-orange-500">Practice Status</p>
-                                </Card>
-                                <Card className="p-5 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-100 dark:border-blue-900/30">
+                                </DoctorPortalCard>
+                                <DoctorPortalCard className="!p-5 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-100 dark:border-blue-900/30">
                                     <div className="text-3xl font-black text-blue-600 dark:text-blue-400 mb-1">{stats.totalPatients > 0 ? stats.totalPatients : 0}</div>
                                     <p className="text-sm font-medium text-blue-700 dark:text-blue-500">Unique Lives Touched</p>
-                                </Card>
+                                </DoctorPortalCard>
                             </div>
                         </div>
 
@@ -379,7 +379,7 @@ export default function DoctorJourneyPage() {
                             {recentReviews.length > 0 ? (
                                 <div className="space-y-4">
                                     {recentReviews.map((review: any) => (
-                                        <Card key={review.id} className="p-4 bg-white dark:bg-gray-900/50 border-gray-100 dark:border-gray-800">
+                                        <DoctorPortalCard key={review.id} className="!p-4 bg-white dark:bg-gray-900/50">
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex text-yellow-400">
                                                     {[...Array(5)].map((_, i) => (
@@ -390,14 +390,14 @@ export default function DoctorJourneyPage() {
                                             </div>
                                             <p className="text-sm text-gray-700 dark:text-gray-300 italic">"{review.text}"</p>
                                             <p className="text-xs text-gray-500 mt-2 font-medium">— {review.patientName}</p>
-                                        </Card>
+                                        </DoctorPortalCard>
                                     ))}
                                 </div>
                             ) : (
-                                <Card className="p-8 text-center bg-gray-50 dark:bg-gray-900/50 border-dashed border-2 border-gray-200 dark:border-gray-800">
+                                <DoctorPortalCard className="!p-8 text-center bg-gray-50 dark:bg-gray-900/50 border-dashed border-2">
                                     <Star className="w-8 h-8 text-gray-400 mx-auto mb-3" />
                                     <p className="text-gray-500 font-medium">No reviews yet.</p>
-                                </Card>
+                                </DoctorPortalCard>
                             )}
                         </div>
                     </div>
@@ -405,7 +405,7 @@ export default function DoctorJourneyPage() {
 
                 {/* 5. NEXT MILESTONE */}
                 <section>
-                    <Card className="p-8 md:p-12 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-center rounded-2xl shadow-lg border-0 relative overflow-hidden">
+                    <DoctorPortalCard className="!p-8 md:!p-12 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-center rounded-2xl shadow-lg border-0 relative overflow-hidden">
                         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white opacity-10 blur-3xl"></div>
                         <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 rounded-full bg-black opacity-10 blur-2xl"></div>
                         
@@ -419,7 +419,7 @@ export default function DoctorJourneyPage() {
                                 Continue to Dashboard
                             </Button>
                         </div>
-                    </Card>
+                    </DoctorPortalCard>
                 </section>
 
             </div>

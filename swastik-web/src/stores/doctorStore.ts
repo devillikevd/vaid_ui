@@ -78,6 +78,45 @@ export interface TimeSlot {
     isClinicEnabled?: boolean;
     is_video_enabled?: boolean;
     is_clinic_enabled?: boolean;
+    slotDuration?: number;
+    bufferTime?: number;
+    consultationMode?: 'video' | 'in_person';
+    organizationType?: 'clinic' | 'hospital' | null;
+    organizationId?: string | null;
+    organizationName?: string | null;
+    departmentId?: string | null;
+    departmentName?: string | null;
+}
+
+export interface DoctorOrganizationDepartment {
+    id: string;
+    name: string;
+}
+
+export interface DoctorOrganization {
+    type: 'clinic' | 'hospital';
+    organization_type: 'clinic' | 'hospital';
+    id: string;
+    name: string;
+    image_url?: string | null;
+    address?: string | null;
+    city?: string | null;
+    consultation_fee?: number | null;
+    department?: string | null;
+    designation?: string | null;
+    departments: DoctorOrganizationDepartment[];
+    schedule?: Record<string, unknown>;
+}
+
+export interface ScheduleConflict {
+    id?: string;
+    date: string;
+    start_time: string;
+    end_time: string;
+    mode?: 'video' | 'in_person' | 'mixed';
+    organization_type?: 'clinic' | 'hospital' | null;
+    organization_id?: string | null;
+    organization_name?: string | null;
 }
 
 export interface Prescription {
@@ -164,10 +203,21 @@ export interface DoctorProfile {
 
 export interface DoctorLeave {
     id: string;
+    doctor_id?: string;
+    scope?: 'global' | 'organization';
+    organization_type?: 'clinic' | 'hospital' | null;
+    organization_id?: string | null;
+    organization_name?: string | null;
+    leave_type?: 'full_day' | 'partial_day';
     start_date: string;
     end_date: string;
-    reason?: string;
+    start_time?: string | null;
+    end_time?: string | null;
+    reason?: string | null;
+    status?: 'active' | 'cancelled';
+    affected_appointments_count?: number;
     created_at?: string;
+    updated_at?: string;
 }
 
 interface DoctorState {
@@ -185,12 +235,15 @@ interface DoctorState {
     vitals: PatientVitals[];
     reviews: DoctorReview[];
     leaves: DoctorLeave[];
+    organizations: DoctorOrganization[];
+    organizationsError: boolean;
     isLoading: boolean;
     loadingDashboard: boolean;
     loadingAppointments: boolean;
     loadingConsultations: boolean;
     loadingPatients: boolean;
     loadingSchedule: boolean;
+    loadingOrganizations: boolean;
     loadingPrescriptions: boolean;
     loadingVitals: boolean;
     loadingReviews: boolean;
@@ -212,11 +265,36 @@ interface DoctorState {
     fetchConsultations: () => Promise<void>;
     fetchPatients: (page?: number, search?: string, limit?: number, filter?: string, sort?: string) => Promise<void>;
     fetchSchedule: () => Promise<void>;
+    fetchOrganizations: () => Promise<void>;
+    createSchedule: (data: Record<string, unknown>) => Promise<{ success: boolean; conflict?: ScheduleConflict[]; message?: string }>;
+    updateScheduleById: (scheduleId: string, data: Record<string, unknown>) => Promise<boolean>;
+    disableSchedule: (scheduleId: string) => Promise<{ success: boolean; message?: string; disabled?: boolean; deleted?: boolean }>;
     fetchPrescriptions: (page?: number) => Promise<void>;
     fetchVitals: (page?: number, patientId?: string) => Promise<void>;
     fetchReviews: (page?: number) => Promise<void>;
     fetchLeaves: () => Promise<void>;
-    addLeave: (start_date: string, end_date: string, reason?: string) => Promise<boolean>;
+    checkAffectedAppointments: (data: {
+        start_date: string;
+        end_date: string;
+        scope?: 'global' | 'organization';
+        organization_type?: 'clinic' | 'hospital';
+        organization_id?: string;
+        leave_type?: 'full_day' | 'partial_day';
+        start_time?: string;
+        end_time?: string;
+    }) => Promise<{ affected_count: number; appointments: any[] } | null>;
+    addLeave: (data: {
+        start_date: string;
+        end_date: string;
+        reason?: string;
+        scope?: 'global' | 'organization';
+        organization_type?: 'clinic' | 'hospital';
+        organization_id?: string;
+        leave_type?: 'full_day' | 'partial_day';
+        start_time?: string;
+        end_time?: string;
+    }) => Promise<{ success: boolean; error?: string; data?: any }>;
+    cancelLeave: (id: string) => Promise<boolean>;
     deleteLeave: (id: string) => Promise<boolean>;
     loadMoreAppointments: (status?: string, date?: string) => Promise<void>;
     loadMorePrescriptions: () => Promise<void>;
@@ -298,6 +376,14 @@ function mapDoctorPatient(raw: any): DoctorPatient {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapTimeSlot(raw: any): TimeSlot {
     const normalizedDay = raw.slot_date || raw.slotDate || raw.date || '';
+    const isVideo = raw.consultation_mode === 'video'
+        || raw.is_video_enabled === true
+        || raw.isVideoEnabled === true;
+    const isClinic = raw.consultation_mode === 'in_person'
+        || raw.is_clinic_enabled === true
+        || raw.isClinicEnabled === true;
+
+    const mode: 'video' | 'in_person' = isClinic && !isVideo ? 'in_person' : 'video';
 
     return {
         id: raw.id,
@@ -305,6 +391,16 @@ function mapTimeSlot(raw: any): TimeSlot {
         startTime: normalizeTimeValue(raw.startTime || raw.start_time),
         endTime: normalizeTimeValue(raw.endTime || raw.end_time),
         isAvailable: raw.isAvailable ?? raw.is_active ?? raw.isActive ?? true,
+        isVideoEnabled: raw.is_video_enabled ?? raw.isVideoEnabled,
+        isClinicEnabled: raw.is_clinic_enabled ?? raw.isClinicEnabled,
+        slotDuration: raw.slot_duration ?? raw.slotDuration,
+        bufferTime: raw.buffer_time ?? raw.bufferTime,
+        consultationMode: raw.consultation_mode || mode,
+        organizationType: raw.organization_type || null,
+        organizationId: raw.organization_id || null,
+        organizationName: raw.organization_name || null,
+        departmentId: raw.department_id || null,
+        departmentName: raw.department_name || null,
     };
 }
 
@@ -326,12 +422,15 @@ const doctorInitialState = {
     vitals: [] as PatientVitals[],
     reviews: [] as DoctorReview[],
     leaves: [] as DoctorLeave[],
+    organizations: [] as DoctorOrganization[],
+    organizationsError: false,
     isLoading: false,
     loadingDashboard: false,
     loadingAppointments: false,
     loadingConsultations: false,
     loadingPatients: false,
     loadingSchedule: false,
+    loadingOrganizations: false,
     loadingPrescriptions: false,
     loadingVitals: false,
     loadingReviews: false,
@@ -413,38 +512,53 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         }
     },
 
-    addLeave: async (start_date: string, end_date: string, reason?: string) => {
+    checkAffectedAppointments: async (data) => {
         try {
-            const response = await doctorApi.addLeave({ start_date, end_date, reason });
+            const response = await doctorApi.checkAffectedAppointments(data);
+            if (response.success && response.data) {
+                return response.data as { affected_count: number; appointments: any[] };
+            }
+            return null;
+        } catch (error) {
+            console.error('Error checking affected appointments:', error);
+            return null;
+        }
+    },
+
+    addLeave: async (data) => {
+        try {
+            const response = await doctorApi.addLeave(data);
             if (response.success) {
                 get().fetchLeaves();
                 get().fetchSchedule();
+                return { success: true, data: response.data };
+            }
+            return { success: false, error: response.error || 'Failed to add leave' };
+        } catch (error: any) {
+            console.error('Error adding leave:', error);
+            return { success: false, error: error.message || 'Network error while adding leave.' };
+        }
+    },
+
+    cancelLeave: async (id: string) => {
+        try {
+            const response = await doctorApi.cancelLeave(id);
+            if (response.success) {
+                await get().fetchLeaves();
+                await get().fetchSchedule();
                 return true;
             }
-            set({ error: response.error || 'Failed to add leave' });
+            set({ error: response.error || 'Failed to cancel leave' });
             return false;
         } catch (error) {
-            console.error('Error adding leave:', error);
-            set({ error: 'Network error while adding leave.' });
+            console.error('Error cancelling leave:', error);
+            set({ error: 'Network error while cancelling leave.' });
             return false;
         }
     },
 
     deleteLeave: async (id: string) => {
-        try {
-            const response = await doctorApi.deleteLeave(id);
-            if (response.success) {
-                set({ leaves: get().leaves.filter(l => l.id !== id) });
-                get().fetchSchedule();
-                return true;
-            }
-            set({ error: response.error || 'Failed to delete leave' });
-            return false;
-        } catch (error) {
-            console.error('Error deleting leave:', error);
-            set({ error: 'Network error while deleting leave.' });
-            return false;
-        }
+        return get().cancelLeave(id);
     },
 
     fetchAppointments: async (status?: string, date?: string, page: number = 1) => {
@@ -559,6 +673,73 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         } catch (error) {
             console.error('Error fetching schedule:', error);
             set({ error: 'Failed to load schedule.', loadingSchedule: false });
+        }
+    },
+
+    fetchOrganizations: async () => {
+        set({ loadingOrganizations: true, organizationsError: false });
+        try {
+            const result = await doctorApi.getMyOrganizations();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const raw = (result.data as any) ?? [];
+            const organizations = Array.isArray(raw) ? raw as DoctorOrganization[] : [];
+            set({ organizations, loadingOrganizations: false, organizationsError: false });
+        } catch (error) {
+            console.error('Error fetching organizations:', error);
+            set({ loadingOrganizations: false, organizationsError: true });
+        }
+    },
+
+    createSchedule: async (data) => {
+        try {
+            const response = await doctorApi.createSchedule(data);
+            if (response.success) {
+                await get().fetchSchedule();
+                return { success: true };
+            }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const conflicts = (response as any)?.details?.conflicts as ScheduleConflict[] | undefined;
+            if (conflicts && conflicts.length > 0) {
+                return { success: false, conflict: conflicts, message: response.error };
+            }
+            set({ error: response.error || 'Failed to create schedule' });
+            return { success: false, message: response.error };
+        } catch (error) {
+            console.error('Error creating schedule:', error);
+            set({ error: 'Failed to create schedule.' });
+            return { success: false, message: 'Failed to create schedule.' };
+        }
+    },
+
+    updateScheduleById: async (scheduleId, data) => {
+        try {
+            const response = await doctorApi.updateScheduleById(scheduleId, data);
+            if (response.success) {
+                await get().fetchSchedule();
+                return true;
+            }
+            set({ error: response.error || 'Failed to update schedule' });
+            return false;
+        } catch (error) {
+            console.error('Error updating schedule:', error);
+            set({ error: 'Failed to update schedule.' });
+            return false;
+        }
+    },
+
+    disableSchedule: async (scheduleId) => {
+        try {
+            const response = await doctorApi.disableSchedule(scheduleId);
+            if (response.success) {
+                await get().fetchSchedule();
+                return { success: true, ...(response.data as object) };
+            }
+            set({ error: response.error || 'Failed to remove schedule' });
+            return { success: false, message: response.error };
+        } catch (error) {
+            console.error('Error removing schedule:', error);
+            set({ error: 'Failed to remove schedule.' });
+            return { success: false, message: 'Failed to remove schedule.' };
         }
     },
 

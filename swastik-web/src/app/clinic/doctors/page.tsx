@@ -1,25 +1,23 @@
+/* eslint-disable @next/next/no-img-element */
+/* eslint-disable jsx-a11y/alt-text */
 'use client';
 
-import { useCallback, useDeferredValue, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import {
     Stethoscope, Loader2, RefreshCw, AlertCircle, Search, Mail, Phone,
     UserCheck, Star, CalendarDays, Ban, BadgeCheck, Clock, UserPlus,
-    X, CheckCircle2, ChevronRight, Briefcase, Plus, Hospital, ShieldCheck
+    X, CheckCircle2, ChevronRight, Briefcase, Plus, Hospital, ShieldCheck,
+    Building2, Video, FileText, Send, AlertTriangle, ArrowRight, Check, Sparkles
 } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { useClinicStore } from '@/stores/clinicStore';
+import { useClinicStore, ClinicDoctor } from '@/stores/clinicStore';
 import { useClinicInviteUpdates } from '@/hooks/useSocket';
 import { Pagination } from '@/components/ui/Pagination';
 import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
-import { useDebounce } from '@/hooks/useDebounce';
-import { fetchWithAuth } from '@/lib/api';
 import { InviteDoctorModal } from '@/components/clinic/InviteDoctorModal';
+import { DoctorDetailModal } from '@/components/clinic/DoctorDetailModal';
 
 const PAGE_SIZE = 12;
 
@@ -40,7 +38,6 @@ export default function ClinicDoctorsPage() {
         fetchInvites,
         fetchJoinRequests,
         respondToJoinRequest,
-        addDoctor,
         cancelInvite,
         removeDoctor,
         clearError,
@@ -51,6 +48,7 @@ export default function ClinicDoctorsPage() {
         if (t === 'invites' || t === 'requests') return t as any;
         return 'roster';
     });
+
     const [page, setPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -58,7 +56,9 @@ export default function ClinicDoctorsPage() {
     const toast = useToast();
     const deferredSearchQuery = useDeferredValue(searchQuery.trim());
 
+    // Modals
     const [showInviteModal, setShowInviteModal] = useState(false);
+    const [selectedDoctorForModal, setSelectedDoctorForModal] = useState<ClinicDoctor | null>(null);
 
     const loadDoctors = useCallback(async () => {
         await fetchDoctors({
@@ -76,6 +76,13 @@ export default function ClinicDoctorsPage() {
         await fetchJoinRequests({ page: 1, limit: 50, status: 'pending' });
     }, [fetchJoinRequests]);
 
+    const refreshAll = useCallback(async () => {
+        if (tab === 'roster') await loadDoctors();
+        else if (tab === 'invites') await loadInvites();
+        else if (tab === 'requests') await loadRequests();
+    }, [loadDoctors, loadInvites, loadRequests, tab]);
+
+    // Initial and tab-dependent loads
     useEffect(() => {
         if (tab === 'roster') void loadDoctors();
     }, [loadDoctors, tab]);
@@ -92,54 +99,56 @@ export default function ClinicDoctorsPage() {
         setPage(1);
     }, [deferredSearchQuery]);
 
-    useEffect(() => {
-        if (page > doctorsPagination.totalPages && doctorsPagination.totalPages > 0) {
-            setPage(doctorsPagination.totalPages);
-        }
-    }, [doctorsPagination.totalPages, page]);
-
-    // Real-time updates
+    // Socket real-time updates
     useClinicInviteUpdates(useCallback(() => {
         void loadInvites();
         void loadDoctors();
         void loadRequests();
     }, [loadDoctors, loadInvites, loadRequests]));
 
-    const handleRemove = async (doctorId: string, name: string) => {
+    // Total today appointments across all active doctors
+    const totalTodayAppointments = useMemo(() => {
+        return doctors.reduce((acc, d) => acc + (d.todayAppointments || 0), 0);
+    }, [doctors]);
+
+    const handleRemoveDoctor = async (doc: ClinicDoctor) => {
         const confirmed = await confirm({
-            title: 'Remove Doctor',
-            message: `Are you sure you want to remove Dr. ${name} from your clinic? This will cancel their active affiliation.`,
-            confirmLabel: 'Remove',
+            title: 'End Doctor Affiliation',
+            message: `Are you sure you want to end affiliation with Dr. ${doc.name}? They will no longer be listed under your clinic's public roster or receive clinic bookings.`,
+            confirmLabel: 'End Affiliation',
             variant: 'danger',
         });
         if (confirmed) {
-            setActionLoading(doctorId);
-            const success = await removeDoctor(doctorId);
+            setActionLoading(doc.id);
+            const success = await removeDoctor(doc.doctorId || doc.id);
             if (success) {
-                toast.success('Doctor Removed', `Dr. ${name} has been removed from your clinic.`);
+                toast.success('Affiliation Ended', `Dr. ${doc.name} has been removed from your active roster.`);
+                if (selectedDoctorForModal?.id === doc.id) {
+                    setSelectedDoctorForModal(null);
+                }
                 void loadDoctors();
             } else {
-                toast.error('Failed to remove doctor', useClinicStore.getState().error || undefined);
+                toast.error('Failed to end affiliation', useClinicStore.getState().error || 'Please try again.');
             }
             setActionLoading(null);
         }
     };
 
-    const handleCancelInvite = async (inviteId: string) => {
+    const handleCancelInvite = async (inviteId: string, doctorName: string) => {
         const confirmed = await confirm({
-            title: 'Withdraw Request',
-            message: 'Are you sure you want to withdraw this invitation?',
-            confirmLabel: 'Withdraw',
+            title: 'Withdraw Invitation',
+            message: `Are you sure you want to withdraw the invitation sent to ${doctorName}?`,
+            confirmLabel: 'Withdraw Invite',
             variant: 'danger',
         });
         if (confirmed) {
             setActionLoading(inviteId);
             const success = await cancelInvite(inviteId);
             if (success) {
-                toast.success('Request Withdrawn', 'The invitation was successfully cancelled.');
+                toast.success('Invitation Withdrawn', 'The invitation was cancelled successfully.');
                 void loadInvites();
             } else {
-                toast.error('Unable to withdraw request', useClinicStore.getState().error || undefined);
+                toast.error('Unable to withdraw invite', useClinicStore.getState().error || 'Please try again.');
             }
             setActionLoading(null);
         }
@@ -149,431 +158,607 @@ export default function ClinicDoctorsPage() {
         setActionLoading(requestId);
         const success = await respondToJoinRequest(requestId, decision);
         if (success) {
-            toast.success(decision === 'accept' ? 'Request Accepted' : 'Request Rejected', `Successfully ${decision}ed join request from Dr. ${doctorName}.`);
+            toast.success(
+                decision === 'accept' ? 'Join Request Accepted' : 'Join Request Declined',
+                `Successfully ${decision === 'accept' ? 'accepted' : 'declined'} request from Dr. ${doctorName}.`
+            );
+            void loadRequests();
             if (decision === 'accept') {
                 void loadDoctors();
             }
         } else {
-            toast.error(`Unable to ${decision} request`, useClinicStore.getState().error || undefined);
+            toast.error(`Unable to ${decision} request`, useClinicStore.getState().error || 'Please try again.');
         }
         setActionLoading(null);
     };
 
+    const isLoading = (tab === 'roster' && loadingDoctors && doctors.length === 0) ||
+                      (tab === 'invites' && loadingInvites && invites.length === 0) ||
+                      (tab === 'requests' && loadingJoinRequests && joinRequests.length === 0);
+
     return (
-        <div className="space-y-6">
-            <ConfirmDialog {...dialogProps} />
-
-            {/* Page Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-6 max-w-7xl mx-auto pb-24 px-4 sm:px-6">
+            
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Doctors</h1>
-                    <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your clinic&apos;s doctors, affiliations, and invitations.</p>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                        Doctors
+                    </h1>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mt-1">
+                        Manage your clinic&apos;s doctors, affiliations, and invitations.
+                    </p>
                 </div>
-                <div className="flex gap-2">
-                    <Button 
-                        variant="outline" 
-                        onClick={() => void (tab === 'roster' ? loadDoctors() : tab === 'invites' ? loadInvites() : loadRequests())} 
-                        disabled={loadingDoctors || loadingInvites || loadingJoinRequests} 
-                        leftIcon={<RefreshCw className={`h-4 w-4 ${loadingDoctors || loadingInvites || loadingJoinRequests ? 'animate-spin' : ''}`} />}
+
+                <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+                    <button
+                        onClick={refreshAll}
+                        disabled={loadingDoctors || loadingInvites || loadingJoinRequests}
+                        className="px-4 py-2.5 rounded-2xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#111c2e] hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-800 dark:text-gray-200 font-extrabold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
                     >
-                        Refresh
-                    </Button>
-                    <Button onClick={() => setShowInviteModal(true)} leftIcon={<UserPlus className="h-4 w-4" />}>
-                        Invite Doctor
-                    </Button>
+                        <RefreshCw className={`w-3.5 h-3.5 ${loadingDoctors || loadingInvites || loadingJoinRequests ? 'animate-spin' : ''}`} />
+                        <span>Refresh</span>
+                    </button>
+
+                    <button
+                        onClick={() => setShowInviteModal(true)}
+                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-2xl font-extrabold text-xs transition-all shadow-md shadow-emerald-600/25 flex items-center gap-1.5"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Invite Doctor</span>
+                    </button>
                 </div>
             </div>
 
-            {/* Summary Metrics */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="p-4 flex items-center gap-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/20 dark:to-emerald-900/10 border-emerald-100 dark:border-emerald-900/30">
-                    <div className="h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center shrink-0">
-                        <Stethoscope className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+            {/* Error Notification */}
+            {error && (
+                <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-800 dark:text-red-300 text-xs flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                        <span>{error}</span>
                     </div>
-                    <div>
-                        <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300/80">Active Doctors</p>
-                        <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">{doctorsPagination.total}</p>
-                    </div>
-                </Card>
-                <Card className="p-4 flex items-center gap-4 bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/20 dark:to-amber-900/10 border-amber-100 dark:border-amber-900/30">
-                    <div className="h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
-                        <Mail className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300/80">Pending Invitations</p>
-                        <p className="text-2xl font-bold text-amber-900 dark:text-amber-100">{invitesPagination.total}</p>
-                    </div>
-                </Card>
-            </div>
-
-            {error ? (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    {error}
+                    <button onClick={clearError} className="p-1 hover:bg-red-100 dark:hover:bg-red-900 rounded-lg">
+                        <X className="w-3.5 h-3.5" />
+                    </button>
                 </div>
-            ) : null}
+            )}
 
-            {/* Tabs */}
-            <div className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-800">
-                <button
-                    onClick={() => setTab('roster')}
-                    className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'roster'
-                        ? 'border-pink-600 text-pink-600 dark:border-pink-500 dark:text-pink-400'
-                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
-                >
-                    Roster ({doctorsPagination.total})
-                </button>
-                <button
-                    onClick={() => setTab('invites')}
-                    className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'invites'
-                        ? 'border-pink-600 text-pink-600 dark:border-pink-500 dark:text-pink-400'
-                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
-                >
-                    Invitations ({invitesPagination.total})
-                </button>
-                <button
-                    onClick={() => setTab('requests')}
-                    className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'requests'
-                        ? 'border-pink-600 text-pink-600 dark:border-pink-500 dark:text-pink-400'
-                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
-                >
-                    Join Requests ({joinRequestsPagination.total})
-                </button>
+            {/* Real Doctor Summary Metrics */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="bg-white dark:bg-[#111c2e] p-4 sm:p-5 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3.5">
+                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 rounded-2xl text-emerald-600 dark:text-emerald-400 shrink-0">
+                        <Stethoscope className="w-6 h-6" />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-xs font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">Active Doctors</p>
+                        <p className="text-2xl font-extrabold text-gray-900 dark:text-white mt-0.5">{doctorsPagination.total || doctors.length}</p>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-[#111c2e] p-4 sm:p-5 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3.5">
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950/60 rounded-2xl text-amber-600 dark:text-amber-400 shrink-0">
+                        <Mail className="w-6 h-6" />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-xs font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">Pending Invites</p>
+                        <p className="text-2xl font-extrabold text-gray-900 dark:text-white mt-0.5">{invitesPagination.total || invites.length}</p>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-[#111c2e] p-4 sm:p-5 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3.5">
+                    <div className="p-3 bg-purple-50 dark:bg-purple-950/60 rounded-2xl text-purple-600 dark:text-purple-400 shrink-0">
+                        <FileText className="w-6 h-6" />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-xs font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">Join Requests</p>
+                        <p className="text-2xl font-extrabold text-gray-900 dark:text-white mt-0.5">{joinRequestsPagination.total || joinRequests.length}</p>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-[#111c2e] p-4 sm:p-5 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3.5">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950/60 rounded-2xl text-blue-600 dark:text-blue-400 shrink-0">
+                        <CalendarDays className="w-6 h-6" />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-xs font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">Today&apos;s Appointments</p>
+                        <p className="text-2xl font-extrabold text-gray-900 dark:text-white mt-0.5">{totalTodayAppointments}</p>
+                    </div>
+                </div>
             </div>
 
-            {tab === 'roster' ? (
-                <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-                        <div className="w-full sm:max-w-md relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            {/* Navigation Tabs & Search Controls */}
+            <div className="bg-white dark:bg-[#111c2e] rounded-3xl border border-gray-200 dark:border-gray-800 p-4 sm:p-5 shadow-sm space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    
+                    {/* Tabs */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+                        <button
+                            onClick={() => { setTab('roster'); setPage(1); }}
+                            className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all shrink-0 flex items-center gap-2 ${
+                                tab === 'roster'
+                                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                            }`}
+                        >
+                            <Stethoscope className="w-3.5 h-3.5" />
+                            <span>Active Roster</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                tab === 'roster' ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                            }`}>
+                                {doctorsPagination.total || doctors.length}
+                            </span>
+                        </button>
+
+                        <button
+                            onClick={() => { setTab('invites'); setPage(1); }}
+                            className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all shrink-0 flex items-center gap-2 ${
+                                tab === 'invites'
+                                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                            }`}
+                        >
+                            <Mail className="w-3.5 h-3.5" />
+                            <span>Pending Invites</span>
+                            {invites.length > 0 && (
+                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                    tab === 'invites' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                                }`}>
+                                    {invites.length}
+                                </span>
+                            )}
+                        </button>
+
+                        <button
+                            onClick={() => { setTab('requests'); setPage(1); }}
+                            className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all shrink-0 flex items-center gap-2 ${
+                                tab === 'requests'
+                                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                            }`}
+                        >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>Join Requests</span>
+                            {joinRequests.length > 0 && (
+                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                    tab === 'requests' ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
+                                }`}>
+                                    {joinRequests.length}
+                                </span>
+                            )}
+                        </button>
+                    </div>
+
+                    {/* Local Roster Search */}
+                    {tab === 'roster' && (
+                        <div className="relative w-full md:w-80">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search doctors by name, specialization, or email..."
+                                placeholder="Search by name, specialty, or email..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all text-gray-900 dark:text-gray-100"
+                                className="w-full pl-10 pr-9 py-2.5 text-xs font-medium rounded-2xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-[#0f172a] text-gray-900 dark:text-white placeholder:text-gray-400 focus:bg-white dark:focus:bg-[#0f172a] focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
                             />
-                        </div>
-                    </div>
-
-                    {loadingDoctors && !doctors.length ? (
-                        <div className="flex items-center justify-center py-20">
-                            <Loader2 className="h-8 w-8 text-pink-500 animate-spin" />
-                        </div>
-                    ) : doctors.length === 0 ? (
-                        <Card className="text-center py-16 px-4 bg-gray-50/50 dark:bg-gray-900/20 border-dashed">
-                            <div className="h-16 w-16 mx-auto bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
-                                <Stethoscope className="h-8 w-8 text-gray-400" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">No doctors found</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-sm mx-auto">
-                                {searchQuery ? 'Try adjusting your search criteria.' : 'Invite a doctor to start building your clinic care team.'}
-                            </p>
-                            {!searchQuery && (
-                                <Button onClick={() => setShowInviteModal(true)} className="mt-6" leftIcon={<UserPlus className="h-4 w-4" />}>
-                                    Invite Doctor
-                                </Button>
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
                             )}
-                        </Card>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {doctors.map((member) => (
-                                <Card key={member.id} className="overflow-hidden hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-800">
-                                    <div className="p-5">
-                                        <div className="flex items-start justify-between gap-3 mb-4">
-                                            <div className="flex items-center gap-3">
-                                                {member.profile_image_url ? (
-                                                    <img src={member.profile_image_url} alt={member.name} className="h-12 w-12 rounded-full object-cover border border-gray-200 dark:border-gray-700" />
-                                                ) : (
-                                                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-pink-500 to-pink-600 flex items-center justify-center shrink-0">
-                                                        <span className="text-lg font-bold text-white">{member.name.charAt(0)}</span>
-                                                    </div>
-                                                )}
-                                                <div>
-                                                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">Dr. {member.name}</h4>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{member.specialization || 'General Practice'}</p>
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={() => void handleRemove(member.id, member.name)}
-                                                disabled={actionLoading === member.id}
-                                                className="p-2 text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 dark:hover:text-red-400 rounded-lg transition-colors shrink-0"
-                                                title="Remove Doctor"
-                                            >
-                                                {actionLoading === member.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                                            </button>
-                                        </div>
-                                        
-                                        <div className="space-y-2 mb-4">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <StatusBadge status={member.verification === 'verified' ? 'approved' : 'pending'} size="sm" />
-                                                <StatusBadge status={member.is_available ? 'active' : 'inactive'} size="sm" />
-                                            </div>
-                                            <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                                                <Briefcase className="h-4 w-4 text-gray-400" />
-                                                Video + In-Person
-                                            </div>
-                                            <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                                                <CalendarDays className="h-4 w-4 text-gray-400" />
-                                                <span className="font-medium text-gray-900 dark:text-gray-100">{member.todayAppointments ?? 0}</span> appointments today
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-gray-50 dark:bg-gray-800/50 px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-sm">
-                                        <div className="flex items-center gap-3 text-gray-500">
-                                            {member.rating != null && member.rating > 0 && (
-                                                <span className="flex items-center gap-1 font-medium text-gray-700 dark:text-gray-300">
-                                                    <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
-                                                    {member.rating.toFixed(1)}
-                                                </span>
-                                            )}
-                                            {member.experience_years ? (
-                                                <span className="flex items-center gap-1">
-                                                    <Clock className="h-3.5 w-3.5" />{member.experience_years} yrs
-                                                </span>
-                                            ) : null}
-                                        </div>
-                                        <Link href={`/doctors/${member.doctorId || member.id}`}>
-                                            <Button variant="ghost" size="sm" className="h-8 px-2 text-pink-600 dark:text-pink-400 hover:text-pink-700 dark:hover:text-pink-300">
-                                                View Profile
-                                            </Button>
-                                        </Link>
-                                    </div>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
-                    {doctorsPagination.totalPages > 1 && (
-                        <div className="mt-6 flex justify-center">
-                            <Pagination
-                                currentPage={page}
-                                totalPages={doctorsPagination.totalPages}
-                                onPageChange={setPage}
-                            />
                         </div>
                     )}
                 </div>
-            ) : tab === 'invites' ? (
-                <div className="space-y-4">
-                    {loadingInvites && !invites.length ? (
-                        <div className="flex items-center justify-center py-20">
-                            <Loader2 className="h-8 w-8 text-pink-500 animate-spin" />
+            </div>
+
+            {/* TAB CONTENT: ACTIVE ROSTER */}
+            {tab === 'roster' && (
+                <div className="space-y-6">
+                    {isLoading ? (
+                        <div className="py-24 flex flex-col items-center justify-center gap-3">
+                            <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+                            <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">Loading affiliated doctors...</p>
                         </div>
-                    ) : invites.length === 0 ? (
-                        <Card className="text-center py-16 px-4 bg-gray-50/50 dark:bg-gray-900/20 border-dashed">
-                            <div className="h-16 w-16 mx-auto bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
-                                <Mail className="h-8 w-8 text-gray-400" />
+                    ) : doctors.length === 0 ? (
+                        <div className="bg-white dark:bg-[#111c2e] rounded-3xl border border-gray-200 dark:border-gray-800 p-12 text-center shadow-sm">
+                            <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/60 rounded-3xl flex items-center justify-center mx-auto mb-4 text-emerald-600 dark:text-emerald-400">
+                                <Stethoscope className="w-8 h-8" />
                             </div>
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">No pending invitations</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-sm mx-auto">
-                                Sent invitations to doctors will appear here while they are pending review.
+                            <h3 className="text-lg font-extrabold text-gray-900 dark:text-white mb-1">
+                                {searchQuery ? 'No doctors found' : 'No doctors affiliated yet'}
+                            </h3>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+                                {searchQuery 
+                                    ? `No doctors matched "${searchQuery}". Try searching another name or specialty.`
+                                    : 'Invite verified doctors to your clinic to start offering consultations and building your clinical network.'}
                             </p>
-                        </Card>
+                            <button
+                                onClick={() => setShowInviteModal(true)}
+                                className="mt-5 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-extrabold transition-all shadow-md shadow-emerald-600/20 inline-flex items-center gap-1.5"
+                            >
+                                <UserPlus className="w-4 h-4" />
+                                <span>Invite Doctor</span>
+                            </button>
+                        </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {invites.map((invite) => {
-                                const isChangesRequested = invite.status === 'changes_requested';
-                                return (
-                                    <Card 
-                                        key={invite.id} 
-                                        className={`p-5 flex flex-col hover:shadow-md transition-shadow border ${
-                                            isChangesRequested 
-                                                ? 'border-purple-200 dark:border-purple-900/40 bg-purple-50/30 dark:bg-purple-950/10 ring-1 ring-purple-500/20' 
-                                                : 'border-amber-100 dark:border-amber-900/20'
-                                        }`}
-                                    >
-                                        <div className="flex items-start justify-between gap-3 mb-3">
-                                            <div className="flex items-center gap-3">
-                                                {invite.doctor.profile_image_url ? (
-                                                    <img src={invite.doctor.profile_image_url} alt={invite.doctor.name} className="h-11 w-11 rounded-2xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm" />
-                                                ) : (
-                                                    <div className="h-11 w-11 rounded-2xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold text-sm shrink-0">
-                                                        <span>{invite.doctor.name.charAt(0)}</span>
+                        <>
+                            {/* Responsive 3-Col Desktop, 2-Col Tablet, 1-Col Mobile Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                {doctors.map((doc) => {
+                                    const ratingVal = typeof doc.rating === 'number' ? doc.rating : parseFloat(String(doc.rating || '0'));
+                                    const isBusy = actionLoading === doc.id;
+                                    const practiceTypeLabel = doc.practice_type === 'visiting' 
+                                        ? 'Visiting' 
+                                        : doc.practice_type === 'part_time' 
+                                        ? 'Part-Time' 
+                                        : doc.practice_type === 'contract' 
+                                        ? 'Contract' 
+                                        : 'Full-Time';
+
+                                    const modes = Array.isArray(doc.consultation_modes) && doc.consultation_modes.length > 0 
+                                        ? doc.consultation_modes 
+                                        : ['in_clinic', 'video'];
+
+                                    return (
+                                        <div
+                                            key={doc.id}
+                                            className="bg-white dark:bg-[#111c2e] rounded-3xl border border-gray-200 dark:border-gray-800 hover:border-emerald-300 dark:hover:border-emerald-700/80 p-5 sm:p-6 shadow-sm hover:shadow-xl transition-all flex flex-col justify-between group"
+                                        >
+                                            {/* Top Card Section: Avatar + Identity */}
+                                            <div className="space-y-4">
+                                                <div className="flex items-start gap-3.5">
+                                                    {doc.profile_image_url ? (
+                                                        <img
+                                                            src={doc.profile_image_url}
+                                                            alt={doc.name}
+                                                            className="w-14 h-14 rounded-2xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm shrink-0"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-extrabold text-lg flex items-center justify-center border border-emerald-200 dark:border-emerald-800 shadow-sm shrink-0">
+                                                            {doc.name.replace('Dr. ', '').slice(0, 2).toUpperCase()}
+                                                        </div>
+                                                    )}
+
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+                                                                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Active
+                                                            </span>
+
+                                                            {doc.is_approved && (
+                                                                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 flex items-center gap-1">
+                                                                    <ShieldCheck className="w-3 h-3 text-blue-600 dark:text-blue-400" /> Verified
+                                                                </span>
+                                                            )}
+
+                                                            <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 ml-auto">
+                                                                {practiceTypeLabel}
+                                                            </span>
+                                                        </div>
+
+                                                        <h3 className="font-extrabold text-gray-900 dark:text-white text-base leading-snug mt-1.5 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                                                            {doc.name.startsWith('Dr.') ? doc.name : `Dr. ${doc.name}`}
+                                                        </h3>
+
+                                                        <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 truncate">
+                                                            {doc.specialization}
+                                                            {Boolean(doc.experience_years && doc.experience_years > 0) && ` • ${doc.experience_years} yrs exp`}
+                                                        </p>
                                                     </div>
-                                                )}
-                                                <div>
-                                                    <h4 className="font-bold text-gray-900 dark:text-gray-100 text-sm">Dr. {invite.doctor.name}</h4>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate w-36 sm:w-48">{invite.doctor.email}</p>
+                                                </div>
+
+                                                {/* Practice & Details Row */}
+                                                <div className="p-3.5 rounded-2xl bg-gray-50 dark:bg-[#0f172a] border border-gray-100 dark:border-gray-800/80 space-y-2 text-xs">
+                                                    
+                                                    {/* Consultation Modes & Dept */}
+                                                    <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
+                                                        <span className="font-semibold text-gray-500">Modes:</span>
+                                                        <div className="flex items-center gap-1.5 font-bold text-gray-800 dark:text-gray-200">
+                                                            {modes.includes('in_clinic') && (
+                                                                <span className="flex items-center gap-0.5 text-emerald-700 dark:text-emerald-400">
+                                                                    <Building2 className="w-3 h-3" /> OPD
+                                                                </span>
+                                                            )}
+                                                            {modes.includes('video') && (
+                                                                <span className="flex items-center gap-0.5 text-blue-700 dark:text-blue-400">
+                                                                    <Video className="w-3 h-3" /> Video
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Today's Appointments & Upcoming */}
+                                                    <div className="flex items-center justify-between text-gray-600 dark:text-gray-400 pt-1 border-t border-gray-200/60 dark:border-gray-800">
+                                                        <span className="font-semibold text-gray-500">Today&apos;s Appointments:</span>
+                                                        <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                                                            {doc.todayAppointments || 0} today
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Rating & Performance */}
+                                                    <div className="flex items-center justify-between text-gray-600 dark:text-gray-400 pt-1 border-t border-gray-200/60 dark:border-gray-800">
+                                                        <span className="font-semibold text-gray-500">Rating:</span>
+                                                        <div className="flex items-center gap-1 font-bold text-gray-900 dark:text-gray-100">
+                                                            <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                                            <span>{ratingVal > 0 ? ratingVal.toFixed(1) : 'New'}</span>
+                                                            {doc.total_reviews ? <span className="text-[10px] text-gray-500 font-normal">({doc.total_reviews})</span> : null}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                                                isChangesRequested 
-                                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800' 
-                                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                                            }`}>
-                                                {isChangesRequested ? 'Changes Proposed' : 'Pending Review'}
-                                            </span>
-                                        </div>
 
-                                        {/* Doctor Counter-Proposal Note */}
-                                        {isChangesRequested && invite.counter_proposal && (
-                                            <div className="mb-3 p-3 rounded-xl bg-purple-100/60 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/40 text-xs text-purple-950 dark:text-purple-200">
-                                                <span className="font-bold block mb-0.5">Doctor's Proposed Changes:</span>
-                                                <p className="italic leading-relaxed">{invite.counter_proposal}</p>
-                                            </div>
-                                        )}
-
-                                        {/* Proposed Terms Pills */}
-                                        <div className="flex flex-wrap gap-1.5 mb-3 text-[11px]">
-                                            {invite.practice_type && (
-                                                <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 capitalize font-medium">
-                                                    {invite.practice_type.replace('_', ' ')}
-                                                </span>
-                                            )}
-                                            {invite.fee_amount ? (
-                                                <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-bold">
-                                                    ₹{invite.fee_amount}
-                                                </span>
-                                            ) : null}
-                                            {invite.start_date && (
-                                                <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 font-medium">
-                                                    Starts {new Date(invite.start_date).toLocaleDateString()}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <div className="flex items-center gap-2 mb-4 text-xs text-gray-500 dark:text-gray-400">
-                                            <Clock className="h-3.5 w-3.5 text-gray-400" />
-                                            <span>Sent {invite.createdAt ? new Date(invite.createdAt).toLocaleDateString() : 'Recently'}</span>
-                                        </div>
-
-                                        <div className="flex items-center justify-between gap-2 mt-auto pt-3 border-t border-gray-100 dark:border-gray-800">
-                                            <Button 
-                                                variant="ghost" 
-                                                size="sm" 
-                                                className="text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs"
-                                                onClick={() => void handleCancelInvite(invite.id)}
-                                                disabled={actionLoading === invite.id}
-                                                leftIcon={actionLoading === invite.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}
-                                            >
-                                                Withdraw
-                                            </Button>
-
-                                            {isChangesRequested && (
-                                                <Button
-                                                    size="sm"
-                                                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs"
-                                                    onClick={() => setShowInviteModal(true)}
+                                            {/* Card Footer Actions */}
+                                            <div className="pt-4 border-t border-gray-100 dark:border-gray-800 mt-4 grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedDoctorForModal(doc)}
+                                                    className="w-full py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 font-extrabold text-xs transition-colors shadow-sm flex items-center justify-center gap-1"
                                                 >
-                                                    Propose New Terms
-                                                </Button>
+                                                    View Details
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    disabled={isBusy}
+                                                    onClick={() => handleRemoveDoctor(doc)}
+                                                    className="w-full py-2.5 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 border border-red-200 dark:border-red-900/60 font-extrabold text-xs transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-1"
+                                                >
+                                                    {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'End Affiliation'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Pagination */}
+                            {doctorsPagination.totalPages > 1 && (
+                                <div className="pt-4">
+                                    <Pagination
+                                        currentPage={page}
+                                        totalPages={doctorsPagination.totalPages}
+                                        onPageChange={setPage}
+                                    />
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            )}
+
+            {/* TAB CONTENT: PENDING INVITATIONS */}
+            {tab === 'invites' && (
+                <div className="space-y-4">
+                    {loadingInvites && invites.length === 0 ? (
+                        <div className="py-20 flex flex-col items-center justify-center gap-3">
+                            <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+                            <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">Loading pending invitations...</p>
+                        </div>
+                    ) : invites.length === 0 ? (
+                        <div className="bg-white dark:bg-[#111c2e] rounded-3xl border border-gray-200 dark:border-gray-800 p-12 text-center shadow-sm">
+                            <div className="w-16 h-16 bg-amber-50 dark:bg-amber-950/60 rounded-3xl flex items-center justify-center mx-auto mb-4 text-amber-600 dark:text-amber-400">
+                                <Mail className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-lg font-extrabold text-gray-900 dark:text-white mb-1">
+                                No pending invitations
+                            </h3>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+                                All sent doctor invitations have been accepted or processed. You can send a new invitation anytime.
+                            </p>
+                            <button
+                                onClick={() => setShowInviteModal(true)}
+                                className="mt-5 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-extrabold transition-all shadow-md shadow-emerald-600/20 inline-flex items-center gap-1.5"
+                            >
+                                <UserPlus className="w-4 h-4" />
+                                <span>Invite Doctor</span>
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {invites.map((inv) => {
+                                const doc = inv.doctor || {};
+                                const isBusy = actionLoading === inv.id;
+                                return (
+                                    <div
+                                        key={inv.id}
+                                        className="bg-white dark:bg-[#111c2e] rounded-3xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm space-y-4"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-extrabold text-base flex items-center justify-center border border-amber-200 dark:border-amber-800 shrink-0">
+                                                    {doc.name ? doc.name.replace('Dr. ', '').slice(0, 2).toUpperCase() : 'DR'}
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="font-extrabold text-gray-900 dark:text-white text-base">
+                                                            {doc.name || 'Doctor'}
+                                                        </h3>
+                                                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                                            Invitation Sent
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mt-0.5">
+                                                        {doc.specialization || 'General'}
+                                                    </p>
+                                                    {doc.email && (
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
+                                                            <Mail className="w-3 h-3" /> {doc.email}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-3 rounded-2xl bg-gray-50 dark:bg-[#0f172a] border border-gray-100 dark:border-gray-800 text-xs space-y-1.5 text-gray-600 dark:text-gray-400">
+                                            <div className="flex justify-between">
+                                                <span>Proposed Practice:</span>
+                                                <span className="font-bold text-gray-900 dark:text-gray-100">{inv.practice_type || 'Full-Time'}</span>
+                                            </div>
+                                            {inv.fee_amount && (
+                                                <div className="flex justify-between">
+                                                    <span>Proposed Fee:</span>
+                                                    <span className="font-bold text-gray-900 dark:text-gray-100">₹{inv.fee_amount}</span>
+                                                </div>
+                                            )}
+                                            {inv.expiresAt && (
+                                                <div className="flex justify-between text-[11px] text-gray-500">
+                                                    <span>Expires:</span>
+                                                    <span>{new Date(inv.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+                                                </div>
                                             )}
                                         </div>
-                                    </Card>
+
+                                        <div className="pt-2 flex justify-end">
+                                            <button
+                                                type="button"
+                                                disabled={isBusy}
+                                                onClick={() => handleCancelInvite(inv.id, doc.name || 'Doctor')}
+                                                className="px-4 py-2 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 border border-red-200 dark:border-red-900/60 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+                                            >
+                                                {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />}
+                                                <span>Withdraw Invitation</span>
+                                            </button>
+                                        </div>
+                                    </div>
                                 );
                             })}
                         </div>
                     )}
                 </div>
-            ) : tab === 'requests' ? (
+            )}
+
+            {/* TAB CONTENT: JOIN REQUESTS */}
+            {tab === 'requests' && (
                 <div className="space-y-4">
-                    {loadingJoinRequests && !joinRequests.length ? (
-                        <div className="flex items-center justify-center py-20">
-                            <Loader2 className="h-8 w-8 text-pink-500 animate-spin" />
+                    {loadingJoinRequests && joinRequests.length === 0 ? (
+                        <div className="py-20 flex flex-col items-center justify-center gap-3">
+                            <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+                            <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">Loading join requests...</p>
                         </div>
                     ) : joinRequests.length === 0 ? (
-                        <Card className="text-center py-16 px-4 bg-gray-50/50 dark:bg-gray-900/20 border-dashed">
-                            <div className="h-16 w-16 mx-auto bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
-                                <UserPlus className="h-8 w-8 text-gray-400" />
+                        <div className="bg-white dark:bg-[#111c2e] rounded-3xl border border-gray-200 dark:border-gray-800 p-12 text-center shadow-sm">
+                            <div className="w-16 h-16 bg-purple-50 dark:bg-purple-950/60 rounded-3xl flex items-center justify-center mx-auto mb-4 text-purple-600 dark:text-purple-400">
+                                <FileText className="w-8 h-8" />
                             </div>
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">No join requests</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-sm mx-auto">
-                                Doctors who want to partner and join your clinic will appear here.
+                            <h3 className="text-lg font-extrabold text-gray-900 dark:text-white mb-1">
+                                No pending join requests
+                            </h3>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+                                When doctors discover your clinic on the Vaididea network and request to join, their proposals will appear here for review.
                             </p>
-                        </Card>
+                        </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {joinRequests.map((request: any) => (
-                                <Card key={request.id} className="p-5 flex flex-col hover:shadow-md transition-shadow border border-blue-100 dark:border-blue-900/20">
-                                    <div className="flex items-start justify-between gap-3 mb-3">
-                                        <div className="flex items-center gap-3">
-                                            {request.doctor.profile_image_url ? (
-                                                <img src={request.doctor.profile_image_url} alt={request.doctor.name} className="h-11 w-11 rounded-2xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm" />
-                                            ) : (
-                                                <div className="h-11 w-11 rounded-2xl bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center font-bold text-sm text-blue-600 dark:text-blue-400 shrink-0">
-                                                    <span>{request.doctor.name.charAt(0)}</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {joinRequests.map((req) => {
+                                const doc = req.doctor || {};
+                                const isBusy = actionLoading === req.id;
+                                return (
+                                    <div
+                                        key={req.id}
+                                        className="bg-white dark:bg-[#111c2e] rounded-3xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm space-y-4"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 font-extrabold text-base flex items-center justify-center border border-purple-200 dark:border-purple-800 shrink-0">
+                                                    {doc.name ? doc.name.replace('Dr. ', '').slice(0, 2).toUpperCase() : 'DR'}
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="font-extrabold text-gray-900 dark:text-white text-base">
+                                                            {doc.name || 'Doctor'}
+                                                        </h3>
+                                                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                                            Join Request
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mt-0.5">
+                                                        {doc.specialization || 'Doctor'}
+                                                    </p>
+                                                    {doc.email && (
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
+                                                            <Mail className="w-3 h-3" /> {doc.email}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {req.message && (
+                                            <div className="p-3 rounded-2xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 text-xs text-gray-700 dark:text-gray-300">
+                                                <span className="font-bold text-purple-900 dark:text-purple-300 block mb-0.5">Doctor Message:</span>
+                                                <p className="italic">{req.message}</p>
+                                            </div>
+                                        )}
+
+                                        <div className="p-3 rounded-2xl bg-gray-50 dark:bg-[#0f172a] border border-gray-100 dark:border-gray-800 text-xs space-y-1.5 text-gray-600 dark:text-gray-400">
+                                            {req.practice_type && (
+                                                <div className="flex justify-between">
+                                                    <span>Practice Type:</span>
+                                                    <span className="font-bold text-gray-900 dark:text-gray-100">{req.practice_type}</span>
                                                 </div>
                                             )}
-                                            <div>
-                                                <h4 className="font-bold text-gray-900 dark:text-gray-100 text-sm">Dr. {request.doctor.name}</h4>
-                                                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium truncate w-36 sm:w-48">{request.doctor.specialization || request.specialization || 'Consultant Doctor'}</p>
-                                            </div>
+                                            {req.preferred_days && req.preferred_days.length > 0 && (
+                                                <div className="flex justify-between">
+                                                    <span>Preferred Days:</span>
+                                                    <span className="font-bold text-gray-900 dark:text-gray-100">{req.preferred_days.join(', ')}</span>
+                                                </div>
+                                            )}
+                                            {req.preferred_start_time && (
+                                                <div className="flex justify-between">
+                                                    <span>Preferred Hours:</span>
+                                                    <span className="font-bold text-gray-900 dark:text-gray-100">{req.preferred_start_time} - {req.preferred_end_time}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="pt-2 grid grid-cols-2 gap-2">
+                                            <button
+                                                type="button"
+                                                disabled={isBusy}
+                                                onClick={() => handleRespondRequest(req.id, doc.name || 'Doctor', 'reject')}
+                                                className="w-full py-2.5 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 border border-red-200 dark:border-red-900/60 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-1"
+                                            >
+                                                Decline
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                disabled={isBusy}
+                                                onClick={() => handleRespondRequest(req.id, doc.name || 'Doctor', 'accept')}
+                                                className="w-full py-2.5 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50 flex items-center justify-center gap-1"
+                                            >
+                                                {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                                <span>Accept Request</span>
+                                            </button>
                                         </div>
                                     </div>
-
-                                    {/* Request Terms Breakdown */}
-                                    <div className="space-y-2 mb-3 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-2xl border border-gray-100 dark:border-gray-800 text-xs">
-                                        {request.practice_type && (
-                                            <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
-                                                <span>Practice Type:</span>
-                                                <span className="font-bold text-gray-900 dark:text-white capitalize">{request.practice_type.replace('_', ' ')}</span>
-                                            </div>
-                                        )}
-                                        {request.preferred_days?.length ? (
-                                            <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
-                                                <span>Preferred Days:</span>
-                                                <span className="font-bold text-gray-900 dark:text-white">{request.preferred_days.join(', ')}</span>
-                                            </div>
-                                        ) : null}
-                                        {request.preferred_start_time && request.preferred_end_time && (
-                                            <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
-                                                <span>Hours:</span>
-                                                <span className="font-bold text-gray-900 dark:text-white">{request.preferred_start_time} - {request.preferred_end_time}</span>
-                                            </div>
-                                        )}
-                                        {request.start_date && (
-                                            <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
-                                                <span>Start Date:</span>
-                                                <span className="font-bold text-gray-900 dark:text-white">{new Date(request.start_date).toLocaleDateString()}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    
-                                    {request.message && (
-                                        <div className="mb-3 text-xs text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-900/80 p-3 rounded-xl border border-gray-100 dark:border-gray-800 italic leading-relaxed">
-                                            "{request.message}"
-                                        </div>
-                                    )}
-
-                                    <div className="flex items-center gap-2 mb-3 text-xs text-gray-400">
-                                        <Clock className="h-3.5 w-3.5 text-blue-500" />
-                                        <span>Requested {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'Recently'}</span>
-                                    </div>
-
-                                    <div className="flex gap-2 mt-auto pt-3 border-t border-gray-100 dark:border-gray-800">
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm"
-                                            className="flex-1 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 font-bold text-xs rounded-xl"
-                                            onClick={() => void handleRespondRequest(request.id, request.doctor.name, 'reject')}
-                                            disabled={actionLoading === request.id}
-                                        >
-                                            Decline
-                                        </Button>
-                                        <Button 
-                                            size="sm"
-                                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm"
-                                            onClick={() => void handleRespondRequest(request.id, request.doctor.name, 'accept')}
-                                            disabled={actionLoading === request.id}
-                                        >
-                                            Accept & Affiliate
-                                        </Button>
-                                    </div>
-                                </Card>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
-            ) : null}
+            )}
 
             {/* Invite Doctor Modal */}
-            <InviteDoctorModal 
-                isOpen={showInviteModal} 
+            <InviteDoctorModal
+                isOpen={showInviteModal}
                 onClose={() => {
                     setShowInviteModal(false);
-                    void loadInvites(); // Reload invites in case a new one was added
-                }} 
+                    void loadInvites();
+                    void loadDoctors();
+                }}
             />
+
+            {/* Doctor Detail Modal */}
+            <DoctorDetailModal
+                isOpen={!!selectedDoctorForModal}
+                onClose={() => setSelectedDoctorForModal(null)}
+                doctor={selectedDoctorForModal}
+                onEndAffiliation={(doc) => handleRemoveDoctor(doc)}
+            />
+
+            <ConfirmDialog {...dialogProps} />
         </div>
     );
 }

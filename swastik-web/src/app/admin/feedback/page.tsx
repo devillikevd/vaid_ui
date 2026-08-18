@@ -14,7 +14,7 @@ export default function AdminFeedbackDashboard() {
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
   
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ status: '', type: '', category: '', search: '' });
+  const [filters, setFilters] = useState({ status: '', type: '', category: '', userRole: '', search: '' });
   
   const [selectedFeedback, setSelectedFeedback] = useState<any | null>(null);
   const [adminResponse, setAdminResponse] = useState('');
@@ -23,7 +23,7 @@ export default function AdminFeedbackDashboard() {
 
   useEffect(() => {
     fetchFeedback();
-  }, [pagination.page, filters.status, filters.type, filters.category]);
+  }, [pagination.page, filters.status, filters.type, filters.category, filters.userRole]);
 
   // Debounced Search
   useEffect(() => {
@@ -91,7 +91,7 @@ export default function AdminFeedbackDashboard() {
                         Admin Feedback Center
                     </h1>
                     <p className="mt-2 text-gray-600 dark:text-gray-400">
-                        Review, manage, and respond to internal doctor feedback.
+                        Review, manage, and respond to platform suggestions, bugs, and feedback from doctors, patients, and healthcare facilities.
                     </p>
                 </div>
                 <button 
@@ -138,6 +138,19 @@ export default function AdminFeedbackDashboard() {
                         className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-[#1a2332] border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
                     />
                 </div>
+                <select 
+                    value={filters.userRole}
+                    onChange={(e) => setFilters(f => ({ ...f, userRole: e.target.value }))}
+                    className="w-full sm:w-auto px-4 py-2 bg-gray-50 dark:bg-[#1a2332] border border-gray-200 dark:border-gray-700 rounded-xl outline-none"
+                >
+                    <option value="">All User Roles</option>
+                    <option value="doctor">Doctors</option>
+                    <option value="patient">Patients</option>
+                    <option value="clinic">Clinics</option>
+                    <option value="hospital">Hospitals</option>
+                    <option value="pharmacy">Pharmacies</option>
+                    <option value="diagnostic_center">Diagnostic Centers</option>
+                </select>
                 <select 
                     value={filters.status}
                     onChange={(e) => setFilters(f => ({ ...f, status: e.target.value }))}

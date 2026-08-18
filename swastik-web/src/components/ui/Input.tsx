@@ -42,6 +42,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                         aria-describedby={errorId}
                         className={cn(
                             'w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 font-medium placeholder:text-gray-500 dark:placeholder:text-gray-400',
+                            'transition-colors hover:border-gray-400 dark:hover:border-gray-500',
                             'focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:focus:ring-primary-500/30',
                             'disabled:bg-gray-50 disabled:cursor-not-allowed dark:disabled:bg-gray-800/50',
                             error && 'border-red-500 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500 dark:focus:ring-red-500/30',

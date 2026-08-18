@@ -46,7 +46,7 @@ const DOCTOR_CONFIG: DashboardConfig = {
         { name: 'Vitals',          href: '/doctor/vitals',            icon: Activity,                section: 'Clinical Work' },
         { name: 'Health Alerts',   href: '/doctor/health-alerts',     icon: Radar,                   section: 'Clinical Work' },
         { name: 'Schedule',        href: '/doctor/schedule',          icon: Clock,                   section: 'Management' },
-        { name: 'Community Q&A',   href: '/doctor/community',         icon: MessageCircleQuestion,   section: 'Management' },
+        { name: 'Community Q&A',   href: '/doctor/community',         icon: MessageCircleQuestion,   section: 'Community' },
         { name: 'Reviews',         href: '/doctor/reviews',           icon: Star,                    section: 'Management' },
         { name: 'Earnings',        href: '/doctor/earnings',          icon: IndianRupee,             section: 'Management' },
         { name: 'Feedback',        href: '/doctor/feedback',          icon: MessageSquare,           section: 'Account' },

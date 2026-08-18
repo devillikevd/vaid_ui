@@ -78,6 +78,8 @@ export interface DashboardConfig {
     showFullDropdown?: boolean;
     /** Settings page href (only used if showFullDropdown is true) */
     settingsHref?: string;
+    /** Profile page href (only used if showFullDropdown is true) */
+    profileHref?: string;
     /** Default user display name fallback */
     userDisplayName?: string;
     /**
@@ -91,7 +93,7 @@ export interface DashboardConfig {
 // ----- Color Mapping -----
 
 // Inline theme option button used inside profile dropdown
-function ThemeOptionButton({ value, Icon }: { value: 'light' | 'dark' | 'system'; Icon: LucideIcon }) {
+function ThemeOptionButton({ value, Icon, activeClass }: { value: 'light' | 'dark' | 'system'; Icon: LucideIcon; activeClass?: string }) {
     const { theme, setTheme } = useTheme();
     const isActive = theme === value;
     const labels = { light: '☀️ Light', dark: '🌙 Dark', system: '💻 System' };
@@ -101,7 +103,7 @@ function ThemeOptionButton({ value, Icon }: { value: 'light' | 'dark' | 'system'
             className={cn(
                 'flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all',
                 isActive
-                    ? 'bg-emerald-500 text-white shadow-sm'
+                    ? (activeClass || 'bg-emerald-500 text-white shadow-sm')
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
             )}
         >
@@ -121,88 +123,176 @@ const COLOR_CLASSES: Record<string, {
     avatar: string;
     spinner: string;
     logoBg: string;
+    indicator: string;
+    activeIcon: string;
+    hoverIcon: string;
+    dropdownHeaderBg: string;
+    dropdownAvatarBorder: string;
+    dropdownAvatarText: string;
+    dropdownIconHover: string;
+    themeActiveBg: string;
+    searchRing: string;
+    searchIconFocus: string;
+    searchResultHover: string;
 }> = {
-    blue: {
-        sidebar: 'bg-blue-900',
-        border: 'border-blue-800',
-        active: 'bg-blue-700 text-white',
-        text: 'text-blue-100',
-        hover: 'hover:bg-blue-800',
-        avatar: 'bg-blue-600',
-        spinner: 'border-blue-600',
-        logoBg: 'bg-blue-700',
-    },
     emerald: {
         sidebar: 'bg-white dark:bg-[#0B1020]',
         border: 'border-gray-200 dark:border-gray-800/60',
-        active: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-        text: 'text-gray-600 dark:text-gray-400',
-        hover: 'hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-200',
+        active: 'bg-emerald-500/[0.08] text-emerald-700 dark:bg-emerald-500/[0.14] dark:text-emerald-300 font-semibold',
+        text: 'text-gray-700 dark:text-gray-300',
+        hover: 'hover:bg-emerald-500/[0.04] dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white',
         avatar: 'bg-emerald-600',
         spinner: 'border-emerald-600',
         logoBg: 'bg-emerald-100 dark:bg-emerald-600/20',
-    },
-    teal: {
-        sidebar: 'bg-teal-900',
-        border: 'border-teal-800',
-        active: 'bg-teal-700 text-white',
-        text: 'text-teal-100',
-        hover: 'hover:bg-teal-800',
-        avatar: 'bg-teal-600',
-        spinner: 'border-teal-600',
-        logoBg: 'bg-teal-700',
-    },
-    orange: {
-        sidebar: 'bg-orange-900',
-        border: 'border-orange-800',
-        active: 'bg-orange-700 text-white',
-        text: 'text-orange-100',
-        hover: 'hover:bg-orange-800',
-        avatar: 'bg-orange-600',
-        spinner: 'border-orange-600',
-        logoBg: 'bg-orange-700',
+        indicator: 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
+        activeIcon: 'text-emerald-600 dark:text-emerald-400',
+        hoverIcon: 'group-hover:text-emerald-600 dark:group-hover:text-emerald-400',
+        dropdownHeaderBg: 'from-emerald-500/10 to-transparent',
+        dropdownAvatarBorder: 'from-emerald-500 to-emerald-700',
+        dropdownAvatarText: 'text-emerald-600 dark:text-emerald-400',
+        dropdownIconHover: 'group-hover:text-emerald-600 dark:group-hover:text-emerald-400',
+        themeActiveBg: 'bg-emerald-500 text-white shadow-sm',
+        searchRing: '${colors.searchRing}',
+        searchIconFocus: '${colors.searchIconFocus}',
+        searchResultHover: '${colors.searchResultHover}',
     },
     pink: {
-        sidebar: 'bg-pink-900',
-        border: 'border-pink-800',
-        active: 'bg-pink-700 text-white',
-        text: 'text-pink-100',
-        hover: 'hover:bg-pink-800',
+        sidebar: 'bg-white dark:bg-[#0B1020]',
+        border: 'border-gray-200 dark:border-gray-800/60',
+        active: 'bg-pink-500/[0.08] text-pink-700 dark:bg-pink-500/[0.14] dark:text-pink-300 font-semibold',
+        text: 'text-gray-700 dark:text-gray-300',
+        hover: 'hover:bg-pink-500/[0.04] dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white',
         avatar: 'bg-pink-600',
         spinner: 'border-pink-600',
-        logoBg: 'bg-pink-700',
+        logoBg: 'bg-pink-100 dark:bg-pink-600/20',
+        indicator: 'bg-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.5)]',
+        activeIcon: 'text-pink-600 dark:text-pink-400',
+        hoverIcon: 'group-hover:text-pink-600 dark:group-hover:text-pink-400',
+        dropdownHeaderBg: 'from-pink-500/10 to-transparent',
+        dropdownAvatarBorder: 'from-pink-500 to-rose-600',
+        dropdownAvatarText: 'text-pink-600 dark:text-pink-400',
+        dropdownIconHover: 'group-hover:text-pink-600 dark:group-hover:text-pink-400',
+        themeActiveBg: 'bg-pink-500 text-white shadow-sm',
+        searchRing: 'focus:ring-pink-500 focus:border-pink-400',
+        searchIconFocus: 'group-focus-within:text-pink-600 dark:group-focus-within:text-pink-500',
+        searchResultHover: 'hover:bg-pink-50 dark:hover:bg-pink-900/20 hover:text-pink-700 dark:hover:text-pink-400',
+    },
+    blue: {
+        sidebar: 'bg-white dark:bg-[#0B1020]',
+        border: 'border-gray-200 dark:border-gray-800/60',
+        active: 'bg-blue-500/[0.08] text-blue-700 dark:bg-blue-500/[0.14] dark:text-blue-300 font-semibold',
+        text: 'text-gray-700 dark:text-gray-300',
+        hover: 'hover:bg-blue-500/[0.04] dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white',
+        avatar: 'bg-blue-600',
+        spinner: 'border-blue-600',
+        logoBg: 'bg-blue-100 dark:bg-blue-600/20',
+        indicator: 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]',
+        activeIcon: 'text-blue-600 dark:text-blue-400',
+        hoverIcon: 'group-hover:text-blue-600 dark:group-hover:text-blue-400',
+        dropdownHeaderBg: 'from-blue-500/10 to-transparent',
+        dropdownAvatarBorder: 'from-blue-500 to-blue-700',
+        dropdownAvatarText: 'text-blue-600 dark:text-blue-400',
+        dropdownIconHover: 'group-hover:text-blue-600 dark:group-hover:text-blue-400',
+        themeActiveBg: 'bg-blue-500 text-white shadow-sm',
+        searchRing: 'focus:ring-blue-500 focus:border-blue-400',
+        searchIconFocus: 'group-focus-within:text-blue-600 dark:group-focus-within:text-blue-500',
+        searchResultHover: 'hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-400',
+    },
+    teal: {
+        sidebar: 'bg-white dark:bg-[#0B1020]',
+        border: 'border-gray-200 dark:border-gray-800/60',
+        active: 'bg-teal-500/[0.08] text-teal-700 dark:bg-teal-500/[0.14] dark:text-teal-300 font-semibold',
+        text: 'text-gray-700 dark:text-gray-300',
+        hover: 'hover:bg-teal-500/[0.04] dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white',
+        avatar: 'bg-teal-600',
+        spinner: 'border-teal-600',
+        logoBg: 'bg-teal-100 dark:bg-teal-600/20',
+        indicator: 'bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.5)]',
+        activeIcon: 'text-teal-600 dark:text-teal-400',
+        hoverIcon: 'group-hover:text-teal-600 dark:group-hover:text-teal-400',
+        dropdownHeaderBg: 'from-teal-500/10 to-transparent',
+        dropdownAvatarBorder: 'from-teal-500 to-teal-700',
+        dropdownAvatarText: 'text-teal-600 dark:text-teal-400',
+        dropdownIconHover: 'group-hover:text-teal-600 dark:group-hover:text-teal-400',
+        themeActiveBg: 'bg-teal-500 text-white shadow-sm',
+        searchRing: 'focus:ring-teal-500 focus:border-teal-400',
+        searchIconFocus: 'group-focus-within:text-teal-600 dark:group-focus-within:text-teal-500',
+        searchResultHover: 'hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-700 dark:hover:text-teal-400',
+    },
+    orange: {
+        sidebar: 'bg-white dark:bg-[#0B1020]',
+        border: 'border-gray-200 dark:border-gray-800/60',
+        active: 'bg-orange-500/[0.08] text-orange-700 dark:bg-orange-500/[0.14] dark:text-orange-300 font-semibold',
+        text: 'text-gray-700 dark:text-gray-300',
+        hover: 'hover:bg-orange-500/[0.04] dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white',
+        avatar: 'bg-orange-600',
+        spinner: 'border-orange-600',
+        logoBg: 'bg-orange-100 dark:bg-orange-600/20',
+        indicator: 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]',
+        activeIcon: 'text-orange-600 dark:text-orange-400',
+        hoverIcon: 'group-hover:text-orange-600 dark:group-hover:text-orange-400',
+        dropdownHeaderBg: 'from-orange-500/10 to-transparent',
+        dropdownAvatarBorder: 'from-orange-500 to-orange-700',
+        dropdownAvatarText: 'text-orange-600 dark:text-orange-400',
+        dropdownIconHover: 'group-hover:text-orange-600 dark:group-hover:text-orange-400',
+        themeActiveBg: 'bg-orange-500 text-white shadow-sm',
+        searchRing: 'focus:ring-orange-500 focus:border-orange-400',
+        searchIconFocus: 'group-focus-within:text-orange-600 dark:group-focus-within:text-orange-500',
+        searchResultHover: 'hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-700 dark:hover:text-orange-400',
     },
     purple: {
-        sidebar: 'bg-purple-900',
-        border: 'border-purple-800',
-        active: 'bg-purple-700 text-white',
-        text: 'text-purple-100',
-        hover: 'hover:bg-purple-800',
+        sidebar: 'bg-white dark:bg-[#0B1020]',
+        border: 'border-gray-200 dark:border-gray-800/60',
+        active: 'bg-purple-500/[0.08] text-purple-700 dark:bg-purple-500/[0.14] dark:text-purple-300 font-semibold',
+        text: 'text-gray-700 dark:text-gray-300',
+        hover: 'hover:bg-purple-500/[0.04] dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white',
         avatar: 'bg-purple-600',
         spinner: 'border-purple-600',
-        logoBg: 'bg-purple-700',
+        logoBg: 'bg-purple-100 dark:bg-purple-600/20',
+        indicator: 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]',
+        activeIcon: 'text-purple-600 dark:text-purple-400',
+        hoverIcon: 'group-hover:text-purple-600 dark:group-hover:text-purple-400',
+        dropdownHeaderBg: 'from-purple-500/10 to-transparent',
+        dropdownAvatarBorder: 'from-purple-500 to-purple-700',
+        dropdownAvatarText: 'text-purple-600 dark:text-purple-400',
+        dropdownIconHover: 'group-hover:text-purple-600 dark:group-hover:text-purple-400',
+        themeActiveBg: 'bg-purple-500 text-white shadow-sm',
+        searchRing: 'focus:ring-purple-500 focus:border-purple-400',
+        searchIconFocus: 'group-focus-within:text-purple-600 dark:group-focus-within:text-purple-500',
+        searchResultHover: 'hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-700 dark:hover:text-purple-400',
     },
     lime: {
-        sidebar: 'bg-lime-950',
-        border: 'border-lime-900',
-        active: 'bg-lime-700 text-white',
-        text: 'text-lime-100',
-        hover: 'hover:bg-lime-900',
+        sidebar: 'bg-white dark:bg-[#0B1020]',
+        border: 'border-gray-200 dark:border-gray-800/60',
+        active: 'bg-lime-500/[0.08] text-lime-700 dark:bg-lime-500/[0.14] dark:text-lime-300 font-semibold',
+        text: 'text-gray-700 dark:text-gray-300',
+        hover: 'hover:bg-lime-500/[0.04] dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white',
         avatar: 'bg-lime-600',
         spinner: 'border-lime-600',
-        logoBg: 'bg-lime-700',
+        logoBg: 'bg-lime-100 dark:bg-lime-600/20',
+        indicator: 'bg-lime-500 shadow-[0_0_8px_rgba(132,204,22,0.5)]',
+        activeIcon: 'text-lime-600 dark:text-lime-400',
+        hoverIcon: 'group-hover:text-lime-600 dark:group-hover:text-lime-400',
+        dropdownHeaderBg: 'from-lime-500/10 to-transparent',
+        dropdownAvatarBorder: 'from-lime-500 to-lime-700',
+        dropdownAvatarText: 'text-lime-600 dark:text-lime-400',
+        dropdownIconHover: 'group-hover:text-lime-600 dark:group-hover:text-lime-400',
+        themeActiveBg: 'bg-lime-500 text-white shadow-sm',
+        searchRing: 'focus:ring-lime-500 focus:border-lime-400',
+        searchIconFocus: 'group-focus-within:text-lime-600 dark:group-focus-within:text-lime-500',
+        searchResultHover: 'hover:bg-lime-50 dark:hover:bg-lime-900/20 hover:text-lime-700 dark:hover:text-lime-400',
     },
-};
+}
 
 // Subtitle color classes (needs dynamic shade)
 const SUBTITLE_CLASSES: Record<string, string> = {
-    blue: 'text-blue-300',
-    emerald: 'text-emerald-300',
-    teal: 'text-teal-300',
-    orange: 'text-orange-300',
-    pink: 'text-pink-300',
-    purple: 'text-purple-300',
-    lime: 'text-lime-300',
+    blue: 'text-blue-500 dark:text-blue-400',
+    emerald: 'text-emerald-500 dark:text-emerald-400',
+    teal: 'text-teal-500 dark:text-teal-400',
+    orange: 'text-orange-500 dark:text-orange-400',
+    pink: 'text-pink-500 dark:text-pink-400',
+    purple: 'text-purple-500 dark:text-purple-400',
+    lime: 'text-lime-500 dark:text-lime-400',
 };
 
 function stringValue(value: unknown): string | null {
@@ -411,7 +501,10 @@ export function BaseDashboardLayout({
     const allowedRoles = Array.isArray(config.role) ? config.role : [config.role];
     const roleMatches = user?.role != null && (
         allowedRoles.includes(user.role) ||
-        (allowedRoles.includes('admin') && user.role === 'super_admin')
+        (allowedRoles.includes('admin') && user.role === 'super_admin') ||
+        // Pharmacy member roles: match if any pharmacy role is in allowedRoles
+        ((allowedRoles.includes('pharmacy_owner') || allowedRoles.includes('pharmacy_manager') || allowedRoles.includes('pharmacy_staff')) &&
+            (user.role === 'pharmacy_manager' || user.role === 'pharmacy_staff'))
     );
 
     // Calculate dynamic stats for doctor dropdown
@@ -426,6 +519,7 @@ export function BaseDashboardLayout({
     const normalizedApprovalStatus = user?.approval_status === 'under_review' ? 'review' : user?.approval_status;
 
     const [isMounted, setIsMounted] = useState(false);
+    const { isLoggingOut, setLoggingOut } = useAuthStore();
 
     useEffect(() => {
         setIsMounted(true);
@@ -442,8 +536,14 @@ export function BaseDashboardLayout({
     }
 
     const handleLogout = () => {
+        if (isLoggingOut) return;
+        setLoggingOut(true);
+        // 1. Resolve target login path BEFORE clearing auth state
+        const targetPath = config.loginPath;
+        // 2. Clear auth/session state
         logout();
-        router.push(config.loginPath);
+        // 3. Redirect using router.replace to purge history
+        router.replace(targetPath);
     };
 
     const handleNotificationClick = (notification: Notification) => {
@@ -525,17 +625,15 @@ export function BaseDashboardLayout({
                 {/* Logo */}
                 <div className={cn('flex-none flex items-center h-16 px-4 border-b', colors.border, desktopCollapsed ? 'justify-center' : 'justify-between')}>
                     <div className={cn("flex items-center gap-3 overflow-hidden", desktopCollapsed ? "lg:hidden" : "")}>
-                        <div className="shrink-0 flex items-center justify-center bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-1">
-                            <VaidideaLogo className="w-8 h-8" />
-                        </div>
-                        <div className="whitespace-nowrap">
-                            <h1 className="font-bold text-[15px] text-gray-900 dark:text-white tracking-tight">{config.portalTitle}</h1>
-                            <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">{config.portalSubtitle}</p>
+                        <VaidideaLogo className="w-9 h-9 shrink-0" />
+                        <div className="whitespace-nowrap min-w-0">
+                            <h1 className="font-bold text-[15px] text-gray-900 dark:text-white tracking-tight leading-tight">{config.portalTitle}</h1>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium mt-0.5">{config.portalSubtitle}</p>
                         </div>
                     </div>
                     {desktopCollapsed && (
-                        <div className="shrink-0 hidden lg:flex items-center justify-center bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-1">
-                            <VaidideaLogo className="w-8 h-8" />
+                        <div className="shrink-0 hidden lg:flex items-center justify-center">
+                            <VaidideaLogo className="w-9 h-9" />
                         </div>
                     )}
                     <div className="flex shrink-0 items-center gap-1">
@@ -570,7 +668,7 @@ export function BaseDashboardLayout({
                             <div key={sectionName || 'default'} className="space-y-0.5">
                                 {sectionName && (
                                     <div className={cn(
-                                        "px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] whitespace-nowrap text-gray-400 dark:text-gray-600",
+                                        "px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] whitespace-nowrap text-gray-500 dark:text-gray-400",
                                         desktopCollapsed ? "lg:hidden" : ""
                                     )}>
                                         {sectionName}
@@ -591,7 +689,7 @@ export function BaseDashboardLayout({
                                             onClick={item.onClick}
                                             title={desktopCollapsed ? item.name : undefined}
                                             className={cn(
-                                                'relative flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group',
+                                                'relative flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
                                                 desktopCollapsed ? 'lg:justify-center px-3 lg:px-0 lg:py-3' : 'px-3',
                                                 isActive
                                                     ? colors.active
@@ -600,11 +698,16 @@ export function BaseDashboardLayout({
                                         >
                                             {/* Active left indicator */}
                                             {isActive && (
-                                                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-emerald-500 rounded-r-full shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                                                <span className={cn(
+                                                    "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
+                                                    colors.indicator
+                                                )} />
                                             )}
                                             <Icon className={cn(
-                                                'h-[18px] w-[18px] shrink-0 transition-colors duration-200',
-                                                isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400'
+                                                'h-[18px] w-[18px] shrink-0 transition-colors duration-150',
+                                                isActive 
+                                                    ? (colors.activeIcon) 
+                                                    : cn('text-gray-500 dark:text-gray-400', colors.hoverIcon)
                                             )} />
                                             <span className={cn("whitespace-nowrap font-medium", desktopCollapsed ? "lg:hidden" : "")}>{item.name}</span>
 
@@ -676,7 +779,7 @@ export function BaseDashboardLayout({
                     {/* Search Bar */}
                     <div ref={searchRef} className="relative hidden md:flex flex-1 max-w-sm lg:max-w-md mx-4">
                         <div className="relative w-full group">
-                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-gray-400 group-focus-within:text-emerald-600 dark:group-focus-within:text-emerald-500 transition-colors pointer-events-none" />
+                            <Search className={cn("absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-gray-400 transition-colors pointer-events-none", colors.searchIconFocus)} />
                             <input
                                 ref={searchInputRef}
                                 type="text"
@@ -692,7 +795,7 @@ export function BaseDashboardLayout({
                                         setSearchQuery('');
                                     }
                                 }}
-                                className="w-full pl-10 pr-14 py-2.5 text-sm rounded-xl bg-gray-100 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 focus:bg-white dark:focus:bg-gray-800 transition-all shadow-sm"
+                                className={cn("w-full pl-10 pr-14 py-2.5 text-sm rounded-xl bg-gray-100 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:bg-white dark:focus:bg-gray-800 transition-all shadow-sm", colors.searchRing)}
                             />
                             {searchQuery && (
                                 <button
@@ -714,7 +817,7 @@ export function BaseDashboardLayout({
                                             return (
                                                 <li key={item.href}>
                                                     <button
-                                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors text-left"
+                                                        className={cn("w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 transition-colors text-left", colors.searchResultHover)}
                                                         onClick={() => {
                                                             router.push(item.href);
                                                             setSearchOpen(false);
@@ -805,12 +908,12 @@ export function BaseDashboardLayout({
                                             <>
                                                 <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">
                                                     {/* Premium Doctor Header */}
-                                                    <div className="p-6 bg-gradient-to-b from-emerald-500/10 to-transparent border-b border-gray-200 dark:border-gray-800">
+                                                    <div className={cn("p-6 bg-gradient-to-b border-b border-gray-200 dark:border-gray-800", colors.dropdownHeaderBg)}>
                                                         <div className="flex items-center gap-4">
                                                             <div className="relative shrink-0">
-                                                                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 p-[2px]">
+                                                                <div className={cn("h-16 w-16 rounded-full bg-gradient-to-br p-[2px]", colors.dropdownAvatarBorder)}>
                                                                     <div className="h-full w-full rounded-full bg-white dark:bg-[#0B1020] flex items-center justify-center">
-                                                                        <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{getInitials(displayName)}</span>
+                                                                        <span className={cn("text-xl font-bold", colors.dropdownAvatarText)}>{getInitials(displayName)}</span>
                                                                     </div>
                                                                 </div>
                                                                 <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-white dark:bg-[#0B1020] rounded-full flex items-center justify-center">
@@ -874,7 +977,7 @@ export function BaseDashboardLayout({
                                                             {(['light', 'dark', 'system'] as const).map((t) => {
                                                                 const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
                                                                 return (
-                                                                    <ThemeOptionButton key={t} value={t} Icon={Icon} />
+                                                                    <ThemeOptionButton key={t} value={t} Icon={Icon} activeClass={colors.themeActiveBg} />
                                                                 );
                                                             })}
                                                         </div>
@@ -884,15 +987,15 @@ export function BaseDashboardLayout({
                                                     <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
                                                         <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Profile</div>
                                                         <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <UserIcon className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <UserIcon className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">View Profile</span>
                                                         </Link>
                                                         <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <Edit2 className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <Edit2 className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Edit Profile</span>
                                                         </Link>
                                                         <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <FileText className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <FileText className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Professional Details</span>
                                                         </Link>
                                                     </div>
@@ -900,23 +1003,23 @@ export function BaseDashboardLayout({
                                                     <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
                                                         <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Account</div>
                                                         <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <Settings2 className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <Settings2 className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Account Settings</span>
                                                         </Link>
                                                         <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <Bell className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <Bell className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Notification Preferences</span>
                                                         </Link>
                                                         <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <Sun className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <Sun className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Appearance</span>
                                                         </Link>
                                                         <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <Globe className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <Globe className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Language</span>
                                                         </Link>
                                                         <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <Shield className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <Shield className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Privacy & Security</span>
                                                         </Link>
                                                     </div>
@@ -924,19 +1027,19 @@ export function BaseDashboardLayout({
                                                     <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
                                                         <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Workspace</div>
                                                         <Link href="/doctor/invites" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <Building2 className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <Building2 className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">My Hospitals</span>
                                                         </Link>
                                                         <Link href="/doctor/schedule" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <CalendarDays className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <CalendarDays className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">My Schedule</span>
                                                         </Link>
                                                         <Link href="/doctor/earnings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <CreditCard className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <CreditCard className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Earnings</span>
                                                         </Link>
                                                         <Link href="/doctor" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <BarChart2 className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <BarChart2 className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Analytics</span>
                                                         </Link>
                                                     </div>
@@ -944,15 +1047,15 @@ export function BaseDashboardLayout({
                                                     <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
                                                         <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Support</div>
                                                         <button className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <HelpCircle className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <HelpCircle className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Help Center</span>
                                                         </button>
                                                         <button className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <MessageSquare className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <MessageSquare className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Contact Support</span>
                                                         </button>
                                                         <button className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <BookOpen className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+                                                            <BookOpen className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Documentation</span>
                                                         </button>
                                                     </div>
@@ -988,12 +1091,12 @@ export function BaseDashboardLayout({
                                             <>
                                                 <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">
                                                     {/* Premium Clinic Header */}
-                                                    <div className="p-6 bg-gradient-to-b from-pink-500/10 to-transparent border-b border-gray-200 dark:border-gray-800">
+                                                    <div className={cn("p-6 bg-gradient-to-b border-b border-gray-200 dark:border-gray-800", colors.dropdownHeaderBg)}>
                                                         <div className="flex items-center gap-4">
                                                             <div className="relative shrink-0">
-                                                                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-pink-500 to-pink-700 p-[2px]">
+                                                                <div className={cn("h-16 w-16 rounded-full bg-gradient-to-br p-[2px]", colors.dropdownAvatarBorder)}>
                                                                     <div className="h-full w-full rounded-full bg-white dark:bg-[#0B1020] flex items-center justify-center">
-                                                                        <span className="text-xl font-bold text-pink-600 dark:text-pink-400">{getInitials(displayName)}</span>
+                                                                        <span className={cn("text-xl font-bold", colors.dropdownAvatarText)}>{getInitials(displayName)}</span>
                                                                     </div>
                                                                 </div>
                                                                 <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-white dark:bg-[#0B1020] rounded-full flex items-center justify-center">
@@ -1009,8 +1112,8 @@ export function BaseDashboardLayout({
                                                                     <span className="text-xs font-bold text-pink-500">Clinic Owner</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-1.5 mt-2 shrink-0">
-                                                                    <span className="flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-md text-emerald-500 bg-emerald-500/10">
-                                                                        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500 animate-pulse"></span> Active
+                                                                    <span className="flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-md text-pink-500 bg-pink-500/10">
+                                                                        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-pink-500 animate-pulse"></span> Active
                                                                     </span>
                                                                 </div>
                                                             </div>
@@ -1023,7 +1126,7 @@ export function BaseDashboardLayout({
                                                             {(['light', 'dark', 'system'] as const).map((t) => {
                                                                 const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
                                                                 return (
-                                                                    <ThemeOptionButton key={t} value={t} Icon={Icon} />
+                                                                    <ThemeOptionButton key={t} value={t} Icon={Icon} activeClass={colors.themeActiveBg} />
                                                                 );
                                                             })}
                                                         </div>
@@ -1033,11 +1136,11 @@ export function BaseDashboardLayout({
                                                     <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
                                                         <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Profile</div>
                                                         <Link href="/clinic/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <UserIcon className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors shrink-0" />
+                                                            <UserIcon className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">View Clinic Profile</span>
                                                         </Link>
                                                         <Link href="/clinic/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <Edit2 className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors shrink-0" />
+                                                            <Edit2 className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Edit Clinic Profile</span>
                                                         </Link>
                                                     </div>
@@ -1045,7 +1148,7 @@ export function BaseDashboardLayout({
                                                     <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
                                                         <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Organization</div>
                                                         <Link href="/clinic/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <Settings2 className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors shrink-0" />
+                                                            <Settings2 className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Clinic Settings</span>
                                                         </Link>
                                                     </div>
@@ -1053,7 +1156,7 @@ export function BaseDashboardLayout({
                                                     <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
                                                         <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Security</div>
                                                         <Link href="/clinic/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <Shield className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors shrink-0" />
+                                                            <Shield className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">Security & Password</span>
                                                         </Link>
                                                     </div>
@@ -1077,7 +1180,7 @@ export function BaseDashboardLayout({
                                             /* Standard / Non-Doctor Profile Layout */
                                             <div className="flex flex-col">
                                                 {/* Profile Header */}
-                                                <div className="px-4 py-4 bg-gradient-to-br from-emerald-500/10 to-emerald-700/5 border-b border-gray-100 dark:border-gray-700">
+                                                <div className={cn("px-4 py-4 bg-gradient-to-br border-b border-gray-100 dark:border-gray-700", colors.dropdownHeaderBg)}>
                                                     <div className="flex items-center gap-3">
                                                         <div className={cn(
                                                             'h-11 w-11 rounded-full flex items-center justify-center text-white text-base font-bold shrink-0',
@@ -1098,7 +1201,7 @@ export function BaseDashboardLayout({
                                                 {config.showFullDropdown && (
                                                     <div className="py-1.5">
                                                         <Link
-                                                            href={`/${user?.role?.replace(/_owner|_manager/, '')}/settings`}
+                                                            href={config.profileHref || `/${user?.role?.replace(/_owner|_manager/, '')}/settings`}
                                                             onClick={() => setDropdownOpen(false)}
                                                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                                                         >
@@ -1129,7 +1232,7 @@ export function BaseDashboardLayout({
                                                         {(['light', 'dark', 'system'] as const).map((t) => {
                                                             const Icon = t === 'light' ? Sun : t === 'dark' ? Moon : Monitor;
                                                             return (
-                                                                <ThemeOptionButton key={t} value={t} Icon={Icon} />
+                                                                <ThemeOptionButton key={t} value={t} Icon={Icon} activeClass={colors.themeActiveBg} />
                                                             );
                                                         })}
                                                     </div>
@@ -1142,7 +1245,7 @@ export function BaseDashboardLayout({
                                             {user?.role === 'doctor' && (
                                                 <button className="flex items-center w-full px-4 min-h-[56px] text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#131A2B] rounded-xl transition-all group active:bg-gray-200 dark:active:bg-gray-800">
                                                     <span className="flex items-center gap-3 shrink-0">
-                                                        <Repeat className="w-5 h-5 text-gray-700 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" /> Switch Account
+                                                        <Repeat className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} /> Switch Account
                                                     </span>
                                                 </button>
                                             )}
@@ -1223,7 +1326,7 @@ export default function DashboardLayout({
     children: ReactNode;
 }) {
     const router = useRouter();
-    const { user, isAuthenticated, _hasHydrated } = useAuthStore();
+    const { user, isAuthenticated, _hasHydrated, isLoggingOut } = useAuthStore();
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
@@ -1234,14 +1337,17 @@ export default function DashboardLayout({
     const roleMatches = user?.role != null && (
         allowedRoles.includes(user.role) ||
         (allowedRoles.includes('admin') && user.role === 'super_admin') ||
-        (allowedRoles.includes('hospital_owner') && user.role === 'hospital_manager')
+        (allowedRoles.includes('hospital_owner') && user.role === 'hospital_manager') ||
+        // Pharmacy member roles: match if any pharmacy role is in allowedRoles
+        ((allowedRoles.includes('pharmacy_owner') || allowedRoles.includes('pharmacy_manager') || allowedRoles.includes('pharmacy_staff')) &&
+            (user.role === 'pharmacy_manager' || user.role === 'pharmacy_staff'))
     );
 
     useEffect(() => {
-        if (isMounted && _hasHydrated && (!isAuthenticated || !roleMatches)) {
-            router.push(config.loginPath);
+        if (isMounted && _hasHydrated && (!isAuthenticated || !roleMatches) && !isLoggingOut) {
+            router.replace(config.loginPath);
         }
-    }, [isMounted, _hasHydrated, isAuthenticated, roleMatches, router, config.loginPath]);
+    }, [isMounted, _hasHydrated, isAuthenticated, roleMatches, router, config.loginPath, isLoggingOut]);
 
     if (!isMounted || !_hasHydrated) {
         return null;

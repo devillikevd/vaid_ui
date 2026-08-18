@@ -141,10 +141,10 @@ class CommunityViewModel @Inject constructor(
         }
     }
 
-    fun askQuestion(title: String, content: String, topic: String?, isAnonymous: Boolean = false, attachments: List<String> = emptyList(), onSuccess: () -> Unit) {
+    fun askQuestion(title: String, content: String, topic: String?, isAnonymous: Boolean = false, attachments: List<String> = emptyList(), category: String? = null, specialtyTarget: String? = null, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
-            val result = repository.createQuestion(title, content, topic, isAnonymous, attachments)
+            val result = repository.createQuestion(title, content, topic, isAnonymous, attachments, category, specialtyTarget)
             _isLoading.value = false
             when (result) {
                 is com.example.swastik.data.repository.Result.Success -> {
@@ -292,6 +292,42 @@ class CommunityViewModel @Inject constructor(
                     _selectedQuestion.value = _selectedQuestion.value?.copy(isBookmarked = originalStatus)
                 }
                 SnackbarManager.showError(result.message ?: "Failed to toggle bookmark")
+            }
+        }
+    }
+
+    fun reportQuestion(questionId: String, reason: String, details: String?, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val result = repository.reportQuestion(questionId, reason, details)
+            _isLoading.value = false
+            when (result) {
+                is com.example.swastik.data.repository.Result.Success -> {
+                    SnackbarManager.showMessage("Report submitted")
+                    onSuccess()
+                }
+                is com.example.swastik.data.repository.Result.Error -> {
+                    SnackbarManager.showError(result.message ?: "Failed to submit report. Please try again.")
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun reportAnswer(answerId: String, reason: String, details: String?, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val result = repository.reportAnswer(answerId, reason, details)
+            _isLoading.value = false
+            when (result) {
+                is com.example.swastik.data.repository.Result.Success -> {
+                    SnackbarManager.showMessage("Report submitted")
+                    onSuccess()
+                }
+                is com.example.swastik.data.repository.Result.Error -> {
+                    SnackbarManager.showError(result.message ?: "Failed to submit report. Please try again.")
+                }
+                else -> {}
             }
         }
     }

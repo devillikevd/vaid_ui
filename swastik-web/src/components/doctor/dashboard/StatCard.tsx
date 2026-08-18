@@ -45,7 +45,7 @@ export function StatCard({ title, value, icon: Icon, trend, delay = 0, isLoading
 
             <div className="flex items-start justify-between relative z-10">
                 <h3 className="text-[#A1A1AA] text-sm font-medium tracking-wide">{title}</h3>
-                <div className="w-10 h-10 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] flex items-center justify-center shadow-sm group-hover:scale-110 group-hover:border-[#22C55E]/30 group-hover:bg-[#22C55E]/10 transition-all duration-300">
+                <div className="w-10 h-10 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] flex items-center justify-center shadow-sm group-hover:border-[#22C55E]/30 group-hover:bg-[#22C55E]/10 transition-all duration-300">
                     <Icon className="w-5 h-5 text-white/70 group-hover:text-[#22C55E] transition-colors" />
                 </div>
             </div>

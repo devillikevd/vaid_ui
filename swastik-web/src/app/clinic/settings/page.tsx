@@ -2,28 +2,31 @@
 /* eslint-disable jsx-a11y/alt-text */
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     AlertCircle,
     Bell,
     Building,
     Building2,
+    CheckCircle2,
     Clock,
     CreditCard,
     EyeOff,
     FolderKanban,
+    Grid,
     Lock,
-    Mail,
     MapPin,
     Palette,
-    Plug,
     RefreshCw,
     Search,
     ShieldCheck,
     Stethoscope,
-    Users,
+    ChevronRight,
+    ArrowLeft,
+    Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { useAuthStore } from '@/stores/authStore';
 import { clinicApi } from '@/lib/api';
 import { getResubmissionSuccessMessage, refreshAuthenticatedUser } from '@/lib/authSession';
@@ -45,6 +48,7 @@ import {
     PrivacySection,
 } from './_components/ComingSoonSections';
 import { normalizeClinicProfile, type ClinicProfile } from './_components/types';
+import { cn } from '@/lib/utils';
 
 type SaveProfile = (fields: Record<string, unknown>, successMessage: string) => Promise<{
     ok: boolean;
@@ -52,22 +56,99 @@ type SaveProfile = (fields: Record<string, unknown>, successMessage: string) => 
     next: ClinicProfile | null;
 }>;
 
-const NAV_SECTIONS = [
-    { id: 'profile', label: 'Clinic Profile', keywords: ['profile', 'about', 'description', 'gallery', 'logo'], icon: Building2 },
-    { id: 'organization', label: 'Organization Details', keywords: ['registration', 'license', 'specializations', 'insurance'], icon: Building },
-    { id: 'location', label: 'Location', keywords: ['address', 'map', 'coordinates', 'pincode'], icon: MapPin },
-    { id: 'departments', label: 'Departments', keywords: ['department', 'head doctor'], icon: FolderKanban },
-    { id: 'services', label: 'Consultation & Services', keywords: ['consultation', 'consent', 'services'], icon: Stethoscope },
-    { id: 'schedule', label: 'Working Hours', keywords: ['hours', 'timing', 'open', 'schedule'], icon: Clock },
-    { id: 'staff', label: 'Doctors & Staff', keywords: ['doctors', 'staff', 'roster'], icon: Users },
-    { id: 'invitations', label: 'Staff Invitations', keywords: ['invite', 'invitation', 'email'], icon: Mail },
-    { id: 'notifications', label: 'Notifications', keywords: ['alerts', 'channels', 'preferences'], icon: Bell },
-    { id: 'verification', label: 'Documents & Verification', keywords: ['license document', 'approval', 'verification'], icon: ShieldCheck },
-    { id: 'security', label: 'Security', keywords: ['password', 'sessions', 'login', 'devices'], icon: Lock },
-    { id: 'appearance', label: 'Appearance', keywords: ['theme', 'dark', 'light', 'mode'], icon: Palette },
-    { id: 'privacy', label: 'Privacy', keywords: ['privacy', 'data'], icon: EyeOff },
-    { id: 'billing', label: 'Billing & Plans', keywords: ['billing', 'subscription', 'invoice'], icon: CreditCard },
-    { id: 'connected-services', label: 'Connected Services', keywords: ['integration', 'third party', 'connected'], icon: Plug },
+type SettingsCategory =
+    | 'overview'
+    | 'general'
+    | 'clinical'
+    | 'schedule'
+    | 'notifications'
+    | 'security'
+    | 'appearance'
+    | 'privacy'
+    | 'billing';
+
+interface CategoryConfig {
+    id: SettingsCategory;
+    label: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+    keywords: string[];
+    sectionsCount: number;
+}
+
+const CATEGORIES: CategoryConfig[] = [
+    {
+        id: 'overview',
+        label: 'Overview',
+        description: 'Summary of all clinic settings and operational configurations',
+        icon: Grid,
+        keywords: ['overview', 'dashboard', 'summary', 'home'],
+        sectionsCount: 8,
+    },
+    {
+        id: 'general',
+        label: 'General',
+        description: 'Clinic profile, contact details, organization, and location',
+        icon: Building2,
+        keywords: ['profile', 'about', 'organization', 'location', 'address', 'contact'],
+        sectionsCount: 3,
+    },
+    {
+        id: 'clinical',
+        label: 'Clinical & Services',
+        description: 'Departments, consultation services, staff directory and invites',
+        icon: Stethoscope,
+        keywords: ['departments', 'services', 'staff', 'doctors', 'invitations', 'consultations'],
+        sectionsCount: 4,
+    },
+    {
+        id: 'schedule',
+        label: 'Working Hours',
+        description: 'Weekly operating hours and timeslots for patient bookings',
+        icon: Clock,
+        keywords: ['hours', 'schedule', 'timing', 'opening', 'closed', 'slots'],
+        sectionsCount: 1,
+    },
+    {
+        id: 'notifications',
+        label: 'Notifications',
+        description: 'Alert delivery channels and operational event preferences',
+        icon: Bell,
+        keywords: ['notifications', 'alerts', 'email', 'push', 'channels'],
+        sectionsCount: 1,
+    },
+    {
+        id: 'security',
+        label: 'Security & Verification',
+        description: 'Password, sessions, account security and regulatory licenses',
+        icon: Lock,
+        keywords: ['security', 'password', 'sessions', 'verification', 'license', 'approval'],
+        sectionsCount: 2,
+    },
+    {
+        id: 'appearance',
+        label: 'Appearance',
+        description: 'Interface display preferences and dark/light theme options',
+        icon: Palette,
+        keywords: ['appearance', 'theme', 'dark', 'light', 'display'],
+        sectionsCount: 1,
+    },
+    {
+        id: 'privacy',
+        label: 'Privacy & Data',
+        description: 'Patient data protection, consent guidelines, and audit logs',
+        icon: EyeOff,
+        keywords: ['privacy', 'data', 'consent', 'retention', 'ehr'],
+        sectionsCount: 1,
+    },
+    {
+        id: 'billing',
+        label: 'Billing & Plans',
+        description: 'Subscription tier, payout configuration and invoices',
+        icon: CreditCard,
+        keywords: ['billing', 'plans', 'subscription', 'invoice', 'payout'],
+        sectionsCount: 1,
+    },
 ];
 
 export default function ClinicSettingsPage() {
@@ -76,9 +157,9 @@ export default function ClinicSettingsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [query, setQuery] = useState('');
-    const [activeId, setActiveId] = useState('profile');
+    const [activeCategory, setActiveCategory] = useState<SettingsCategory>('overview');
     const [dirtySections, setDirtySections] = useState<Record<string, boolean>>({});
-    const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+    const [pendingSwitchCategory, setPendingSwitchCategory] = useState<SettingsCategory | null>(null);
 
     const fetchProfile = useCallback(async () => {
         setIsLoading(true);
@@ -152,31 +233,30 @@ export default function ClinicSettingsPage() {
         return () => window.removeEventListener('beforeunload', handler);
     }, [hasUnsaved]);
 
-    const scrollToSection = (id: string) => {
-        sectionRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const handleCategoryClick = (catId: SettingsCategory) => {
+        if (hasUnsaved && activeCategory !== catId) {
+            setPendingSwitchCategory(catId);
+            return;
+        }
+        setActiveCategory(catId);
     };
 
-    useEffect(() => {
-        const onScroll = () => {
-            let current = NAV_SECTIONS[0].id;
-            for (const section of NAV_SECTIONS) {
-                const el = sectionRefs.current[section.id];
-                if (el && el.getBoundingClientRect().top <= 160) current = section.id;
-            }
-            setActiveId(current);
-        };
-        window.addEventListener('scroll', onScroll, { passive: true });
-        onScroll();
-        return () => window.removeEventListener('scroll', onScroll);
-    }, []);
+    const confirmCategorySwitch = () => {
+        if (pendingSwitchCategory) {
+            setDirtySections({});
+            setActiveCategory(pendingSwitchCategory);
+            setPendingSwitchCategory(null);
+        }
+    };
 
-    const filteredNav = useMemo(() => {
+    const filteredCategories = useMemo(() => {
         const q = query.trim().toLowerCase();
-        if (!q) return NAV_SECTIONS;
-        return NAV_SECTIONS.filter(
-            (section) =>
-                section.label.toLowerCase().includes(q) ||
-                section.keywords.some((keyword) => keyword.toLowerCase().includes(q))
+        if (!q) return CATEGORIES;
+        return CATEGORIES.filter(
+            (c) =>
+                c.label.toLowerCase().includes(q) ||
+                c.description.toLowerCase().includes(q) ||
+                c.keywords.some((k) => k.toLowerCase().includes(q))
         );
     }, [query]);
 
@@ -184,134 +264,425 @@ export default function ClinicSettingsPage() {
 
     if (user?.role && user.role !== 'clinic_owner') {
         return (
-            <div className="mx-auto max-w-lg rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
-                <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
-                <h1 className="mt-4 text-lg font-bold text-gray-900 dark:text-gray-100">Access denied</h1>
+            <div className="mx-auto max-w-lg rounded-2xl border border-gray-200 dark:border-gray-800 p-8 text-center bg-white dark:bg-[#0B1020]">
+                <AlertCircle className="mx-auto h-10 w-10 text-red-500" />
+                <h1 className="mt-4 text-lg font-bold text-gray-900 dark:text-white">Access Denied</h1>
                 <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Only clinic owners can manage clinic settings.
+                    Only clinic owners can manage clinic administration and system configuration.
                 </p>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Clinic Administration & Settings Center</h1>
-                <p className="mt-1 text-gray-600 dark:text-gray-400">
-                    Everything about your clinic — profile, operations, staff, security and compliance.
-                </p>
+        <div className="space-y-6 max-w-7xl mx-auto pb-12">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-[#0B1020] p-4 sm:p-5 rounded-2xl border border-gray-200 dark:border-gray-800/60 shadow-sm">
+                <div>
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
+                        <Building2 className="h-6 w-6 text-pink-600 dark:text-pink-400" />
+                        Clinic Settings Hub
+                    </h1>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                        Manage your clinic profile, clinical operations, security, and preferences.
+                    </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    {activeCategory !== 'overview' && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCategoryClick('overview')}
+                            className="text-xs h-9"
+                        >
+                            <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+                            All Settings
+                        </Button>
+                    )}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void fetchProfile()}
+                        disabled={isLoading}
+                        className="text-xs h-9"
+                    >
+                        <RefreshCw className={cn('h-3.5 w-3.5 mr-1', isLoading && 'animate-spin')} />
+                        Refresh
+                    </Button>
+                </div>
             </div>
 
+            {/* Unsaved Changes Banner */}
             {hasUnsaved && (
-                <div className="sticky top-16 z-20 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
-                    You have unsaved changes. Save each section before leaving — refreshing or navigating away will discard them.
+                <div className="flex items-center justify-between p-3.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-300 text-xs sm:text-sm font-medium">
+                    <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                        <span>You have unsaved changes in your active edit form. Remember to save before switching.</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Discard Confirmation Modal */}
+            {pendingSwitchCategory && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#0B1020] border border-gray-200 dark:border-gray-800 p-6 shadow-xl space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600">
+                                <AlertCircle className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-bold text-gray-900 dark:text-white">Unsaved Changes</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    You have changes that haven&apos;t been saved yet. Switching sections will discard them.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 pt-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPendingSwitchCategory(null)}
+                                className="text-xs"
+                            >
+                                Stay & Edit
+                            </Button>
+                            <Button
+                                variant="danger"
+                                size="sm"
+                                onClick={confirmCategorySwitch}
+                                className="text-xs"
+                            >
+                                Discard & Switch
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             )}
 
             {isLoading ? (
                 <div className="flex h-72 items-center justify-center">
-                    <RefreshCw className="h-8 w-8 animate-spin text-primary-500" />
+                    <RefreshCw className="h-8 w-8 animate-spin text-pink-600" />
                 </div>
             ) : loadError ? (
-                <div className="flex flex-col items-center gap-4 rounded-xl border border-gray-200 dark:border-gray-700 py-12">
-                    <AlertCircle className="h-10 w-10 text-red-400" />
+                <div className="flex flex-col items-center gap-4 rounded-2xl border border-gray-200 dark:border-gray-800 py-12 bg-white dark:bg-[#0B1020]">
+                    <AlertCircle className="h-10 w-10 text-red-500" />
                     <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>
                     <Button variant="outline" size="sm" onClick={() => void fetchProfile()} leftIcon={<RefreshCw className="h-4 w-4" />}>
                         Retry
                     </Button>
                 </div>
             ) : (
-                <div className="flex flex-col gap-6 lg:flex-row">
+                <div className="flex flex-col lg:flex-row gap-6">
+                    {/* Left Sidebar Category Navigation */}
                     <aside className="lg:w-64 lg:shrink-0">
-                        <nav className="lg:sticky lg:top-20">
-                            <div className="relative mb-3 lg:mb-4">
-                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <nav className="bg-white dark:bg-[#0B1020] p-3 rounded-2xl border border-gray-200 dark:border-gray-800/60 shadow-sm space-y-3 lg:sticky lg:top-20">
+                            {/* Search */}
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                                 <input
                                     type="search"
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
-                                    placeholder="Search sections…"
-                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 py-2 pl-9 pr-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                    placeholder="Search settings..."
+                                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 py-1.5 pl-8 pr-3 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500"
                                 />
                             </div>
-                            <ul className="flex gap-1 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
-                                {filteredNav.map((section) => {
-                                    const Icon = section.icon;
-                                    const isActive = activeId === section.id;
+
+                            {/* Category List */}
+                            <ul className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
+                                {filteredCategories.map((category) => {
+                                    const Icon = category.icon;
+                                    const isActive = activeCategory === category.id;
                                     return (
-                                        <li key={section.id} className="shrink-0 lg:shrink">
+                                        <li key={category.id} className="shrink-0 lg:shrink">
                                             <button
                                                 type="button"
-                                                onClick={() => scrollToSection(section.id)}
-                                                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                                                onClick={() => handleCategoryClick(category.id)}
+                                                className={cn(
+                                                    'flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-all',
                                                     isActive
-                                                        ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-200'
-                                                        : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
-                                                }`}
+                                                        ? 'bg-pink-50 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300 border border-pink-200 dark:border-pink-800/50 shadow-sm'
+                                                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white border border-transparent'
+                                                )}
                                             >
                                                 <Icon className="h-4 w-4 shrink-0" />
-                                                <span className="whitespace-nowrap">{section.label}</span>
-                                                {dirtySections[section.id] && (
-                                                    <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-amber-500" title="Unsaved changes" />
+                                                <span className="whitespace-nowrap flex-1">{category.label}</span>
+                                                {category.id !== 'overview' && (
+                                                    <span className="hidden lg:inline-block text-[10px] text-gray-400 dark:text-gray-500">
+                                                        {category.sectionsCount}
+                                                    </span>
                                                 )}
                                             </button>
                                         </li>
                                     );
                                 })}
-                                {filteredNav.length === 0 && (
-                                    <li className="px-3 py-2 text-sm text-gray-400">No sections match your search.</li>
-                                )}
                             </ul>
                         </nav>
                     </aside>
 
-                    <div className="min-w-0 flex-1 space-y-6">
-                        <div ref={(el) => { sectionRefs.current['profile'] = el; }} className="scroll-mt-24">
-                            <ProfileSection clinic={clinic} onSave={saveProfile} {...sectionProps('profile')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['organization'] = el; }} className="scroll-mt-24">
-                            <OrganizationSection clinic={clinic} onSave={saveProfile} {...sectionProps('organization')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['location'] = el; }} className="scroll-mt-24">
-                            <LocationSection clinic={clinic} onSave={saveProfile} {...sectionProps('location')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['departments'] = el; }} className="scroll-mt-24">
-                            <DepartmentsSection {...sectionProps('departments')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['services'] = el; }} className="scroll-mt-24">
-                            <ConsultationServicesSection {...sectionProps('services')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['schedule'] = el; }} className="scroll-mt-24">
-                            <ScheduleSection {...sectionProps('schedule')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['staff'] = el; }} className="scroll-mt-24">
-                            <StaffSection {...sectionProps('staff')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['invitations'] = el; }} className="scroll-mt-24">
-                            <InvitationsSection {...sectionProps('invitations')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['notifications'] = el; }} className="scroll-mt-24">
-                            <NotificationsSection {...sectionProps('notifications')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['verification'] = el; }} className="scroll-mt-24">
-                            <VerificationSection clinic={clinic} onSave={saveProfile} {...sectionProps('verification')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['security'] = el; }} className="scroll-mt-24">
-                            <SecuritySection {...sectionProps('security')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['appearance'] = el; }} className="scroll-mt-24">
-                            <AppearanceSection {...sectionProps('appearance')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['privacy'] = el; }} className="scroll-mt-24">
-                            <PrivacySection {...sectionProps('privacy')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['billing'] = el; }} className="scroll-mt-24">
-                            <BillingSection {...sectionProps('billing')} />
-                        </div>
-                        <div ref={(el) => { sectionRefs.current['connected-services'] = el; }} className="scroll-mt-24">
-                            <ConnectedServicesSection {...sectionProps('connected-services')} />
-                        </div>
+                    {/* Main Content Area */}
+                    <div className="min-w-0 flex-1">
+                        {/* ── OVERVIEW HUB ── */}
+                        {activeCategory === 'overview' && (
+                            <div className="space-y-6">
+                                <div className="p-5 rounded-2xl bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-950/20 dark:to-purple-950/20 border border-pink-100 dark:border-pink-900/30 flex items-center justify-between">
+                                    <div className="space-y-1">
+                                        <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                            <Sparkles className="h-4 w-4 text-pink-600" />
+                                            Clinic Configuration Status
+                                        </h2>
+                                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                                            Select a category to view and customize specific operational preferences.
+                                        </p>
+                                    </div>
+                                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white dark:bg-gray-800 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-800/40 shadow-sm">
+                                        {clinic?.name || 'Clinic Account'}
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {/* General Overview Card */}
+                                    <Card padding="md" className="hover:-translate-y-0.5 transition-all flex flex-col justify-between">
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="p-2.5 rounded-xl bg-pink-50 text-pink-600 dark:bg-pink-950/40 dark:text-pink-300">
+                                                    <Building2 className="h-5 w-5" />
+                                                </div>
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+                                                    <CheckCircle2 className="h-3 w-3" />
+                                                    Configured
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-bold text-gray-900 dark:text-white">General Profile</h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                    Clinic name, contact, registration number, and address location.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleCategoryClick('general')}
+                                            className="w-full mt-4 text-xs justify-between"
+                                        >
+                                            Manage Profile
+                                            <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                                        </Button>
+                                    </Card>
+
+                                    {/* Clinical Services Card */}
+                                    <Card padding="md" className="hover:-translate-y-0.5 transition-all flex flex-col justify-between">
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="p-2.5 rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-300">
+                                                    <Stethoscope className="h-5 w-5" />
+                                                </div>
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-300">
+                                                    Active
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Clinical & Staff</h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                    Departments, consultation modes, affiliated doctors, and invites.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleCategoryClick('clinical')}
+                                            className="w-full mt-4 text-xs justify-between"
+                                        >
+                                            Manage Clinical
+                                            <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                                        </Button>
+                                    </Card>
+
+                                    {/* Working Hours Card */}
+                                    <Card padding="md" className="hover:-translate-y-0.5 transition-all flex flex-col justify-between">
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="p-2.5 rounded-xl bg-teal-50 text-teal-600 dark:bg-teal-950/40 dark:text-teal-300">
+                                                    <Clock className="h-5 w-5" />
+                                                </div>
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 dark:bg-teal-950/30 dark:text-teal-300">
+                                                    Scheduled
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Working Hours</h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                    Weekly consultation hours, appointment booking windows, and closed days.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleCategoryClick('schedule')}
+                                            className="w-full mt-4 text-xs justify-between"
+                                        >
+                                            Manage Schedule
+                                            <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                                        </Button>
+                                    </Card>
+
+                                    {/* Notifications Card */}
+                                    <Card padding="md" className="hover:-translate-y-0.5 transition-all flex flex-col justify-between">
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
+                                                    <Bell className="h-5 w-5" />
+                                                </div>
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
+                                                    In-App Live
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Notifications</h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                    Notification Center delivery, email fallback, and push preferences.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleCategoryClick('notifications')}
+                                            className="w-full mt-4 text-xs justify-between"
+                                        >
+                                            Manage Alerts
+                                            <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                                        </Button>
+                                    </Card>
+
+                                    {/* Security & Verification Card */}
+                                    <Card padding="md" className="hover:-translate-y-0.5 transition-all flex flex-col justify-between">
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300">
+                                                    <Lock className="h-5 w-5" />
+                                                </div>
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+                                                    Protected
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Security & Verification</h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                    Password updates, active sessions, and medical license status.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleCategoryClick('security')}
+                                            className="w-full mt-4 text-xs justify-between"
+                                        >
+                                            Manage Security
+                                            <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                                        </Button>
+                                    </Card>
+
+                                    {/* Appearance Card */}
+                                    <Card padding="md" className="hover:-translate-y-0.5 transition-all flex flex-col justify-between">
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300">
+                                                    <Palette className="h-5 w-5" />
+                                                </div>
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300">
+                                                    Customizable
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Appearance</h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                    Interface theme, light & dark mode preferences for your portal.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleCategoryClick('appearance')}
+                                            className="w-full mt-4 text-xs justify-between"
+                                        >
+                                            Manage Theme
+                                            <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                                        </Button>
+                                    </Card>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── GENERAL SETTINGS CATEGORY ── */}
+                        {activeCategory === 'general' && (
+                            <div className="space-y-6">
+                                <ProfileSection clinic={clinic} onSave={saveProfile} {...sectionProps('profile')} />
+                                <OrganizationSection clinic={clinic} onSave={saveProfile} {...sectionProps('organization')} />
+                                <LocationSection clinic={clinic} onSave={saveProfile} {...sectionProps('location')} />
+                            </div>
+                        )}
+
+                        {/* ── CLINICAL & SERVICES CATEGORY ── */}
+                        {activeCategory === 'clinical' && (
+                            <div className="space-y-6">
+                                <DepartmentsSection {...sectionProps('departments')} />
+                                <ConsultationServicesSection {...sectionProps('services')} />
+                                <StaffSection {...sectionProps('staff')} />
+                                <InvitationsSection {...sectionProps('invitations')} />
+                            </div>
+                        )}
+
+                        {/* ── WORKING HOURS SCHEDULE CATEGORY ── */}
+                        {activeCategory === 'schedule' && (
+                            <div className="space-y-6">
+                                <ScheduleSection {...sectionProps('schedule')} />
+                            </div>
+                        )}
+
+                        {/* ── NOTIFICATIONS CATEGORY ── */}
+                        {activeCategory === 'notifications' && (
+                            <div className="space-y-6">
+                                <NotificationsSection {...sectionProps('notifications')} />
+                            </div>
+                        )}
+
+                        {/* ── SECURITY & VERIFICATION CATEGORY ── */}
+                        {activeCategory === 'security' && (
+                            <div className="space-y-6">
+                                <SecuritySection {...sectionProps('security')} />
+                                <VerificationSection clinic={clinic} onSave={saveProfile} {...sectionProps('verification')} />
+                            </div>
+                        )}
+
+                        {/* ── APPEARANCE CATEGORY ── */}
+                        {activeCategory === 'appearance' && (
+                            <div className="space-y-6">
+                                <AppearanceSection {...sectionProps('appearance')} />
+                            </div>
+                        )}
+
+                        {/* ── PRIVACY CATEGORY ── */}
+                        {activeCategory === 'privacy' && (
+                            <div className="space-y-6">
+                                <PrivacySection {...sectionProps('privacy')} />
+                            </div>
+                        )}
+
+                        {/* ── BILLING CATEGORY ── */}
+                        {activeCategory === 'billing' && (
+                            <div className="space-y-6">
+                                <BillingSection {...sectionProps('billing')} />
+                                <ConnectedServicesSection {...sectionProps('connected-services')} />
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

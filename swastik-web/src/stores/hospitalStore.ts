@@ -34,10 +34,32 @@ export interface HospitalDoctor {
     department: string;
     status: 'active' | 'on-leave' | 'inactive';
     appointmentsToday: number;
+    todayAppointments?: number;
     email?: string;
     phone?: string;
     profileImageUrl?: string;
+    profile_image_url?: string;
     rating?: number;
+    practice_type?: string;
+    consultation_modes?: string[];
+    is_approved?: boolean;
+    sub_specialization?: string;
+    experience_years?: number;
+    upcomingAppointments?: number;
+    completed_consultations?: number;
+    total_consultations?: number;
+    total_reviews?: number;
+    joined_at?: string;
+    consultation_fee?: number;
+    video_consultation_fee?: number;
+    available_days?: string[];
+    available_hours?: string;
+    qualifications?: string | string[];
+    education?: string | string[];
+    bio?: string;
+    languages?: string[];
+    registration_number?: string;
+    [key: string]: any;
 }
 
 export interface HospitalAppointment {
@@ -104,8 +126,14 @@ interface HospitalState {
     error: string | null;
     doctorsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
     appointmentsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
+    invitesPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
+    joinRequestsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
     reviews: Review[];
     loadingReviews: boolean;
+    invites: any[];
+    joinRequests: any[];
+    loadingInvites: boolean;
+    loadingJoinRequests: boolean;
 
     fetchDashboardData: () => Promise<void>;
     fetchDepartments: () => Promise<void>;
@@ -118,6 +146,10 @@ interface HospitalState {
         date?: string;
     }) => Promise<void>;
     fetchReviews: (page?: number) => Promise<void>;
+    fetchInvites: (params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
+    fetchJoinRequests: (params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
+    cancelInvite: (inviteId: string) => Promise<boolean>;
+    respondToJoinRequest: (requestId: string, decision: 'accept' | 'reject', message?: string) => Promise<boolean>;
     inviteDoctor: (data: Record<string, unknown>) => Promise<boolean>;
     removeDoctor: (doctorId: string) => Promise<boolean>;
     addDepartment: (data: Record<string, unknown>) => Promise<boolean>;
@@ -145,6 +177,12 @@ const hospitalInitialState = {
     appointmentsPagination: { page: 1, totalPages: 1, total: 0, hasMore: false },
     reviews: [] as Review[],
     loadingReviews: false,
+    invites: [],
+    joinRequests: [],
+    loadingInvites: false,
+    loadingJoinRequests: false,
+    invitesPagination: { page: 1, totalPages: 1, total: 0, hasMore: false },
+    joinRequestsPagination: { page: 1, totalPages: 1, total: 0, hasMore: false },
 };
 
 const defaultPagination = { page: 1, totalPages: 1, total: 0, hasMore: false };
@@ -185,6 +223,88 @@ function mapHospitalDoctor(raw: any): HospitalDoctor {
 
 export const useHospitalStore = create<HospitalState>((set, get) => ({
     ...hospitalInitialState,
+
+    fetchInvites: async (params = {}) => {
+        set({ loadingInvites: true, error: null });
+        try {
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await hospitalApi.getInvites({ page, limit, status: params.status });
+            if (response.success) {
+                const responseData = response.data as any;
+                set({ 
+                    invites: responseData?.data || responseData || [],
+                    invitesPagination: responseData?.pagination || defaultPagination 
+                });
+            } else {
+                set({ error: response.error || 'Failed to load invites' });
+            }
+        } catch (error) {
+            console.error('Error fetching invites:', error);
+            set({ error: 'An unexpected error occurred while loading invites.' });
+        } finally {
+            set({ loadingInvites: false });
+        }
+    },
+
+    fetchJoinRequests: async (params = {}) => {
+        set({ loadingJoinRequests: true, error: null });
+        try {
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await hospitalApi.getJoinRequests({ page, limit, status: params.status });
+            if (response.success) {
+                const responseData = response.data as any;
+                set({ 
+                    joinRequests: responseData?.data || responseData || [],
+                    joinRequestsPagination: responseData?.pagination || defaultPagination 
+                });
+            } else {
+                set({ error: response.error || 'Failed to load join requests' });
+            }
+        } catch (error) {
+            console.error('Error fetching join requests:', error);
+            set({ error: 'An unexpected error occurred while loading join requests.' });
+        } finally {
+            set({ loadingJoinRequests: false });
+        }
+    },
+
+    cancelInvite: async (inviteId) => {
+        try {
+            const response = await hospitalApi.cancelInvite(inviteId);
+            if (response.success) {
+                get().fetchInvites({ status: 'pending' });
+                return true;
+            }
+            set({ error: response.error || 'Failed to cancel invite.' });
+            return false;
+        } catch (error) {
+            console.error('Error cancelling invite:', error);
+            set({ error: 'Failed to cancel invite.' });
+            return false;
+        }
+    },
+
+    respondToJoinRequest: async (requestId, decision, message) => {
+        try {
+            const response = await hospitalApi.respondToJoinRequest(requestId, decision, message);
+            if (response.success) {
+                await Promise.allSettled([
+                    get().fetchJoinRequests({ status: 'pending' }),
+                    get().fetchDoctors(),
+                    get().fetchDashboardData(),
+                ]);
+                return true;
+            }
+            set({ error: response.error || `Failed to ${decision} join request.` });
+            return false;
+        } catch (error) {
+            console.error(`Error responding to join request (${decision}):`, error);
+            set({ error: `Failed to ${decision} join request.` });
+            return false;
+        }
+    },
 
     clearError: () => set({ error: null }),
     reset: () => set({ ...hospitalInitialState }),

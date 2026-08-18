@@ -1002,6 +1002,18 @@ interface ApiService {
     @GET("community/trending")
     suspend fun getTrendingTopics(): Response<List<JsonObject>>
 
+    @POST("community/questions/{id}/report")
+    suspend fun reportQuestion(
+        @Path("id") id: String,
+        @Body request: PostReportRequest
+    ): Response<ApiResponse<Any>>
+
+    @POST("community/answers/{id}/report")
+    suspend fun reportAnswer(
+        @Path("id") id: String,
+        @Body request: PostReportRequest
+    ): Response<ApiResponse<Any>>
+
     // ==================== DIET & NUTRITION ====================
 
     @GET("diet/quota")

@@ -266,7 +266,12 @@ export async function fetchWithAuth<T>(
             return { success: false, error: 'Request timed out. Please try again.' };
         }
         console.error('API Error:', error);
-        return { success: false, error: 'Network error. Please check your connection.' };
+        
+        // Distinguish genuine browser offline vs server unreachable
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            return { success: false, error: 'You are offline. Please check your internet connection.' };
+        }
+        return { success: false, error: 'Unable to connect to the server. The service might be temporarily down.' };
     }
 }
 
@@ -829,15 +834,45 @@ export const doctorApi = {
     // Leave Management
     getLeaves: () => fetchWithAuth('/doctors/me/leaves'),
 
+    checkAffectedAppointments: (data: { start_date: string; end_date: string }) =>
+        fetchWithAuth('/doctors/me/leaves/check-affected', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
     addLeave: (data: { start_date: string; end_date: string; reason?: string }) =>
         fetchWithAuth('/doctors/me/leaves', {
             method: 'POST',
             body: JSON.stringify(data),
         }),
 
+    cancelLeave: (id: string) =>
+        fetchWithAuth(`/doctors/me/leaves/${id}/cancel`, {
+            method: 'PUT',
+        }),
+
     deleteLeave: (id: string) =>
         fetchWithAuth(`/doctors/me/leaves/${id}`, {
             method: 'DELETE',
+        }),
+
+    getMyOrganizations: () => fetchWithAuth('/doctors/me/organizations'),
+
+    createSchedule: (data: Record<string, unknown>) =>
+        fetchWithAuth('/doctors/me/schedules', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    updateScheduleById: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/doctors/me/schedules/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+
+    disableSchedule: (id: string) =>
+        fetchWithAuth(`/doctors/me/schedules/${id}/disable`, {
+            method: 'PUT',
         }),
 
     getAppointments: (status?: string, date?: string, page: number = 1) => {
@@ -941,6 +976,12 @@ export const doctorApi = {
             body: JSON.stringify({ type }),
         }),
 
+    respondToJoinRequest: (requestId: string, type: 'clinic' | 'hospital', decision: 'accept' | 'decline' | 'reject' | 'changes_requested', data?: Record<string, unknown>) =>
+        fetchWithAuth(`/doctors/me/join-requests/${requestId}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ type, decision, ...data }),
+        }),
+
     getPatientVitals: (page: number = 1, patientId?: string) => {
         const params = new URLSearchParams({ page: page.toString() });
         if (patientId) params.set('patientId', patientId);
@@ -972,6 +1013,12 @@ export const doctorApi = {
     getReviews: (page: number = 1, limit: number = 10) =>
         fetchWithAuth(`/doctors/me/reviews?page=${page}&limit=${limit}`),
 
+    respondToReview: (id: string, response: string) =>
+        fetchWithAuth(`/doctors/me/reviews/${id}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ response }),
+        }),
+
     getAnalytics: (period: string = '30d') =>
         fetchWithAuth(`/doctors/me/analytics?period=${period}`),
 
@@ -987,6 +1034,15 @@ export const hospitalApi = {
 
     getReviews: (page: number = 1, limit: number = 10) =>
         fetchWithAuth(`/hospital-manager/reviews?page=${page}&limit=${limit}`),
+
+    respondToReview: (id: string, response: string) =>
+        fetchWithAuth(`/hospital-manager/reviews/${id}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ response }),
+        }),
+
+    getDoctorReviews: (page: number = 1, limit: number = 20) =>
+        fetchWithAuth(`/hospital-manager/doctor-reviews?page=${page}&limit=${limit}`),
 
     getProfile: () => fetchWithAuth('/hospital-manager/profile'),
 
@@ -1022,10 +1078,10 @@ export const hospitalApi = {
         return fetchWithAuth(`/hospital-manager/doctors?${params}`);
     },
 
-    inviteDoctor: (data: Record<string, unknown>) =>
+    inviteDoctor: (data: Record<string, unknown> | string) =>
         fetchWithAuth('/hospital-manager/doctors/invite', {
             method: 'POST',
-            body: JSON.stringify(data),
+            body: JSON.stringify(typeof data === 'string' ? { email: data } : data),
         }),
 
     removeDoctor: (doctorId: string) =>
@@ -1045,6 +1101,20 @@ export const hospitalApi = {
         fetchWithAuth(`/hospital-manager/join-requests/${requestId}/respond`, {
             method: 'POST',
             body: JSON.stringify({ decision, message }),
+        }),
+
+    getInvites: (params: { page?: number; limit?: number; status?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 20),
+        });
+        if (params.status) query.set('status', params.status);
+        return fetchWithAuth(`/hospital-manager/invites?${query}`);
+    },
+
+    cancelInvite: (inviteId: string) =>
+        fetchWithAuth(`/hospital-manager/invites/${inviteId}/cancel`, {
+            method: 'POST',
         }),
 
     // ── Platform Invites ──
@@ -1075,6 +1145,22 @@ export const hospitalApi = {
 
     unlinkDiagnosticCenter: (providerId: string) =>
         fetchWithAuth(`/hospital-manager/diagnostic-centers/${providerId}`, { method: 'DELETE' }),
+
+    // ==================== UNIFIED PARTNERSHIPS ====================
+    getPartnerships: (status?: string) => {
+        const query = status ? `?status=${status}` : '';
+        return fetchWithAuth(`/hospital-manager/partnerships${query}`);
+    },
+    invitePartnership: (data: { targetType: string; targetId: string; partnershipType?: string; metadata?: any }) =>
+        fetchWithAuth('/hospital-manager/partnerships/invite', { method: 'POST', body: JSON.stringify(data) }),
+    respondPartnership: (id: string, action: 'accept' | 'reject') =>
+        fetchWithAuth(`/hospital-manager/partnerships/${id}/respond`, { method: 'POST', body: JSON.stringify({ action }) }),
+    requestChangesPartnership: (id: string, message: string, metadataUpdates?: any) =>
+        fetchWithAuth(`/hospital-manager/partnerships/${id}/request-changes`, { method: 'POST', body: JSON.stringify({ message, metadataUpdates }) }),
+    acceptChangesPartnership: (id: string) =>
+        fetchWithAuth(`/hospital-manager/partnerships/${id}/accept-changes`, { method: 'POST' }),
+    terminatePartnership: (id: string) =>
+        fetchWithAuth(`/hospital-manager/partnerships/${id}`, { method: 'DELETE' }),
 
     getAppointments: (params: {
         page?: number;
@@ -1182,6 +1268,12 @@ export const pharmacyApi = {
     getReviews: (page: number = 1, limit: number = 10) =>
         fetchWithAuth(`/pharmacy/reviews?page=${page}&limit=${limit}`),
 
+    respondToReview: (id: string, response: string) =>
+        fetchWithAuth(`/pharmacy/reviews/${id}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ response }),
+        }),
+
     getProfile: () => fetchWithAuth('/pharmacy/profile'),
 
     updateProfile: (data: Record<string, unknown>) =>
@@ -1201,7 +1293,7 @@ export const pharmacyApi = {
             method: 'DELETE',
         }),
 
-    getInventory: (params: { page?: number; limit?: number; search?: string; lowStock?: boolean; category?: string } = {}) => {
+    getInventory: (params: { page?: number; limit?: number; search?: string; lowStock?: boolean; category?: string; sortBy?: string; sortOrder?: 'asc' | 'desc' } = {}) => {
         const query = new URLSearchParams({
             page: String(params.page ?? 1),
             limit: String(params.limit ?? 10),
@@ -1209,6 +1301,8 @@ export const pharmacyApi = {
         if (params.search) query.set('search', params.search);
         if (params.lowStock) query.set('lowStock', 'true');
         if (params.category) query.set('category', params.category);
+        if (params.sortBy) query.set('sortBy', params.sortBy);
+        if (params.sortOrder) query.set('sortOrder', params.sortOrder);
         return fetchWithAuth(`/pharmacy/inventory?${query}`);
     },
 
@@ -1251,6 +1345,28 @@ export const pharmacyApi = {
 
     getAnalytics: (period: string = '30d') => fetchWithAuth(`/pharmacy/analytics?period=${encodeURIComponent(period)}`),
 
+    exportAnalytics: async (period: string = '30d', format: 'csv' | 'pdf' = 'csv') => {
+        const { accessToken } = getTokens();
+        const res = await fetch(`${API_BASE_URL}/pharmacy/analytics/export?period=${encodeURIComponent(period)}&format=${format}`, {
+            headers: {
+                ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            },
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || 'Export failed');
+        }
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pharmacy-analytics-${period}-${Date.now()}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    },
+
     getPrescriptions: (params: { page?: number; limit?: number; search?: string; status?: string } = {}) => {
         const query = new URLSearchParams({
             page: String(params.page ?? 1),
@@ -1266,6 +1382,12 @@ export const pharmacyApi = {
             method: 'PATCH',
             body: JSON.stringify({ status: 'dispensed' }),
         }),
+
+    getPrescriptionDetail: (prescriptionId: string) =>
+        fetchWithAuth(`/pharmacy/prescriptions/${prescriptionId}`),
+
+    getPrescriptionInventoryCheck: (prescriptionId: string) =>
+        fetchWithAuth(`/pharmacy/prescriptions/${prescriptionId}/inventory-check`),
 
     getAssociationInvites: () => fetchWithAuth('/pharmacy/associations/invites'),
 
@@ -1313,16 +1435,107 @@ export const pharmacyApi = {
         fetchWithAuth(`/discounts/pharmacy/campaigns/${id}/optout`, {
             method: 'POST',
         }),
+
+    // ==================== UNIFIED PARTNERSHIPS ====================
+    getPartnerships: (status?: string) => {
+        const query = status ? `?status=${status}` : '';
+        return fetchWithAuth(`/pharmacy/partnerships${query}`);
+    },
+    invitePartnership: (data: { targetType: string; targetId: string; partnershipType?: string; metadata?: any }) =>
+        fetchWithAuth('/pharmacy/partnerships/invite', { method: 'POST', body: JSON.stringify(data) }),
+    respondPartnership: (id: string, action: 'accept' | 'reject') =>
+        fetchWithAuth(`/pharmacy/partnerships/${id}/respond`, { method: 'POST', body: JSON.stringify({ action }) }),
+    requestChangesPartnership: (id: string, message: string, metadataUpdates?: any) =>
+        fetchWithAuth(`/pharmacy/partnerships/${id}/request-changes`, { method: 'POST', body: JSON.stringify({ message, metadataUpdates }) }),
+    acceptChangesPartnership: (id: string) =>
+        fetchWithAuth(`/pharmacy/partnerships/${id}/accept-changes`, { method: 'POST' }),
+    terminatePartnership: (id: string) =>
+        fetchWithAuth(`/pharmacy/partnerships/${id}`, { method: 'DELETE' }),
+
+    createPOSOrder: (data: any, idempotencyKey: string) =>
+        fetchWithAuth('/pharmacy/pos/checkout', {
+            method: 'POST',
+            headers: {
+                'idempotency-key': idempotencyKey,
+            },
+            body: JSON.stringify(data),
+        }),
+
+    // Staff Management (owner-only)
+    getStaff: () =>
+        fetchWithAuth('/pharmacy/staff'),
+
+    inviteStaff: (email: string, role: 'manager' | 'staff') =>
+        fetchWithAuth('/pharmacy/staff/invite', {
+            method: 'POST',
+            body: JSON.stringify({ email, role }),
+        }),
+
+    updateStaffRole: (memberId: string, role: 'manager' | 'staff') =>
+        fetchWithAuth(`/pharmacy/staff/${memberId}/role`, {
+            method: 'PATCH',
+            body: JSON.stringify({ role }),
+        }),
+
+    updateStaffStatus: (memberId: string, action: 'suspend' | 'remove') =>
+        fetchWithAuth(`/pharmacy/staff/${memberId}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ action }),
+        }),
 };
 
 // ==================== CLINIC API ====================
 // Backend: routes/clinic.js
 
 export const clinicApi = {
+    // Operational Routing
+    routePharmacyOrder: (data: { pharmacyId: string; prescriptionId: string; items: any[]; deliveryType?: string; deliveryAddress?: string }) =>
+        fetchWithAuth('/clinics/owner/partnerships/pharmacy-orders', { method: 'POST', body: JSON.stringify(data) }),
+        
+    routeDiagnosticBooking: (data: { centerId: string; prescriptionId?: string; patientId?: string; consultationId?: string; testId?: string; bookingDate: string; bookingTime?: string; collectionType: string; collectionAddress?: string }) =>
+        fetchWithAuth('/clinics/owner/partnerships/diagnostic-bookings', { method: 'POST', body: JSON.stringify(data) }),
+        
+    getRoutedPharmacyOrders: () => fetchWithAuth('/clinics/owner/partnerships/pharmacy-orders'),
+    
+    getRoutedDiagnosticBookings: () => fetchWithAuth('/clinics/owner/partnerships/diagnostic-bookings'),
+
+    // Phase 3 Referrals
+    getReferrals: (status?: string) => {
+        const query = status && status !== 'all' ? `?status=${encodeURIComponent(status)}` : '';
+        return fetchWithAuth(`/clinics/owner/partnerships/referrals${query}`);
+    },
+
+    createReferral: (data: {
+        hospitalId: string;
+        patientId: string;
+        reason: string;
+        urgency: 'routine' | 'urgent' | 'emergency';
+        clinicalSummary?: string;
+        consultationId?: string;
+    }) =>
+        fetchWithAuth('/clinics/owner/partnerships/referrals', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    cancelReferral: (id: string) =>
+        fetchWithAuth(`/clinics/owner/partnerships/referrals/${id}/cancel`, {
+            method: 'POST',
+        }),
+
     getDashboard: () => fetchWithAuth('/clinics/owner/dashboard'),
 
     getReviews: (page: number = 1, limit: number = 10) =>
         fetchWithAuth(`/clinics/owner/reviews?page=${page}&limit=${limit}`),
+
+    respondToReview: (id: string, response: string) =>
+        fetchWithAuth(`/clinics/owner/reviews/${id}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ response }),
+        }),
+
+    getDoctorReviews: (page: number = 1, limit: number = 20) =>
+        fetchWithAuth(`/clinics/owner/doctor-reviews?page=${page}&limit=${limit}`),
 
     getProfile: () => fetchWithAuth('/clinics/owner/profile'),
 
@@ -1340,6 +1553,9 @@ export const clinicApi = {
         if (params.search) query.set('search', params.search);
         return fetchWithAuth(`/clinics/owner/doctors?${query}`);
     },
+
+    getDoctorProfile: (doctorId: string) =>
+        fetchWithAuth(`/clinics/owner/doctors/${doctorId}/profile`),
 
     addDoctor: (data: Record<string, unknown>) => {
         const url = data.doctorId ? `/clinics/owner/doctors/${data.doctorId}` : '/clinics/owner/doctors';
@@ -1377,24 +1593,47 @@ export const clinicApi = {
     unlinkDiagnosticCenter: (providerId: string) =>
         fetchWithAuth(`/clinics/owner/diagnostic-centers/${providerId}`, { method: 'DELETE' }),
 
-    getAppointments: (params: { page?: number; limit?: number; search?: string; status?: string; date?: string } = {}) => {
+    // ==================== UNIFIED PARTNERSHIPS ====================
+    getPartnerships: (status?: string) => {
+        const query = status ? `?status=${status}` : '';
+        return fetchWithAuth(`/clinics/owner/partnerships${query}`);
+    },
+    invitePartnership: (data: { targetType: string; targetId: string; partnershipType?: string; metadata?: any }) =>
+        fetchWithAuth('/clinics/owner/partnerships/invite', { method: 'POST', body: JSON.stringify(data) }),
+    respondPartnership: (id: string, action: 'accept' | 'reject') =>
+        fetchWithAuth(`/clinics/owner/partnerships/${id}/respond`, { method: 'POST', body: JSON.stringify({ action }) }),
+    requestChangesPartnership: (id: string, message: string, metadataUpdates?: any) =>
+        fetchWithAuth(`/clinics/owner/partnerships/${id}/request-changes`, { method: 'POST', body: JSON.stringify({ message, metadataUpdates }) }),
+    acceptChangesPartnership: (id: string) =>
+        fetchWithAuth(`/clinics/owner/partnerships/${id}/accept-changes`, { method: 'POST' }),
+    terminatePartnership: (id: string) =>
+        fetchWithAuth(`/clinics/owner/partnerships/${id}`, { method: 'DELETE' }),
+
+    getAppointments: (params: { page?: number; limit?: number; search?: string; status?: string; date?: string; dateRange?: string; doctorId?: string; type?: string } = {}) => {
         const query = new URLSearchParams({
             page: String(params.page ?? 1),
             limit: String(params.limit ?? 20),
         });
         if (params.search) query.set('search', params.search);
-        if (params.status) query.set('status', params.status);
+        if (params.status && params.status !== 'all') query.set('status', params.status);
         if (params.date) query.set('date', params.date);
+        if (params.dateRange && params.dateRange !== 'all') query.set('dateRange', params.dateRange);
+        if (params.doctorId && params.doctorId !== 'all') query.set('doctorId', params.doctorId);
+        if (params.type && params.type !== 'all') query.set('type', params.type);
         return fetchWithAuth(`/clinics/owner/appointments?${query}`);
     },
 
-    getConsultations: (params: { page?: number; limit?: number; search?: string; status?: string } = {}) => {
+    getConsultations: (params: { page?: number; limit?: number; search?: string; status?: string; type?: string; date?: string; dateRange?: string; doctorId?: string } = {}) => {
         const query = new URLSearchParams({
             page: String(params.page ?? 1),
             limit: String(params.limit ?? 20),
         });
-        if (params.status) query.set('status', params.status);
+        if (params.status && params.status !== 'all') query.set('status', params.status);
         if (params.search) query.set('search', params.search);
+        if (params.type && params.type !== 'all') query.set('type', params.type);
+        if (params.date) query.set('date', params.date);
+        if (params.dateRange && params.dateRange !== 'all') query.set('dateRange', params.dateRange);
+        if (params.doctorId && params.doctorId !== 'all') query.set('doctorId', params.doctorId);
         return fetchWithAuth(`/clinics/owner/consultations?${query}`);
     },
 
@@ -1420,6 +1659,11 @@ export const clinicApi = {
 
     // ── Departments ──
     getDepartments: () => fetchWithAuth('/clinics/owner/departments'),
+
+    getDepartmentMeta: () => fetchWithAuth('/clinics/owner/departments/meta'),
+
+    getDepartmentDetail: (departmentId: string) =>
+        fetchWithAuth(`/clinics/owner/departments/${departmentId}`),
 
     addDepartment: (data: Record<string, unknown>) =>
         fetchWithAuth('/clinics/owner/departments', {
@@ -1475,12 +1719,14 @@ export const clinicApi = {
             body: JSON.stringify({ decision, message }),
         }),
     // ── Clinic Patients ──
-    getPatients: (params: { page?: number; limit?: number; search?: string } = {}) => {
+    getPatients: (params: { page?: number; limit?: number; search?: string; filter?: string; doctorId?: string } = {}) => {
         const query = new URLSearchParams({
             page: String(params.page ?? 1),
             limit: String(params.limit ?? 20),
         });
         if (params.search) query.set('search', params.search);
+        if (params.filter && params.filter !== 'all') query.set('filter', params.filter);
+        if (params.doctorId && params.doctorId !== 'all') query.set('doctorId', params.doctorId);
         return fetchWithAuth(`/clinics/owner/patients?${query}`);
     },
 
@@ -1505,6 +1751,9 @@ export const clinicApi = {
             method: 'POST',
         }),
 
+    // ── Clinic Health Intelligence & Alerts ──
+    getHealthAlerts: () => fetchWithAuth('/clinics/owner/health-alerts'),
+
     // ── Outbreak Alerts (read-only) ──
     getOutbreakAlerts: (city?: string) => {
         const params = new URLSearchParams();
@@ -1523,6 +1772,12 @@ export const diagnosticCenterApi = {
 
     getReviews: (page: number = 1, limit: number = 10) =>
         fetchWithAuth(`/diagnostic-centers/owner/reviews?page=${page}&limit=${limit}`),
+
+    respondToReview: (id: string, response: string) =>
+        fetchWithAuth(`/diagnostic-centers/owner/reviews/${id}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ response }),
+        }),
 
     getProfile: () => fetchWithAuth('/diagnostic-centers/owner/profile'),
 
@@ -1623,6 +1878,22 @@ export const diagnosticCenterApi = {
         }),
 
     getAssociations: () => fetchWithAuth('/diagnostic-centers/owner/associations'),
+
+    // ==================== UNIFIED PARTNERSHIPS ====================
+    getPartnerships: (status?: string) => {
+        const query = status ? `?status=${status}` : '';
+        return fetchWithAuth(`/diagnostic-centers/owner/partnerships${query}`);
+    },
+    invitePartnership: (data: { targetType: string; targetId: string; partnershipType?: string; metadata?: any }) =>
+        fetchWithAuth('/diagnostic-centers/owner/partnerships/invite', { method: 'POST', body: JSON.stringify(data) }),
+    respondPartnership: (id: string, action: 'accept' | 'reject') =>
+        fetchWithAuth(`/diagnostic-centers/owner/partnerships/${id}/respond`, { method: 'POST', body: JSON.stringify({ action }) }),
+    requestChangesPartnership: (id: string, message: string, metadataUpdates?: any) =>
+        fetchWithAuth(`/diagnostic-centers/owner/partnerships/${id}/request-changes`, { method: 'POST', body: JSON.stringify({ message, metadataUpdates }) }),
+    acceptChangesPartnership: (id: string) =>
+        fetchWithAuth(`/diagnostic-centers/owner/partnerships/${id}/accept-changes`, { method: 'POST' }),
+    terminatePartnership: (id: string) =>
+        fetchWithAuth(`/diagnostic-centers/owner/partnerships/${id}`, { method: 'DELETE' }),
 };
 
 // ==================== APPOINTMENTS API ====================
@@ -1983,7 +2254,13 @@ export const medicineApi = {
 // Backend: routes/communityRoutes.js
 
 export const communityApi = {
-    getQuestions: (page: number = 1, limit: number = 20) => fetchWithAuth(`/community/questions?page=${page}&limit=${limit}`),
+    getQuestions: (page: number = 1, limit: number = 20, filter?: string, search?: string, sortBy?: string) => {
+        let url = `/community/questions?page=${page}&limit=${limit}`;
+        if (filter) url += `&filter=${encodeURIComponent(filter)}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        if (sortBy) url += `&sortBy=${encodeURIComponent(sortBy)}`;
+        return fetchWithAuth(url);
+    },
     addAnswer: (questionId: string, content: string) => fetchWithAuth(`/community/questions/${questionId}/answers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1996,6 +2273,27 @@ export const communityApi = {
     }),
     deleteAnswer: (answerId: string) => fetchWithAuth(`/community/answers/${answerId}`, {
         method: 'DELETE'
+    }),
+    reportQuestion: (questionId: string, data: { reason: string, details?: string }) => fetchWithAuth(`/community/questions/${questionId}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }),
+    reportAnswer: (answerId: string, data: { reason: string, details?: string }) => fetchWithAuth(`/community/answers/${answerId}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }),
+    getReports: (status?: string) => fetchWithAuth(`/community/admin/reports${status ? `?status=${status}` : ''}`),
+    updateReportStatus: (reportId: string, status: string) => fetchWithAuth(`/community/admin/reports/${reportId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+    }),
+    moderateContent: (targetType: string, targetId: string, status: string) => fetchWithAuth(`/community/admin/moderate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetType, targetId, status })
     })
 };
 
@@ -2152,6 +2450,83 @@ export const wellnessApi = {
         fetchWithAuth(`/wellness/owner/checkins${wellnessQuery(filters)}`),
 };
 
+// ==================== UNIVERSAL REVIEWS & FEEDBACK APIS ====================
+
+export const reviewsApi = {
+    getPending: () => fetchWithAuth('/patients/reviews/pending'),
+    getMyReviews: () => fetchWithAuth('/patients/reviews/my-reviews'),
+    submitReview: (data: {
+        reviewableType: string;
+        reviewableId: string;
+        rating: number;
+        sourceType?: string;
+        sourceId?: string;
+        consultationId?: string;
+        title?: string;
+        comment?: string;
+        isAnonymous?: boolean;
+    }) =>
+        fetchWithAuth('/patients/reviews', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    getEntityReviews: (type: string, id: string, page: number = 1, limit: number = 10) =>
+        fetchWithAuth(`/patients/reviews/${type}/${id}?page=${page}&limit=${limit}`),
+    reportReview: (id: string, reason: string, details?: string) =>
+        fetchWithAuth(`/patients/reviews/${id}/report`, {
+            method: 'POST',
+            body: JSON.stringify({ reason, details }),
+        }),
+
+    // Admin Review Moderation
+    getAdminReviews: (filters?: Record<string, unknown>, page: number = 1, limit: number = 20) => {
+        const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+        if (filters?.targetType) params.set('targetType', String(filters.targetType));
+        if (filters?.isApproved !== undefined) params.set('isApproved', String(filters.isApproved));
+        if (filters?.isVisible !== undefined) params.set('isVisible', String(filters.isVisible));
+        if (filters?.isReported !== undefined) params.set('isReported', String(filters.isReported));
+        if (filters?.search) params.set('search', String(filters.search));
+        return fetchWithAuth(`/admin/reviews?${params}`);
+    },
+    getAdminReviewStats: () => fetchWithAuth('/admin/reviews/stats'),
+    updateAdminReviewVisibility: (id: string, isVisible: boolean) =>
+        fetchWithAuth(`/admin/reviews/${id}/visibility`, {
+            method: 'PATCH',
+            body: JSON.stringify({ isVisible }),
+        }),
+    updateAdminReviewApproval: (id: string, isApproved: boolean) =>
+        fetchWithAuth(`/admin/reviews/${id}/approval`, {
+            method: 'PATCH',
+            body: JSON.stringify({ isApproved }),
+        }),
+    deleteAdminReview: (id: string) =>
+        fetchWithAuth(`/admin/reviews/${id}`, { method: 'DELETE' }),
+};
+
+export const feedbackApi = {
+    submitFeedback: (data: {
+        type: string;
+        category: string;
+        title: string;
+        description: string;
+        rating?: number;
+        pageName?: string;
+        route?: string;
+        attachments?: string[];
+    }) =>
+        fetchWithAuth('/feedback', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    getMyFeedback: () => fetchWithAuth('/feedback/my-feedback'),
+};
+
+export const publicDiscoveryApi = {
+    searchHospitals: (query: string = '') => fetchWithAuth(`/hospitals/search?q=${encodeURIComponent(query)}`),
+    searchPharmacies: (query: string = '') => fetchWithAuth(`/pharmacy/search?search=${encodeURIComponent(query)}`),
+    searchDiagnosticCenters: (query: string = '') => fetchWithAuth(`/diagnostic-centers/search?search=${encodeURIComponent(query)}`),
+};
+
 // ==================== Unified Export ====================
 
 export const api = {
@@ -2171,6 +2546,10 @@ export const api = {
     medicine: medicineApi,
     community: communityApi,
     wellness: wellnessApi,
+    publicDiscovery: publicDiscoveryApi,
+    reviews: reviewsApi,
+    feedback: feedbackApi,
 };
 
 export default api;
+

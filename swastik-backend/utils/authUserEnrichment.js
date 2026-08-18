@@ -21,7 +21,11 @@ const PROVIDER_ROLE_CONFIG = {
   },
 };
 
-const requiresAuthUserEnrichment = (role) => role === 'hospital_manager' || Boolean(PROVIDER_ROLE_CONFIG[role]);
+const requiresAuthUserEnrichment = (role) =>
+  role === 'hospital_manager' ||
+  role === 'pharmacy_manager' ||
+  role === 'pharmacy_staff' ||
+  Boolean(PROVIDER_ROLE_CONFIG[role]);
 
 const enrichAuthUser = async (user, supabaseAdmin) => {
   if (!user?.id || !user?.role || !requiresAuthUserEnrichment(user.role)) {
@@ -46,6 +50,25 @@ const enrichAuthUser = async (user, supabaseAdmin) => {
           .maybeSingle();
         provider = hospital;
       }
+    } else if (user.role === 'pharmacy_manager' || user.role === 'pharmacy_staff') {
+      // Pharmacy member: resolve pharmacy_id from pharmacy_members, then fetch approval from pharmacy
+      const { data: memberEntry } = await supabaseAdmin
+        .from('pharmacy_members')
+        .select('pharmacy_id, member_role, status')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (memberEntry?.pharmacy_id) {
+        const { data: pharmacy } = await supabaseAdmin
+          .from('pharmacies')
+          .select('id, approval_status, approval_notes')
+          .eq('id', memberEntry.pharmacy_id)
+          .maybeSingle();
+        // Attach the resolved pharmacy as the provider, plus embed member metadata
+        provider = pharmacy
+          ? { ...pharmacy, member_role: memberEntry.member_role, member_status: memberEntry.status }
+          : null;
+      }
     } else {
       const config = PROVIDER_ROLE_CONFIG[user.role];
       const { data } = await supabaseAdmin
@@ -63,6 +86,9 @@ const enrichAuthUser = async (user, supabaseAdmin) => {
       provider_id: provider.id ?? user.provider_id ?? null,
       approval_status: provider.approval_status ?? user.approval_status ?? null,
       approval_notes: provider.approval_notes ?? user.approval_notes ?? null,
+      // Pharmacy member metadata (populated for pharmacy_manager/pharmacy_staff)
+      pharmacy_member_role: provider.member_role ?? user.pharmacy_member_role ?? null,
+      pharmacy_member_status: provider.member_status ?? user.pharmacy_member_status ?? null,
       company_name: provider.company_name ?? user.company_name ?? null,
       center_type: provider.center_type ?? user.center_type ?? null,
       registration_number: provider.registration_number ?? user.registration_number ?? null,

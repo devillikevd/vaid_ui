@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Calendar, CalendarClock, Clock, User, Video, Search, RefreshCw, Loader2, AlertCircle, Play, XCircle as XCircleIcon, CheckCircle, Bell, UserCheck, CalendarX, Inbox, FileText, ClipboardList, SearchX, X } from 'lucide-react';
+import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -592,7 +593,7 @@ export default function DoctorAppointmentsPage() {
                 </div>
             </div>
 
-            <Card padding="none" className="overflow-hidden shadow-sm border border-gray-200 dark:border-gray-800 rounded-2xl bg-white dark:bg-gray-900">
+            <DoctorPortalCard className="!p-0 overflow-hidden bg-white dark:bg-gray-900 border-none sm:border-solid">
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
                     {isLoading && appointments.length === 0 ? (
                         Array.from({ length: 4 }).map((_, i) => <AppointmentSkeleton key={i} />)
@@ -626,7 +627,7 @@ export default function DoctorAppointmentsPage() {
                         itemsPerPage={itemsPerPage}
                     />
                 )}
-            </Card>
+            </DoctorPortalCard>
         </div>
 
         {/* OTP Verification Modal */}

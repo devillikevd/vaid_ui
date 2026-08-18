@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import VaidideaLogo from '@/components/shared/VaidideaLogo';
 import {
     Activity,
     ShieldCheck,
@@ -61,7 +62,7 @@ export default function DoctorLoginPage() {
 
                 <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-12">
-                        <Image src="/logo.png" alt="Vaididea" width={40} height={40} className="rounded-xl" />
+                        <VaidideaLogo className="w-10 h-10" />
                         <span className="text-2xl font-bold text-white tracking-tight">Vaididea</span>
                     </div>
 
@@ -124,7 +125,7 @@ export default function DoctorLoginPage() {
                 >
                     {/* Mobile Logo */}
                     <div className="md:hidden flex items-center gap-3 mb-6 justify-center">
-                        <Image src="/logo.png" alt="Vaididea" width={40} height={40} className="rounded-xl" />
+                        <VaidideaLogo className="w-10 h-10" />
                         <span className="text-2xl font-bold text-white tracking-tight">Vaididea</span>
                     </div>
 
@@ -165,7 +166,7 @@ export default function DoctorLoginPage() {
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between">
                                     <label className="text-[13px] font-medium text-[#A1A1AA]">Password</label>
-                                    <Link href="/forgot-password" className="text-xs text-[#22C55E] hover:text-[#16A34A] transition-colors font-medium">
+                                    <Link href="/forgot-password/doctor" className="text-xs text-[#22C55E] hover:text-[#16A34A] transition-colors font-medium">
                                         Forgot Password?
                                     </Link>
                                 </div>

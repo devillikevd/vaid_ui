@@ -19,6 +19,7 @@ import { doctorApi, authApi } from '@/lib/api';
 import { loadDoctorNotificationSettings, saveDoctorNotificationSettings } from '@/lib/doctorNotificationSettings';
 import { getResubmissionSuccessMessage, refreshAuthenticatedUser } from '@/lib/authSession';
 import { useTheme } from '@/components/shared/ThemeProvider';
+import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 
 // Standardized specialization list — must match backend utils/specializations.js
 const SPECIALIZATIONS = [
@@ -325,7 +326,7 @@ export default function DoctorSettingsPage() {
             <div className="flex flex-col lg:flex-row gap-6">
                 {/* Sidebar Tabs */}
                 <aside className="lg:w-64 shrink-0">
-                    <nav className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm">
+                    <DoctorPortalCard className="!p-0 overflow-hidden">
                         {TABS.map((tab, idx) => {
                             const Icon = tab.icon;
                             const isActive = activeTab === tab.id;
@@ -358,12 +359,12 @@ export default function DoctorSettingsPage() {
                                 </button>
                             );
                         })}
-                    </nav>
+                    </DoctorPortalCard>
                 </aside>
 
                 {/* Content Panel */}
                 <div className="flex-1 min-w-0">
-                    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+                    <DoctorPortalCard className="!p-0 overflow-hidden">
                         {/* Panel Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
                             <div className="flex items-center gap-3">
@@ -807,7 +808,7 @@ export default function DoctorSettingsPage() {
                             )}
 
                         </div>
-                    </div>
+                    </DoctorPortalCard>
                 </div>
             </div>
         </div>

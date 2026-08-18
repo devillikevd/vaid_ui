@@ -69,24 +69,26 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     res.json({ success: true, data: dashboard });
 }));
 
-// ==================== DOCTOR FEEDBACK ====================
+// ==================== PLATFORM & DOCTOR FEEDBACK ====================
 
 /**
  * @route GET /api/admin/feedback
- * @desc Get doctor feedback
+ * @desc Get platform & doctor feedback
  */
 router.get('/feedback', asyncHandler(async (req, res) => {
     const { DoctorFeedback } = require('../database/models');
-    const { status, type, category, search, page = 1, limit = 20 } = req.query;
+    const { status, type, category, userRole, search, page = 1, limit = 20 } = req.query;
     
     const query = {};
     if (status) query.status = status;
     if (type) query.type = type;
     if (category) query.category = category;
+    if (userRole) query.userRole = userRole;
     if (search) {
         query.$or = [
             { title: { $regex: search, $options: 'i' } },
-            { description: { $regex: search, $options: 'i' } }
+            { description: { $regex: search, $options: 'i' } },
+            { userName: { $regex: search, $options: 'i' } }
         ];
     }
 
@@ -153,23 +155,218 @@ router.post('/feedback/:id/response', [
     const feedback = await DoctorFeedback.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!feedback) return res.status(404).json({ success: false, message: 'Feedback not found' });
     
-    // Get doctor's userId to send notification
-    const { data: doctor } = await supabaseAdmin
-        .from('doctors')
-        .select('user_id')
-        .eq('id', feedback.doctorId)
-        .maybeSingle();
+    // Determine notification recipient
+    let recipientUserId = feedback.userId;
+    if (!recipientUserId && feedback.doctorId) {
+        const { data: doctor } = await supabaseAdmin
+            .from('doctors')
+            .select('user_id')
+            .eq('id', feedback.doctorId)
+            .maybeSingle();
+        if (doctor?.user_id) recipientUserId = doctor.user_id;
+    }
         
-    if (doctor?.user_id) {
-        notificationService.sendNotification(doctor.user_id, {
-            title: 'Feedback Update',
-            message: `Your feedback "${feedback.title}" has been updated by an admin.`,
+    if (recipientUserId) {
+        notificationService.sendNotification(recipientUserId, {
+            title: 'Platform Feedback Update',
+            message: `Your feedback "${feedback.title}" has been reviewed by an admin.`,
             type: 'system',
             metadata: { feedbackId: feedback._id, status: feedback.status }
-        }).catch(err => console.error('Failed to notify doctor of feedback response', err));
+        }).catch(err => console.error('Failed to notify user of feedback response', err));
     }
     
     res.json({ success: true, data: feedback });
+}));
+
+// ==================== PUBLIC REVIEWS MODERATION ====================
+
+/**
+ * @route GET /api/admin/reviews
+ * @desc List public reviews with moderation filters
+ */
+router.get('/reviews', asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../config/supabase');
+    const { targetType, isApproved, isVisible, isReported, search, page = 1, limit = 20 } = req.query;
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    let query = supabaseAdmin
+        .from('reviews')
+        .select('*, patient:patients(id, name, profile_image_url)', { count: 'exact' });
+
+    if (targetType && targetType !== 'all') {
+        query = query.eq('reviewable_type', targetType);
+    }
+    if (isApproved !== undefined && isApproved !== 'all') {
+        query = query.eq('is_approved', isApproved === 'true');
+    }
+    if (isVisible !== undefined && isVisible !== 'all') {
+        query = query.eq('is_visible', isVisible === 'true');
+    }
+    if (search && search.trim()) {
+        query = query.ilike('comment', `%${search.trim()}%`);
+    }
+
+    query = query.order('created_at', { ascending: false }).range(offset, offset + parseInt(limit) - 1);
+
+    const { data: reviews, count, error } = await query;
+    if (error) throw error;
+
+    // Filter reported if requested
+    let filteredReviews = reviews || [];
+    if (isReported === 'true') {
+        filteredReviews = filteredReviews.filter(r => r.admin_response && r.admin_response.includes('"isReported":true'));
+    }
+
+    // Clean review titles for display
+    const formatted = filteredReviews.map(r => {
+        const review = { ...r };
+        if (review.title && (review.title.startsWith('SRC:') || review.title.startsWith('AID:'))) {
+            review.title = null;
+        }
+        return review;
+    });
+
+    res.json({
+        success: true,
+        data: formatted,
+        pagination: {
+            total: count || 0,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            totalPages: Math.ceil((count || 0) / parseInt(limit))
+        }
+    });
+}));
+
+/**
+ * @route GET /api/admin/reviews/stats
+ * @desc Get public reviews KPI summary
+ */
+router.get('/reviews/stats', asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../config/supabase');
+    const { data: allReviews, error } = await supabaseAdmin
+        .from('reviews')
+        .select('id, rating, is_visible, is_approved, admin_response, is_verified');
+
+    if (error) throw error;
+
+    const total = allReviews?.length || 0;
+    let sum = 0;
+    let visibleCount = 0;
+    let pendingModeration = 0;
+    let reportedCount = 0;
+    let verifiedCount = 0;
+
+    (allReviews || []).forEach(r => {
+        sum += r.rating || 0;
+        if (r.is_visible) visibleCount++;
+        if (!r.is_approved) pendingModeration++;
+        if (r.admin_response && r.admin_response.includes('"isReported":true')) reportedCount++;
+        if (r.is_verified) verifiedCount++;
+    });
+
+    const averageRating = total > 0 ? Math.round((sum / total) * 10) / 10 : 0;
+
+    res.json({
+        success: true,
+        data: {
+            totalReviews: total,
+            averageRating,
+            visibleReviews: visibleCount,
+            pendingModeration,
+            reportedReviews: reportedCount,
+            verifiedReviews: verifiedCount
+        }
+    });
+}));
+
+/**
+ * @route PATCH /api/admin/reviews/:id/visibility
+ * @desc Soft toggle review visibility
+ */
+router.patch('/reviews/:id/visibility', [
+    param('id').isUUID().withMessage('Invalid review ID'),
+    body('isVisible').isBoolean().withMessage('isVisible must be a boolean')
+], validate, asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../config/supabase');
+    const reviewService = require('../services/reviewService');
+    const { isVisible } = req.body;
+
+    const { data: updated, error } = await supabaseAdmin
+        .from('reviews')
+        .update({ is_visible: isVisible, updated_at: new Date().toISOString() })
+        .eq('id', req.params.id)
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    // Recalculate target aggregate
+    if (updated?.reviewable_type && updated?.reviewable_id) {
+        reviewService.updateAggregateRating(updated.reviewable_type, updated.reviewable_id).catch(() => {});
+    }
+
+    res.json({ success: true, data: updated, message: `Review visibility set to ${isVisible}` });
+}));
+
+/**
+ * @route PATCH /api/admin/reviews/:id/approval
+ * @desc Approve or reject review
+ */
+router.patch('/reviews/:id/approval', [
+    param('id').isUUID().withMessage('Invalid review ID'),
+    body('isApproved').isBoolean().withMessage('isApproved must be a boolean')
+], validate, asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../config/supabase');
+    const reviewService = require('../services/reviewService');
+    const { isApproved } = req.body;
+
+    const { data: updated, error } = await supabaseAdmin
+        .from('reviews')
+        .update({ is_approved: isApproved, updated_at: new Date().toISOString() })
+        .eq('id', req.params.id)
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    // Recalculate target aggregate
+    if (updated?.reviewable_type && updated?.reviewable_id) {
+        reviewService.updateAggregateRating(updated.reviewable_type, updated.reviewable_id).catch(() => {});
+    }
+
+    res.json({ success: true, data: updated, message: `Review approval set to ${isApproved}` });
+}));
+
+/**
+ * @route DELETE /api/admin/reviews/:id
+ * @desc Soft-hide or remove a review
+ */
+router.delete('/reviews/:id', [
+    param('id').isUUID().withMessage('Invalid review ID')
+], validate, asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../config/supabase');
+    const reviewService = require('../services/reviewService');
+
+    const { data: review } = await supabaseAdmin
+        .from('reviews')
+        .select('reviewable_type, reviewable_id')
+        .eq('id', req.params.id)
+        .maybeSingle();
+
+    // Soft delete: hide and unapprove
+    const { error } = await supabaseAdmin
+        .from('reviews')
+        .update({ is_visible: false, is_approved: false, updated_at: new Date().toISOString() })
+        .eq('id', req.params.id);
+
+    if (error) throw error;
+
+    if (review?.reviewable_type && review?.reviewable_id) {
+        reviewService.updateAggregateRating(review.reviewable_type, review.reviewable_id).catch(() => {});
+    }
+
+    res.json({ success: true, message: 'Review removed from public display' });
 }));
 
 // ==================== APPROVAL WORKFLOW ====================
@@ -855,6 +1052,9 @@ router.post('/medicines/bulk', [
             price: parseFloat(m.price) || 0,
             mrp: parseFloat(m.mrp) || parseFloat(m.price) || 0,
             requires_prescription: m.requires_prescription === 'true' || m.requiresprescription === 'true' || m.requiresPrescription === true || false,
+            pack_size: m.pack_size || m.packSize || null,
+            description: m.description || null,
+            image_url: m.image_url || m.imageUrl || null,
         };
     }))).filter(m => m.name);
 

@@ -36,6 +36,7 @@ fun CommunityQADetailsScreen(
 ) {
     val question by viewModel.selectedQuestion.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    var reportTarget by remember { mutableStateOf<Pair<String, String>?>(null) } // pair of (targetType, id)
 
     LaunchedEffect(questionId) {
         viewModel.fetchQuestionDetails(questionId)
@@ -102,7 +103,8 @@ fun CommunityQADetailsScreen(
                                 viewModel.deleteQuestion(q.id) {
                                     navController.popBackStack()
                                 }
-                            }
+                            },
+                            onReport = if (!isOwner) { { reportTarget = "question" to q.id } } else null
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Text(
@@ -120,18 +122,35 @@ fun CommunityQADetailsScreen(
                             isQuestionOwner = isQuestionOwner,
                             hasUpvoted = viewModel.hasUpvoted(answer.id),
                             onUpvote = { viewModel.upvoteAnswer(answer.id) },
-                            onDelete = { viewModel.deleteAnswer(answer.id, q.id) }
+                            onDelete = { viewModel.deleteAnswer(answer.id, q.id) },
+                            onReport = { reportTarget = "answer" to answer.id }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
             }
         }
+        reportTarget?.let { target ->
+            ReportBottomSheet(
+                targetType = target.first,
+                onDismiss = { reportTarget = null },
+                onSubmit = { reason, details ->
+                    reportTarget = null
+                    if (target.first == "question") {
+                        viewModel.reportQuestion(target.second, reason, details) {
+                            viewModel.fetchQuestionDetails(questionId)
+                        }
+                    } else {
+                        viewModel.reportAnswer(target.second, reason, details) {}
+                    }
+                }
+            )
+        }
     }
 }
 
 @Composable
-fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, onDelete: () -> Unit = {}) {
+fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, onDelete: () -> Unit = {}, onReport: (() -> Unit)? = null) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showOptionsMenu by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
@@ -332,6 +351,18 @@ fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, o
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text("${question.views}", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+
+            if (onReport != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(onClick = { onReport.invoke() }, modifier = Modifier.size(24.dp)) {
+                    Icon(
+                        Icons.Default.Flag,
+                        contentDescription = "Report",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         }
         Spacer(modifier = Modifier.height(16.dp))
         Text(
@@ -349,83 +380,112 @@ fun AnswerCard(
     isQuestionOwner: Boolean = false, 
     hasUpvoted: Boolean = false,
     onUpvote: () -> Unit = {}, 
-    onDelete: () -> Unit = {}
+    onDelete: () -> Unit = {},
+    onReport: (() -> Unit)? = null
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = if (answer.isDoctorVerified) SwastikPrimaryLight.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, if (answer.isDoctorVerified) SwastikPrimary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    val imageUrl = answer.doctor?.profileImageUrl ?: answer.patient?.profileImageUrl
-                    if (!imageUrl.isNullOrEmpty()) {
-                        coil.compose.AsyncImage(
-                            model = imageUrl,
-                            contentDescription = "Profile Picture",
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(if (answer.isDoctorVerified) SwastikPrimaryLight else MaterialTheme.colorScheme.surfaceVariant),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = answer.doctor?.name?.take(1) ?: answer.patient?.name?.take(1) ?: "A",
-                                color = if (answer.isDoctorVerified) SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Bold
+        val isOrgVerified = answer.responderVerified == true || answer.isDoctorVerified
+        val displayName = answer.responderName ?: answer.doctor?.name?.let { "Dr. $it" } ?: answer.patient?.name ?: "Anonymous"
+        val displayInitials = displayName.take(1).uppercase()
+        
+        val badgeLabel = when (answer.responderType) {
+            "hospital" -> "Verified Hospital"
+            "clinic" -> "Verified Clinic"
+            "pharmacy" -> "Verified Pharmacy"
+            "diagnostic_center" -> "Verified Diagnostic Center"
+            else -> "Verified Doctor"
+        }
+
+        val primaryColor = SwastikPrimary
+        val primaryLightColor = SwastikPrimaryLight
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = if (isOrgVerified) primaryLightColor.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (isOrgVerified) primaryColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        val imageUrl = answer.doctor?.profileImageUrl ?: answer.patient?.profileImageUrl
+                        if (!imageUrl.isNullOrEmpty() && answer.responderType == null) {
+                            coil.compose.AsyncImage(
+                                model = imageUrl,
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
                             )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = answer.doctor?.name ?: answer.patient?.name ?: "Anonymous",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            if (answer.isDoctorVerified) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    Icons.Default.CheckCircle,
-                                    contentDescription = "Verified Doctor",
-                                    tint = SwastikPrimary,
-                                    modifier = Modifier.size(14.dp)
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isOrgVerified) primaryLightColor else MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = displayInitials,
+                                    color = if (isOrgVerified) primaryColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
-                        if (answer.isDoctorVerified && answer.doctor != null) {
-                            val details = mutableListOf<String>()
-                            answer.doctor.specialization?.let { details.add(it) }
-                            answer.doctor.experienceYears?.let { details.add("${it}Y exp") }
-                            
-                            Text(
-                                text = details.joinToString(" • "),
-                                fontSize = 12.sp,
-                                color = SwastikPrimary
-                            )
-                        } else {
-                            Text(
-                                text = "Answered ${formatCommunityDate(answer.createdAt)}",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = displayName,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                if (isOrgVerified) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = badgeLabel,
+                                        tint = primaryColor,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                            if (isOrgVerified) {
+                                val details = mutableListOf<String>()
+                                details.add(badgeLabel)
+                                if (answer.responderType == null || answer.responderType == "doctor") {
+                                    answer.doctor?.specialization?.let { details.add(it) }
+                                }
+                                
+                                Text(
+                                    text = details.joinToString(" • "),
+                                    fontSize = 12.sp,
+                                    color = primaryColor
+                                )
+                            } else {
+                                Text(
+                                    text = "Answered ${formatCommunityDate(answer.createdAt)}",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
+                    }
+                
+                if (onReport != null) {
+                    IconButton(onClick = { onReport.invoke() }, modifier = Modifier.size(24.dp)) {
+                        Icon(
+                            Icons.Default.Flag,
+                            contentDescription = "Report",
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             }

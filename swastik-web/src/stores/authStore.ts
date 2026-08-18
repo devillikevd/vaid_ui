@@ -39,7 +39,9 @@ export type UserRole =
     | 'diagnostic_center_owner'
     | 'wellness_coach'
     | 'fitness_center_owner'
-    | 'pharmacy_owner';
+    | 'pharmacy_owner'
+    | 'pharmacy_manager'
+    | 'pharmacy_staff';
 
 export type ApprovalStatus = 'pending' | 'review' | 'under_review' | 'approved' | 'rejected' | 'suspended';
 
@@ -60,6 +62,8 @@ interface AuthState {
     refreshToken: string | null;
     isAuthenticated: boolean;
     isLoading: boolean;
+    isLoggingOut: boolean;
+    setLoggingOut: (value: boolean) => void;
     _hasHydrated: boolean;
 
     login: (email: string, password: string, expectedRole: UserRole, rememberMe?: boolean) => Promise<{ success: boolean; error?: string; code?: string }>;
@@ -91,6 +95,8 @@ export const ROLE_HOME_ROUTES: Record<UserRole, string> = {
     wellness_coach: '/wellness',
     fitness_center_owner: '/fitness-center',
     pharmacy_owner: '/pharmacy',
+    pharmacy_manager: '/pharmacy',
+    pharmacy_staff: '/pharmacy',
 };
 
 export const ROLE_LOGIN_ROUTES: Record<UserRole, string> = {
@@ -105,6 +111,8 @@ export const ROLE_LOGIN_ROUTES: Record<UserRole, string> = {
     wellness_coach: '/login/wellness',
     fitness_center_owner: '/login/fitness-center',
     pharmacy_owner: '/login/pharmacy',
+    pharmacy_manager: '/login/pharmacy',
+    pharmacy_staff: '/login/pharmacy',
 };
 
 // Token refresh mutex to prevent concurrent refresh calls (H6 fix)
@@ -118,6 +126,8 @@ export const useAuthStore = create<AuthState>()(
             refreshToken: null,
             isAuthenticated: false,
             isLoading: true,
+            isLoggingOut: false,
+            setLoggingOut: (value) => set({ isLoggingOut: value }),
             _hasHydrated: false,
 
             setHasHydrated: (state) => set({ _hasHydrated: state }),
@@ -366,6 +376,8 @@ export function canAccessRoute(userRole: UserRole | undefined, path: string): bo
         wellness_coach: ['/wellness'],
         fitness_center_owner: ['/fitness-center'],
         pharmacy_owner: ['/pharmacy'],
+        pharmacy_manager: ['/pharmacy'],
+        pharmacy_staff: ['/pharmacy'],
     };
 
     const allowedPaths = roleRoutes[userRole] || [];
@@ -472,8 +484,12 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
 if (typeof window !== 'undefined') {
     window.addEventListener('swastik-unauthorized', () => {
         // Prevent infinite loops if already logged out
-        if (useAuthStore.getState().isAuthenticated) {
-            useAuthStore.getState().logout();
+        const state = useAuthStore.getState();
+        if (state.isAuthenticated) {
+            const role = state.user?.role as UserRole | undefined;
+            const targetPath = (role && ROLE_LOGIN_ROUTES[role]) ? ROLE_LOGIN_ROUTES[role] : '/';
+            state.logout();
+            window.location.replace(targetPath); // Authoritative fallback for 401s
         }
     });
 }

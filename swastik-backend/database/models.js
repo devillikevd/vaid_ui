@@ -181,10 +181,14 @@ const doctorGoalSchema = new mongoose.Schema({
     updatedAt: { type: Date, default: Date.now },
 });
 
-// Doctor Feedback Schema - internal feedback from doctors to admins
+// Platform & Doctor Feedback Schema - internal feedback from users to admins
 const doctorFeedbackSchema = new mongoose.Schema({
-    doctorId: { type: String, required: true, index: true },
-    type: { type: String, required: true, index: true },
+    doctorId: { type: String, index: true },
+    userId: { type: String, index: true },
+    userRole: { type: String, default: 'doctor', index: true }, // patient, doctor, clinic, hospital, pharmacy, diagnostic_center
+    userName: String,
+    userEmail: String,
+    type: { type: String, required: true, index: true }, // bug, feature, ux, complaint, suggestion, other
     category: { type: String, required: true, index: true },
     title: { type: String, required: true },
     description: { type: String, required: true },
@@ -207,6 +211,8 @@ const doctorFeedbackSchema = new mongoose.Schema({
 
 doctorFeedbackSchema.index({ status: 1, createdAt: -1 });
 doctorFeedbackSchema.index({ doctorId: 1, createdAt: -1 });
+doctorFeedbackSchema.index({ userId: 1, createdAt: -1 });
+doctorFeedbackSchema.index({ userRole: 1, createdAt: -1 });
 
 // Create models only if mongoose is connected
 let AuditLog, ChatMessage, AnalyticsEvent, AmbulanceLocation, SearchLog, MealLog, Disease, Category, HealthSearchStat, DoctorGoal, DoctorFeedback;

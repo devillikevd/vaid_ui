@@ -8,6 +8,8 @@ const { body, param, query } = require('express-validator');
 const { validate } = require('../middleware/validate');
 const hospitalManagerService = require('../services/hospitalManagerService');
 const facilityAssociationService = require('../services/facilityAssociationService');
+const organizationPartnershipService = require('../services/organizationPartnershipService');
+const referralService = require('../services/referralService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -263,6 +265,111 @@ router.delete('/diagnostic-centers/:providerId', requireRole(ROLES.HOSPITAL_OWNE
     res.json({ success: true });
 }));
 
+// ==========================================
+// UNIFIED ORGANIZATION PARTNERSHIPS (PHASE 1)
+// ==========================================
+
+router.get('/partnerships', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const { status } = req.query;
+    
+    const partnerships = await organizationPartnershipService.getPartnerships({
+        orgType: 'hospital',
+        orgId: hospital.id,
+        status
+    });
+    
+    res.json({ success: true, data: partnerships });
+}));
+
+router.post('/partnerships/invite', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    body('targetType').isIn(['clinic', 'pharmacy', 'diagnostic_center']).withMessage('Invalid target type'),
+    body('targetId').isUUID().withMessage('Valid target ID required'),
+    body('partnershipType').optional().isString(),
+    body('metadata').optional().isObject(),
+    validate
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    
+    const request = await organizationPartnershipService.createPartnershipRequest({
+        initiatorType: 'hospital',
+        initiatorId: hospital.id,
+        initiatorUserId: req.user.id,
+        targetType: req.body.targetType,
+        targetId: req.body.targetId,
+        partnershipType: req.body.partnershipType,
+        metadata: req.body.metadata || {}
+    });
+    
+    res.status(201).json({ success: true, data: request, message: 'Partnership invitation sent successfully.' });
+}));
+
+router.post('/partnerships/:id/respond', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    body('action').isIn(['accept', 'reject']).withMessage('Action must be accept or reject'),
+    validate
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const updated = await organizationPartnershipService.respondToPartnershipRequest(
+        req.params.id, 'hospital', hospital.id, req.body.action
+    );
+    res.json({ success: true, data: updated, message: `Partnership ${req.body.action}ed successfully.` });
+}));
+
+router.post('/partnerships/:id/request-changes', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    body('message').isString().notEmpty().withMessage('Changes message is required'),
+    body('metadataUpdates').optional().isObject(),
+    validate
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const updated = await organizationPartnershipService.requestChanges(
+        req.params.id, 'hospital', hospital.id, req.body.message, req.body.metadataUpdates || {}
+    );
+    res.json({ success: true, data: updated, message: 'Changes requested successfully.' });
+}));
+
+router.post('/partnerships/:id/accept-changes', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    validate
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const updated = await organizationPartnershipService.acceptChanges(req.params.id, 'hospital', hospital.id);
+    res.json({ success: true, data: updated, message: 'Changes accepted successfully.' });
+}));
+
+router.delete('/partnerships/:id', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    validate
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const updated = await organizationPartnershipService.terminatePartnership(req.params.id, 'hospital', hospital.id);
+    res.json({ success: true, data: updated, message: 'Partnership terminated successfully.' });
+}));
+
+// --- Phase 3: Incoming Referrals ---
+
+router.get('/partnerships/referrals', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const statusFilters = req.query.status ? req.query.status.split(',') : null;
+    const referrals = await referralService.getHospitalReferrals(req.user.id, hospital.id, statusFilters);
+    res.json({ success: true, data: referrals });
+}));
+
+router.put('/partnerships/referrals/:id/status', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    param('id').isUUID(),
+    body('status').isIn(['accepted', 'rejected', 'admission_pending', 'admitted', 'discharged']),
+    validate
+], asyncHandler(async (req, res) => {
+    const referral = await referralService.updateReferralStatus(
+        req.user.id, 
+        req.params.id, 
+        req.body.status, 
+        req.body // pass extraData like rejection_reason or discharge_summary
+    );
+    res.json({ success: true, data: referral });
+}));
+
 // Departments
 router.get('/departments', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
@@ -407,6 +514,78 @@ router.get('/reviews', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER)
     const reviewService = require('../services/reviewService');
     const result = await reviewService.getEntityReviews('hospital', hospital.id, parseInt(page), parseInt(limit));
     res.json({ success: true, ...result });
+}));
+
+// Respond to Hospital Review
+router.post('/reviews/:id/respond', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    param('id').isUUID().withMessage('Invalid review ID'),
+    body('response').isString().notEmpty().withMessage('Response message is required'),
+    validate
+], asyncHandler(async (req, res) => {
+    const reviewService = require('../services/reviewService');
+    const updated = await reviewService.respondToReview(req.params.id, req.user.id, req.body.response);
+    res.json({ success: true, data: updated, message: 'Response posted successfully' });
+}));
+
+// Get Affiliated Doctor Reviews (Read-only view, does NOT affect hospital rating)
+router.get('/doctor-reviews', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const { page = 1, limit = 20 } = req.query;
+    const { supabaseAdmin } = require('../config/supabase');
+    
+    // Find doctors affiliated with this hospital
+    const { data: affiliations } = await supabaseAdmin
+        .from('facility_provider_associations')
+        .select('provider_id')
+        .eq('facility_id', hospital.id)
+        .eq('facility_type', 'hospital')
+        .eq('provider_type', 'doctor')
+        .eq('status', 'active');
+    
+    const doctorIds = (affiliations || []).map(a => a.provider_id);
+    
+    if (doctorIds.length === 0) {
+        return res.json({
+            success: true,
+            data: [],
+            metrics: { totalReviews: 0, averageRating: 0, verifiedReviews: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
+            pagination: { total: 0, page: parseInt(page), limit: parseInt(limit), totalPages: 0 }
+        });
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { data: reviews, count, error } = await supabaseAdmin
+        .from('reviews')
+        .select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name, profile_image_url)', { count: 'exact' })
+        .eq('reviewable_type', 'doctor')
+        .in('reviewable_id', doctorIds)
+        .eq('is_visible', true)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + parseInt(limit) - 1);
+
+    if (error) throw error;
+
+    const formatted = (reviews || []).map(r => {
+        const review = { ...r };
+        if (review.is_anonymous) {
+            review.patient = { name: 'Anonymous', profile_image_url: null };
+        }
+        if (review.title && (review.title.startsWith('SRC:') || review.title.startsWith('AID:'))) {
+            review.title = null;
+        }
+        return review;
+    });
+
+    res.json({
+        success: true,
+        data: formatted,
+        pagination: {
+            total: count || 0,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            totalPages: Math.ceil((count || 0) / parseInt(limit))
+        }
+    });
 }));
 
 // Reels (Hospital Videos)

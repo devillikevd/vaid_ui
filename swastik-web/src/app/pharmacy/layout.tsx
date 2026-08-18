@@ -3,33 +3,54 @@
 import { ReactNode, useState } from 'react';
 import {
     LayoutDashboard,
-    FileText,
+    ClipboardList,
     Package,
     ShoppingCart,
+    Inbox,
+    Network,
+    Link2,
+    BadgePercent,
+    Star,
+    PlaySquare,
+    MessageCircle,
+    Users,
     BarChart3,
     Settings,
     Pill,
-    Link2,
-    Users,
-    Star,
-    BadgePercent,
+    CreditCard,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig, type NavItem } from '@/components/shared/DashboardLayout';
 import { useOrderUpdates } from '@/hooks/useSocket';
 
+// All three pharmacy roles that can access this portal
+const PHARMACY_ROLES = ['pharmacy_owner', 'pharmacy_manager', 'pharmacy_staff'];
+
 const BASE_NAV: NavItem[] = [
-    { name: 'Dashboard', href: '/pharmacy', icon: LayoutDashboard },
-    { name: 'Requests', href: '/pharmacy/requests', icon: Package },
-    { name: 'Prescriptions', href: '/pharmacy/prescriptions', icon: FileText },
-    { name: 'Inventory', href: '/pharmacy/inventory', icon: Package },
-    { name: 'Orders', href: '/pharmacy/orders', icon: ShoppingCart },
-    { name: 'Campaigns', href: '/pharmacy/campaigns', icon: BadgePercent },
-    { name: 'Associations', href: '/pharmacy/associations', icon: Link2 },
-    { name: 'Agents', href: '/pharmacy/agents', icon: Users },
-    { name: 'Reports', href: '/pharmacy/reports', icon: BarChart3 },
-    { name: 'Reviews', href: '/pharmacy/reviews', icon: Star },
-    { name: 'Reels', href: '/pharmacy/reels', icon: FileText }, // Need to import Video, but using FileText for now as placeholder
-    { name: 'Settings', href: '/pharmacy/settings', icon: Settings },
+    // OPERATIONS — all roles
+    { name: 'Dashboard', href: '/pharmacy', icon: LayoutDashboard, section: 'OPERATIONS', allowedRoles: PHARMACY_ROLES },
+    { name: 'POS', href: '/pharmacy/pos', icon: CreditCard, section: 'OPERATIONS', allowedRoles: PHARMACY_ROLES },
+    { name: 'Orders', href: '/pharmacy/orders', icon: ShoppingCart, section: 'OPERATIONS', allowedRoles: PHARMACY_ROLES },
+    { name: 'Prescriptions', href: '/pharmacy/prescriptions', icon: ClipboardList, section: 'OPERATIONS', allowedRoles: PHARMACY_ROLES },
+    { name: 'Inventory', href: '/pharmacy/inventory', icon: Package, section: 'OPERATIONS', allowedRoles: PHARMACY_ROLES },
+    { name: 'Requests', href: '/pharmacy/requests', icon: Inbox, section: 'OPERATIONS', allowedRoles: PHARMACY_ROLES },
+
+    // NETWORK — owner only
+    { name: 'Partnerships', href: '/pharmacy/partnerships', icon: Network, section: 'NETWORK', allowedRoles: ['pharmacy_owner'] },
+    { name: 'Associations', href: '/pharmacy/associations', icon: Link2, section: 'NETWORK', allowedRoles: ['pharmacy_owner'] },
+
+    // GROWTH & REPUTATION — owner + manager
+    { name: 'Campaigns', href: '/pharmacy/campaigns', icon: BadgePercent, section: 'GROWTH & REPUTATION', allowedRoles: ['pharmacy_owner', 'pharmacy_manager'] },
+    { name: 'Reviews', href: '/pharmacy/reviews', icon: Star, section: 'GROWTH & REPUTATION', allowedRoles: ['pharmacy_owner', 'pharmacy_manager'] },
+    { name: 'Reels', href: '/pharmacy/reels', icon: PlaySquare, section: 'GROWTH & REPUTATION', allowedRoles: ['pharmacy_owner', 'pharmacy_manager'] },
+
+    // COMMUNITY — all roles
+    { name: 'Pharmacy Community', href: '/pharmacy/community', icon: MessageCircle, section: 'COMMUNITY', allowedRoles: PHARMACY_ROLES },
+
+    // MANAGEMENT — owner + manager; Staff section owner-only
+    { name: 'Delivery Fleet', href: '/pharmacy/agents', icon: Users, section: 'MANAGEMENT', allowedRoles: ['pharmacy_owner'] },
+    { name: 'Reports', href: '/pharmacy/reports', icon: BarChart3, section: 'MANAGEMENT', allowedRoles: ['pharmacy_owner', 'pharmacy_manager'] },
+    { name: 'Staff', href: '/pharmacy/staff', icon: Users, section: 'MANAGEMENT', allowedRoles: ['pharmacy_owner'] },
+    { name: 'Settings', href: '/pharmacy/settings', icon: Settings, section: 'MANAGEMENT', allowedRoles: ['pharmacy_owner'] },
 ];
 
 export default function PharmacyLayout({ children }: { children: ReactNode }) {
@@ -45,14 +66,17 @@ export default function PharmacyLayout({ children }: { children: ReactNode }) {
     );
 
     const config: DashboardConfig = {
-        role: 'pharmacy_owner',
+        // All three roles are valid for this portal. DashboardLayout filters nav items
+        // per allowedRoles on each NavItem — no special-case shortcutting.
+        role: PHARMACY_ROLES as unknown as string[],
         loginPath: '/login/pharmacy',
         portalTitle: 'Pharmacy Portal',
         portalSubtitle: 'Fulfillment Console',
         portalIcon: Pill,
         theme: { color: 'orange', dataTheme: 'pharmacy' },
         showApprovalBanner: true,
-        showFullDropdown: false,
+        showFullDropdown: true,
+        profileHref: '/pharmacy/profile',
         settingsHref: '/pharmacy/settings',
         userDisplayName: 'Pharmacy',
         navItems,

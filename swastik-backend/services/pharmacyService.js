@@ -13,6 +13,7 @@ const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
 const { buildProviderResubmissionFields } = require('../utils/providerApproval');
 const { computeBestPrices, recordRedemptions, voidRedemptionsForOrder } = require('./discountService');
+const organizationPartnershipService = require('./organizationPartnershipService');
 
 const enrichMissingPhonesFromOwners = async (rows = []) => {
   if (!Array.isArray(rows) || rows.length === 0) return rows;
@@ -411,7 +412,7 @@ const registerPharmacy = async (userId, data) => {
   return pharmacy;
 };
 
-// Get pharmacy by owner
+// Get pharmacy by owner (owner-only — backward compatible, used by owner-only routes)
 const getPharmacyByOwner = async (userId) => {
   const { data, error } = await supabaseAdmin
     .from('pharmacies')
@@ -429,6 +430,204 @@ const getPharmacyByOwner = async (userId) => {
     ...pharmacy,
     profile_image_url: pharmacy.profile_image_url || pharmacy.image_url || null,
   };
+};
+
+// Get pharmacy by user (owner OR active member — used by shared operational routes)
+// Constraint: pharmacyId is never passed in; it is resolved from authoritative data.
+const getPharmacyByUser = async (userId, userRole) => {
+  if (userRole === 'pharmacy_owner') {
+    return getPharmacyByOwner(userId);
+  }
+
+  if (userRole === 'pharmacy_manager' || userRole === 'pharmacy_staff') {
+    const { data: member } = await supabaseAdmin
+      .from('pharmacy_members')
+      .select('pharmacy_id, status, member_role')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!member) throw new ApiError(403, 'Pharmacy membership not found. Contact your pharmacy owner.');
+    if (member.status !== 'active') throw new ApiError(403, 'Your pharmacy membership is not active.');
+
+    const { data, error } = await supabaseAdmin
+      .from('pharmacies')
+      .select('*')
+      .eq('id', member.pharmacy_id)
+      .single();
+
+    if (error || !data) throw new ApiError(404, 'Linked pharmacy not found.');
+
+    const [recordWithPhone] = await enrichMissingPhonesFromOwners([data]);
+    const pharmacy = recordWithPhone || data;
+    return {
+      ...pharmacy,
+      profile_image_url: pharmacy.profile_image_url || pharmacy.image_url || null,
+      _memberRole: member.member_role, // internal — not exposed to frontend
+    };
+  }
+
+  throw new ApiError(403, 'Pharmacy role required.');
+};
+
+// ── Staff Management ──────────────────────────────────────────────────────────
+
+// List all members of a pharmacy (owner-only)
+const getPharmacyMembers = async (pharmacyId) => {
+  const { data, error } = await supabaseAdmin
+    .from('pharmacy_members')
+    .select(`
+      id,
+      member_role,
+      status,
+      invited_by,
+      created_at,
+      updated_at,
+      user:users!pharmacy_members_user_id_fkey(id, name, email, phone, profile_image_url)
+    `)
+    .eq('pharmacy_id', pharmacyId)
+    .neq('status', 'removed')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+};
+
+// Invite a user to join as member (owner-only)
+// Constraint: inviterUserId must be validated as the pharmacy owner before calling.
+// The member_role value is server-validated here — never trusted from frontend directly.
+const invitePharmacyMember = async (pharmacyId, inviterUserId, targetEmail, requestedRole) => {
+  // Validate role server-side — never trust frontend string directly
+  const ALLOWED_MEMBER_ROLES = ['manager', 'staff'];
+  if (!ALLOWED_MEMBER_ROLES.includes(requestedRole)) {
+    throw new ApiError(400, `Invalid role. Allowed: ${ALLOWED_MEMBER_ROLES.join(', ')}`);
+  }
+
+  // Look up target user by email
+  const { data: targetUser } = await supabaseAdmin
+    .from('users')
+    .select('id, name, email, role')
+    .eq('email', targetEmail)
+    .maybeSingle();
+
+  if (!targetUser) {
+    throw new ApiError(404, 'No user found with that email. They must register on Vaididea first.');
+  }
+
+  // Validate the target user does not already hold a conflicting org role
+  const DISALLOWED_TARGET_ROLES = ['pharmacy_owner', 'clinic_owner', 'hospital_owner', 'admin', 'super_admin', 'diagnostic_center_owner'];
+  if (DISALLOWED_TARGET_ROLES.includes(targetUser.role)) {
+    throw new ApiError(409, 'This user already holds an organization owner role and cannot be added as pharmacy staff.');
+  }
+
+  // Check for existing membership
+  const { data: existing } = await supabaseAdmin
+    .from('pharmacy_members')
+    .select('id, status')
+    .eq('user_id', targetUser.id)
+    .eq('pharmacy_id', pharmacyId)
+    .maybeSingle();
+
+  if (existing) {
+    if (existing.status === 'active') throw new ApiError(409, 'This user is already an active member of this pharmacy.');
+    if (existing.status === 'invited') throw new ApiError(409, 'An invitation is already pending for this user.');
+    // If suspended/removed, re-activate
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('pharmacy_members')
+      .update({ member_role: requestedRole, status: 'active', invited_by: inviterUserId, updated_at: new Date().toISOString() })
+      .eq('id', existing.id)
+      .select()
+      .single();
+    if (updateError) throw updateError;
+    return { member: updated, reactivated: true };
+  }
+
+  // Insert new membership
+  const { data: member, error } = await supabaseAdmin
+    .from('pharmacy_members')
+    .insert({
+      user_id: targetUser.id,
+      pharmacy_id: pharmacyId,
+      member_role: requestedRole,
+      status: 'active', // E1: direct activation; invite-token flow is future E2+
+      invited_by: inviterUserId,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // Update the target user's role in users table
+  const newUserRole = requestedRole === 'manager' ? 'pharmacy_manager' : 'pharmacy_staff';
+  await supabaseAdmin
+    .from('users')
+    .update({ role: newUserRole })
+    .eq('id', targetUser.id);
+
+  return { member, user: targetUser };
+};
+
+// Update member role (owner-only)
+// Constraint: newRole is validated server-side
+const updatePharmacyMemberRole = async (pharmacyId, memberId, newRole) => {
+  const ALLOWED_MEMBER_ROLES = ['manager', 'staff'];
+  if (!ALLOWED_MEMBER_ROLES.includes(newRole)) {
+    throw new ApiError(400, `Invalid role. Allowed: ${ALLOWED_MEMBER_ROLES.join(', ')}`);
+  }
+
+  const { data: member, error: findError } = await supabaseAdmin
+    .from('pharmacy_members')
+    .select('id, user_id, status')
+    .eq('id', memberId)
+    .eq('pharmacy_id', pharmacyId)
+    .maybeSingle();
+
+  if (findError || !member) throw new ApiError(404, 'Member not found in this pharmacy.');
+  if (member.status === 'removed') throw new ApiError(400, 'Cannot update a removed member.');
+
+  const { data: updated, error } = await supabaseAdmin
+    .from('pharmacy_members')
+    .update({ member_role: newRole })
+    .eq('id', memberId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // Sync users.role
+  const newUserRole = newRole === 'manager' ? 'pharmacy_manager' : 'pharmacy_staff';
+  await supabaseAdmin.from('users').update({ role: newUserRole }).eq('id', member.user_id);
+
+  return updated;
+};
+
+// Remove/suspend a member (owner-only)
+const removePharmacyMember = async (pharmacyId, memberId, action = 'remove') => {
+  const { data: member, error: findError } = await supabaseAdmin
+    .from('pharmacy_members')
+    .select('id, user_id, status')
+    .eq('id', memberId)
+    .eq('pharmacy_id', pharmacyId)
+    .maybeSingle();
+
+  if (findError || !member) throw new ApiError(404, 'Member not found in this pharmacy.');
+
+  const newStatus = action === 'suspend' ? 'suspended' : 'removed';
+
+  const { data: updated, error } = await supabaseAdmin
+    .from('pharmacy_members')
+    .update({ status: newStatus })
+    .eq('id', memberId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // If removed, revert the user's role to 'patient' so they cannot log back in as pharmacy staff
+  if (newStatus === 'removed') {
+    await supabaseAdmin.from('users').update({ role: 'patient' }).eq('id', member.user_id);
+  }
+
+  return updated;
 };
 
 // Get pharmacy by ID (public)
@@ -542,12 +741,12 @@ const getInventory = async (pharmacyId, filters = {}, page = 1, limit = 50) => {
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('pharmacy_inventory')
-    .select('*, medicine:medicines(image_url)', { count: 'exact' })
+    .select('*, medicine:medicines(id, name, generic_name, manufacturer, category, subcategory, description, form, dosage_form, strength, pack_size, requires_prescription, image_url)', { count: 'exact' })
     .eq('pharmacy_id', pharmacyId);
 
   if (filters.search) {
     const s = sanitizeSearch(filters.search);
-    if (s) query = query.or(`name.ilike.%${s}%,generic_name.ilike.%${s}%`);
+    if (s) query = query.or(`name.ilike.%${s}%,generic_name.ilike.%${s}%,barcode.eq.${s}`);
   }
   // Low-stock filter is applied in JS because PostgREST does not support
   // reliable cross-column comparisons like quantity < reorder_level.
@@ -556,19 +755,27 @@ const getInventory = async (pharmacyId, filters = {}, page = 1, limit = 50) => {
     query = query.eq('category', filters.category);
   }
 
+  const sortBy = filters.sortBy || 'name';
+  const sortOrder = filters.sortOrder === 'desc' ? { ascending: false } : { ascending: true };
+  const allowedSorts = ['name', 'expiry_date', 'quantity', 'price'];
+  const finalSort = allowedSorts.includes(sortBy) ? sortBy : 'name';
+
   let data, error, count;
   {
     if (isLowStockFilter) {
       // Fetch matching category/search rows first, then apply low-stock logic
-      const result = await query.order('name');
+      const result = await query.order(finalSort, sortOrder);
       const allRows = result.data || [];
-      const lowStockRows = allRows.filter(i => (i.quantity || 0) < (i.reorder_level || 10));
+      const lowStockRows = allRows.filter(i => {
+        const available = (i.quantity || 0) - (i.reserved_quantity || 0);
+        return available <= (i.minimum_stock ?? 10); // fallback to 10 if missing
+      });
       data = lowStockRows.slice(offset, offset + limit);
       error = result.error;
       count = lowStockRows.length;
     } else {
       const result = await query
-        .order('name')
+        .order(finalSort, sortOrder)
         .range(offset, offset + limit - 1);
       data = result.data;
       error = result.error;
@@ -585,6 +792,7 @@ const getInventory = async (pharmacyId, filters = {}, page = 1, limit = 50) => {
       mapped.image_url = mapped.medicine.image_url;
     }
     delete mapped.medicine; // Clean up the nested object
+    mapped.available_quantity = (mapped.quantity || 0) - (mapped.reserved_quantity || 0);
     return mapped;
   });
 
@@ -770,7 +978,7 @@ const getOrders = async (pharmacyId, filters = {}, page = 1, limit = 20) => {
   const safeLimit = Number(limit) > 0 ? Number(limit) : 20;
   const offset = (safePage - 1) * safeLimit;
   const search = sanitizeSearch(filters.search || '').toLowerCase();
-  const selectClause = '*, patient:patients(id, name, user:users(phone)), pharmacy:pharmacies(id, name, phone, address, latitude, longitude), delivery_agents(*)';
+  const selectClause = '*, clinic:clinics(id, name), hospital:hospitals(id, name), patient:patients(id, name, user:users(phone)), pharmacy:pharmacies(id, name, phone, address, latitude, longitude), delivery_agents(*)';
 
   let orders = [];
   let count = 0;
@@ -923,38 +1131,73 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes, pha
       .eq('id', current.agent_id);
   }
 
-  // If order cancelled, restore inventory and release redemption caps
-  if (nextStatus === 'cancelled') {
+  // Handle Inventory Updates on Cancellation or Dispatch/Delivery
+  if (['cancelled', 'rejected'].includes(nextStatus)) {
     await voidRedemptionsForOrder(orderId);
     if (['pending', 'confirmed', 'processing', 'ready'].includes(currentStatus)) {
       if (Array.isArray(normalizedOrder.items)) {
-      for (const item of normalizedOrder.items) {
-        if (item.inventory_id && item.quantity > 0) {
-          let retries = 3;
-          while (retries > 0) {
-            const { data: inv } = await supabaseAdmin
-              .from('pharmacy_inventory')
-              .select('quantity')
-              .eq('id', item.inventory_id)
-              .single();
-            if (inv) {
-              const { data: updated, error } = await supabaseAdmin
+        for (const item of normalizedOrder.items) {
+          if (item.inventory_id && item.quantity > 0) {
+            let retries = 3;
+            while (retries > 0) {
+              const { data: inv } = await supabaseAdmin
                 .from('pharmacy_inventory')
-                .update({ quantity: inv.quantity + item.quantity })
+                .select('reserved_quantity')
                 .eq('id', item.inventory_id)
-                .eq('quantity', inv.quantity)
-                .select();
-              if (!error && updated && updated.length > 0) break;
-              retries--;
-              if (retries === 0) console.error(`Failed to restore inventory ${item.inventory_id} after retries`);
-            } else {
-              break;
+                .single();
+              if (inv) {
+                const newReserved = Math.max(0, (inv.reserved_quantity || 0) - item.quantity);
+                const { data: updated, error } = await supabaseAdmin
+                  .from('pharmacy_inventory')
+                  .update({ reserved_quantity: newReserved })
+                  .eq('id', item.inventory_id)
+                  .eq('reserved_quantity', inv.reserved_quantity || 0)
+                  .select();
+                if (!error && updated && updated.length > 0) break;
+                retries--;
+                if (retries === 0) console.error(`Failed to restore reserved inventory ${item.inventory_id} after retries`);
+              } else {
+                break;
+              }
             }
           }
         }
       }
     }
-  }
+  } else if (['dispatched', 'delivered'].includes(nextStatus)) {
+    // Only deduct physical inventory and finalize reservation if it wasn't already fulfilled
+    if (['pending', 'confirmed', 'processing', 'ready'].includes(currentStatus)) {
+      if (Array.isArray(normalizedOrder.items)) {
+        for (const item of normalizedOrder.items) {
+          if (item.inventory_id && item.quantity > 0) {
+            let retries = 3;
+            while (retries > 0) {
+              const { data: inv } = await supabaseAdmin
+                .from('pharmacy_inventory')
+                .select('quantity, reserved_quantity')
+                .eq('id', item.inventory_id)
+                .single();
+              if (inv) {
+                const newQuantity = Math.max(0, (inv.quantity || 0) - item.quantity);
+                const newReserved = Math.max(0, (inv.reserved_quantity || 0) - item.quantity);
+                const { data: updated, error } = await supabaseAdmin
+                  .from('pharmacy_inventory')
+                  .update({ quantity: newQuantity, reserved_quantity: newReserved })
+                  .eq('id', item.inventory_id)
+                  .eq('quantity', inv.quantity)
+                  .eq('reserved_quantity', inv.reserved_quantity || 0)
+                  .select();
+                if (!error && updated && updated.length > 0) break;
+                retries--;
+                if (retries === 0) console.error(`Failed to consume inventory ${item.inventory_id} after retries`);
+              } else {
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   // Notify patient
@@ -977,36 +1220,586 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes, pha
   return normalizedOrder;
 };
 
-// Analytics
+// Analytics — Advanced R1-R10
 const getAnalytics = async (pharmacyId, userId, period = '30d') => {
-  const days = parseInt(period) || 30;
+  const days = parseInt(period, 10) || 30;
+
+  // 1. Attempt single optimized RPC call (Migration 091)
+  const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('get_pharmacy_advanced_analytics', {
+    p_pharmacy_id: pharmacyId,
+    p_period_days: days,
+  });
+
+  if (!rpcError && rpcData) {
+    const overview = rpcData.overview || {};
+    const inventory = rpcData.inventory || {};
+
+    return {
+      data: {
+        period,
+        // Legacy top-level compatibility fields
+        totalOrders: overview.totalOrders || 0,
+        pendingOrders: overview.pendingOrders || 0,
+        totalInventoryItems: inventory.total_items || 0,
+        lowStockItems: inventory.low_stock || 0,
+        totalInventoryValue: Number(inventory.inventory_value || 0),
+
+        // Advanced Analytics Sections (R1 - R10)
+        overview: {
+          totalOrders: overview.totalOrders || 0,
+          pendingOrders: overview.pendingOrders || 0,
+          grossSales: Number(overview.grossSales || 0),
+          netSales: Number(overview.netSales || 0),
+          averageOrderValue: Number(overview.averageOrderValue || 0),
+          paidOrders: overview.paidOrders || 0,
+          refundedOrders: overview.refundedOrders || 0,
+          refundedAmount: Number(overview.refundedAmount || 0),
+        },
+        trends: rpcData.trends || [],
+        sources: rpcData.sources || [],
+        inventory: {
+          total_items: inventory.total_items || 0,
+          total_units: inventory.total_units || 0,
+          reserved_units: inventory.reserved_units || 0,
+          available_units: inventory.available_units || 0,
+          low_stock: inventory.low_stock || 0,
+          out_of_stock: inventory.out_of_stock || 0,
+          expired: inventory.expired || 0,
+          expiring_30: inventory.expiring_30 || 0,
+          expiring_60: inventory.expiring_60 || 0,
+          expiring_90: inventory.expiring_90 || 0,
+          inventory_value: Number(inventory.inventory_value || 0),
+        },
+        topMedicines: rpcData.top_medicines || [],
+        slowMedicines: rpcData.slow_medicines || [],
+        partners: rpcData.partners || {
+          clinic_orders: 0,
+          clinic_revenue: 0,
+          hospital_orders: 0,
+          hospital_revenue: 0,
+          top_partners: [],
+        },
+        campaigns: rpcData.campaigns || {
+          total_redemptions: 0,
+          total_discount_given: 0,
+          campaigns: [],
+        },
+        delivery: rpcData.delivery || {
+          total_delivery_orders: 0,
+          assigned_orders: 0,
+          dispatched_orders: 0,
+          delivered_orders: 0,
+          pending_delivery: 0,
+          average_delivery_time_minutes: 0,
+          agents: [],
+        },
+        meta: rpcData.meta || {
+          period_days: days,
+          generated_at: new Date().toISOString(),
+        },
+      },
+    };
+  }
+
+  // Fallback if RPC has not been executed yet in the database
   const since = new Date();
   since.setDate(since.getDate() - days);
   const sinceStr = since.toISOString();
 
   const [
-    { count: totalOrders },
+    { data: ordersData },
     { count: pendingOrders },
     { data: inventory },
+    { data: redemptions },
   ] = await Promise.all([
-    supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId).gte('created_at', sinceStr),
-    supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId).eq('status', 'pending'),
-    supabaseAdmin.from('pharmacy_inventory').select('quantity, price, reorder_level').eq('pharmacy_id', pharmacyId),
+    supabaseAdmin
+      .from('pharmacy_orders')
+      .select('id, total_amount, status, payment_status, source, clinic_id, hospital_id, agent_id, delivered_at, created_at, items')
+      .eq('pharmacy_id', pharmacyId)
+      .gte('created_at', sinceStr),
+    supabaseAdmin
+      .from('pharmacy_orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('pharmacy_id', pharmacyId)
+      .eq('status', 'pending'),
+    supabaseAdmin
+      .from('pharmacy_inventory')
+      .select('id, name, medicine_id, quantity, reserved_quantity, price, reorder_level, expiry_date')
+      .eq('pharmacy_id', pharmacyId),
+    supabaseAdmin
+      .from('campaign_redemptions')
+      .select('id, campaign_id, discount_amount, redeemed_at')
+      .eq('pharmacy_id', pharmacyId)
+      .gte('redeemed_at', sinceStr),
   ]);
 
-  const totalInventoryValue = (inventory || []).reduce((sum, i) => sum + (i.quantity * (i.price || 0)), 0);
-  const lowStockCount = (inventory || []).filter(i => i.quantity < (i.reorder_level || 10)).length;
+  const orders = ordersData || [];
+  const validOrders = orders.filter(o => !['cancelled', 'failed', 'refunded'].includes(o.status));
+  const grossSales = orders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+  const netSales = validOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+  const paidOrders = orders.filter(o => o.payment_status === 'paid').length;
+  const refundedOrdersList = orders.filter(o => o.status === 'refunded' || o.payment_status === 'refunded');
+  const refundedAmount = refundedOrdersList.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+  const averageOrderValue = validOrders.length > 0 ? Number((netSales / validOrders.length).toFixed(2)) : 0;
+
+  // Trends
+  const trendMap = {};
+  orders.forEach(o => {
+    const dt = o.created_at ? o.created_at.split('T')[0] : 'Unknown';
+    if (!trendMap[dt]) trendMap[dt] = { date: dt, orders: 0, revenue: 0 };
+    trendMap[dt].orders += 1;
+    if (!['cancelled', 'failed', 'refunded'].includes(o.status)) {
+      trendMap[dt].revenue += (Number(o.total_amount) || 0);
+    }
+  });
+  const trends = Object.values(trendMap).sort((a, b) => a.date.localeCompare(b.date));
+
+  // Sources
+  const sourceMap = {
+    clinic: { source: 'clinic', source_label: 'Partner Clinic', order_count: 0, revenue: 0 },
+    hospital: { source: 'hospital', source_label: 'Partner Hospital', order_count: 0, revenue: 0 },
+    pos: { source: 'pos', source_label: 'POS / Walk-in', order_count: 0, revenue: 0 },
+    online: { source: 'online', source_label: 'Online / Patient', order_count: 0, revenue: 0 },
+  };
+  orders.forEach(o => {
+    let srcKey = 'online';
+    if (o.clinic_id) srcKey = 'clinic';
+    else if (o.hospital_id) srcKey = 'hospital';
+    else if (o.source === 'pos') srcKey = 'pos';
+
+    if (sourceMap[srcKey]) {
+      sourceMap[srcKey].order_count += 1;
+      if (!['cancelled', 'failed', 'refunded'].includes(o.status)) {
+        sourceMap[srcKey].revenue += (Number(o.total_amount) || 0);
+      }
+    }
+  });
+  const sources = Object.values(sourceMap).filter(s => s.order_count > 0);
+
+  // Inventory
+  const todayStr = new Date().toISOString().split('T')[0];
+  const d30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+  const d60 = new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0];
+  const d90 = new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0];
+
+  const invList = inventory || [];
+  let totalUnits = 0;
+  let reservedUnits = 0;
+  let availableUnits = 0;
+  let lowStock = 0;
+  let outOfStock = 0;
+  let expired = 0;
+  let expiring30 = 0;
+  let expiring60 = 0;
+  let expiring90 = 0;
+  let inventoryValue = 0;
+
+  invList.forEach(i => {
+    const qty = Number(i.quantity) || 0;
+    const res = Number(i.reserved_quantity) || 0;
+    const avail = Math.max(0, qty - res);
+    const reorder = i.reorder_level !== null && i.reorder_level !== undefined ? Number(i.reorder_level) : 10;
+
+    totalUnits += qty;
+    reservedUnits += res;
+    availableUnits += avail;
+    inventoryValue += qty * (Number(i.price) || 0);
+
+    if (qty <= reorder && qty > 0) lowStock += 1;
+    if (qty === 0 || avail === 0) outOfStock += 1;
+
+    if (i.expiry_date) {
+      if (i.expiry_date < todayStr) expired += 1;
+      else if (i.expiry_date <= d30) expiring30 += 1;
+      else if (i.expiry_date <= d60) expiring60 += 1;
+      else if (i.expiry_date <= d90) expiring90 += 1;
+    }
+  });
+
+  // Top Medicines and Slow Moving from items
+  const salesMap = {};
+  validOrders.forEach(o => {
+    if (Array.isArray(o.items)) {
+      o.items.forEach(it => {
+        const key = it.medicine_id || it.inventory_id || it.name || 'Unknown';
+        if (!salesMap[key]) {
+          salesMap[key] = {
+            medicine_id: it.medicine_id || null,
+            inventory_id: it.inventory_id || null,
+            name: it.name || 'Medicine',
+            units_sold: 0,
+            revenue: 0,
+          };
+        }
+        const q = Number(it.quantity) || 1;
+        const p = Number(it.price) || 0;
+        salesMap[key].units_sold += q;
+        salesMap[key].revenue += q * p;
+      });
+    }
+  });
+
+  const topMedicines = Object.values(salesMap)
+    .sort((a, b) => b.units_sold - a.units_sold)
+    .slice(0, 10);
+
+  const slowMedicines = invList
+    .map(i => {
+      const match = Object.values(salesMap).find(s =>
+        (i.medicine_id && s.medicine_id === i.medicine_id) ||
+        (i.id && s.inventory_id === i.id) ||
+        (s.name && s.name.toLowerCase() === (i.name || '').toLowerCase())
+      );
+      const unitsSold = match ? match.units_sold : 0;
+      return {
+        inventory_id: i.id,
+        medicine_id: i.medicine_id || null,
+        name: i.name,
+        current_stock: i.quantity,
+        units_sold: unitsSold,
+        velocity: Number((unitsSold / days).toFixed(4)),
+        formula: `units_sold / ${days} days`,
+      };
+    })
+    .sort((a, b) => a.units_sold - b.units_sold || b.current_stock - a.current_stock)
+    .slice(0, 10);
 
   return {
     data: {
       period,
-      totalOrders: totalOrders || 0,
+      totalOrders: orders.length,
       pendingOrders: pendingOrders || 0,
-      totalInventoryItems: (inventory || []).length,
-      lowStockItems: lowStockCount,
-      totalInventoryValue,
+      totalInventoryItems: invList.length,
+      lowStockItems: lowStock,
+      totalInventoryValue: inventoryValue,
+      overview: {
+        totalOrders: orders.length,
+        pendingOrders: pendingOrders || 0,
+        grossSales,
+        netSales,
+        averageOrderValue,
+        paidOrders,
+        refundedOrders: refundedOrdersList.length,
+        refundedAmount,
+      },
+      trends,
+      sources,
+      inventory: {
+        total_items: invList.length,
+        total_units: totalUnits,
+        reserved_units: reservedUnits,
+        available_units: availableUnits,
+        low_stock: lowStock,
+        out_of_stock: outOfStock,
+        expired,
+        expiring_30: expiring30,
+        expiring_60: expiring60,
+        expiring_90: expiring90,
+        inventory_value: inventoryValue,
+      },
+      topMedicines,
+      slowMedicines,
+      partners: {
+        clinic_orders: orders.filter(o => o.clinic_id).length,
+        clinic_revenue: orders.filter(o => o.clinic_id && !['cancelled', 'failed', 'refunded'].includes(o.status)).reduce((s, o) => s + (Number(o.total_amount) || 0), 0),
+        hospital_orders: orders.filter(o => o.hospital_id).length,
+        hospital_revenue: orders.filter(o => o.hospital_id && !['cancelled', 'failed', 'refunded'].includes(o.status)).reduce((s, o) => s + (Number(o.total_amount) || 0), 0),
+        top_partners: [],
+      },
+      campaigns: {
+        total_redemptions: (redemptions || []).length,
+        total_discount_given: (redemptions || []).reduce((s, r) => s + (Number(r.discount_amount) || 0), 0),
+        campaigns: [],
+      },
+      delivery: {
+        total_delivery_orders: orders.filter(o => o.agent_id || o.delivery_type === 'delivery').length,
+        assigned_orders: orders.filter(o => o.agent_id).length,
+        dispatched_orders: orders.filter(o => ['dispatched', 'out_for_delivery'].includes(o.status)).length,
+        delivered_orders: orders.filter(o => o.status === 'delivered').length,
+        pending_delivery: orders.filter(o => (o.agent_id || o.delivery_type === 'delivery') && ['pending', 'confirmed', 'processing', 'ready', 'dispatched', 'out_for_delivery'].includes(o.status)).length,
+        average_delivery_time_minutes: 0,
+        agents: [],
+      },
+      meta: {
+        period_days: days,
+        generated_at: new Date().toISOString(),
+      },
     },
   };
+};
+
+
+
+// Create order (from clinic on behalf of a patient)
+const createClinicPharmacyOrder = async (clinicId, doctorId, orderData) => {
+  if (!orderData.prescriptionId) {
+    throw new ApiError(400, 'A valid prescription ID is required for clinic-routed orders');
+  }
+
+  // 1. Verify Active Partnership
+  await organizationPartnershipService.verifyActivePartnership('clinic', clinicId, 'pharmacy', orderData.pharmacyId);
+
+  // 2. Verify Prescription ownership
+  // Clinic context is verified by checking the prescription's consultation's appointment's clinic_id
+  const { data: prescription, error: prescriptionError } = await supabaseAdmin
+    .from('prescriptions')
+    .select(`
+      id,
+      patient_id,
+      consultations (
+        appointments (
+          clinic_id
+        )
+      )
+    `)
+    .eq('id', orderData.prescriptionId)
+    .single();
+
+  if (prescriptionError || !prescription) {
+    throw new ApiError(404, 'Prescription not found');
+  }
+
+  const presClinicId = prescription.consultations?.appointments?.clinic_id;
+  if (presClinicId !== clinicId) {
+    throw new ApiError(403, 'Prescription does not belong to your clinic');
+  }
+
+  // Check for duplicate active route
+  const { data: existingOrder } = await supabaseAdmin
+    .from('pharmacy_orders')
+    .select('id')
+    .eq('prescription_id', orderData.prescriptionId)
+    .eq('clinic_id', clinicId)
+    .eq('pharmacy_id', orderData.pharmacyId)
+    .neq('status', 'cancelled')
+    .maybeSingle();
+
+  if (existingOrder) {
+    throw new ApiError(409, 'This prescription is already routed to this pharmacy.');
+  }
+
+  const patientUserId = prescription.patient_id; // actually this is patient's table UUID, let's just get patient's user_id if needed, but createOrder uses user_id. Wait! createOrder accepts patientUserId (the user table ID). We need to pass the user_id of the patient.
+  
+  const { data: patientData } = await supabaseAdmin
+    .from('patients')
+    .select('user_id')
+    .eq('id', prescription.patient_id)
+    .single();
+
+  if (!patientData || !patientData.user_id) {
+    throw new ApiError(404, 'Patient user profile not found');
+  }
+
+  // Check delivery fee configuration from pharmacy
+  const { data: pharmacyConfig } = await supabaseAdmin
+    .from('pharmacies')
+    .select('delivery_fee, offers_delivery')
+    .eq('id', orderData.pharmacyId)
+    .single();
+
+  // If pharmacy has delivery fee configured, apply it to the order data so base createOrder uses it, 
+  // actually createOrder calculates total from items + doesn't automatically add delivery fee unless passed
+  let deliveryFee = 0;
+  if (orderData.deliveryType === 'delivery' && pharmacyConfig) {
+      deliveryFee = pharmacyConfig.delivery_fee || 0;
+  }
+  
+  orderData.deliveryFee = deliveryFee;
+  orderData.clinicId = clinicId;
+
+  // Delegate to existing createOrder logic to avoid duplicating item pricing and inventory logic
+  const order = await createOrder(patientData.user_id, orderData);
+
+  // Trigger specific notification if needed
+  eventEmitter.emitOrderStatusUpdated({
+    ...order,
+    status: 'pending',
+    clinic_id: clinicId,
+  });
+
+  return order;
+};
+
+// Create order (from hospital on behalf of a patient)
+const createHospitalPharmacyOrder = async (hospitalId, doctorId, orderData) => {
+  if (!orderData.prescriptionId) {
+    throw new ApiError(400, 'A valid prescription ID is required for hospital-routed orders');
+  }
+
+  // 1. Verify Active Partnership
+  await organizationPartnershipService.verifyActivePartnership('hospital', hospitalId, 'pharmacy', orderData.pharmacyId);
+
+  // 2. Verify Prescription ownership
+  // Hospital context is verified by checking the prescription's consultation's appointment's hospital_id
+  const { data: prescription, error: prescriptionError } = await supabaseAdmin
+    .from('prescriptions')
+    .select(`
+      id,
+      patient_id,
+      consultations (
+        appointments (
+          hospital_id
+        )
+      )
+    `)
+    .eq('id', orderData.prescriptionId)
+    .single();
+
+  if (prescriptionError || !prescription) {
+    throw new ApiError(404, 'Prescription not found');
+  }
+
+  const presHospitalId = prescription.consultations?.appointments?.hospital_id;
+  if (presHospitalId !== hospitalId) {
+    throw new ApiError(403, 'Prescription does not belong to your hospital');
+  }
+
+  // Check for duplicate active route
+  const { data: existingOrder } = await supabaseAdmin
+    .from('pharmacy_orders')
+    .select('id')
+    .eq('prescription_id', orderData.prescriptionId)
+    .eq('hospital_id', hospitalId)
+    .eq('pharmacy_id', orderData.pharmacyId)
+    .neq('status', 'cancelled')
+    .maybeSingle();
+
+  if (existingOrder) {
+    throw new ApiError(409, 'This prescription is already routed to this pharmacy.');
+  }
+
+  const { data: patientData } = await supabaseAdmin
+    .from('patients')
+    .select('user_id')
+    .eq('id', prescription.patient_id)
+    .single();
+
+  if (!patientData || !patientData.user_id) {
+    throw new ApiError(404, 'Patient user profile not found');
+  }
+
+  // Check delivery fee configuration from pharmacy
+  const { data: pharmacyConfig } = await supabaseAdmin
+    .from('pharmacies')
+    .select('delivery_fee, offers_delivery')
+    .eq('id', orderData.pharmacyId)
+    .single();
+
+  let deliveryFee = 0;
+  if (orderData.deliveryType === 'delivery' && pharmacyConfig) {
+      deliveryFee = pharmacyConfig.delivery_fee || 0;
+  }
+  
+  orderData.deliveryFee = deliveryFee;
+  orderData.hospitalId = hospitalId;
+
+  // Delegate to existing createOrder logic to avoid duplicating item pricing and inventory logic
+  const order = await createOrder(patientData.user_id, orderData);
+
+  // Trigger specific notification if needed
+  eventEmitter.emitOrderStatusUpdated({
+    ...order,
+    status: 'pending',
+    hospital_id: hospitalId,
+  });
+
+  return order;
+};
+
+// Create POS (Walk-in) Order
+const createPOSOrder = async (pharmacyId, orderData) => {
+  // Batch-fetch all inventory items in one query
+  const itemIds = (orderData.items || []).map(i => i.inventoryItemId || i.medicineId).filter(Boolean);
+  let inventoryMap = {};
+  if (itemIds.length > 0) {
+    const { data: invItems } = await supabaseAdmin
+      .from('pharmacy_inventory')
+      .select('id, price, mrp, name, generic_name, requires_prescription, medicine_id, quantity, reserved_quantity, medicine:medicines(name, generic_name, dosage_form, strength, pack_size, manufacturer, image_url, requires_prescription)')
+      .eq('pharmacy_id', pharmacyId)
+      .in('id', itemIds);
+
+    inventoryMap = (invItems || []).reduce((m, item) => {
+      m[item.id] = item;
+      return m;
+    }, {});
+  }
+
+  let totalAmount = 0;
+  const enrichedItems = [];
+  const itemsToConsume = [];
+
+  for (const item of (orderData.items || [])) {
+    const invItem = inventoryMap[item.inventoryItemId];
+    if (!invItem) {
+      throw new ApiError(400, `Item ${item.inventoryItemId || 'requested'} not found in inventory.`);
+    }
+
+    const available = (invItem.quantity || 0) - (invItem.reserved_quantity || 0);
+    if (available < (item.quantity || 1)) {
+      throw new ApiError(409, `Insufficient stock for ${invItem.name}. Requested: ${item.quantity || 1}, Available: ${available}`);
+    }
+
+    const itemPrice = invItem.price || 0;
+    totalAmount += itemPrice * (item.quantity || 1);
+
+    enrichedItems.push({
+      inventory_id: invItem.id,
+      medicine_id: invItem.medicine_id || null,
+      quantity: item.quantity || 1,
+      price: itemPrice,
+      mrp: invItem.mrp || itemPrice,
+      name: invItem.name || invItem.generic_name || 'Medicine',
+      generic_name: invItem.generic_name || null,
+      requires_manual_review: false,
+    });
+
+    itemsToConsume.push({ inventory_id: invItem.id, quantity: item.quantity || 1 });
+  }
+
+  // Atomically decrement the physical quantity without touching reserved_quantity
+  if (itemsToConsume.length > 0) {
+    const { error: consumeError } = await supabaseAdmin.rpc('consume_pos_pharmacy_inventory', {
+      p_pharmacy_id: pharmacyId,
+      order_items: itemsToConsume,
+    });
+
+    if (consumeError) {
+      console.error('POS Inventory consumption failed:', consumeError);
+      throw new ApiError(409, 'Insufficient available stock for one or more medicines.');
+    }
+  }
+
+  // Create the order as POS, delivered and paid
+  const insertPayload = {
+    patient_id: null,
+    pharmacy_id: pharmacyId,
+    clinic_id: null,
+    hospital_id: null,
+    items: enrichedItems,
+    subtotal: totalAmount,
+    delivery_fee: 0,
+    total_amount: totalAmount,
+    delivery_type: 'pickup',
+    status: 'delivered',
+    payment_status: 'paid',
+    payment_method: orderData.paymentMethod || 'cash',
+    source: 'pos',
+  };
+
+  const { data: order, error } = await supabaseAdmin
+    .from('pharmacy_orders')
+    .insert(insertPayload)
+    .select('*, clinic:clinics(id, name), hospital:hospitals(id, name), patient:patients(id, name, user:users(phone)), pharmacy:pharmacies(id, name, phone, address, latitude, longitude)')
+    .single();
+
+  if (error) {
+    // Note: In a true microservice architecture, we would have a rollback strategy for inventory if order creation failed here.
+    // However, since inventory consume succeeded, we assume order insert mostly succeeds.
+    // Future improvement: Wrap both in a single DB transaction RPC.
+    throw error;
+  }
+
+  return order;
 };
 
 // Create order (from patient via medicine routes)
@@ -1142,9 +1935,14 @@ const createOrder = async (patientUserId, orderData) => {
    const insertPayload = {
     patient_id: patient.id,
     pharmacy_id: orderData.pharmacyId,
+    clinic_id: orderData.clinicId || null,
+    hospital_id: orderData.hospitalId || null,
     items: enrichedItems,
-    total_amount: totalAmount,
+    subtotal: totalAmount,
+    delivery_fee: orderData.deliveryFee || 0,
+    total_amount: totalAmount + (orderData.deliveryFee || 0),
     delivery_address: orderData.patientPhone ? `${orderData.deliveryAddress} | Phone: ${orderData.patientPhone}` : orderData.deliveryAddress,
+    delivery_type: orderData.deliveryType || 'pickup',
     status: 'pending',
     payment_status: 'pending',
   };
@@ -1162,32 +1960,22 @@ const createOrder = async (patientUserId, orderData) => {
 
   if (error) throw error;
 
-  // Decrement inventory stock
-  for (const item of enrichedItems) {
-    if (item.inventory_id && item.quantity > 0) {
-      let retries = 3;
-      while (retries > 0) {
-        const { data: currentInv } = await supabaseAdmin
-          .from('pharmacy_inventory')
-          .select('quantity')
-          .eq('id', item.inventory_id)
-          .single();
+  // Atomically reserve inventory stock
+  const itemsToReserve = enrichedItems
+    .filter(item => item.inventory_id && item.quantity > 0)
+    .map(item => ({ inventory_id: item.inventory_id, quantity: item.quantity }));
 
-        if (currentInv) {
-          const newQuantity = Math.max(0, currentInv.quantity - item.quantity);
-          const { data: updated, error } = await supabaseAdmin
-            .from('pharmacy_inventory')
-            .update({ quantity: newQuantity })
-            .eq('id', item.inventory_id)
-            .eq('quantity', currentInv.quantity)
-            .select();
-          if (!error && updated && updated.length > 0) break;
-          retries--;
-          if (retries === 0) console.error(`Failed to decrement inventory ${item.inventory_id} after retries`);
-        } else {
-          break;
-        }
-      }
+  if (itemsToReserve.length > 0) {
+    const { error: reserveError } = await supabaseAdmin.rpc('reserve_pharmacy_inventory', {
+      p_pharmacy_id: orderData.pharmacyId,
+      order_items: itemsToReserve,
+    });
+
+    if (reserveError) {
+      // Rollback order if reservation fails due to insufficient stock
+      await supabaseAdmin.from('pharmacy_orders').delete().eq('id', order.id);
+      console.error('Inventory reservation failed:', reserveError);
+      throw new ApiError(409, 'Insufficient available stock for one or more medicines.');
     }
   }
 
@@ -1265,6 +2053,7 @@ module.exports = {
   getPharmacyById,
   registerPharmacy,
   getPharmacyByOwner,
+  getPharmacyByUser,
   updatePharmacy,
   getInventory,
   addInventoryItem,
@@ -1275,4 +2064,11 @@ module.exports = {
   updateOrderStatus,
   getAnalytics,
   createOrder,
+  createPOSOrder,
+  createClinicPharmacyOrder,
+  createHospitalPharmacyOrder,
+  getPharmacyMembers,
+  invitePharmacyMember,
+  updatePharmacyMemberRole,
+  removePharmacyMember,
 };

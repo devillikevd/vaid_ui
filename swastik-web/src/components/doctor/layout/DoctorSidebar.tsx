@@ -11,6 +11,7 @@ import {
     type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import VaidideaLogo from '@/components/shared/VaidideaLogo';
 
 export type SidebarItem = {
     name: string;
@@ -125,13 +126,14 @@ export function DoctorSidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIs
                 isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
             )}>
                 {/* Brand Header */}
-                <div className="h-16 flex items-center px-4 shrink-0 border-b border-[rgba(255,255,255,0.02)] relative">
+                <div className="h-16 flex items-center px-4 shrink-0 border-b border-[rgba(255,255,255,0.05)] relative">
                     <Link href="/doctor" className={cn("flex items-center gap-3 transition-all", isCollapsed ? "justify-center w-full" : "")}>
-                        <div className="w-8 h-8 bg-[#22C55E] rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(34,197,94,0.3)] shrink-0">
-                            <Stethoscope className="w-4 h-4 text-white" />
-                        </div>
+                        <VaidideaLogo className="w-9 h-9 shrink-0" />
                         {!isCollapsed && (
-                            <span className="font-bold text-white text-lg tracking-tight truncate">Vaididea</span>
+                            <div className="whitespace-nowrap min-w-0">
+                                <span className="font-bold text-white text-[15px] tracking-tight leading-tight block">Doctor Portal</span>
+                                <span className="text-[11px] text-gray-400 font-medium block">Clinical Operating System</span>
+                            </div>
                         )}
                     </Link>
 
