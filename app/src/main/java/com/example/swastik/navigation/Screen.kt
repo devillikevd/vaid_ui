@@ -126,6 +126,13 @@ sealed class Screen(val route: String) {
     }
     object HealthCard : Screen("health_card")
     object GuardianDashboard : Screen("guardian_dashboard")
+    object HeroVolunteerRegistration : Screen("hero_volunteer_registration")
+    object EmergencyIncomingAlarm : Screen("emergency_incoming_alarm/{broadcastId}") {
+        fun createRoute(broadcastId: String) = "emergency_incoming_alarm/$broadcastId"
+    }
+    object EmergencyActiveResponse : Screen("emergency_active_response/{broadcastId}") {
+        fun createRoute(broadcastId: String) = "emergency_active_response/$broadcastId"
+    }
     object HealthConnectSetup : Screen("health_connect_setup")
     object HealthConnectDashboard : Screen("health_connect_dashboard")
     object WellnessHub : Screen("wellness_hub?section={section}") {
@@ -152,6 +159,7 @@ sealed class Screen(val route: String) {
     object WellnessReports : Screen("wellness_reports")
     object WellnessAICoach : Screen("wellness_ai_coach")
     object WellnessAssessment : Screen("wellness_assessment")
+    object WellnessSafety : Screen("wellness_safety")
 
     // Wellness Coach & Sessions
     object WellnessCoachDetail : Screen("wellness_coach_detail/{coachId}") {

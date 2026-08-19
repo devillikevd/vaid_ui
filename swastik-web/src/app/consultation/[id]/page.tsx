@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useSocket, useVideoConsultation, useConsultationChat, useConsultationEnded, useConsultationPatientLeft, useVitalsStream, type ConsultationVideoMode, type VitalsStreamData } from '@/hooks/useSocket';
 import { api } from '@/lib/api';
@@ -1178,6 +1179,80 @@ export default function VideoConsultation() {
                 </div>
                 </div>
             </header>
+
+            {/* AI Coach Medical Guardrail Pre-Alert Banner for Doctors */}
+            {isDoctor && Boolean(
+                consultationData?.appointment?.reason?.toLowerCase().includes('wellness') ||
+                consultationData?.appointment?.reason?.toLowerCase().includes('coach') ||
+                consultationData?.appointment?.reason?.toLowerCase().includes('guardrail') ||
+                consultationData?.appointment?.reason?.toLowerCase().includes('elevated') ||
+                consultationData?.reason?.toLowerCase().includes('wellness') ||
+                consultationData?.reason?.toLowerCase().includes('guardrail')
+            ) && (
+                <div className="bg-gradient-to-r from-red-600 to-amber-600 px-4 py-2 text-white flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm font-medium shadow-lg z-20 border-b border-red-400/30">
+                    <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm">🚨</span>
+                        <span>
+                            <strong className="font-bold text-white uppercase tracking-wider text-[11px] bg-red-800/80 px-2 py-0.5 rounded-full mr-2">AI Guardrail Escalation</strong>
+                            Patient referred by AI Wellness Coach due to abnormal biometrics: <span className="italic text-red-100 font-semibold">{consultationData?.appointment?.reason || consultationData?.reason || 'Elevated Resting HR / Vitals Spikes'}</span>
+                        </span>
+                    </div>
+                    {consultationData?.patient_id && (
+                        <button
+                            onClick={() => setShowHistoryDrawer(true)}
+                            className="rounded-lg bg-white/20 hover:bg-white/30 px-3 py-1 text-xs font-bold text-white transition-all shadow-sm flex items-center gap-1.5 ml-auto"
+                        >
+                            <span>📊 View Wearable Vitals</span>
+                            <span>➔</span>
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {/* Clinical Context & Reason for Consultation Bar (For Doctor in All Consultations) */}
+            {isDoctor && consultationData && (
+                <div className="bg-slate-850 border-b border-slate-750 px-4 py-2.5 text-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm z-15 bg-slate-900/95 backdrop-blur-md">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        <Link
+                            href={`/doctor/patients/${consultationData.patient_id || consultationData.patient?.id}`}
+                            target="_blank"
+                            className="inline-flex items-center gap-1.5 font-bold text-emerald-400 hover:text-emerald-300 hover:underline bg-emerald-950/70 hover:bg-emerald-900/80 px-3 py-1 rounded-xl border border-emerald-700/60 shadow-sm transition-all group"
+                            title="Click to open complete patient medical profile in new tab"
+                        >
+                            <span>👤 {consultationData.patient?.name || 'Patient'}</span>
+                            {consultationData.patient?.gender && (
+                                <span className="text-[11px] text-slate-300 font-normal">({consultationData.patient.gender}{consultationData.patient.blood_group ? `, ${consultationData.patient.blood_group}` : ''})</span>
+                            )}
+                            <span className="text-[10px] bg-emerald-800/60 group-hover:bg-emerald-700/80 text-white px-1.5 py-0.5 rounded font-semibold">View File ➔</span>
+                        </Link>
+                        <span className="text-slate-600 hidden sm:inline">•</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Reason:</span>
+                            <span className="font-semibold text-white bg-slate-800 px-2.5 py-0.5 rounded-lg border border-slate-700">
+                                {consultationData.appointment?.reason || consultationData.reason || consultationData.appointment?.patient_notes || 'General Medical Consultation'}
+                            </span>
+                        </div>
+                        {Array.isArray(consultationData.appointment?.symptoms) && consultationData.appointment.symptoms.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1">
+                                {consultationData.appointment.symptoms.map((sym: string) => (
+                                    <span key={sym} className="text-[10px] font-medium bg-red-950/80 text-red-300 px-2 py-0.5 rounded-md border border-red-800/50">
+                                        {sym}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    {consultationData?.patient_id && (
+                        <button
+                            onClick={() => setShowHistoryDrawer(true)}
+                            className="text-xs font-semibold text-blue-300 hover:text-blue-200 flex items-center gap-1.5 bg-blue-950/60 hover:bg-blue-900/70 px-3 py-1 rounded-xl border border-blue-700/60 transition-colors shadow-sm ml-auto"
+                        >
+                            <span>📂 Past History & Prescriptions</span>
+                            <span>➔</span>
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* Main Video Area */}
             {modeBanner && (

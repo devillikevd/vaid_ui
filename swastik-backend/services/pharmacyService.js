@@ -1139,11 +1139,18 @@ const createOrder = async (patientUserId, orderData) => {
      );
    }
 
+   // Direct MedCoins Redemption (1 MedCoin = ₹1 instant discount)
+   const requestedCoins = Number(orderData.medcoinsRedeemed || orderData.redeemMedcoins || 0);
+   const medcoinsDiscount = requestedCoins > 0 ? Math.min(totalAmount, requestedCoins) : 0;
+   const finalTotalAmount = Math.max(0, totalAmount - medcoinsDiscount);
+
    const insertPayload = {
     patient_id: patient.id,
     pharmacy_id: orderData.pharmacyId,
     items: enrichedItems,
-    total_amount: totalAmount,
+    total_amount: finalTotalAmount,
+    discount_amount: (orderData.discountAmount || 0) + medcoinsDiscount,
+    medcoins_redeemed: medcoinsDiscount,
     delivery_address: orderData.patientPhone ? `${orderData.deliveryAddress} | Phone: ${orderData.patientPhone}` : orderData.deliveryAddress,
     status: 'pending',
     payment_status: 'pending',

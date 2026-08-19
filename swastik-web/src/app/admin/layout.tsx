@@ -14,6 +14,7 @@ import {
     Shield,
     Package,
     BadgePercent,
+    Flame,
     MessageSquare,
 } from 'lucide-react';
 import { BaseDashboardLayout, type DashboardConfig } from '@/components/shared/DashboardLayout';
@@ -38,6 +39,7 @@ const ADMIN_CONFIG: DashboardConfig = {
         { name: 'All Providers', href: '/admin/providers', icon: Users },
         { name: 'Medicine Catalog', href: '/admin/medicines', icon: Package },
         { name: 'Campaigns', href: '/admin/campaigns', icon: BadgePercent },
+        { name: 'Wellness & Community', href: '/admin/wellness', icon: Flame },
         { name: 'Emergencies', href: '/admin/emergencies', icon: AlertTriangle },
         { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
         { name: 'Outbreak Monitor', href: '/admin/outbreaks', icon: Radar },

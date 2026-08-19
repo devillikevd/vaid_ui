@@ -75,4 +75,25 @@ class WorkoutPlayerViewModel @Inject constructor(
             }
         }
     }
+
+    fun logSafetyIncident(
+        symptom: String,
+        muscleGroup: String? = null,
+        severity: String = "moderate",
+        workoutName: String? = null,
+        currentHeartRate: Int? = null,
+        onComplete: (() -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val req = com.example.swastik.data.remote.dto.SafetyIncidentRequest(
+                symptom = symptom,
+                muscleGroup = muscleGroup,
+                severity = severity,
+                workoutName = workoutName,
+                currentHeartRate = currentHeartRate
+            )
+            wellnessRepository.logSafetyIncident(req)
+            onComplete?.invoke()
+        }
+    }
 }

@@ -60,6 +60,60 @@ router.get('/assessment',
   })
 );
 
+// Clinical Safety & Physical Readiness Hub
+router.get('/safety',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.getClinicalSafetySummary(req.user.id);
+    res.json({ success: true, data });
+  })
+);
+
+router.get('/safety/interlocks',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.getDrugNutrientInterlocks(req.user.id);
+    res.json({ success: true, data });
+  })
+);
+
+router.get('/safety/certificate',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.getMedicalClearanceCertificate(req.user.id);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/safety/incident',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  [
+    body('symptom').optional().isString().trim(),
+    body('muscleGroup').optional().isString().trim(),
+    body('muscle_group').optional().isString().trim(),
+    body('severity').optional().isString().trim(),
+    body('workoutName').optional().isString().trim(),
+    body('workout_name').optional().isString().trim(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const payload = {
+      symptom: req.body.symptom,
+      muscle_group: req.body.muscleGroup || req.body.muscle_group,
+      severity: req.body.severity,
+      notes: req.body.notes,
+      workout_name: req.body.workoutName || req.body.workout_name,
+      current_heart_rate: req.body.currentHeartRate || req.body.current_heart_rate
+    };
+    const data = await wellnessService.recordSafetyIncident(req.user.id, payload);
+    res.status(201).json({ success: true, data });
+  })
+);
+
 router.post('/assessment/goals',
   authenticate,
   requireRole(ROLES.PATIENT),
@@ -281,6 +335,57 @@ router.post('/ai/insights/:id/acknowledge',
   asyncHandler(async (req, res) => {
     const data = await wellnessService.acknowledgeAiInsight(req.user.id, req.params.id);
     res.json({ success: true, data });
+  })
+);
+
+router.post('/ai/chat',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  [
+    body('message').isString().notEmpty().withMessage('Message is required'),
+    body('persona').optional().isString()
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const aiCoachService = require('../../services/aiCoachService');
+    const result = await aiCoachService.chatWithAiCoach(
+      req.user.id,
+      req.body.message,
+      req.body.history || [],
+      req.body.persona || 'ATHLETE'
+    );
+    res.json({ success: true, data: result });
+  })
+);
+
+router.post('/ai/smart-plan',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  [
+    body('goal').optional().isString(),
+    body('level').optional().isString(),
+    body('dietType').optional().isString()
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const aiCoachService = require('../../services/aiCoachService');
+    const result = await aiCoachService.generateSmartPlan(
+      req.user.id,
+      req.body.goal || 'GENERAL_FITNESS',
+      req.body.level || 'BEGINNER',
+      req.body.dietType || 'BALANCED'
+    );
+    res.json({ success: true, data: result });
+  })
+);
+
+router.get('/ai/readiness-score',
+  authenticate,
+  requireRole(ROLES.PATIENT),
+  asyncHandler(async (req, res) => {
+    const aiCoachService = require('../../services/aiCoachService');
+    const result = await aiCoachService.generateDynamicInsights(req.user.id);
+    res.json({ success: true, data: result.readiness });
   })
 );
 
@@ -914,7 +1019,29 @@ router.get('/diet-plans',
 router.get('/groups',
   optionalAuth,
   asyncHandler(async (req, res) => {
-    const data = await wellnessService.listGroups(req.query);
+    const data = await wellnessService.listGroups(req.query, req.user?.id || null);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/groups',
+  authenticate,
+  requireRole(ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.WELLNESS_COACH, ROLES.FITNESS_CENTER_OWNER),
+  [body('name').trim().isLength({ min: 3, max: 100 })],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.createGroup(req.user.id, req.body);
+    res.status(201).json({ success: true, data });
+  })
+);
+
+router.put('/groups/:id/tip',
+  authenticate,
+  requireRole(ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.WELLNESS_COACH, ROLES.FITNESS_CENTER_OWNER),
+  [body('tip').trim().isLength({ min: 3, max: 500 })],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.updateGroupTip(req.params.id, req.user.id, req.body.tip);
     res.json({ success: true, data });
   })
 );
@@ -930,11 +1057,49 @@ router.post('/groups/:id/join',
   })
 );
 
+// Group Social Feed & Check-ins
+router.get('/groups/:id/posts',
+  optionalAuth,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.listGroupPosts(req.params.id, req.user?.id || null);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/groups/:id/posts',
+  authenticate,
+  [body('content').trim().isLength({ min: 1, max: 1000 })],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.createGroupPost(req.params.id, req.user.id, req.body);
+    res.status(201).json({ success: true, data });
+  })
+);
+
+router.post('/groups/posts/:postId/cheer',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.cheerGroupPost(req.params.postId, req.user.id);
+    res.json({ success: true, data });
+  })
+);
+
 router.get('/challenges',
   optionalAuth,
   asyncHandler(async (req, res) => {
-    const data = await wellnessService.listChallenges(req.query);
+    const data = await wellnessService.listChallenges(req.query, req.user?.id || null);
     res.json({ success: true, data });
+  })
+);
+
+router.post('/challenges',
+  authenticate,
+  requireRole(ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.WELLNESS_COACH, ROLES.FITNESS_CENTER_OWNER),
+  [body('title').trim().isLength({ min: 3, max: 150 })],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.createChallenge(req.user.id, req.body);
+    res.status(201).json({ success: true, data });
   })
 );
 

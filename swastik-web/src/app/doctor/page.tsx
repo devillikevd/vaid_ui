@@ -418,7 +418,14 @@ export default function DoctorDashboard() {
                                                 <User className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                                             </div>
                                             <div>
-                                                <p className="font-medium text-gray-900 dark:text-gray-100">{appointment.patientName}</p>
+                                                <Link
+                                                    href={`/doctor/patients/${appointment.patientId || appointment.patient?.id || ''}`}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="font-semibold text-gray-900 dark:text-gray-100 hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors block"
+                                                    title="View full patient profile"
+                                                >
+                                                    {appointment.patientName}
+                                                </Link>
                                                 <div className="flex items-center gap-2 mt-0.5">
                                                     {appointment.type === 'Video' ? (
                                                         <Video className="h-3 w-3 text-blue-600" />
@@ -426,6 +433,16 @@ export default function DoctorDashboard() {
                                                         <User className="h-3 w-3 text-gray-600 dark:text-gray-400" />
                                                     )}
                                                     <span className="text-xs text-gray-500 dark:text-gray-400">{appointment.type}</span>
+                                                    {Boolean(
+                                                        appointment.reason?.toLowerCase().includes('wellness') ||
+                                                        appointment.reason?.toLowerCase().includes('guardrail') ||
+                                                        appointment.reason?.toLowerCase().includes('elevated') ||
+                                                        appointment.reason?.toLowerCase().includes('coach')
+                                                    ) && (
+                                                        <span className="inline-flex items-center gap-1 rounded bg-red-100 dark:bg-red-950/50 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/60">
+                                                            🚨 AI Guardrail
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -777,7 +794,14 @@ export default function DoctorDashboard() {
                                     <User className="h-6 w-6" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-bold">{selectedAppointment.patientName}</h2>
+                                    <Link
+                                        href={`/doctor/patients/${selectedAppointment.patientId || selectedAppointment.patient?.id || ''}`}
+                                        className="text-lg font-bold text-white hover:text-emerald-200 hover:underline flex items-center gap-1.5 group"
+                                        title="Click to view full patient medical record"
+                                    >
+                                        <span>{selectedAppointment.patientName}</span>
+                                        <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-normal group-hover:bg-white/30">View Profile ➔</span>
+                                    </Link>
                                     <p className="text-emerald-100 text-xs">
                                         {selectedAppointment.appointment_date} • {selectedAppointment.time}
                                     </p>
@@ -834,12 +858,58 @@ export default function DoctorDashboard() {
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
                             <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Reason for Consultation</p>
                             <p className="text-sm text-gray-900 dark:text-gray-100">
-                                {Array.isArray(selectedAppointment.symptoms) && selectedAppointment.symptoms.length > 0
-                                    ? selectedAppointment.symptoms.join(', ')
-                                    : selectedAppointment.reason
+                                {selectedAppointment.reason
                                     || selectedAppointment.patient_notes
-                                    || <span className="text-gray-400 italic">Not specified</span>}
+                                    || (!Array.isArray(selectedAppointment.symptoms) || selectedAppointment.symptoms.length === 0 ? <span className="text-gray-400 italic">Not specified</span> : null)}
                             </p>
+                            
+                            {Array.isArray(selectedAppointment.symptoms) && selectedAppointment.symptoms.length > 0 && (
+                                <div className="mt-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Symptoms</p>
+                                        {(selectedAppointment as any).symptom_duration && <span className="text-[10px] text-gray-500">{(selectedAppointment as any).symptom_duration}</span>}
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {selectedAppointment.symptoms.map((sym: string) => (
+                                            <span key={sym} className="text-xs bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300 px-2 py-0.5 rounded border border-red-100 dark:border-red-800/30">
+                                                {sym}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    {(selectedAppointment as any).symptom_pattern && <p className="text-xs text-gray-500 mt-1 italic">{(selectedAppointment as any).symptom_pattern}</p>}
+                                </div>
+                            )}
+
+                            {((selectedAppointment as any).severity_current !== undefined || (selectedAppointment as any).onset_type) && (
+                                <div className="mt-3 flex items-center gap-4">
+                                    {(selectedAppointment as any).severity_current !== undefined && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-500">Severity:</span>
+                                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${(selectedAppointment as any).severity_current <= 3 ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : (selectedAppointment as any).severity_current <= 6 ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-red-100 text-red-700 border-red-200'}`}>
+                                                {(selectedAppointment as any).severity_current}/10
+                                            </span>
+                                        </div>
+                                    )}
+                                    {(selectedAppointment as any).onset_type && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-500">Onset:</span>
+                                            <span className="text-xs font-medium text-gray-700 capitalize">{(selectedAppointment as any).onset_type}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {(selectedAppointment as any).voice_note_url && (
+                                <div className="mt-3 p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-100 dark:border-emerald-800/30">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
+                                            <span className="text-[10px]">🎙️</span>
+                                        </div>
+                                        <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">Voice Note attached</span>
+                                    </div>
+                                    <audio src={(selectedAppointment as any).voice_note_url} controls className="w-full h-8" />
+                                </div>
+                            )}
                         </div>
 
                         {/* Consultation Type Badge */}

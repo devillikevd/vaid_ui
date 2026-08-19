@@ -1268,4 +1268,25 @@
     <string name="filter_scans">Scans</string>
     <string name="report_total">Total</string>
     <string name="report_lab">Lab</string>
+
+    <!-- Wellness Reports & Analytics -->
+    <string name="wellness_reports_title">Reports &amp; Analytics</string>
+    <string name="wellness_report_header">Your Wellness Report</string>
+    <string name="wellness_report_subtitle">Track your progress across workouts, nutrition, and recovery</string>
+    <string name="how_data_tracked">How data is tracked</string>
+    <string name="how_data_tracked_desc">• 🏋️ Workouts: Log exercises &amp; routines to count duration &amp; calories.\n• 🍽️ Nutrition: Take a photo of your food via Diet Tracker for auto-calories.\n• ⌚ Recovery: Connect your Smartwatch via Health Connect for auto sleep &amp; heart rate.</string>
+    <string name="period_label">Period:</string>
+    <string name="workout_summary_title">Workout Summary</string>
+    <string name="nutrition_summary_title">Nutrition Summary</string>
+    <string name="recovery_health_title">Recovery &amp; Health</string>
+    <string name="your_stats_title">Your Stats</string>
+    <string name="start_workout_btn">Start Workout</string>
+    <string name="scan_meal_btn">Scan Meal / Log Food</string>
+    <string name="connect_watch_btn">Connect Smartwatch / Sync</string>
+    <string name="ai_coach_insights_title">AI Daily Coach Insights</string>
+    <string name="macro_ratio_title">Macronutrient Ratio</string>
+    <string name="sleep_benchmark_title">Sleep Target (7-9 hrs)</string>
+    <string name="no_data_yet">No data yet</string>
+    <string name="updating_text">Updating…</string>
+    <string name="streak_explanation_tip">💡 Tip: Complete at least 1 workout daily to build &amp; maintain your active streak.</string>
 </resources>

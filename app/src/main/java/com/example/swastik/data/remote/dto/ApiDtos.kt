@@ -481,7 +481,19 @@ data class CreateAppointmentRequest(
     val clinicId: String? = null,
     val reason: String? = null,
     val symptoms: List<String>? = null,
-    val patientNotes: String? = null
+    val patientNotes: String? = null,
+    val severity: String? = null,
+    val onsetType: String? = null,
+    val symptomDuration: String? = null,
+    val symptomPattern: String? = null,
+    val severityCurrent: Int? = null,
+    val severityWorst: Int? = null,
+    val knownAllergies: List<String>? = null,
+    val currentMedications: String? = null,
+    val medicalHistory: String? = null,
+    val voiceNoteUrl: String? = null,
+    val supportingDocuments: List<String>? = null,
+    val reasonForVisit: String? = null
 )
 
 data class AppointmentFacilityDto(
@@ -1164,7 +1176,8 @@ data class MedicineOrderRequest(
     val deliveryAddress: String,
     val patientPhone: String? = null,
     val isPrescriptionOrder: Boolean = false,
-    val isCatalogOrder: Boolean = false
+    val isCatalogOrder: Boolean = false,
+    @SerializedName("medcoinsRedeemed") val medcoinsRedeemed: Int? = null
 )
 
 data class OrderItemRequest(
@@ -1399,7 +1412,8 @@ data class WellnessCoachDto(
     @SerializedName("profile_image_url") val profileImageUrl: String? = null,
     val rating: Double? = null,
     @SerializedName("total_reviews") val totalReviews: Int? = null,
-    val city: String? = null
+    val city: String? = null,
+    @SerializedName("session_modes") val sessionModes: List<String>? = null
 )
 
 data class FitnessCenterReelDto(
@@ -1484,7 +1498,11 @@ data class WellnessGroupDto(
     val description: String? = null,
     @SerializedName("goal_tag") val goalTag: String? = null,
     val city: String? = null,
-    @SerializedName("member_count") val memberCount: Int? = null
+    @SerializedName("member_count") val memberCount: Int? = null,
+    @SerializedName("host_coach_name") val hostCoachName: String? = null,
+    @SerializedName("host_coach_image") val hostCoachImage: String? = null,
+    @SerializedName("recent_tip") val recentTip: String? = null,
+    @SerializedName("is_joined") val isJoined: Boolean? = null
 )
 
 data class WellnessChallengeDto(
@@ -1494,8 +1512,31 @@ data class WellnessChallengeDto(
     @SerializedName("challenge_type") val challengeType: String? = null,
     @SerializedName("target_value") val targetValue: Double? = null,
     @SerializedName("target_unit") val targetUnit: String? = null,
+    val metric: String? = null,
     @SerializedName("participant_count") val participantCount: Int? = null,
+    @SerializedName("progress_value") val progressValue: Double? = null,
+    @SerializedName("progress_percent") val progressPercent: Int? = null,
+    @SerializedName("is_joined") val isJoined: Boolean? = null,
+    @SerializedName("reward_xp") val rewardXp: Int? = null,
+    @SerializedName("reward_medcoins") val rewardMedCoins: Int? = null,
+    @SerializedName("coach_name") val coachName: String? = null,
     @SerializedName("ends_at") val endsAt: String? = null
+)
+
+data class WellnessLeaderboardEntryDto(
+    val id: String? = null,
+    @SerializedName("patient_id") val patientId: String? = null,
+    val rank: Int? = null,
+    @SerializedName("progress_value") val progressValue: Double? = null,
+    @SerializedName("is_self") val isSelf: Boolean? = null,
+    val patient: PatientLeaderboardProfileDto? = null
+)
+
+data class PatientLeaderboardProfileDto(
+    val id: String? = null,
+    val name: String? = null,
+    @SerializedName("profile_image_url") val profileImageUrl: String? = null,
+    val city: String? = null
 )
 
 data class TrustedSupplementDto(
@@ -1506,6 +1547,16 @@ data class TrustedSupplementDto(
     val description: String? = null,
     @SerializedName("image_url") val imageUrl: String? = null,
     val price: Double? = null,
+    val mrp: Double? = null,
+    @SerializedName("fssai_license") val fssaiLicense: String? = null,
+    @SerializedName("batch_number") val batchNumber: String? = null,
+    @SerializedName("authenticity_qr_url") val authenticityQrUrl: String? = null,
+    val ingredients: List<String>? = null,
+    val allergens: List<String>? = null,
+    @SerializedName("usage_instructions") val usageInstructions: String? = null,
+    val rating: Double? = null,
+    @SerializedName("seller_name") val sellerName: String? = null,
+    @SerializedName("delivery_mins") val deliveryMins: Int? = null,
     @SerializedName("is_verified") val isVerified: Boolean? = null,
     @SerializedName("is_active") val isActive: Boolean? = null
 )
@@ -1558,6 +1609,118 @@ data class WellnessHealthScreeningDto(
     @SerializedName("doctor_clearance") val doctorClearance: Boolean? = null,
     @SerializedName("par_q_passed") val parQPassed: Boolean? = null,
     @SerializedName("risk_level") val riskLevel: String? = null
+)
+
+// ==================== CLINICAL SAFETY & PHYSICAL READINESS DTOs ====================
+
+data class WellnessSafetyDto(
+    @SerializedName("clearance_status") val clearanceStatus: String? = "cleared",
+    @SerializedName("status_badge") val statusBadge: String? = "🟢 100% Cleared for Active Training",
+    @SerializedName("badge_color") val badgeColor: String? = "#16A34A",
+    @SerializedName("clearance_notes") val clearanceNotes: String? = null,
+    @SerializedName("par_q_completed") val parQCompleted: Boolean? = false,
+    @SerializedName("par_q_passed") val parQPassed: Boolean? = true,
+    @SerializedName("safety_flags") val safetyFlags: List<String>? = emptyList(),
+    val injuries: List<String>? = emptyList(),
+    @SerializedName("excluded_exercises") val excludedExercises: List<ExcludedExerciseDto>? = emptyList(),
+    @SerializedName("safe_alternatives") val safeAlternatives: List<SafeAlternativeDto>? = emptyList(),
+    @SerializedName("vitals_guardrails") val vitalsGuardrails: VitalsGuardrailDto? = null,
+    @SerializedName("unwell_protocols") val unwellProtocols: List<UnwellProtocolDto>? = emptyList(),
+    @SerializedName("doctor_referral_recommended") val doctorReferralRecommended: Boolean? = false,
+    @SerializedName("drug_nutrient_interlocks") val drugNutrientInterlocks: List<DrugNutrientInterlockDto>? = emptyList(),
+    @SerializedName("clearance_certificate") val clearanceCertificate: MedicalClearanceCertificateDto? = null
+)
+
+data class DrugNutrientInterlockDto(
+    val id: String,
+    @SerializedName("medication_class") val medicationClass: String,
+    val indication: String,
+    @SerializedName("contraindicated_nutrient") val contraindicatedNutrient: String,
+    val severity: String,
+    @SerializedName("risk_mechanism") val riskMechanism: String,
+    @SerializedName("safe_substitute") val safeSubstitute: String,
+    @SerializedName("action_required") val actionRequired: String
+)
+
+data class MedicalClearanceCertificateDto(
+    @SerializedName("certificate_id") val certificateId: String,
+    @SerializedName("patient_name") val patientName: String,
+    @SerializedName("patient_id") val patientId: String,
+    val age: Int,
+    val gender: String,
+    @SerializedName("clearance_status") val clearanceStatus: String,
+    @SerializedName("clearance_title") val clearanceTitle: String,
+    @SerializedName("issue_date") val issueDate: String,
+    @SerializedName("expiry_date") val expiryDate: String,
+    @SerializedName("par_q_status") val parQStatus: String,
+    @SerializedName("safe_vitals_envelope") val safeVitalsEnvelope: SafeVitalsEnvelopeDto,
+    @SerializedName("authorized_medical_officer") val authorizedMedicalOfficer: AuthorizedMedicalOfficerDto,
+    @SerializedName("verification_qr_url") val verificationQrUrl: String,
+    @SerializedName("allowed_facilities") val allowedFacilities: List<String> = emptyList()
+)
+
+data class SafeVitalsEnvelopeDto(
+    @SerializedName("max_heart_rate_cap") val maxHeartRateCap: String,
+    @SerializedName("target_cardio_zone") val targetCardioZone: String,
+    @SerializedName("blood_pressure_envelope") val bloodPressureEnvelope: String
+)
+
+data class AuthorizedMedicalOfficerDto(
+    val name: String,
+    @SerializedName("registration_no") val registrationNo: String,
+    val department: String,
+    val seal: String
+)
+
+data class SafetyIncidentRequest(
+    val symptom: String,
+    @SerializedName("muscle_group") val muscleGroup: String? = null,
+    val severity: String = "moderate",
+    val notes: String? = null,
+    @SerializedName("workout_name") val workoutName: String? = null,
+    @SerializedName("current_heart_rate") val currentHeartRate: Int? = null
+)
+
+data class SafetyIncidentResponseDto(
+    val id: String,
+    @SerializedName("patient_id") val patientId: String,
+    @SerializedName("patient_name") val patientName: String,
+    val symptom: String,
+    @SerializedName("muscle_group") val muscleGroup: String?,
+    val severity: String,
+    @SerializedName("current_heart_rate") val currentHeartRate: Int?,
+    val notes: String?,
+    @SerializedName("workout_name") val workoutName: String?,
+    @SerializedName("logged_at") val loggedAt: String,
+    val status: String,
+    @SerializedName("suggested_adaptation") val suggestedAdaptation: String?
+)
+
+data class ExcludedExerciseDto(
+    val name: String,
+    val reason: String
+)
+
+data class SafeAlternativeDto(
+    val name: String,
+    val benefit: String
+)
+
+data class VitalsGuardrailDto(
+    @SerializedName("max_heart_rate") val maxHeartRate: Int? = 165,
+    @SerializedName("aerobic_zone") val aerobicZone: String? = "115 - 145 BPM",
+    @SerializedName("fat_burn_zone") val fatBurnZone: String? = "95 - 115 BPM",
+    @SerializedName("max_systolic_bp") val maxSystolicBp: Int? = 140,
+    @SerializedName("max_diastolic_bp") val maxDiastolicBp: Int? = 90,
+    @SerializedName("hydration_target") val hydrationTarget: String? = "3.0 Liters / day"
+)
+
+data class UnwellProtocolDto(
+    val id: String,
+    val symptom: String,
+    val severity: String,
+    val action: String,
+    @SerializedName("is_emergency") val isEmergency: Boolean? = false
 )
 
 data class CreateAssessmentGoalsRequest(
@@ -2010,4 +2173,35 @@ data class WellnessReportSectionDto(
 data class ChartPointDto(
     val label: String,
     val value: Double
+)
+
+// ==================== COMMUNITY SOCIAL FEED & CHECK-INS ====================
+
+data class GroupPostDto(
+    val id: String,
+    @SerializedName("group_id") val groupId: String? = null,
+    @SerializedName("author_id") val authorId: String? = null,
+    @SerializedName("author_name") val authorName: String? = "Swastik Athlete",
+    @SerializedName("author_role") val authorRole: String? = "Member",
+    @SerializedName("author_avatar") val authorAvatar: String? = null,
+    @SerializedName("workout_tag") val workoutTag: String? = "🏃 Daily Check-in",
+    @SerializedName("metric_display") val metricDisplay: String? = "Milestone logged",
+    val content: String = "",
+    @SerializedName("image_url") val imageUrl: String? = null,
+    @SerializedName("cheers_count") val cheersCount: Int = 0,
+    @SerializedName("is_cheered") val isCheered: Boolean = false,
+    @SerializedName("created_at") val createdAt: String? = null
+)
+
+data class CreateGroupPostRequest(
+    val content: String,
+    @SerializedName("workoutTag") val workoutTag: String? = "🏃 Daily Check-in",
+    @SerializedName("metricDisplay") val metricDisplay: String? = "Milestone logged",
+    @SerializedName("imageUrl") val imageUrl: String? = null
+)
+
+data class CheerPostResponse(
+    val postId: String? = null,
+    @SerializedName("cheers_count") val cheersCount: Int = 0,
+    @SerializedName("is_cheered") val isCheered: Boolean = false
 )

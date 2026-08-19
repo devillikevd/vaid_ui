@@ -28,7 +28,8 @@ const config = require('../config');
 // CLI flags
 // ---------------------------------------------------------------------------
 const args = process.argv.slice(2);
-const SKIP_UPLOAD = args.includes('--skip-upload');
+const UPLOAD_TO_S3 = args.includes('--upload-s3');
+const SKIP_UPLOAD = !UPLOAD_TO_S3 || args.includes('--skip-upload');
 const DRY_RUN = args.includes('--dry-run');
 const BATCH_SIZE = parseInt((args.find((a) => a.startsWith('--batch=')) || '').split('=')[1] || '50', 10);
 const CONCURRENCY = parseInt((args.find((a) => a.startsWith('--concurrency=')) || '').split('=')[1] || '8', 10);
@@ -37,7 +38,7 @@ const CONCURRENCY = parseInt((args.find((a) => a.startsWith('--concurrency=')) |
 // Constants
 // ---------------------------------------------------------------------------
 const DATASET_URL = 'https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/data/exercises.json';
-const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main';
+const GITHUB_RAW_BASE = 'https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@main';
 const ATTRIBUTION = '© Gym visual — https://gymvisual.com/';
 const S3_PREFIX = 'exercises';
 

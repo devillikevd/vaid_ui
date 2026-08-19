@@ -1730,3 +1730,52 @@ export function useSharedAiProof(roomId: string | null) {
 
     return { latestProof };
 }
+
+export interface WellnessTipBroadcast {
+    groupId: string;
+    tipText: string;
+    post: any;
+}
+
+export interface WellnessCheckinUpdate {
+    groupId: string;
+    post: any;
+}
+
+export interface WellnessCheerUpdate {
+    postId: string;
+    cheers_count: number;
+    userId: string;
+    isCheered: boolean;
+}
+
+export function useWellnessUpdates(callbacks?: {
+    onTipBroadcast?: (data: WellnessTipBroadcast) => void;
+    onNewCheckin?: (data: WellnessCheckinUpdate) => void;
+    onPostCheered?: (data: WellnessCheerUpdate) => void;
+    onSprintUpdate?: (data: any) => void;
+}) {
+    const { on } = useSocket();
+
+    useEffect(() => {
+        const offTip = on('wellness:tip_broadcast', (data: WellnessTipBroadcast) => {
+            callbacks?.onTipBroadcast?.(data);
+        });
+        const offCheckin = on('wellness:new_checkin', (data: WellnessCheckinUpdate) => {
+            callbacks?.onNewCheckin?.(data);
+        });
+        const offCheer = on('wellness:post_cheered', (data: WellnessCheerUpdate) => {
+            callbacks?.onPostCheered?.(data);
+        });
+        const offSprint = on('wellness:sprint_update', (data: any) => {
+            callbacks?.onSprintUpdate?.(data);
+        });
+
+        return () => {
+            offTip?.();
+            offCheckin?.();
+            offCheer?.();
+            offSprint?.();
+        };
+    }, [on, callbacks]);
+}

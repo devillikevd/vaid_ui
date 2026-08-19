@@ -533,6 +533,59 @@ interface ApiService {
     @POST("patients/vitals/sync")
     suspend fun syncHealthConnectData(@Body request: SyncVitalsRequest): Response<ApiResponse<Unit>>
 
+    // ==================== EMERGENCY FIRST-RESPONDER NETWORK ====================
+    @POST("emergency-network/register")
+    suspend fun registerFirstResponder(
+        @Body request: com.example.swastik.data.model.RegisterResponderRequest
+    ): Response<ApiResponse<com.example.swastik.data.model.FirstResponderProfile>>
+
+    @GET("emergency-network/me")
+    suspend fun getMyResponderProfile(): Response<ApiResponse<com.example.swastik.data.model.FirstResponderProfile>>
+
+    @PUT("emergency-network/duty")
+    suspend fun updateDutyStatus(
+        @Body request: com.example.swastik.data.model.UpdateDutyRequest
+    ): Response<ApiResponse<com.example.swastik.data.model.FirstResponderProfile>>
+
+    @POST("emergency-network/location-ping")
+    suspend fun pingResponderLocation(
+        @Body request: com.example.swastik.data.model.LocationPingRequest
+    ): Response<ApiResponse<com.example.swastik.data.model.FirstResponderProfile>>
+
+    @POST("emergency-network/broadcast")
+    suspend fun broadcastEmergency(
+        @Body request: com.example.swastik.data.model.EmergencyBroadcastRequest
+    ): Response<ApiResponse<com.example.swastik.data.model.EmergencyBroadcastResponse>>
+
+    @GET("emergency-network/broadcasts/nearby")
+    suspend fun getNearbyEmergencyBroadcasts(
+        @Query("latitude") latitude: Double?,
+        @Query("longitude") longitude: Double?,
+        @Query("radiusMeters") radiusMeters: Int? = 3000
+    ): Response<ApiResponse<List<com.example.swastik.data.model.EmergencyBroadcastDto>>>
+
+    @GET("emergency-network/broadcasts/{id}")
+    suspend fun getEmergencyBroadcast(
+        @Path("id") id: String
+    ): Response<ApiResponse<com.example.swastik.data.model.EmergencyBroadcastDto>>
+
+    @POST("emergency-network/broadcasts/{id}/accept")
+    suspend fun acceptEmergencyBroadcast(
+        @Path("id") id: String
+    ): Response<ApiResponse<Any>>
+
+    @POST("emergency-network/broadcasts/{id}/status")
+    suspend fun updateAssignmentStatus(
+        @Path("id") id: String,
+        @Body request: com.example.swastik.data.model.UpdateAssignmentStatusRequest
+    ): Response<ApiResponse<Any>>
+
+    @POST("emergency-network/broadcasts/{id}/dispatch-ambulance")
+    suspend fun dispatchVerifiedAmbulance(
+        @Path("id") id: String,
+        @Body request: com.example.swastik.data.model.DispatchAmbulanceRequest
+    ): Response<ApiResponse<Any>>
+
     @GET("wellness/wearables/summaries")
     suspend fun getWearableSummaries(
         @Query("days") days: Int = 30
@@ -611,8 +664,23 @@ interface ApiService {
     @GET("wellness/ai/insights")
     suspend fun getWellnessAiInsights(): Response<ApiResponse<List<JsonObject>>>
 
+    @POST("wellness/ai/chat")
+    suspend fun chatWithAiCoach(
+        @Body request: com.example.swastik.data.model.AiChatRequest
+    ): Response<ApiResponse<com.example.swastik.data.model.AiChatResponse>>
+
+    @POST("wellness/ai/smart-plan")
+    suspend fun generateSmartPlan(
+        @Body request: com.example.swastik.data.model.SmartPlanRequest
+    ): Response<ApiResponse<com.example.swastik.data.model.SmartPlanResponse>>
+
+    @GET("wellness/ai/readiness-score")
+    suspend fun getAiReadinessScore(): Response<ApiResponse<com.example.swastik.data.model.AiReadinessScoreDto>>
+
     @GET("wellness/reports")
-    suspend fun getWellnessReports(): Response<ApiResponse<JsonObject>>
+    suspend fun getWellnessReports(
+        @Query("days") days: Int? = null
+    ): Response<ApiResponse<JsonObject>>
 
     @GET("wellness/groups")
     suspend fun getWellnessGroups(
@@ -624,6 +692,29 @@ interface ApiService {
     suspend fun getWellnessChallenges(
         @Query("type") type: String? = null
     ): Response<ApiResponse<List<WellnessChallengeDto>>>
+
+    @POST("wellness/groups/{id}/join")
+    suspend fun joinWellnessGroup(
+        @Path("id") groupId: String
+    ): Response<ApiResponse<JsonObject>>
+
+    @GET("wellness/groups/{id}/posts")
+    suspend fun getGroupPosts(
+        @Path("id") groupId: String
+    ): Response<ApiResponse<List<GroupPostDto>>>
+
+    @POST("wellness/groups/{id}/posts")
+    suspend fun createGroupPost(
+        @Path("id") groupId: String,
+        @Body request: CreateGroupPostRequest
+    ): Response<ApiResponse<GroupPostDto>>
+
+    @POST("wellness/groups/posts/{postId}/cheer")
+    suspend fun cheerGroupPost(
+        @Path("postId") postId: String
+    ): Response<ApiResponse<CheerPostResponse>>
+
+
 
     @GET("wellness/supplements")
     suspend fun getTrustedSupplements(
@@ -652,6 +743,20 @@ interface ApiService {
     suspend fun submitHealthScreening(
         @Body request: CreateHealthScreeningRequest
     ): Response<ApiResponse<WellnessAssessmentDto>>
+
+    @GET("wellness/safety")
+    suspend fun getWellnessSafety(): Response<ApiResponse<WellnessSafetyDto>>
+
+    @GET("wellness/safety/interlocks")
+    suspend fun getDrugNutrientInterlocks(): Response<ApiResponse<List<DrugNutrientInterlockDto>>>
+
+    @GET("wellness/safety/certificate")
+    suspend fun getMedicalClearanceCertificate(): Response<ApiResponse<MedicalClearanceCertificateDto>>
+
+    @POST("wellness/safety/incident")
+    suspend fun logSafetyIncident(
+        @Body request: SafetyIncidentRequest
+    ): Response<ApiResponse<SafetyIncidentResponseDto>>
 
     // ==================== WELLNESS COACH DETAIL ====================
 
@@ -935,6 +1040,18 @@ interface ApiService {
     @Multipart
     @POST("uploads/report")
     suspend fun uploadMedicalReport(
+        @Part file: okhttp3.MultipartBody.Part
+    ): Response<ApiResponse<UploadResponse>>
+
+    @Multipart
+    @POST("uploads/intake-document")
+    suspend fun uploadIntakeDocument(
+        @Part file: okhttp3.MultipartBody.Part
+    ): Response<ApiResponse<UploadResponse>>
+
+    @Multipart
+    @POST("uploads/voice-note")
+    suspend fun uploadVoiceNote(
         @Part file: okhttp3.MultipartBody.Part
     ): Response<ApiResponse<UploadResponse>>
 

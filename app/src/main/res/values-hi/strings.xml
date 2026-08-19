@@ -1194,4 +1194,25 @@
     <string name="filter_scans">स्कैन</string>
     <string name="report_total">कुल</string>
     <string name="report_lab">लैब</string>
+
+    <!-- Wellness Reports & Analytics (Hindi) -->
+    <string name="wellness_reports_title">रिपोर्ट एवं एनालिटिक्स</string>
+    <string name="wellness_report_header">आपकी वेलनेस रिपोर्ट</string>
+    <string name="wellness_report_subtitle">व्यायाम, खान-पान और रिकवरी की प्रगति ट्रैक करें</string>
+    <string name="how_data_tracked">डेटा कैसे ट्रैक होता है?</string>
+    <string name="how_data_tracked_desc">• 🏋️ व्यायाम: समय और कैलोरी ट्रैक करने के लिए वर्कआउट लॉग करें।\n• 🍽️ खान-पान: स्वचालित कैलोरी के लिए डाइट ट्रैकर से भोजन की फोटो लें।\n• ⌚ रिकवरी: नींद और दिल की धड़कन के लिए हेल्थ कनेक्ट से स्मार्टवॉच जोड़ें।</string>
+    <string name="period_label">अवधि:</string>
+    <string name="workout_summary_title">व्यायाम सारांश (Workouts)</string>
+    <string name="nutrition_summary_title">पोषण सारांश (Nutrition)</string>
+    <string name="recovery_health_title">रिकवरी एवं स्वास्थ्य</string>
+    <string name="your_stats_title">आपके आंकड़े</string>
+    <string name="start_workout_btn">व्यायाम शुरू करें</string>
+    <string name="scan_meal_btn">भोजन स्कैन करें / लॉग करें</string>
+    <string name="connect_watch_btn">स्मार्टवॉच जोड़ें / सिंक करें</string>
+    <string name="ai_coach_insights_title">AI दैनिक कोच सुझाव</string>
+    <string name="macro_ratio_title">पोषक तत्व अनुपात (Macros)</string>
+    <string name="sleep_benchmark_title">नींद लक्ष्य (7-9 घंटे)</string>
+    <string name="no_data_yet">अभी कोई डेटा नहीं है</string>
+    <string name="updating_text">अपडेट हो रहा है…</string>
+    <string name="streak_explanation_tip">💡 सुझाव: सक्रिय स्ट्रीक बढ़ाने के लिए प्रतिदिन कम से कम 1 व्यायाम पूरा करें।</string>
 </resources>

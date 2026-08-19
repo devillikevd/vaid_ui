@@ -65,6 +65,14 @@ import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
 import androidx.compose.material3.MaterialTheme
 import com.example.swastik.data.model.Appointment
+import android.net.Uri
+import android.os.Build
+import java.io.File
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 
 private val StepperGreen = Color(0xFF00796B)
 private val StepperGray = Color(0xFFE0E0E0)
@@ -107,11 +115,37 @@ fun AppointmentBookingScreen(
     var selectedTimeSlot by remember { mutableStateOf<String?>(null) }
     var selectedType by remember { mutableStateOf(consultationMode ?: "video") }
     var notes by remember { mutableStateOf("") }
-    var reasonForVisit by remember { mutableStateOf("") }
-    var symptomsInput by remember { mutableStateOf("") }
-    var patientMedicalNotes by remember { mutableStateOf("") }
     var showDuplicateBookingDialog by remember { mutableStateOf(false) }
     val availableDates = remember { (0..13).map { LocalDate.now().plusDays(it.toLong()) } }
+
+    // === Clinical Intake Wizard State ===
+    var intakeSubStep by remember { mutableIntStateOf(1) }
+    // Step 1: Reason
+    var reasonForVisit by remember { mutableStateOf("") }
+    var reasonDescription by remember { mutableStateOf("") }
+    // Step 2: Symptoms
+    var selectedSymptoms by remember { mutableStateOf(setOf<String>()) }
+    var customSymptomsInput by remember { mutableStateOf("") }
+    var severityCurrent by remember { mutableIntStateOf(0) }
+    var severityWorst by remember { mutableIntStateOf(0) }
+    var onsetType by remember { mutableStateOf("") }
+    var symptomDuration by remember { mutableStateOf("") }
+    var symptomPattern by remember { mutableStateOf("") }
+    // Step 3: Medical Safety
+    var knownAllergies by remember { mutableStateOf(setOf<String>()) }
+    var customAllergyInput by remember { mutableStateOf("") }
+    var currentMedications by remember { mutableStateOf("") }
+    var medicalHistory by remember { mutableStateOf("") }
+    // Step 4: Documents & Voice
+    var voiceNoteRecorded by remember { mutableStateOf(false) }
+    var voiceNoteDuration by remember { mutableStateOf("0:00") }
+    var isRecording by remember { mutableStateOf(false) }
+    var voiceNoteFile by remember { mutableStateOf<File?>(null) }
+    var voiceNoteUrl by remember { mutableStateOf<String?>(null) }
+    var attachedDocUris by remember { mutableStateOf(listOf<Uri>()) }
+    var attachedDocNames by remember { mutableStateOf(listOf<String>()) }
+    var uploadedDocUrls by remember { mutableStateOf(listOf<String>()) }
+    var mediaRecorder by remember { mutableStateOf<android.media.MediaRecorder?>(null) }
 
     val patientProfile by patientDashboardViewModel.patientProfile.collectAsState()
     val filters by doctorSearchViewModel.filters.collectAsState()
@@ -178,10 +212,10 @@ fun AppointmentBookingScreen(
         }
     }
 
-    // Handle successful booking → go to Step 8 instead of navigating away
+    // Handle successful booking → go to Step 7 (Confirmed)
     LaunchedEffect(appointmentState.bookingSuccess) {
         if (appointmentState.bookingSuccess) {
-            currentStep = 8
+            currentStep = 7
         }
     }
 
@@ -189,7 +223,7 @@ fun AppointmentBookingScreen(
     val context = LocalContext.current
     LaunchedEffect(appointmentState.error) {
         val error = appointmentState.error
-        if (currentStep == 7 && error != null && 
+        if (currentStep == 6 && error != null && 
             (error.contains("already booked", ignoreCase = true) || error.contains("conflict", ignoreCase = true))) {
             
             // Show toast to user
@@ -218,11 +252,10 @@ fun AppointmentBookingScreen(
         1 -> "Select Doctor"
         2 -> "Consultation Details"
         3 -> "Pick Date & Time"
-        4 -> "Pre-Consultation Form"
-        5 -> "Why Choose Swastik"
-        6 -> "Review Booking"
-        7 -> stringResource(R.string.confirm_booking)
-        8 -> "Appointment Confirmed"
+        4 -> "Clinical Intake"
+        5 -> "Review Booking"
+        6 -> stringResource(R.string.confirm_booking)
+        7 -> "Appointment Confirmed"
         else -> "Book Appointment"
     }
 
@@ -230,12 +263,12 @@ fun AppointmentBookingScreen(
         targetValue = 0.dp, label = ""
     )
 
-    // Determine which visual stepper step we're on (map 8-step to 4-visual-step)
+    // Determine which visual stepper step we're on (map 7-step to 4-visual-step)
     val visualStep = when (currentStep) {
         0, 1, 2 -> 1
         3 -> 2
-        4, 5, 6 -> 3
-        7, 8 -> 4
+        4, 5 -> 3
+        6, 7 -> 4
         else -> 1
     }
 
@@ -243,7 +276,8 @@ fun AppointmentBookingScreen(
 
     androidx.activity.compose.BackHandler {
         when {
-            currentStep == 8 -> onBackClick()
+            currentStep == 7 -> onBackClick()
+            currentStep == 4 && intakeSubStep > 1 -> intakeSubStep--
             currentStep > 3 && preselectedDoctorId.isNullOrBlank() -> currentStep--
             currentStep > 3 && !preselectedDoctorId.isNullOrBlank() -> currentStep--
             currentStep == 3 -> currentStep = 2
@@ -255,12 +289,13 @@ fun AppointmentBookingScreen(
 
     Scaffold(
         topBar = {
-            if (currentStep != 8) {
+            if (currentStep != 7) {
                 TopAppBar(
                     title = { Text(if (consultationMode == "recommended" && currentStep == 1) "Recommended Doctors" else stepTitle, fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
                     navigationIcon = {
                         IconButton(onClick = {
                             when {
+                                currentStep == 4 && intakeSubStep > 1 -> intakeSubStep--
                                 currentStep > 3 && preselectedDoctorId.isNullOrBlank() -> currentStep--
                                 currentStep > 3 && !preselectedDoctorId.isNullOrBlank() -> currentStep--
                                 currentStep == 3 -> currentStep = 2
@@ -305,7 +340,7 @@ fun AppointmentBookingScreen(
             Column(modifier = Modifier
                 .fillMaxSize()) {
 
-                if (currentStep in 1..5) {
+                if (currentStep in 1..4) {
                     BookingStepperRedesigned(currentVisualStep = visualStep)
                 }
 
@@ -437,28 +472,167 @@ fun AppointmentBookingScreen(
                             onTimeSlotSelected = { slot -> selectedTimeSlot = slot },
                             onContinue = { currentStep = 4 }
                         )
-                        4 -> PreConsultationFormStep(
-                            specialization = selectedDoctor?.specialization ?: "",
-                            reasonForVisit = reasonForVisit,
-                            onReasonChange = { reasonForVisit = it },
-                            symptoms = symptomsInput,
-                            onSymptomsChange = { symptomsInput = it },
-                            medicalNotes = patientMedicalNotes,
-                            onNotesChange = { patientMedicalNotes = it },
-                            onContinue = { currentStep = 5 }
-                        )
-                        5 -> InformationalStep(
-                            onContinue = { currentStep = 6 }
-                        )
-                        6 -> ReviewBookingStep(
+                        4 -> {
+                            // Clinical Intake Wizard — 5 sub-steps
+                            val spec = selectedDoctor?.specialization ?: ""
+                            when (intakeSubStep) {
+                                1 -> IntakeStep1_ReasonForVisit(
+                                    specialization = spec,
+                                    reasonForVisit = reasonForVisit,
+                                    onReasonChange = { reasonForVisit = it },
+                                    reasonDescription = reasonDescription,
+                                    onDescriptionChange = { reasonDescription = it },
+                                    onNext = { intakeSubStep = 2 },
+                                    onBack = { currentStep = 3 }
+                                )
+                                2 -> IntakeStep2_SymptomDetails(
+                                    specialization = spec,
+                                    selectedSymptoms = selectedSymptoms,
+                                    onSymptomsChange = { selectedSymptoms = it },
+                                    customSymptoms = customSymptomsInput,
+                                    onCustomSymptomsChange = { customSymptomsInput = it },
+                                    severityCurrent = severityCurrent,
+                                    onSeverityCurrentChange = { severityCurrent = it },
+                                    severityWorst = severityWorst,
+                                    onSeverityWorstChange = { severityWorst = it },
+                                    onsetType = onsetType,
+                                    onOnsetTypeChange = { onsetType = it },
+                                    symptomDuration = symptomDuration,
+                                    onDurationChange = { symptomDuration = it },
+                                    symptomPattern = symptomPattern,
+                                    onPatternChange = { symptomPattern = it },
+                                    onNext = { intakeSubStep = 3 },
+                                    onBack = { intakeSubStep = 1 }
+                                )
+                                3 -> IntakeStep3_MedicalSafety(
+                                    knownAllergies = knownAllergies,
+                                    onAllergiesChange = { knownAllergies = it },
+                                    customAllergyInput = customAllergyInput,
+                                    onCustomAllergyChange = { customAllergyInput = it },
+                                    currentMedications = currentMedications,
+                                    onMedicationsChange = { currentMedications = it },
+                                    medicalHistory = medicalHistory,
+                                    onMedicalHistoryChange = { medicalHistory = it },
+                                    onNext = { intakeSubStep = 4 },
+                                    onBack = { intakeSubStep = 2 }
+                                )
+                                4 -> {
+                                    var isVoiceUploading by remember { mutableStateOf(false) }
+                                    val scope = rememberCoroutineScope()
+
+                                    IntakeStep4_VoiceNote(
+                                        voiceNoteRecorded = voiceNoteRecorded,
+                                        voiceNoteDuration = voiceNoteDuration,
+                                        isRecording = isRecording,
+                                        isUploading = isVoiceUploading,
+                                        onStartRecording = {
+                                            try {
+                                                val file = File(context.cacheDir, "voice_note_${System.currentTimeMillis()}.mp4")
+                                                val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                                    android.media.MediaRecorder(context)
+                                                } else {
+                                                    @Suppress("DEPRECATION")
+                                                    android.media.MediaRecorder()
+                                                }
+                                                recorder.apply {
+                                                    setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
+                                                    setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
+                                                    setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
+                                                    setOutputFile(file.absolutePath)
+                                                    prepare()
+                                                    start()
+                                                }
+                                                mediaRecorder = recorder
+                                                voiceNoteFile = file
+                                                isRecording = true
+                                            } catch (e: Exception) {
+                                                android.widget.Toast.makeText(context, "Microphone permission required", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        onStopRecording = {
+                                            try {
+                                                mediaRecorder?.stop()
+                                                mediaRecorder?.release()
+                                                mediaRecorder = null
+                                                isRecording = false
+                                                voiceNoteRecorded = true
+                                                voiceNoteDuration = "Recorded"
+
+                                                // Upload voice note to S3
+                                                val fileToUpload = voiceNoteFile
+                                                if (fileToUpload != null && fileToUpload.exists()) {
+                                                    isVoiceUploading = true
+                                                    scope.launch {
+                                                        try {
+                                                            val requestBody = fileToUpload.asRequestBody("audio/mp4".toMediaTypeOrNull())
+                                                            val part = MultipartBody.Part.createFormData("file", fileToUpload.name, requestBody)
+                                                            val response = appointmentViewModel.uploadVoiceNote(part)
+                                                            if (response != null) {
+                                                                voiceNoteUrl = response
+                                                                android.widget.Toast.makeText(context, "Voice note uploaded ✓", android.widget.Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        } catch (e: Exception) {
+                                                            android.widget.Toast.makeText(context, "Upload failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                                        } finally {
+                                                            isVoiceUploading = false
+                                                        }
+                                                    }
+                                                }
+                                            } catch (e: Exception) {
+                                                isRecording = false
+                                            }
+                                        },
+                                        onDeleteVoiceNote = {
+                                            voiceNoteRecorded = false
+                                            voiceNoteFile?.delete()
+                                            voiceNoteFile = null
+                                            voiceNoteUrl = null
+                                            voiceNoteDuration = "0:00"
+                                        },
+                                        onNext = { intakeSubStep = 5 },
+                                        onBack = { intakeSubStep = 3 }
+                                    )
+                                }
+                                5 -> {
+                                    val allSymptoms = (selectedSymptoms.toList() +
+                                        if (customSymptomsInput.isNotBlank()) customSymptomsInput.split(",").map { it.trim() } else emptyList()
+                                    ).filter { it.isNotBlank() }
+
+                                    IntakeStep5_ReviewIntake(
+                                        reasonForVisit = reasonForVisit,
+                                        reasonDescription = reasonDescription,
+                                        selectedSymptoms = selectedSymptoms,
+                                        customSymptoms = customSymptomsInput,
+                                        severityCurrent = severityCurrent,
+                                        severityWorst = severityWorst,
+                                        onsetType = onsetType,
+                                        symptomDuration = symptomDuration,
+                                        symptomPattern = symptomPattern,
+                                        knownAllergies = knownAllergies,
+                                        customAllergy = customAllergyInput,
+                                        currentMedications = currentMedications,
+                                        medicalHistory = medicalHistory,
+                                        voiceNoteRecorded = voiceNoteRecorded,
+
+                                        onEditStep = { step -> intakeSubStep = step },
+                                        onSubmit = {
+                                            intakeSubStep = 1  // Reset for potential re-edit
+                                            currentStep = 5
+                                        },
+                                        onBack = { intakeSubStep = 4 }
+                                    )
+                                }
+                            }
+                        }
+                        5 -> ReviewBookingStep(
                             doctor = selectedDoctor!!,
                             date = selectedDate!!,
                             timeSlot = selectedTimeSlot!!,
                             selectedType = selectedType,
                             notes = notes,
-                            onContinue = { currentStep = 7 }
+                            onContinue = { currentStep = 6 }
                         )
-                        7 -> ConfirmBookingStep(
+                        6 -> ConfirmBookingStep(
                             doctor = selectedDoctor!!,
                             date = selectedDate!!,
                             timeSlot = selectedTimeSlot!!,
@@ -466,6 +640,21 @@ fun AppointmentBookingScreen(
                             isBooking = appointmentState.isBooking,
                             bookingError = appointmentState.error,
                             onConfirm = {
+                                // Compute severity label
+                                val severityLabel = when {
+                                    severityCurrent <= 3 -> "mild"
+                                    severityCurrent <= 6 -> "moderate"
+                                    else -> "severe"
+                                }
+                                // Combine all symptoms
+                                val allSymptomsList = (selectedSymptoms.toList() +
+                                    if (customSymptomsInput.isNotBlank()) customSymptomsInput.split(",").map { it.trim() } else emptyList()
+                                ).filter { it.isNotBlank() && it != "None of these" }
+                                // Combine all allergies
+                                val allAllergiesList = (knownAllergies.toList() +
+                                    if (customAllergyInput.isNotBlank()) listOf(customAllergyInput) else emptyList()
+                                ).filter { it.isNotBlank() }
+
                                 appointmentViewModel.bookAppointment(
                                     doctorId = selectedDoctor!!.id,
                                     date = selectedDate!!.format(DateTimeFormatter.ISO_LOCAL_DATE),
@@ -475,12 +664,24 @@ fun AppointmentBookingScreen(
                                     hospitalId = preselectedHospitalId,
                                     clinicId = preselectedClinicId,
                                     reason = reasonForVisit.ifBlank { null },
-                                    symptoms = if (symptomsInput.isNotBlank()) symptomsInput.split(",").map { it.trim() } else null,
-                                    patientNotes = patientMedicalNotes.ifBlank { null }
+                                    symptoms = allSymptomsList.ifEmpty { null },
+                                    patientNotes = reasonDescription.ifBlank { null },
+                                    severity = if (severityCurrent > 0) severityLabel else null,
+                                    onsetType = onsetType.ifBlank { null },
+                                    symptomDuration = symptomDuration.ifBlank { null },
+                                    symptomPattern = symptomPattern.ifBlank { null },
+                                    severityCurrent = if (severityCurrent > 0) severityCurrent else null,
+                                    severityWorst = if (severityWorst > 0) severityWorst else null,
+                                    knownAllergies = allAllergiesList.ifEmpty { null },
+                                    currentMedications = currentMedications.ifBlank { null },
+                                    medicalHistory = medicalHistory.ifBlank { null },
+                                    voiceNoteUrl = voiceNoteUrl,
+                                    supportingDocuments = uploadedDocUrls.ifEmpty { null },
+                                    reasonForVisit = reasonForVisit.ifBlank { null }
                                 )
                             }
                         )
-                        8 -> BookingConfirmedStep(
+                        7 -> BookingConfirmedStep(
                             appointment = appointmentState.newAppointment,
                             doctor = selectedDoctor!!,
                             date = selectedDate!!,

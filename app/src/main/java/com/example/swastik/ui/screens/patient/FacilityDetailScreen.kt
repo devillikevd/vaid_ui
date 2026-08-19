@@ -193,8 +193,8 @@ fun FacilityDetailScreen(
                     add(if (docCount > 0) "Doctors ($docCount)" else "Doctors")
                 }
                 add("Reviews")
-                if (facility.images.isNotEmpty()) add("Photos")
-                if (facility.reels.isNotEmpty()) add("Videos")
+                add("Photos")
+                add("Videos")
             }
 
             var selectedTabIndex by remember { mutableIntStateOf(0) }

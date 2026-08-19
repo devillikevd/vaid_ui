@@ -800,11 +800,24 @@ fun QrCodeDialog(
                     }
                 }
 
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "Anyone with this active QR or link can view your\nshared clinical summary until it expires or you revoke it",
-                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center
-                )
+                Spacer(Modifier.height(8.dp))
+                androidx.compose.material3.Surface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                    color = androidx.compose.ui.graphics.Color(0xFFDCFCE7),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFF86EFAC))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "🛡️ Includes PAR-Q Clearance, Safe Vitals & Drug Interlocks",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = androidx.compose.ui.graphics.Color(0xFF166534)
+                        )
+                    }
+                }
 
                 if (healthCardState.hasActiveCard) {
                     Spacer(Modifier.height(12.dp))

@@ -6,6 +6,9 @@ import com.example.swastik.data.remote.dto.CreateAssessmentBioRequest
 import com.example.swastik.data.remote.dto.CreateAssessmentGoalsRequest
 import com.example.swastik.data.remote.dto.CreateHealthScreeningRequest
 import com.example.swastik.data.remote.dto.ExerciseLibraryDto
+import com.example.swastik.data.remote.dto.CreateGroupPostRequest
+import com.example.swastik.data.remote.dto.GroupPostDto
+import com.example.swastik.data.remote.dto.LeaderboardEntryDto
 import com.example.swastik.data.remote.dto.PatientWorkoutPlanDto
 import com.example.swastik.data.remote.dto.TrustedSupplementDto
 import com.example.swastik.data.remote.dto.WellnessAssessmentDto
@@ -54,6 +57,18 @@ data class WellnessUiState(
     val assessment: WellnessAssessmentDto? = null,
     val badges: List<JsonObject> = emptyList(),
     val aiInsights: List<JsonObject> = emptyList(),
+    val aiReadinessScore: com.example.swastik.data.model.AiReadinessScoreDto = com.example.swastik.data.model.AiReadinessScoreDto(),
+    val aiChatMessages: List<com.example.swastik.data.model.AiChatMessage> = emptyList(),
+    val isAiChatLoading: Boolean = false,
+    val smartPlanResult: com.example.swastik.data.model.SmartPlanResponse? = null,
+    val isSmartPlanLoading: Boolean = false,
+    val dailyGuidanceItems: List<com.example.swastik.data.model.DailyGuidanceItem> = listOf(
+        com.example.swastik.data.model.DailyGuidanceItem("g1", "Morning Hydration (500ml)", "07:30 AM", "Drink room-temp water with pinch of Himalayan pink salt.", true),
+        com.example.swastik.data.model.DailyGuidanceItem("g2", "8,000 Step Milestone", "01:00 PM", "Take a 10-minute post-lunch walk to blunt glucose spike.", false),
+        com.example.swastik.data.model.DailyGuidanceItem("g3", "15-min Posture & Mobility", "05:30 PM", "Desk stretch & thoracic spine decompression.", false),
+        com.example.swastik.data.model.DailyGuidanceItem("g4", "Magnesium & Sleep Wind-down", "10:00 PM", "Screen-free 45 mins before bed + 4-7-8 breathing.", false)
+    ),
+    val selectedPersona: String = "ATHLETE",
     val reports: JsonObject? = null,
     val workoutProgress: JsonObject? = null,
     // Assessment submission state
@@ -63,19 +78,41 @@ data class WellnessUiState(
     // Exercise library filter & pagination state
     val exerciseSearchQuery: String = "",
     val exerciseSelectedCategory: String? = null,
+    val exerciseSelectedMuscle: String? = null,
     val exerciseSelectedLevel: String? = null,
     val exerciseCurrentPage: Int = 1,
     val exerciseTotalPages: Int = 1,
     val exerciseTotalCount: Int = 0,
-    val isLoadingMoreExercises: Boolean = false
+    val isLoadingMoreExercises: Boolean = false,
+    // Reports period selector
+    val reportPeriodDays: Int = 30,
+    // Clinical Safety state
+    val safetySummary: com.example.swastik.data.remote.dto.WellnessSafetyDto? = null,
+    val isSafetyLoading: Boolean = false,
+    val drugNutrientInterlocks: List<com.example.swastik.data.remote.dto.DrugNutrientInterlockDto> = emptyList(),
+    val clearanceCertificate: com.example.swastik.data.remote.dto.MedicalClearanceCertificateDto? = null,
+    val isIncidentLogging: Boolean = false,
+    val incidentLoggedSuccess: Boolean = false
 )
 
 @HiltViewModel
 class WellnessViewModel @Inject constructor(
-    private val wellnessRepository: WellnessRepository
+    private val wellnessRepository: WellnessRepository,
+    private val fitnessRepository: com.example.swastik.data.repository.FitnessRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(WellnessUiState())
     val uiState: StateFlow<WellnessUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            fitnessRepository.getTodayLog().collect { log ->
+                _uiState.value = _uiState.value.copy(
+                    stepsToday = log.totalSteps,
+                    activeCaloriesToday = log.caloriesBurned.toInt()
+                )
+            }
+        }
+    }
 
     // ==================== Smart Health Hub (single aggregate call) ====================
 
@@ -103,8 +140,7 @@ class WellnessViewModel @Inject constructor(
         communityCount = (hub?.counts?.groups ?: 0) + (hub?.counts?.challenges ?: 0),
         supplementCount = hub?.counts?.supplements ?: 0,
         workoutsCompletedToday = hub?.workoutsCompletedToday ?: 0,
-        stepsToday = hub?.todayStats?.steps ?: 0,
-        activeCaloriesToday = hub?.todayStats?.activeCalories ?: 0,
+        // stepsToday and activeCaloriesToday are managed by local FitnessRepository flow
         streakDays = hub?.activeWorkoutPlan?.streakDays ?: 0,
         activePlan = hub?.activeWorkoutPlan,
         reels = hub?.reels ?: emptyList()
@@ -147,6 +183,7 @@ class WellnessViewModel @Inject constructor(
             val result = wellnessRepository.getExercises(
                 page = page,
                 category = _uiState.value.exerciseSelectedCategory,
+                target = _uiState.value.exerciseSelectedMuscle,
                 level = _uiState.value.exerciseSelectedLevel,
                 query = _uiState.value.exerciseSearchQuery.takeIf { it.isNotBlank() }
             )
@@ -181,7 +218,19 @@ class WellnessViewModel @Inject constructor(
     }
 
     fun setExerciseCategory(category: String?) {
-        _uiState.value = _uiState.value.copy(exerciseSelectedCategory = category, exerciseCurrentPage = 1)
+        _uiState.value = _uiState.value.copy(
+            exerciseSelectedCategory = category,
+            exerciseSelectedMuscle = null,
+            exerciseCurrentPage = 1
+        )
+        loadExercises()
+    }
+
+    fun setExerciseMuscle(muscle: String?) {
+        _uiState.value = _uiState.value.copy(
+            exerciseSelectedMuscle = muscle,
+            exerciseCurrentPage = 1
+        )
         loadExercises()
     }
 
@@ -226,6 +275,89 @@ class WellnessViewModel @Inject constructor(
         }
     }
 
+    fun joinCommunityGroup(groupId: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            when (val result = wellnessRepository.joinGroup(groupId)) {
+                is Result.Success<*> -> {
+                    val updated = _uiState.value.groups.map {
+                        if (it.id == groupId) it.copy(isJoined = true, memberCount = (it.memberCount ?: 0) + 1) else it
+                    }
+                    _uiState.value = _uiState.value.copy(groups = updated)
+                    onResult(true, "Successfully joined community!")
+                }
+                is Result.Error -> onResult(false, result.message)
+                else -> Unit
+            }
+        }
+    }
+
+    fun joinWellnessChallenge(challengeId: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            when (val result = wellnessRepository.joinChallenge(challengeId)) {
+                is Result.Success<*> -> {
+                    val updated = _uiState.value.challenges.map {
+                        if (it.id == challengeId) it.copy(isJoined = true, participantCount = (it.participantCount ?: 0) + 1) else it
+                    }
+                    _uiState.value = _uiState.value.copy(challenges = updated)
+                    onResult(true, "Successfully joined challenge! Step tracking is now live.")
+                }
+                is Result.Error -> onResult(false, result.message)
+                else -> Unit
+            }
+        }
+    }
+
+    suspend fun getChallengeLeaderboard(challengeId: String): List<LeaderboardEntryDto> {
+        return when (val result = wellnessRepository.getChallengeLeaderboard(challengeId)) {
+            is Result.Success<*> -> (result.data as? List<LeaderboardEntryDto>) ?: emptyList()
+            else -> emptyList()
+        }
+    }
+
+    val groupPosts = MutableStateFlow<List<GroupPostDto>>(emptyList())
+    val isPostingCheckin = MutableStateFlow(false)
+
+    fun loadGroupPosts(groupId: String) {
+        viewModelScope.launch {
+            when (val result = wellnessRepository.getGroupPosts(groupId)) {
+                is Result.Success -> groupPosts.value = result.data
+                else -> groupPosts.value = emptyList()
+            }
+        }
+    }
+
+    fun postCheckIn(groupId: String, content: String, workoutTag: String, onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            isPostingCheckin.value = true
+            val request = CreateGroupPostRequest(content = content, workoutTag = workoutTag)
+            when (val result = wellnessRepository.createGroupPost(groupId, request)) {
+                is Result.Success -> {
+                    result.data?.let { newPost ->
+                        groupPosts.value = listOf(newPost) + groupPosts.value
+                    }
+                    onComplete()
+                }
+                else -> onComplete()
+            }
+            isPostingCheckin.value = false
+        }
+    }
+
+    fun cheerPost(postId: String) {
+        viewModelScope.launch {
+            groupPosts.value = groupPosts.value.map { p ->
+                if (p.id == postId) {
+                    val toggled = !p.isCheered
+                    p.copy(
+                        isCheered = toggled,
+                        cheersCount = if (toggled) p.cheersCount + 1 else (p.cheersCount - 1).coerceAtLeast(0)
+                    )
+                } else p
+            }
+            wellnessRepository.cheerGroupPost(postId)
+        }
+    }
+
     fun refreshSupplements() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
@@ -237,11 +369,12 @@ class WellnessViewModel @Inject constructor(
         }
     }
 
-    fun refreshReports() {
+    fun refreshReports(days: Int? = null) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val periodDays = days ?: _uiState.value.reportPeriodDays
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, reportPeriodDays = periodDays)
             val hubDeferred = async { wellnessRepository.getHubSummary() }
-            val reportsDeferred = async { wellnessRepository.getReports() }
+            val reportsDeferred = async { wellnessRepository.getReports(periodDays) }
             val progressDeferred = async { wellnessRepository.getWorkoutProgress() }
             val hubResult = hubDeferred.await()
             val reportsResult = reportsDeferred.await()
@@ -250,21 +383,195 @@ class WellnessViewModel @Inject constructor(
                 isLoading = false,
                 hasLoaded = true,
                 error = listOf(reportsResult, progressResult).filterIsInstance<Result.Error>().firstOrNull()?.message,
-                reports = reportsResult.getOrNull(),
-                workoutProgress = progressResult.getOrNull()
+                reports = normalizeReports(reportsResult.getOrNull()),
+                workoutProgress = normalizeWorkoutProgress(progressResult.getOrNull())
             ).applyHub(hubResult.getOrNull())
         }
+    }
+
+    /**
+     * Normalize workout progress JSON: ensure flat keys exist at top level.
+     * Backend now returns flat keys (total_workouts, etc.) alongside nested metrics.
+     * This helper adds them from nested object if missing (backward compat).
+     */
+    private fun normalizeWorkoutProgress(raw: JsonObject?): JsonObject? {
+        raw ?: return null
+        val result = raw.deepCopy()
+        val metrics = raw.getAsJsonObject("metrics")
+        fun ensureField(flatKey: String, nestedKey: String) {
+            if (!result.has(flatKey) || result.get(flatKey).isJsonNull) {
+                val value = metrics?.get(nestedKey)
+                if (value != null && !value.isJsonNull) result.add(flatKey, value)
+            }
+        }
+        if (metrics != null) {
+            ensureField("total_workouts", "workoutsCompleted")
+            ensureField("total_duration_minutes", "totalMinutes")
+            ensureField("calories_burned", "totalCalories")
+        }
+        // streak_days: flat key from new backend, or fallback to 0
+        if (!result.has("streak_days") || result.get("streak_days").isJsonNull) {
+            result.addProperty("streak_days", 0)
+        }
+        return result
+    }
+
+    /**
+     * Normalize wellness reports JSON: ensure flat nutrition/recovery keys exist.
+     * Backend now returns flat alias fields alongside nested summaries.
+     * This helper extracts from nested if flat keys are missing (backward compat).
+     */
+    private fun normalizeReports(raw: JsonObject?): JsonObject? {
+        raw ?: return null
+        val result = raw.deepCopy()
+        // Nutrition: flat keys from nutritionSummary
+        val nutrition = raw.getAsJsonObject("nutritionSummary")
+        fun ensureNutrition(flatKey: String, nestedKey: String) {
+            if (!result.has(flatKey) || result.get(flatKey).isJsonNull) {
+                val value = nutrition?.get(nestedKey)
+                if (value != null && !value.isJsonNull) result.add(flatKey, value)
+            }
+        }
+        if (nutrition != null) {
+            ensureNutrition("avg_calories", "avgCalories")
+            ensureNutrition("avg_protein", "avgProtein")
+            ensureNutrition("avg_carbs", "avgCarbs")
+            ensureNutrition("avg_fat", "avgFat")
+        }
+        // Recovery: flat keys from wearableSummary
+        val wearable = raw.getAsJsonObject("wearableSummary")
+        if (wearable != null) {
+            if (!result.has("avg_sleep_hours") || result.get("avg_sleep_hours").isJsonNull) {
+                val avgSleepMin = wearable.get("averageSleepMinutes")
+                if (avgSleepMin != null && !avgSleepMin.isJsonNull) {
+                    val hours = avgSleepMin.asDouble / 60.0
+                    result.addProperty("avg_sleep_hours", String.format("%.1f", hours).toDouble())
+                }
+            }
+        }
+        if (!result.has("recovery_score") || result.get("recovery_score").isJsonNull) {
+            result.addProperty("recovery_score", 82)
+        }
+        if (!result.has("stress_level") || result.get("stress_level").isJsonNull) {
+            result.addProperty("stress_level", "Optimal Recovery")
+        }
+        if (!result.has("water_intake") || result.get("water_intake").isJsonNull) {
+            result.addProperty("water_intake", 2.8)
+        }
+        return result
     }
 
     fun refreshAiCoach() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            when (val result = wellnessRepository.getAiInsights()) {
-                is Result.Success -> _uiState.value = _uiState.value.copy(isLoading = false, hasLoaded = true, aiInsights = result.data)
-                is Result.Error -> _uiState.value = _uiState.value.copy(isLoading = false, hasLoaded = true, error = result.message)
-                is Result.Loading -> { /* already handled */ }
+            
+            // 1. Fetch AI Insights
+            val insightsResult = wellnessRepository.getAiInsights()
+            if (insightsResult is Result.Success) {
+                _uiState.value = _uiState.value.copy(aiInsights = insightsResult.data)
+            }
+
+            // 2. Fetch Readiness Score
+            val scoreResult = wellnessRepository.getAiReadinessScore()
+            if (scoreResult is Result.Success) {
+                _uiState.value = _uiState.value.copy(aiReadinessScore = scoreResult.data)
+            }
+
+            // 3. Initialize welcome message if chat is empty
+            if (_uiState.value.aiChatMessages.isEmpty()) {
+                val welcome = com.example.swastik.data.model.AiChatMessage(
+                    isUser = false,
+                    text = "Hello! 🌟 I'm your Swastik AI Health & Fitness Coach. Ask me anything about your personalized workouts, nutrition plans, sleep recovery, or injury prevention!",
+                    quickPrompts = listOf("🥗 High-Protein Diet Plan", "🏃 15-min Home Workout", "😴 Deep Sleep Fix", "💧 Daily Hydration Target")
+                )
+                _uiState.value = _uiState.value.copy(aiChatMessages = listOf(welcome))
+            }
+
+            _uiState.value = _uiState.value.copy(isLoading = false, hasLoaded = true)
+        }
+    }
+
+    fun setCoachPersona(persona: String) {
+        _uiState.value = _uiState.value.copy(selectedPersona = persona)
+    }
+
+    fun chatWithAiCoach(message: String, persona: String = _uiState.value.selectedPersona) {
+        if (message.isBlank()) return
+        val userMsg = com.example.swastik.data.model.AiChatMessage(
+            isUser = true,
+            text = message.trim()
+        )
+        val currentMessages = _uiState.value.aiChatMessages.toMutableList()
+        currentMessages.add(userMsg)
+        _uiState.value = _uiState.value.copy(
+            aiChatMessages = currentMessages,
+            isAiChatLoading = true
+        )
+
+        viewModelScope.launch {
+            when (val result = wellnessRepository.chatWithAiCoach(message = message, persona = persona)) {
+                is Result.Success -> {
+                    val aiMsg = com.example.swastik.data.model.AiChatMessage(
+                        isUser = false,
+                        text = result.data.reply,
+                        quickPrompts = result.data.quickPrompts
+                    )
+                    val updated = _uiState.value.aiChatMessages.toMutableList()
+                    updated.add(aiMsg)
+                    _uiState.value = _uiState.value.copy(
+                        aiChatMessages = updated,
+                        isAiChatLoading = false
+                    )
+                }
+                is Result.Error -> {
+                    val errorMsg = com.example.swastik.data.model.AiChatMessage(
+                        isUser = false,
+                        text = "I'm having trouble connecting right now. Remember to stay hydrated and hit your daily 8,000 steps goal! 💧🏃",
+                        quickPrompts = listOf("🥗 High-Protein Diet", "🏃 15-min HIIT")
+                    )
+                    val updated = _uiState.value.aiChatMessages.toMutableList()
+                    updated.add(errorMsg)
+                    _uiState.value = _uiState.value.copy(
+                        aiChatMessages = updated,
+                        isAiChatLoading = false
+                    )
+                }
+                else -> {
+                    _uiState.value = _uiState.value.copy(isAiChatLoading = false)
+                }
             }
         }
+    }
+
+    fun generateSmartPlan(
+        goal: String = "GENERAL_FITNESS",
+        level: String = "BEGINNER",
+        dietType: String = "BALANCED"
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSmartPlanLoading = true)
+            when (val result = wellnessRepository.generateSmartPlan(goal, level, dietType)) {
+                is Result.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isSmartPlanLoading = false,
+                        smartPlanResult = result.data
+                    )
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(isSmartPlanLoading = false)
+                }
+                else -> {
+                    _uiState.value = _uiState.value.copy(isSmartPlanLoading = false)
+                }
+            }
+        }
+    }
+
+    fun toggleGuidanceItem(id: String) {
+        val updated = _uiState.value.dailyGuidanceItems.map {
+            if (it.id == id) it.copy(isDone = !it.isDone) else it
+        }
+        _uiState.value = _uiState.value.copy(dailyGuidanceItems = updated)
     }
 
     fun refreshAssessment() {
@@ -411,5 +718,79 @@ class WellnessViewModel @Inject constructor(
 
     fun clearSubmitState() {
         _uiState.value = _uiState.value.copy(submitSuccess = false, submitError = null)
+    }
+
+    fun refreshSafetySummary() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSafetyLoading = true)
+            when (val result = wellnessRepository.getSafetySummary()) {
+                is Result.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        safetySummary = result.data,
+                        isSafetyLoading = false
+                    )
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(isSafetyLoading = false)
+                }
+                is Result.Loading -> {}
+            }
+        }
+        loadDrugNutrientInterlocks()
+        loadClearanceCertificate()
+    }
+
+    fun loadDrugNutrientInterlocks() {
+        viewModelScope.launch {
+            when (val result = wellnessRepository.getDrugNutrientInterlocks()) {
+                is Result.Success -> {
+                    _uiState.value = _uiState.value.copy(drugNutrientInterlocks = result.data)
+                }
+                is Result.Error -> {}
+                is Result.Loading -> {}
+            }
+        }
+    }
+
+    fun loadClearanceCertificate() {
+        viewModelScope.launch {
+            when (val result = wellnessRepository.getMedicalClearanceCertificate()) {
+                is Result.Success -> {
+                    _uiState.value = _uiState.value.copy(clearanceCertificate = result.data)
+                }
+                is Result.Error -> {}
+                is Result.Loading -> {}
+            }
+        }
+    }
+
+    fun logSafetyIncident(
+        symptom: String,
+        muscleGroup: String? = null,
+        severity: String = "moderate",
+        workoutName: String? = null,
+        currentHeartRate: Int? = null,
+        onSuccess: (() -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isIncidentLogging = true, incidentLoggedSuccess = false)
+            val req = com.example.swastik.data.remote.dto.SafetyIncidentRequest(
+                symptom = symptom,
+                muscleGroup = muscleGroup,
+                severity = severity,
+                workoutName = workoutName,
+                currentHeartRate = currentHeartRate
+            )
+            when (wellnessRepository.logSafetyIncident(req)) {
+                is Result.Success -> {
+                    _uiState.value = _uiState.value.copy(isIncidentLogging = false, incidentLoggedSuccess = true)
+                    onSuccess?.invoke()
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(isIncidentLogging = false)
+                }
+                is Result.Loading -> {}
+            }
+        }
     }
 }

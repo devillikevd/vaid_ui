@@ -56,7 +56,9 @@ const STORAGE_FOLDERS = {
   MASTER_TESTS: 'master-tests',
   THUMBNAILS: 'thumbnails',
   MEDIUM: 'medium',
-
+  EXERCISES: 'exercises',
+  INTAKE_DOCS: 'intake-docs',
+  VOICE_NOTES: 'voice-notes',
 };
 
 // Image processing constants
@@ -515,6 +517,16 @@ const uploadMasterTestImage = async (file, testId) => {
   return uploadBuffer(objectName, file.buffer, file.mimetype);
 };
 
+const uploadIntakeDocument = async (file, userId) => {
+  const objectName = generateObjectName(STORAGE_FOLDERS.INTAKE_DOCS, userId, file.originalname);
+  return uploadBuffer(objectName, file.buffer, file.mimetype);
+};
+
+const uploadVoiceNote = async (file, userId) => {
+  const objectName = generateObjectName(STORAGE_FOLDERS.VOICE_NOTES, userId, file.originalname);
+  return uploadBuffer(objectName, file.buffer, file.mimetype);
+};
+
 const getPresignedUrl = async (objectName, expiry = storageConfig.signedUrlExpirySeconds || 3600) => {
   if (!isStorageAvailable()) throw new Error('File storage is not available');
 
@@ -772,6 +784,8 @@ module.exports = {
   uploadEntityImage,
   uploadMedicineImage,
   uploadMasterTestImage,
+  uploadIntakeDocument,
+  uploadVoiceNote,
 
   getPresignedUrl,
   getPresignedUploadUrl,

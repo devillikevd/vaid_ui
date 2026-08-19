@@ -2077,13 +2077,34 @@ export const wellnessApi = {
         fetchWithAuth(`/wellness/facilities${wellnessQuery({ ...filters, page, limit })}`),
     getGroups: (filters?: Record<string, unknown>) =>
         fetchWithAuth(`/wellness/groups${wellnessQuery(filters)}`),
+    createGroup: (data: Record<string, unknown>) =>
+        fetchWithAuth('/wellness/groups', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    updateGroupTip: (groupId: string, tip: string) =>
+        fetchWithAuth(`/wellness/groups/${groupId}/tip`, {
+            method: 'PUT',
+            body: JSON.stringify({ tip }),
+        }),
+    getGroupPosts: (groupId: string) =>
+        fetchWithAuth(`/wellness/groups/${groupId}/posts`),
+    createGroupPost: (groupId: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/wellness/groups/${groupId}/posts`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    cheerGroupPost: (postId: string) =>
+        fetchWithAuth(`/wellness/groups/posts/${postId}/cheer`, {
+            method: 'POST',
+        }),
     getChallenges: (filters?: Record<string, unknown>) =>
         fetchWithAuth(`/wellness/challenges${wellnessQuery(filters)}`),
-    getSupplements: (filters?: Record<string, unknown>, page: number = 1, limit: number = 12) =>
-        fetchWithAuth(`/wellness/supplements${wellnessQuery({ ...filters, page, limit })}`),
-    getStreaks: () => fetchWithAuth('/wellness/streaks'),
-    getSessionMessages: (sessionId: string) =>
-        fetchWithAuth(`/wellness/sessions/${sessionId}/messages`),
+    createChallenge: (data: Record<string, unknown>) =>
+        fetchWithAuth('/wellness/challenges', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
     getChallengeLeaderboard: (challengeId: string) =>
         fetchWithAuth(`/wellness/challenges/${challengeId}/leaderboard`),
     updateChallengeProgress: (challengeId: string, data?: Record<string, unknown>) =>
@@ -2091,6 +2112,11 @@ export const wellnessApi = {
             method: 'POST',
             body: JSON.stringify(data || {}),
         }),
+    getSupplements: (filters?: Record<string, unknown>, page: number = 1, limit: number = 12) =>
+        fetchWithAuth(`/wellness/supplements${wellnessQuery({ ...filters, page, limit })}`),
+    getStreaks: () => fetchWithAuth('/wellness/streaks'),
+    getSessionMessages: (sessionId: string) =>
+        fetchWithAuth(`/wellness/sessions/${sessionId}/messages`),
     getReels: (filters?: Record<string, unknown>, page: number = 1, limit: number = 20) =>
         fetchWithAuth(`/wellness/reels${wellnessQuery({ ...filters, page, limit })}`),
     likeReel: (reelId: string) =>

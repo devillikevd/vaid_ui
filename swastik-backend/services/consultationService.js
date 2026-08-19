@@ -185,7 +185,7 @@ const invalidatePatientDashboardCaches = async (consultation) => {
 const getConsultationHistory = async (userId, role, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
   let query = supabaseAdmin.from('consultations').select(
-    '*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name), appointment:appointments(id, appointment_date, time_slot, type), prescriptions(*, prescription_medicines(*))',
+    '*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name, gender, date_of_birth, blood_group, profile_image_url, weight, height), appointment:appointments(id, appointment_date, time_slot, type, reason, symptoms, patient_notes, notes), prescriptions(*, prescription_medicines(*))',
     { count: 'exact' }
   );
 
@@ -472,7 +472,7 @@ const joinConsultation = async (patientUserId, idParam) => {
 const getConsultation = async (userId, role, consultationId) => {
   const { data: consultation, error } = await supabaseAdmin
     .from('consultations')
-    .select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name), appointment:appointments(*), prescriptions(*, prescription_medicines(*))')
+    .select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name, gender, date_of_birth, blood_group, profile_image_url, weight, height), appointment:appointments(*), prescriptions(*, prescription_medicines(*))')
     .eq('id', consultationId)
     .single();
 

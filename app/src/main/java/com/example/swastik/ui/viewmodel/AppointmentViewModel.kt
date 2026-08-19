@@ -247,12 +247,28 @@ class AppointmentViewModel @Inject constructor(
         clinicId: String? = null,
         reason: String? = null,
         symptoms: List<String>? = null,
-        patientNotes: String? = null
+        patientNotes: String? = null,
+        severity: String? = null,
+        onsetType: String? = null,
+        symptomDuration: String? = null,
+        symptomPattern: String? = null,
+        severityCurrent: Int? = null,
+        severityWorst: Int? = null,
+        knownAllergies: List<String>? = null,
+        currentMedications: String? = null,
+        medicalHistory: String? = null,
+        voiceNoteUrl: String? = null,
+        supportingDocuments: List<String>? = null,
+        reasonForVisit: String? = null
     ) {
         viewModelScope.launch {
             uiState = uiState.copy(isBooking = true)
             
-             when (val result = repository.createAppointment(doctorId, date, timeSlot, type, notes, hospitalId, clinicId, reason, symptoms, patientNotes)) {
+             when (val result = repository.createAppointment(
+                 doctorId, date, timeSlot, type, notes, hospitalId, clinicId, reason, symptoms, patientNotes,
+                 severity, onsetType, symptomDuration, symptomPattern, severityCurrent, severityWorst,
+                 knownAllergies, currentMedications, medicalHistory, voiceNoteUrl, supportingDocuments, reasonForVisit
+             )) {
                  is Result.Success -> {
                      uiState = uiState.copy(
                          isBooking = false,
@@ -343,6 +359,21 @@ class AppointmentViewModel @Inject constructor(
                 }
                 else -> {}
             }
+        }
+    }
+
+    /**
+     * Upload voice note to S3 via backend. Returns the URL on success, null on failure.
+     */
+    suspend fun uploadVoiceNote(filePart: okhttp3.MultipartBody.Part): String? {
+        return try {
+            val response = repository.uploadVoiceNote(filePart)
+            when (response) {
+                is Result.Success -> response.data
+                else -> null
+            }
+        } catch (e: Exception) {
+            null
         }
     }
 }
