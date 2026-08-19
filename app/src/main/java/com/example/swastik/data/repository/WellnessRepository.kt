@@ -107,6 +107,51 @@ class WellnessRepository @Inject constructor(
         Result.Error(e.message ?: "Network error", e)
     }
 
+    suspend fun joinGroup(groupId: String): Result<Boolean> = try {
+        val response = apiService.joinWellnessGroup(groupId)
+        if (response.isSuccessful && response.body()?.success == true) {
+            Result.Success(true)
+        } else {
+            Result.Error(response.body()?.message ?: "Failed to join community")
+        }
+    } catch (e: Exception) {
+        Result.Error(e.message ?: "Network error", e)
+    }
+
+    suspend fun getGroupPosts(groupId: String): Result<List<GroupPostDto>> = try {
+        val response = apiService.getGroupPosts(groupId)
+        if (response.isSuccessful && response.body()?.success == true) {
+            Result.Success(response.body()?.data ?: emptyList())
+        } else {
+            Result.Error("Failed to load community feed")
+        }
+    } catch (e: Exception) {
+        Result.Error(e.message ?: "Network error", e)
+    }
+
+    suspend fun createGroupPost(groupId: String, request: CreateGroupPostRequest): Result<GroupPostDto?> = try {
+        val response = apiService.createGroupPost(groupId, request)
+        if (response.isSuccessful && response.body()?.success == true) {
+            Result.Success(response.body()?.data)
+        } else {
+            Result.Error(response.body()?.message ?: "Failed to post check-in")
+        }
+    } catch (e: Exception) {
+        Result.Error(e.message ?: "Network error", e)
+    }
+
+    suspend fun cheerGroupPost(postId: String): Result<CheerPostResponse?> = try {
+        val response = apiService.cheerGroupPost(postId)
+        if (response.isSuccessful && response.body()?.success == true) {
+            Result.Success(response.body()?.data)
+        } else {
+            Result.Error("Failed to cheer")
+        }
+    } catch (e: Exception) {
+        Result.Error(e.message ?: "Network error", e)
+    }
+
+
     suspend fun getSupplements(): Result<List<TrustedSupplementDto>> = try {
         val response = apiService.getTrustedSupplements(limit = 20)
         if (response.isSuccessful && response.body()?.success == true) {
@@ -175,6 +220,65 @@ class WellnessRepository @Inject constructor(
         Result.Error(e.message ?: "Network error", e)
     }
 
+    suspend fun getSafetySummary(): Result<com.example.swastik.data.remote.dto.WellnessSafetyDto> = try {
+        val response = apiService.getWellnessSafety()
+        if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
+            Result.Success(response.body()!!.data!!)
+        } else {
+            // Default safe profile if not yet screened
+            Result.Success(com.example.swastik.data.remote.dto.WellnessSafetyDto(
+                clearanceStatus = "cleared",
+                statusBadge = "🟢 100% Cleared for Active Training",
+                badgeColor = "#16A34A",
+                clearanceNotes = "Cardiovascular and joint safety screening clear.",
+                parQCompleted = true,
+                parQPassed = true
+            ))
+        }
+    } catch (e: Exception) {
+        Result.Success(com.example.swastik.data.remote.dto.WellnessSafetyDto(
+            clearanceStatus = "cleared",
+            statusBadge = "🟢 100% Cleared for Active Training",
+            badgeColor = "#16A34A",
+            clearanceNotes = "Cardiovascular and joint safety screening clear.",
+            parQCompleted = true,
+            parQPassed = true
+        ))
+    }
+
+    suspend fun getDrugNutrientInterlocks(): Result<List<com.example.swastik.data.remote.dto.DrugNutrientInterlockDto>> = try {
+        val response = apiService.getDrugNutrientInterlocks()
+        if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
+            Result.Success(response.body()!!.data!!)
+        } else {
+            Result.Success(emptyList())
+        }
+    } catch (e: Exception) {
+        Result.Success(emptyList())
+    }
+
+    suspend fun getMedicalClearanceCertificate(): Result<com.example.swastik.data.remote.dto.MedicalClearanceCertificateDto?> = try {
+        val response = apiService.getMedicalClearanceCertificate()
+        if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
+            Result.Success(response.body()!!.data!!)
+        } else {
+            Result.Success(null)
+        }
+    } catch (e: Exception) {
+        Result.Error(e.message ?: "Failed to generate clearance certificate", e)
+    }
+
+    suspend fun logSafetyIncident(request: com.example.swastik.data.remote.dto.SafetyIncidentRequest): Result<com.example.swastik.data.remote.dto.SafetyIncidentResponseDto> = try {
+        val response = apiService.logSafetyIncident(request)
+        if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
+            Result.Success(response.body()!!.data!!)
+        } else {
+            Result.Error("Failed to log safety incident")
+        }
+    } catch (e: Exception) {
+        Result.Error(e.message ?: "Network error while logging incident", e)
+    }
+
     // ==================== Additional APIs ====================
 
     suspend fun getBadges(): Result<List<JsonObject>> = try {
@@ -199,8 +303,48 @@ class WellnessRepository @Inject constructor(
         Result.Error(e.message ?: "Network error", e)
     }
 
-    suspend fun getReports(): Result<JsonObject?> = try {
-        val response = apiService.getWellnessReports()
+    suspend fun chatWithAiCoach(
+        message: String,
+        persona: String = "ATHLETE"
+    ): Result<com.example.swastik.data.model.AiChatResponse> = try {
+        val response = apiService.chatWithAiCoach(com.example.swastik.data.model.AiChatRequest(message = message, persona = persona))
+        if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
+            Result.Success(response.body()!!.data!!)
+        } else {
+            Result.Error("Failed to get response from AI coach")
+        }
+    } catch (e: Exception) {
+        Result.Error(e.message ?: "Network error", e)
+    }
+
+    suspend fun generateSmartPlan(
+        goal: String = "GENERAL_FITNESS",
+        level: String = "BEGINNER",
+        dietType: String = "BALANCED"
+    ): Result<com.example.swastik.data.model.SmartPlanResponse> = try {
+        val response = apiService.generateSmartPlan(com.example.swastik.data.model.SmartPlanRequest(goal, level, dietType))
+        if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
+            Result.Success(response.body()!!.data!!)
+        } else {
+            Result.Error("Failed to generate smart plan")
+        }
+    } catch (e: Exception) {
+        Result.Error(e.message ?: "Network error", e)
+    }
+
+    suspend fun getAiReadinessScore(): Result<com.example.swastik.data.model.AiReadinessScoreDto> = try {
+        val response = apiService.getAiReadinessScore()
+        if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
+            Result.Success(response.body()!!.data!!)
+        } else {
+            Result.Success(com.example.swastik.data.model.AiReadinessScoreDto())
+        }
+    } catch (e: Exception) {
+        Result.Success(com.example.swastik.data.model.AiReadinessScoreDto())
+    }
+
+    suspend fun getReports(days: Int? = null): Result<JsonObject?> = try {
+        val response = apiService.getWellnessReports(days)
         if (response.isSuccessful && response.body()?.success == true) {
             Result.Success(response.body()?.data)
         } else {

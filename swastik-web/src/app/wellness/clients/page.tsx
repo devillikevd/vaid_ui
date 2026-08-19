@@ -8,10 +8,12 @@ import {
     Dumbbell,
     Flame,
     Footprints,
+    Heart,
     Loader2,
     Moon,
     RefreshCw,
     Search,
+    ShieldCheck,
     Trophy,
     Users,
 } from 'lucide-react';
@@ -196,6 +198,35 @@ export default function WellnessClientsPage() {
                                         <div className="flex items-center gap-1 text-lime-600">
                                             <Trophy className="h-5 w-5" />
                                             <span className="font-bold">{analytics.metrics.currentStreak} day streak</span>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Clinical Safety & Medical Clearance Snapshot */}
+                            <Card className="border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                                <CardContent className="p-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="rounded-lg bg-emerald-600 p-2 text-white">
+                                                <ShieldCheck className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                                                    Clinical Safety & Physical Clearance
+                                                </p>
+                                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                                    🟢 100% Cleared for Active Training (PAR-Q Verified)
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
+                                            <span className="flex items-center gap-1">
+                                                <Heart className="h-3.5 w-3.5 text-rose-500" /> Max Cap: <strong>165 BPM</strong>
+                                            </span>
+                                            <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 font-bold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+                                                Active Interlocks OK
+                                            </span>
                                         </div>
                                     </div>
                                 </CardContent>

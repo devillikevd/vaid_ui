@@ -28,6 +28,8 @@ const {
     uploadEntityImage,
     uploadMedicineImage,
     uploadMasterTestImage,
+    uploadIntakeDocument,
+    uploadVoiceNote,
 
     getPresignedUrl,
     signStorageUrl,
@@ -573,6 +575,63 @@ router.delete('/:fileName(*)', authenticateToken, async (req, res, next) => {
         res.json({
             success: true,
             message: 'File deleted successfully',
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// ==================== CLINICAL INTAKE UPLOADS ====================
+
+/**
+ * @route POST /api/uploads/intake-document
+ * @desc Upload supporting document for pre-consultation intake
+ * @access Private (patients)
+ */
+router.post('/intake-document', authenticateToken, upload.single('file'), validateMagicBytes(ALLOWED_MEDICAL_MIMES), async (req, res, next) => {
+    try {
+        if (!req.file) {
+            throw new ApiError(400, 'No file uploaded');
+        }
+
+        const result = await uploadIntakeDocument(req.file, req.user.id);
+        const variants = result.objectName ? getImageVariants(result.objectName) : {};
+
+        res.json({
+            success: true,
+            data: await buildUploadResponseData(result, variants),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * @route POST /api/uploads/voice-note
+ * @desc Upload voice note recording for pre-consultation intake
+ * @access Private (patients)
+ */
+router.post('/voice-note', authenticateToken, upload.single('file'), async (req, res, next) => {
+    try {
+        if (!req.file) {
+            throw new ApiError(400, 'No file uploaded');
+        }
+
+        // Allow common audio MIME types
+        const allowedAudioMimes = [
+            'audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg',
+            'audio/wav', 'audio/webm', 'audio/3gpp', 'audio/amr',
+            'audio/x-m4a', 'audio/mp3',
+        ];
+        if (!allowedAudioMimes.includes(req.file.mimetype)) {
+            throw new ApiError(400, `Unsupported audio format: ${req.file.mimetype}`);
+        }
+
+        const result = await uploadVoiceNote(req.file, req.user.id);
+
+        res.json({
+            success: true,
+            data: await buildUploadResponseData(result),
         });
     } catch (error) {
         next(error);

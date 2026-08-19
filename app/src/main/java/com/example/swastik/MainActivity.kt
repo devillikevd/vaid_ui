@@ -78,6 +78,11 @@ class MainActivity : AppCompatActivity() {
         ) */
 
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false) // Enable edge-to-edge
+
+        // Schedule periodic background smartwatch/Health Connect sync
+        com.example.swastik.workers.HealthConnectSyncWorker.schedule(this)
+        com.example.swastik.workers.HydrationReminderWorker.schedule(this)
+
         setContent {
             SwastikApp(tokenManager, networkObserver)
         }
@@ -1266,9 +1271,51 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 val dashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 com.example.swastik.ui.screens.patient.guardian.GuardianDashboardScreen(
                     onNavigateBack = { navController.popBackStack() },
-                    viewModel = dashboardViewModel
+                    viewModel = dashboardViewModel,
+                    onNavigateToVolunteerRegistration = { navController.navigateSafe(Screen.HeroVolunteerRegistration.route) }
                 )
             }
+        }
+
+        composable(Screen.HeroVolunteerRegistration.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.guardian.HeroVolunteerRegistrationScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(
+            route = Screen.EmergencyIncomingAlarm.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("broadcastId") {
+                    type = androidx.navigation.NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val broadcastId = backStackEntry.arguments?.getString("broadcastId") ?: ""
+            com.example.swastik.ui.screens.patient.guardian.EmergencyIncomingAlarmScreen(
+                broadcastId = broadcastId,
+                onAccepted = {
+                    navController.navigateSafe(Screen.EmergencyActiveResponse.createRoute(broadcastId))
+                },
+                onDeclined = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.EmergencyActiveResponse.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("broadcastId") {
+                    type = androidx.navigation.NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val broadcastId = backStackEntry.arguments?.getString("broadcastId") ?: ""
+            com.example.swastik.ui.screens.patient.guardian.EmergencyActiveResponseScreen(
+                broadcastId = broadcastId,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
 
         composable(
@@ -1306,6 +1353,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onNavigateToReminders = { navController.navigateSafe(Screen.WellnessReminders.route) },
                     onNavigateToBadges = { navController.navigateSafe(Screen.WellnessBadges.route) },
                     onNavigateToReels = { navController.navigateSafe(Screen.WellnessReels.route) },
+                    onNavigateToSafety = { navController.navigateSafe(Screen.WellnessSafety.route) },
                     initialSection = section,
                     viewModel = wellnessViewModel
                 )
@@ -1333,7 +1381,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 val planId = backStackEntry.arguments?.getString("planId") ?: return@AuthGuard
                 com.example.swastik.ui.screens.patient.wellness.WorkoutPlayerScreen(
                     planId = planId,
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToEmergency = { navController.navigateSafe(Screen.Emergency.route) }
                 )
             }
         }
@@ -1374,6 +1423,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 com.example.swastik.ui.screens.patient.wellness.WellnessReportsScreen(
                     onNavigateBack = { navController.popBackStack() },
+                    onNavigateToWorkouts = { navController.navigateSafe(Screen.WellnessWorkouts.route) },
+                    onNavigateToDietTracker = { navController.navigateSafe(Screen.DietTracker.route) },
+                    onNavigateToHealthConnect = { navController.navigateSafe(Screen.HealthConnectDashboard.route) },
                     viewModel = wellnessViewModel
                 )
             }
@@ -1384,7 +1436,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 com.example.swastik.ui.screens.patient.wellness.WellnessAICoachScreen(
                     onNavigateBack = { navController.popBackStack() },
-                    viewModel = wellnessViewModel
+                    viewModel = wellnessViewModel,
+                    onNavigateToAssessment = { navController.navigateSafe(Screen.WellnessAssessment.route) },
+                    onNavigateToDoctorSearch = { navController.navigateSafe(Screen.FindDoctorsCategories.createRoute("in_person")) }
                 )
             }
         }
@@ -1394,6 +1448,20 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 com.example.swastik.ui.screens.patient.wellness.WellnessAssessmentScreen(
                     onNavigateBack = { navController.popBackStack() },
+                    onNavigateToWorkouts = { navController.navigate(Screen.WellnessWorkouts.route) },
+                    viewModel = wellnessViewModel
+                )
+            }
+        }
+
+        composable(Screen.WellnessSafety.route) {
+            AuthGuard(navController, tokenManager) {
+                val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.wellness.WellnessSafetyScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToEmergency = { navController.navigateSafe(Screen.Emergency.route) },
+                    onNavigateToAssessment = { navController.navigateSafe(Screen.WellnessAssessment.route) },
+                    onNavigateToDoctorConsult = { navController.navigateSafe(Screen.FindDoctorsCategories.createRoute("online")) },
                     viewModel = wellnessViewModel
                 )
             }

@@ -264,7 +264,12 @@ const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10)
 
 // Book a new appointment
 const bookAppointment = async (patientId, appointmentData) => {
-  const { doctorId, date, timeSlot, type, notes, hospitalId, clinicId, reason, symptoms, patientNotes } = appointmentData;
+  const {
+    doctorId, date, timeSlot, type, notes, hospitalId, clinicId, reason, symptoms, patientNotes,
+    severity, onsetType, symptomDuration, symptomPattern, severityCurrent, severityWorst,
+    knownAllergies, currentMedications, medicalHistory, voiceNoteUrl, supportingDocuments,
+    reasonForVisit,
+  } = appointmentData;
   const normalizedType = type === 'in_person' ? 'clinic' : (type || 'clinic');
 
   if (hospitalId && clinicId) {
@@ -484,6 +489,18 @@ const bookAppointment = async (patientId, appointmentData) => {
     reason: reason || null,
     symptoms: symptoms || [],
     patient_notes: patientNotes || null,
+    severity: severity || null,
+    onset_type: onsetType || null,
+    symptom_duration: symptomDuration || null,
+    symptom_pattern: symptomPattern || null,
+    severity_current: severityCurrent != null ? severityCurrent : null,
+    severity_worst: severityWorst != null ? severityWorst : null,
+    known_allergies: knownAllergies || [],
+    current_medications: currentMedications || null,
+    medical_history: medicalHistory || null,
+    voice_note_url: voiceNoteUrl || null,
+    supporting_documents: supportingDocuments || [],
+    reason_for_visit: reasonForVisit || reason || null,
   };
 
   const { data: insertedAppointment, error: insertError } = await supabaseAdmin

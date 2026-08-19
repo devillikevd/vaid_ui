@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Calendar, CalendarClock, Clock, User, Video, Search, RefreshCw, Loader2, AlertCircle, Play, XCircle as XCircleIcon, CheckCircle, Bell, UserCheck, CalendarX, Inbox, FileText, ClipboardList, SearchX, X } from 'lucide-react';
+import { Calendar, CalendarClock, Clock, User, Video, Search, RefreshCw, Loader2, AlertCircle, Play, XCircle as XCircleIcon, CheckCircle, Bell, UserCheck, CalendarX, Inbox, FileText, ClipboardList, SearchX, X, Mic } from 'lucide-react';
 import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Pagination, usePagination } from '@/components/ui/Pagination';
 import { useDoctorStore } from '@/stores/doctorStore';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAppointmentUpdates, type AppointmentUpdate } from '@/hooks/useSocket';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
@@ -128,9 +129,13 @@ const AppointmentCard = React.memo(({ apt, searchQuery, handleConfirm, handleSta
                 
                 <div className="flex flex-col gap-1.5 w-full">
                     <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
+                        <Link
+                            href={`/doctor/patients/${apt.patientId || apt.patient?.id || ''}`}
+                            className="font-semibold text-lg text-gray-900 dark:text-gray-100 hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline flex items-center gap-1.5 transition-colors"
+                            title="Click to view full patient medical record & vitals"
+                        >
                             <HighlightedText text={apt.patientName || 'Patient'} highlight={searchQuery} />
-                        </h3>
+                        </Link>
                         <span className="text-[11px] font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
                             ID: {apt.id.substring(0, 8).toUpperCase()}
                         </span>
@@ -170,17 +175,21 @@ const AppointmentCard = React.memo(({ apt, searchQuery, handleConfirm, handleSta
                         </div>
                     )}
 
-                    {(apt.reason || (apt.symptoms && apt.symptoms.length > 0) || apt.patient_notes) && (
-                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {(apt.reason || (apt.symptoms && apt.symptoms.length > 0) || apt.patient_notes || apt.severity_current || apt.onset_type || apt.voice_note_url) && (
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                             {apt.reason && (
                                 <div className="bg-white dark:bg-gray-900/40 p-3 rounded-lg border border-gray-100 dark:border-gray-800 shadow-sm transition-colors group-hover:border-gray-200 dark:group-hover:border-gray-700">
                                     <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Reason</p>
                                     <p className="text-sm text-gray-700 dark:text-gray-200 line-clamp-2 leading-relaxed">{apt.reason}</p>
                                 </div>
                             )}
+                            
                             {apt.symptoms && apt.symptoms.length > 0 && (
                                 <div className="bg-white dark:bg-gray-900/40 p-3 rounded-lg border border-gray-100 dark:border-gray-800 shadow-sm transition-colors group-hover:border-gray-200 dark:group-hover:border-gray-700">
-                                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1.5">Symptoms</p>
+                                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1.5 flex justify-between">
+                                        <span>Symptoms</span>
+                                        {apt.symptom_duration && <span className="text-gray-500 lowercase normal-case">{apt.symptom_duration}</span>}
+                                    </p>
                                     <div className="flex flex-wrap gap-1.5">
                                         {apt.symptoms.map((sym: string) => (
                                             <span key={sym} className="text-xs bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300 px-2 py-0.5 rounded border border-red-100 dark:border-red-800/30">
@@ -188,10 +197,78 @@ const AppointmentCard = React.memo(({ apt, searchQuery, handleConfirm, handleSta
                                             </span>
                                         ))}
                                     </div>
+                                    {apt.symptom_pattern && <p className="text-xs text-gray-500 mt-2 italic">{apt.symptom_pattern}</p>}
                                 </div>
                             )}
-                            {apt.patient_notes && !apt.reason && (
+
+                            {(apt.severity_current !== undefined || apt.onset_type) && (
                                 <div className="bg-white dark:bg-gray-900/40 p-3 rounded-lg border border-gray-100 dark:border-gray-800 shadow-sm transition-colors group-hover:border-gray-200 dark:group-hover:border-gray-700">
+                                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Severity & Onset</p>
+                                    {apt.severity_current !== undefined && (
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs text-gray-500">Current Pain:</span>
+                                            <div className="flex items-center gap-1">
+                                                <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${apt.severity_current <= 3 ? 'bg-green-100 text-green-700' : apt.severity_current <= 6 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                                                    {apt.severity_current}/10
+                                                </span>
+                                                {apt.severity_worst !== undefined && <span className="text-[10px] text-gray-400">(Worst: {apt.severity_worst}/10)</span>}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {apt.onset_type && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-500">Onset:</span>
+                                            <span className="text-xs text-gray-700 dark:text-gray-300 font-medium capitalize">{apt.onset_type}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {(apt.known_allergies?.length || apt.current_medications || apt.medical_history) ? (
+                                <div className="bg-white dark:bg-gray-900/40 p-3 rounded-lg border border-gray-100 dark:border-gray-800 shadow-sm transition-colors group-hover:border-gray-200 dark:group-hover:border-gray-700 md:col-span-2 lg:col-span-3">
+                                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-2">Medical History & Allergies</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {apt.known_allergies && apt.known_allergies.length > 0 && (
+                                            <div>
+                                                <p className="text-[10px] text-red-400 font-semibold mb-1">ALLERGIES</p>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {apt.known_allergies.map((a: string) => <span key={a} className="text-xs bg-red-50 text-red-700 px-1.5 py-0.5 rounded">{a}</span>)}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {apt.current_medications && (
+                                            <div>
+                                                <p className="text-[10px] text-blue-400 font-semibold mb-1">CURRENT MEDICATIONS</p>
+                                                <p className="text-xs text-gray-700 dark:text-gray-300">{apt.current_medications}</p>
+                                            </div>
+                                        )}
+                                        {apt.medical_history && (
+                                            <div>
+                                                <p className="text-[10px] text-teal-400 font-semibold mb-1">MEDICAL HISTORY</p>
+                                                <p className="text-xs text-gray-700 dark:text-gray-300">{apt.medical_history}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            {apt.voice_note_url && (
+                                <div className="bg-teal-50 dark:bg-teal-900/20 p-3 rounded-lg border border-teal-100 dark:border-teal-800/30 shadow-sm md:col-span-2 lg:col-span-3 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-800/50 flex items-center justify-center text-teal-600 dark:text-teal-400">
+                                            <Mic className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-teal-800 dark:text-teal-300">Patient Voice Note</p>
+                                            <p className="text-[10px] text-teal-600/70 dark:text-teal-400/70">{apt.voice_note_duration || 'Audio message'}</p>
+                                        </div>
+                                    </div>
+                                    <audio src={apt.voice_note_url} controls className="h-8 max-w-[200px]" />
+                                </div>
+                            )}
+
+                            {apt.patient_notes && !apt.reason && (
+                                <div className="bg-white dark:bg-gray-900/40 p-3 rounded-lg border border-gray-100 dark:border-gray-800 shadow-sm transition-colors group-hover:border-gray-200 dark:group-hover:border-gray-700 md:col-span-2 lg:col-span-3">
                                     <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Notes</p>
                                     <p className="text-sm text-gray-700 dark:text-gray-200 line-clamp-2 leading-relaxed">{apt.patient_notes}</p>
                                 </div>

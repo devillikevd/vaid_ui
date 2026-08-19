@@ -317,6 +317,9 @@ dependencies {
     // Media3 (ExoPlayer) for Video Reels
     implementation("androidx.media3:media3-exoplayer:1.2.0")
     implementation("androidx.media3:media3-ui:1.2.0")
+
+    // WorkManager for background health/wearable synchronization
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 }
 
 configurations.all {

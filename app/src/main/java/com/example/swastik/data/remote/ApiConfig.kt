@@ -33,11 +33,7 @@ object ApiConfig {
             Build.PRODUCT.contains("sdk")
     }
 
-    val BASE_URL: String = if (isProbablyEmulator()) {
-        EMULATOR_BASE_URL
-    } else {
-        BuildConfig.API_BASE_URL
-    }
+    val BASE_URL: String = BuildConfig.API_BASE_URL
 
     /** Socket URL is the server root (scheme + host + port, without /api path). */
     val SOCKET_URL: String = run {

@@ -258,6 +258,20 @@ class GuardianService : Service(), SensorEventListener {
         val lateralTotal = positiveLateral + negativeLateral
         val asymmetry = if (lateralTotal > 0f) abs(positiveLateral - negativeLateral) / lateralTotal else 0f
 
+        // Step peak detection for walking cadence (Steps per Minute)
+        var stepPeaks = 0
+        for (i in 1 until samples.size - 1) {
+            val prev = samples[i - 1].magnitude
+            val curr = samples[i].magnitude
+            val next = samples[i + 1].magnitude
+            if (curr > 11.2f && curr > prev && curr > next) {
+                stepPeaks++
+            }
+        }
+        val windowDurationSec = ((samples.last().timestampMs - samples.first().timestampMs) / 1000f).coerceAtLeast(1f)
+        val cadenceSpm = ((stepPeaks / windowDurationSec) * 60f).toInt().coerceIn(40, 200)
+        val symmetryPercent = ((1.0f - asymmetry) * 100f).coerceIn(0f, 100f).toInt()
+
         if (asymmetry > 0.42f && variability > 2.8f) {
             lastGaitLogMs = now
             guardianRepository.logEvent(
@@ -268,6 +282,8 @@ class GuardianService : Service(), SensorEventListener {
                 sensorDataSnippet = JSONObject()
                     .put("sample_count", samples.size)
                     .put("lateral_asymmetry", asymmetry)
+                    .put("symmetry_percent", symmetryPercent)
+                    .put("cadence_spm", cadenceSpm)
                     .put("acceleration_variability", variability)
                     .put("activity", currentActivityType)
                     .toString()
@@ -525,6 +541,25 @@ class GuardianService : Service(), SensorEventListener {
                         .put("ambient_light_lux", ambientLightLux)
                         .toString()
                 )
+
+                // Dispatch broadcast to nearby Community First Responders
+                try {
+                    val lat = lastKnownLocation?.latitude
+                    val lng = lastKnownLocation?.longitude
+                    if (lat != null && lng != null) {
+                        emergencyRepository.broadcastEmergency(
+                            com.example.swastik.data.model.EmergencyBroadcastRequest(
+                                latitude = lat,
+                                longitude = lng,
+                                incidentType = if (isCrash) "CRASH_DETECTED" else "FALL_DETECTED",
+                                addressText = "Guardian Emergency Incident Location",
+                                radiusMeters = 2000
+                            )
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to broadcast to first responder network: ${e.message}")
+                }
             }
             if (isCrash) {
                 launchEmergencyCountdown(emergencyType)

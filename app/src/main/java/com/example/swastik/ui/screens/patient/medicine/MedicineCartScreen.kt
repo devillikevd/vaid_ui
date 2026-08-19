@@ -382,6 +382,51 @@ fun MedicineCartScreen(
                             item {
                                 Text("Confirm & Broadcast", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                                 Spacer(Modifier.height(16.dp))
+                                // 🪙 MedCoins Redemption Card
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
+                                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(14.dp).fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                            Text("🪙", fontSize = 24.sp)
+                                            Spacer(Modifier.width(10.dp))
+                                            Column {
+                                                Text(
+                                                    "Redeem MedCoins",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp,
+                                                    color = Color(0xFF78350F)
+                                                )
+                                                Text(
+                                                    "Balance: ${cartState.availableMedcoins} MedCoins (Save up to ₹${cartState.availableMedcoins})",
+                                                    fontSize = 11.sp,
+                                                    color = Color(0xFF92400E)
+                                                )
+                                            }
+                                        }
+                                        Switch(
+                                            checked = cartState.medcoinsApplied > 0,
+                                            onCheckedChange = { isChecked ->
+                                                val coinsToApply = if (isChecked) {
+                                                    minOf(cartState.availableMedcoins, cartState.totalPrice.toInt())
+                                                } else 0
+                                                viewModel.setMedcoinsApplied(cartType, coinsToApply)
+                                            },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = Color(0xFFD97706),
+                                                checkedTrackColor = Color(0xFFFDE68A)
+                                            )
+                                        )
+                                    }
+                                }
+
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(12.dp),
@@ -402,12 +447,19 @@ fun MedicineCartScreen(
                                             Text("Delivery", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             Text(cartState.deliveryAddress.take(25) + if (cartState.deliveryAddress.length > 25) "..." else "", maxLines = 1)
                                         }
+                                        if (cartState.medcoinsApplied > 0) {
+                                            Spacer(Modifier.height(8.dp))
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                Text("🪙 MedCoins Discount", fontWeight = FontWeight.SemiBold, color = Color(0xFFB45309))
+                                                Text("-₹${cartState.medcoinsApplied}", fontWeight = FontWeight.Bold, color = Color(0xFFB45309))
+                                            }
+                                        }
                                         Spacer(Modifier.height(16.dp))
                                         HorizontalDivider()
                                         Spacer(Modifier.height(16.dp))
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text("Estimated MRP", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                            Text("₹${cartState.totalPrice.toInt()}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SwastikPrimary)
+                                            Text("Estimated Total", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                            Text("₹${cartState.finalPrice.toInt()}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SwastikPrimary)
                                         }
                                         Spacer(Modifier.height(4.dp))
                                         Text(

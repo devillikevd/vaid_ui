@@ -81,10 +81,13 @@ data class CartUiState(
     val orderResult: MedicineOrderDto? = null,
     val orderError: String? = null,
     val orderSuccess: Boolean = false,
-    val pharmacyConflict: PharmacyConflict? = null
+    val pharmacyConflict: PharmacyConflict? = null,
+    val medcoinsApplied: Int = 0,
+    val availableMedcoins: Int = 150
 ) {
     val totalItems: Int get() = items.sumOf { it.quantity }
     val totalPrice: Float get() = items.sumOf { it.totalPrice.toDouble() }.toFloat()
+    val finalPrice: Float get() = (totalPrice - medcoinsApplied).coerceAtLeast(0f)
 }
 
 data class OrderHistoryUiState(
@@ -697,6 +700,11 @@ class MedicineViewModel @Inject constructor(
         ))
     }
 
+    fun setMedcoinsApplied(type: CartType, coins: Int) {
+        val cart = cartStore.getValue(type)
+        cartStore.set(type, cart.copy(medcoinsApplied = coins))
+    }
+
     fun placeOrder(type: CartType, context: android.content.Context, prescriptionBitmap: android.graphics.Bitmap?) {
         val cart = cartStore.getValue(type)
         val isRxOrder = prescriptionBitmap != null
@@ -729,7 +737,8 @@ class MedicineViewModel @Inject constructor(
                 deliveryAddress = cart.deliveryAddress,
                 patientPhone = cart.patientPhone,
                 isPrescriptionOrder = isRxOrder,
-                isCatalogOrder = cart.items.any { it.medicine.inventoryItemId == null && it.medicine.id.isNotBlank() }
+                isCatalogOrder = cart.items.any { it.medicine.inventoryItemId == null && it.medicine.id.isNotBlank() },
+                medcoinsRedeemed = if (cart.medcoinsApplied > 0) cart.medcoinsApplied else null
             )
             when (val result = medicineRepository.createOrder(request)) {
                 is Result.Success -> {

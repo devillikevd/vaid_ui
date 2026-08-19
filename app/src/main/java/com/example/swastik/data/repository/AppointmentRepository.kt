@@ -138,7 +138,19 @@ class AppointmentRepository @Inject constructor(
         clinicId: String?,
         reason: String? = null,
         symptoms: List<String>? = null,
-        patientNotes: String? = null
+        patientNotes: String? = null,
+        severity: String? = null,
+        onsetType: String? = null,
+        symptomDuration: String? = null,
+        symptomPattern: String? = null,
+        severityCurrent: Int? = null,
+        severityWorst: Int? = null,
+        knownAllergies: List<String>? = null,
+        currentMedications: String? = null,
+        medicalHistory: String? = null,
+        voiceNoteUrl: String? = null,
+        supportingDocuments: List<String>? = null,
+        reasonForVisit: String? = null
     ): Result<Appointment> {
         val request = CreateAppointmentRequest(
             doctorId = doctorId,
@@ -150,7 +162,19 @@ class AppointmentRepository @Inject constructor(
             clinicId = clinicId,
             reason = reason,
             symptoms = symptoms,
-            patientNotes = patientNotes
+            patientNotes = patientNotes,
+            severity = severity,
+            onsetType = onsetType,
+            symptomDuration = symptomDuration,
+            symptomPattern = symptomPattern,
+            severityCurrent = severityCurrent,
+            severityWorst = severityWorst,
+            knownAllergies = knownAllergies,
+            currentMedications = currentMedications,
+            medicalHistory = medicalHistory,
+            voiceNoteUrl = voiceNoteUrl,
+            supportingDocuments = supportingDocuments,
+            reasonForVisit = reasonForVisit
         )
 
         // If no network, queue for later sync
@@ -533,6 +557,28 @@ class AppointmentRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
+     * Upload voice note to S3 via backend. Returns the uploaded file URL.
+     */
+    suspend fun uploadVoiceNote(filePart: okhttp3.MultipartBody.Part): Result<String> {
+        return try {
+            val response = apiService.uploadVoiceNote(filePart)
+            if (response.isSuccessful) {
+                val data = response.body()?.data
+                val url = data?.url ?: data?.fileUrl ?: data?.storageUrl ?: data?.resolvedUrl
+                if (url != null) {
+                    Result.Success(url)
+                } else {
+                    Result.Error("No URL in response")
+                }
+            } else {
+                Result.Error("Upload failed: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error("Upload error: ${e.message}")
         }
     }
 

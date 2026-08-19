@@ -1932,15 +1932,21 @@ const createOrder = async (patientUserId, orderData) => {
      );
    }
 
+   // Direct MedCoins Redemption (1 MedCoin = ₹1 instant discount)
+   const requestedCoins = Number(orderData.medcoinsRedeemed || orderData.redeemMedcoins || 0);
+   const medcoinsDiscount = requestedCoins > 0 ? Math.min(totalAmount, requestedCoins) : 0;
+   const finalTotalAmount = Math.max(0, totalAmount - medcoinsDiscount);
+
    const insertPayload = {
     patient_id: patient.id,
     pharmacy_id: orderData.pharmacyId,
     clinic_id: orderData.clinicId || null,
     hospital_id: orderData.hospitalId || null,
-    items: enrichedItems,
     subtotal: totalAmount,
     delivery_fee: orderData.deliveryFee || 0,
-    total_amount: totalAmount + (orderData.deliveryFee || 0),
+    total_amount: finalTotalAmount + (orderData.deliveryFee || 0),
+    discount_amount: (orderData.discountAmount || 0) + medcoinsDiscount,
+    medcoins_redeemed: medcoinsDiscount,
     delivery_address: orderData.patientPhone ? `${orderData.deliveryAddress} | Phone: ${orderData.patientPhone}` : orderData.deliveryAddress,
     delivery_type: orderData.deliveryType || 'pickup',
     status: 'pending',

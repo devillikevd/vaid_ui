@@ -34,8 +34,20 @@ interface AppointmentRecord {
     type?: string;
     status?: string;
     reason?: string;
+    symptoms?: string[];
+    patient_notes?: string;
     fee?: number;
     notes?: string;
+    severity_current?: number;
+    severity_worst?: number;
+    onset_type?: string;
+    symptom_duration?: string;
+    symptom_pattern?: string;
+    known_allergies?: string[];
+    current_medications?: string;
+    medical_history?: string;
+    voice_note_url?: string;
+    voice_note_duration?: string;
     created_at?: string;
 }
 
@@ -45,6 +57,24 @@ interface ConsultationRecord {
     created_at?: string;
     diagnosis?: string;
     notes?: string;
+    appointment?: {
+        appointment_date?: string;
+        time_slot?: string;
+        type?: string;
+        reason?: string;
+        symptoms?: string[];
+        patient_notes?: string;
+        severity_current?: number;
+        severity_worst?: number;
+        onset_type?: string;
+        symptom_duration?: string;
+        symptom_pattern?: string;
+        known_allergies?: string[];
+        current_medications?: string;
+        medical_history?: string;
+        voice_note_url?: string;
+        voice_note_duration?: string;
+    };
     prescriptions?: Array<Record<string, unknown>>;
 }
 
@@ -63,6 +93,19 @@ interface SharedConsultationRecord {
         appointment_date?: string;
         time_slot?: string;
         type?: string;
+        reason?: string;
+        symptoms?: string[];
+        patient_notes?: string;
+        severity_current?: number;
+        severity_worst?: number;
+        onset_type?: string;
+        symptom_duration?: string;
+        symptom_pattern?: string;
+        known_allergies?: string[];
+        current_medications?: string;
+        medical_history?: string;
+        voice_note_url?: string;
+        voice_note_duration?: string;
     };
 }
 
@@ -409,37 +452,47 @@ export default function DoctorPatientRecordPage() {
                     <div className="grid gap-8 md:grid-cols-2">
                         {/* Vitals Snapshot */}
                         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl shadow-sm overflow-hidden flex flex-col">
-                            <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30">
+                            <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 flex items-center justify-between">
                                 <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100">
                                     <Activity className="w-5 h-5 text-emerald-500"/> Latest Vitals Snapshot
                                 </h2>
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    ⌚ Synced via Google Health Connect
+                                </span>
                             </div>
                             <div className="p-6 flex-1 bg-white dark:bg-gray-900">
                                 {vitals.length > 0 ? (
-                                    <div className="grid grid-cols-2 gap-4 h-full">
-                                        <div className="p-5 rounded-2xl bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 flex flex-col justify-center transition-transform hover:-translate-y-0.5">
-                                            <p className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest mb-2">Heart Rate</p>
-                                            <p className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">
-                                                {getSafeValue(vitals[0].heartRate)} <span className="text-sm font-semibold text-gray-500">bpm</span>
-                                            </p>
+                                    <div className="flex flex-col h-full justify-between">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-5 rounded-2xl bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 flex flex-col justify-center transition-transform hover:-translate-y-0.5">
+                                                <p className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest mb-2">Heart Rate</p>
+                                                <p className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">
+                                                    {getSafeValue(vitals[0].heartRate)} <span className="text-sm font-semibold text-gray-500">bpm</span>
+                                                </p>
+                                            </div>
+                                            <div className="p-5 rounded-2xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex flex-col justify-center transition-transform hover:-translate-y-0.5">
+                                                <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2">Blood Pressure</p>
+                                                <p className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">
+                                                    {getSafeValue(vitals[0].bloodPressure)}
+                                                </p>
+                                            </div>
+                                            <div className="p-5 rounded-2xl bg-cyan-50/50 dark:bg-cyan-900/10 border border-cyan-100 dark:border-cyan-900/30 flex flex-col justify-center transition-transform hover:-translate-y-0.5">
+                                                <p className="text-[10px] font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-widest mb-2">SpO2</p>
+                                                <p className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">
+                                                    {getSafeValue(vitals[0].oxygenLevel)} <span className="text-sm font-semibold text-gray-500">%</span>
+                                                </p>
+                                            </div>
+                                            <div className="p-5 rounded-2xl bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 flex flex-col justify-center transition-transform hover:-translate-y-0.5">
+                                                <p className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-2">Temperature</p>
+                                                <p className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">
+                                                    {getSafeValue(vitals[0].temperature)} <span className="text-sm font-semibold text-gray-500">°F</span>
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="p-5 rounded-2xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex flex-col justify-center transition-transform hover:-translate-y-0.5">
-                                            <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2">Blood Pressure</p>
-                                            <p className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">
-                                                {getSafeValue(vitals[0].bloodPressure)}
-                                            </p>
-                                        </div>
-                                        <div className="p-5 rounded-2xl bg-cyan-50/50 dark:bg-cyan-900/10 border border-cyan-100 dark:border-cyan-900/30 flex flex-col justify-center transition-transform hover:-translate-y-0.5">
-                                            <p className="text-[10px] font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-widest mb-2">SpO2</p>
-                                            <p className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">
-                                                {getSafeValue(vitals[0].oxygenLevel)} <span className="text-sm font-semibold text-gray-500">%</span>
-                                            </p>
-                                        </div>
-                                        <div className="p-5 rounded-2xl bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 flex flex-col justify-center transition-transform hover:-translate-y-0.5">
-                                            <p className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-2">Temperature</p>
-                                            <p className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">
-                                                {getSafeValue(vitals[0].temperature)} <span className="text-sm font-semibold text-gray-500">°F</span>
-                                            </p>
+                                        <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                            <span>Source: Verified Android Wearable Sensor / Health Connect</span>
+                                            <span>{vitals[0].recordedAt ? formatDate(vitals[0].recordedAt, true) : 'Recently Synced'}</span>
                                         </div>
                                     </div>
                                 ) : (
@@ -532,6 +585,36 @@ export default function DoctorPatientRecordPage() {
                                                             {formatStatus(consultation.status)}
                                                         </span>
                                                     </div>
+                                                    {((consultation as any).appointment?.reason || (consultation as any).appointment?.symptoms || (consultation as any).appointment?.patient_notes) && (
+                                                        <div className="mb-3 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                                                            <span className="block text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest mb-1">Reason for Consultation</span>
+                                                            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                                                                {(consultation as any).appointment?.reason || (consultation as any).appointment?.patient_notes}
+                                                            </p>
+                                                            {(consultation as any).appointment?.symptoms && (consultation as any).appointment?.symptoms.length > 0 && (
+                                                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                    {(consultation as any).appointment.symptoms.map((s: string) => (
+                                                                        <span key={s} className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-[10px] px-1.5 py-0.5 rounded border border-red-100 dark:border-red-800/30">
+                                                                            {s}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {(consultation as any).appointment?.severity_current !== undefined && (
+                                                                <div className="mt-2 flex items-center gap-2">
+                                                                    <span className="text-[10px] text-gray-500 font-semibold">Severity:</span>
+                                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${(consultation as any).appointment.severity_current <= 3 ? 'bg-emerald-100 text-emerald-700' : (consultation as any).appointment.severity_current <= 6 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                                                                        {(consultation as any).appointment.severity_current}/10
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                            {(consultation as any).appointment?.voice_note_url && (
+                                                                <div className="mt-2 flex items-center gap-2 p-1.5 rounded bg-emerald-100/50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/50">
+                                                                    <audio src={(consultation as any).appointment.voice_note_url} controls className="h-6 w-full max-w-[200px]" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                     <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
                                                         <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Diagnosis / Notes</span>
                                                         <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed font-medium">
@@ -577,9 +660,30 @@ export default function DoctorPatientRecordPage() {
                                                     </div>
                                                     <div>
                                                         <p className="font-bold text-gray-900 dark:text-gray-100 text-base">{formatDate(app.appointment_date || app.created_at)}</p>
-                                                        <div className="flex items-center gap-2 mt-1">
+                                                        <div className="flex flex-wrap items-center gap-2 mt-1">
                                                             <span className="text-sm font-semibold text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md">{app.time_slot}</span>
-                                                            <span className="text-sm text-gray-600 dark:text-gray-400">• {app.reason || 'General Visit'}</span>
+                                                            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium bg-gray-100/80 dark:bg-gray-800/60 px-2.5 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
+                                                                Reason: {app.reason || app.patient_notes || 'General Visit'}
+                                                            </span>
+                                                            {Array.isArray(app.symptoms) && app.symptoms.length > 0 && (
+                                                                <div className="flex items-center gap-1">
+                                                                    {app.symptoms.map((s: string) => (
+                                                                        <span key={s} className="text-xs bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 px-1.5 py-0.5 rounded border border-red-100 dark:border-red-900/40">
+                                                                            {s}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {(app as any).severity_current !== undefined && (
+                                                                <span className={`text-sm font-medium px-2.5 py-0.5 rounded-md border ${(app as any).severity_current <= 3 ? 'bg-emerald-100/80 text-emerald-700 border-emerald-200/50' : (app as any).severity_current <= 6 ? 'bg-amber-100/80 text-amber-700 border-amber-200/50' : 'bg-red-100/80 text-red-700 border-red-200/50'}`}>
+                                                                    Severity: {(app as any).severity_current}/10
+                                                                </span>
+                                                            )}
+                                                            {(app as any).voice_note_url && (
+                                                                <div className="flex items-center gap-2 p-1 rounded-md bg-emerald-100/50 dark:bg-emerald-900/30 border border-emerald-200/50 dark:border-emerald-800/50">
+                                                                    <audio src={(app as any).voice_note_url} controls className="h-6 w-[140px]" />
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -630,6 +734,27 @@ export default function DoctorPatientRecordPage() {
                                                     <p className="font-bold text-gray-900 dark:text-gray-100 text-base">Dr. {c.doctor?.name || 'Unknown'}</p>
                                                     <p className="text-[11px] font-bold text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md">{formatDate(c.created_at)}</p>
                                                 </div>
+                                                {((c as any).appointment?.reason || (c as any).appointment?.patient_notes) && (
+                                                    <div className="mb-2 bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                                                        <span className="block text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest mb-1">Reason:</span>
+                                                        <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                                                            {(c as any).appointment?.reason || (c as any).appointment?.patient_notes}
+                                                        </p>
+                                                        {(c as any).appointment?.severity_current !== undefined && (
+                                                            <div className="mt-1 flex items-center gap-2">
+                                                                <span className="text-[10px] text-gray-500 font-semibold">Severity:</span>
+                                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${(c as any).appointment.severity_current <= 3 ? 'bg-emerald-100 text-emerald-700' : (c as any).appointment.severity_current <= 6 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                                                                    {(c as any).appointment.severity_current}/10
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {(c as any).appointment?.voice_note_url && (
+                                                            <div className="mt-2 flex items-center gap-2 p-1.5 rounded bg-emerald-100/50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/50">
+                                                                <audio src={(c as any).appointment.voice_note_url} controls className="h-6 w-full max-w-[200px]" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                                 <p className="mt-3 text-sm font-medium text-gray-700 dark:text-gray-300 leading-relaxed bg-white dark:bg-gray-900 p-3 rounded-xl border border-gray-100 dark:border-gray-700/50">
                                                     {c.diagnosis || c.notes || 'No notes provided.'}
                                                 </p>

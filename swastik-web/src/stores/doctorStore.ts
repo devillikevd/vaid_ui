@@ -34,6 +34,16 @@ export interface Appointment {
     has_prescription?: boolean;
     fee?: number;
     notes?: string;
+    severity_current?: number;
+    severity_worst?: number;
+    onset_type?: string;
+    symptom_duration?: string;
+    symptom_pattern?: string;
+    known_allergies?: string[];
+    current_medications?: string;
+    medical_history?: string;
+    voice_note_url?: string;
+    voice_note_duration?: string;
     patient?: { id: string; name: string; phone?: string; date_of_birth?: string; gender?: string; blood_group?: string; weight?: number; height?: number };
     doctor?: { id: string; name: string; specialization?: string };
 }

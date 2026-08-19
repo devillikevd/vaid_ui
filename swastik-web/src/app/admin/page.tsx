@@ -17,6 +17,7 @@ import {
     FileWarning,
     Microscope,
     Dumbbell,
+    Flame,
     Store
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -301,6 +302,21 @@ export default function AdminDashboard() {
                                 <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-2" />
                                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Analytics</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">View reports</p>
+                            </Link>
+                            <Link
+                                href="/admin/wellness"
+                                className="col-span-2 p-3.5 rounded-xl border-2 border-dashed border-orange-200 bg-orange-50/50 hover:border-orange-300 hover:bg-orange-100/60 transition-colors flex items-center justify-between px-6 text-left"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Flame className="h-7 w-7 text-orange-600" />
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Wellness, Community & Sprints</p>
+                                        <p className="text-xs text-gray-500">Manage goal circles, contest sprints & badges</p>
+                                    </div>
+                                </div>
+                                <span className="text-xs font-bold text-orange-700 bg-orange-200/80 px-2.5 py-1 rounded-full">
+                                    Manage Hub →
+                                </span>
                             </Link>
                         </div>
                     </CardContent>

@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -123,6 +125,7 @@ fun WellnessHubScreen(
     onNavigateToReminders: () -> Unit = {},
     onNavigateToBadges: () -> Unit = {},
     onNavigateToReels: () -> Unit = {},
+    onNavigateToSafety: () -> Unit = {},
     initialSection: String? = null,
     viewModel: WellnessViewModel
 ) {
@@ -143,6 +146,7 @@ fun WellnessHubScreen(
             "reports" -> onNavigateToReports()
             "ai_coach" -> onNavigateToAICoach()
             "assessment" -> onNavigateToAssessment()
+            "safety" -> onNavigateToSafety()
         }
     }
 
@@ -172,7 +176,7 @@ fun WellnessHubScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Smart Health Hub", fontWeight = FontWeight.Bold) },
+                title = { Text("Wellness Hub", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -276,7 +280,8 @@ fun WellnessHubScreen(
                             onLogMeal = onNavigateToDietTracker,
                             onHealthData = onNavigateToHealthConnectDashboard,
                             onMarketplace = onNavigateToFitnessCenters,
-                            onEmergency = onNavigateToEmergency
+                            onEmergency = onNavigateToEmergency,
+                            onNavigateToSafety = onNavigateToSafety
                         )
                     }
 
@@ -317,6 +322,7 @@ fun WellnessHubScreen(
 private fun WellnessHero(patientName: String?, steps: Int, workouts: Int, streak: Int) {
     Card(
         shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Column(
@@ -341,7 +347,10 @@ private fun WellnessHero(patientName: String?, steps: Int, workouts: Int, streak
                 fontSize = 12.sp
             )
             Spacer(modifier = Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 HeroStat("Steps", steps.toString(), Icons.Default.DirectionsRun)
                 HeroStat("Workouts Today", workouts.toString(), Icons.Default.FitnessCenter)
                 HeroStat("Day Streak", streak.toString(), Icons.Default.LocalFireDepartment)
@@ -423,20 +432,21 @@ private fun EcosystemOverviewGrid(
     onLogMeal: () -> Unit,
     onHealthData: () -> Unit,
     onMarketplace: () -> Unit,
-    onEmergency: () -> Unit
+    onEmergency: () -> Unit,
+    onNavigateToSafety: () -> Unit = {}
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Wellness Ecosystem", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
         OverviewRow {
             FeatureOverviewCard(
                 number = "1", title = "Dashboard",
-                icon = Icons.Default.TrackChanges, tint = Color(0xFF047857),
-                lines = listOf("Real counts from backend", "$workoutCount plans", "$coachCount experts"),
+                icon = Icons.Default.TrackChanges, tint = Color(0xFF14B8A6), bgColor = Color(0xFFE6F8F5),
+                lines = listOf("Workout summary", "Nutrition summary", "Recovery and health"),
                 modifier = Modifier.weight(1f), onClick = onNavigateToReports
             )
             FeatureOverviewCard(
                 number = "2", title = "Assessment",
-                icon = Icons.Default.CheckCircle, tint = Color(0xFF6A5AE0),
+                icon = Icons.Default.CheckCircle, tint = Color(0xFF6366F1), bgColor = Color(0xFFEEF2FF),
                 lines = listOf("Goals", "Bio + equipment", "Health screening"),
                 modifier = Modifier.weight(1f), onClick = onNavigateToAssessment
             )
@@ -444,79 +454,65 @@ private fun EcosystemOverviewGrid(
         OverviewRow {
             FeatureOverviewCard(
                 number = "3", title = "Workout",
-                icon = Icons.Default.FitnessCenter, tint = Color(0xFF047857),
+                icon = Icons.Default.FitnessCenter, tint = Color(0xFFFF7E67), bgColor = Color(0xFFFFEFE5),
                 lines = listOf("$workoutCount plans", "$exerciseCount exercise assets", "Timers + tracking ready"),
                 modifier = Modifier.weight(1f), onClick = onNavigateToWorkouts
             )
             FeatureOverviewCard(
                 number = "4", title = "Nutrition",
-                icon = Icons.Default.Restaurant, tint = Color(0xFFE65100),
+                icon = Icons.Default.Restaurant, tint = Color(0xFFFFB300), bgColor = Color(0xFFFFF8E1),
                 lines = listOf("Food logging", "Macros + water", "Meal plans"),
                 modifier = Modifier.weight(1f), onClick = onLogMeal
             )
         }
         OverviewRow {
             FeatureOverviewCard(
-                number = "5", title = "Health Tracking",
-                icon = Icons.Default.MedicalServices, tint = Color(0xFF0F766E),
-                lines = listOf("Weight, BP, sugar", "Sleep + hydration", "Progress charts"),
-                modifier = Modifier.weight(1f), onClick = onHealthData
+                number = "5", title = "Habits & Streaks",
+                icon = Icons.Default.CheckCircle, tint = Color(0xFF00ACC1), bgColor = Color(0xFFE0F7FA),
+                lines = listOf("Daily water & sleep", "Mindfulness streak", "Consistency score"),
+                modifier = Modifier.weight(1f), onClick = onNavigateToReports
             )
             FeatureOverviewCard(
-                number = "6", title = "Wearables",
-                icon = Icons.Default.Watch, tint = Color(0xFF2563EB),
-                lines = listOf("Google Health Connect", "Steps + calories", "Sleep + heart rate"),
-                modifier = Modifier.weight(1f), onClick = onHealthData
-            )
-        }
-        OverviewRow {
-            FeatureOverviewCard(
-                number = "7", title = "AI Coach",
-                icon = Icons.Outlined.SelfImprovement, tint = Color(0xFF7C3AED),
+                number = "6", title = "AI Coach",
+                icon = Icons.Outlined.SelfImprovement, tint = Color(0xFF7E57C2), bgColor = Color(0xFFEDE7F6),
                 lines = listOf("Daily guidance", "Adherence insights", "Medical escalation"),
                 modifier = Modifier.weight(1f), onClick = onNavigateToAICoach
             )
+        }
+        OverviewRow {
             FeatureOverviewCard(
-                number = "8", title = "Experts",
-                icon = Icons.Default.Groups, tint = Color(0xFF6A5AE0),
+                number = "7", title = "Experts",
+                icon = Icons.Default.Groups, tint = Color(0xFF3F51B5), bgColor = Color(0xFFE8EAF6),
                 lines = listOf("$coachCount approved experts", "Video/audio/chat", "Plan adjustments"),
                 modifier = Modifier.weight(1f), onClick = onNavigateToExperts
             )
+            FeatureOverviewCard(
+                number = "8", title = "Wellness Store",
+                icon = Icons.Default.Store, tint = Color(0xFF0F766E), bgColor = Color(0xFFE0F2F1),
+                lines = listOf("$supplementCount verified products", "FSSAI & NABL Lab tested", "⚡ 2-Hr Pharmacy Express"),
+                modifier = Modifier.weight(1f), onClick = onNavigateToSupplements
+            )
         }
         OverviewRow {
             FeatureOverviewCard(
-                number = "9", title = "Marketplace",
-                icon = Icons.Default.Store, tint = Color(0xFF2563EB),
-                lines = listOf("$centerCount gyms/studios", "Booking + check-in", "Facilities + ratings"),
-                modifier = Modifier.weight(1f), onClick = onMarketplace
-            )
-            FeatureOverviewCard(
-                number = "10", title = "Community",
-                icon = Icons.Default.TrendingUp, tint = Color(0xFFE65100),
+                number = "9", title = "Community",
+                icon = Icons.Default.TrendingUp, tint = Color(0xFFEC407A), bgColor = Color(0xFFFCE4EC),
                 lines = listOf("$communityCount groups/challenges", "Badges", "Leaderboards"),
                 modifier = Modifier.weight(1f), onClick = onNavigateToCommunity
             )
-        }
-        OverviewRow {
             FeatureOverviewCard(
-                number = "11", title = "Supplements",
-                icon = Icons.Default.ShoppingCart, tint = Color(0xFF9333EA),
-                lines = listOf("$supplementCount products", "QR authenticity", "Safety suitability"),
-                modifier = Modifier.weight(1f), onClick = onNavigateToSupplements
-            )
-            FeatureOverviewCard(
-                number = "12", title = "Safety",
-                icon = Icons.Default.LocalHospital, tint = Color(0xFFE53935),
-                lines = listOf("Pre-exercise screening", "Doctor/physio referral", "I feel unwell"),
-                modifier = Modifier.weight(1f), onClick = onEmergency
-            )
-        }
-        OverviewRow {
-            FeatureOverviewCard(
-                number = "13", title = "Reports",
-                icon = Icons.Default.Verified, tint = Color(0xFF4F46E5),
-                lines = listOf("Workout summary", "Nutrition summary", "Recovery trends"),
+                number = "10", title = "Reports & Analytics",
+                icon = Icons.Default.Verified, tint = Color(0xFF64748B), bgColor = Color(0xFFF1F5F9),
+                lines = listOf("Workout & diet summary", "Vitals & recovery trends", "Health connect sync"),
                 modifier = Modifier.weight(1f), onClick = onNavigateToReports
+            )
+        }
+        OverviewRow {
+            FeatureOverviewCard(
+                number = "11", title = "Clinical Safety",
+                icon = Icons.Default.LocalHospital, tint = Color(0xFFE53935), bgColor = Color(0xFFFFEBEE),
+                lines = listOf("Pre-exercise screening", "Doctor/physio referral", "I feel unwell alert"),
+                modifier = Modifier.weight(1f), onClick = onNavigateToSafety
             )
         }
     }
@@ -524,7 +520,12 @@ private fun EcosystemOverviewGrid(
 
 @Composable
 private fun OverviewRow(content: @Composable RowScope.() -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Max)
+    ) {
         content()
     }
 }
@@ -535,18 +536,26 @@ private fun FeatureOverviewCard(
     title: String,
     icon: ImageVector,
     tint: Color,
+    bgColor: Color = MaterialTheme.colorScheme.surface,
     lines: List<String>,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
     val clickableModifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier
     Card(
-        modifier = clickableModifier,
+        modifier = clickableModifier.fillMaxHeight(),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .background(Brush.linearGradient(listOf(bgColor, Color.White)))
+                .padding(12.dp), 
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(shape = RoundedCornerShape(12.dp), color = tint.copy(alpha = 0.12f)) {
                     Icon(icon, null, tint = tint, modifier = Modifier.padding(7.dp).size(18.dp))

@@ -2384,6 +2384,7 @@ class DoctorService {
         .from('consultations')
         .select(`
           *,
+          appointment:appointments(id, appointment_date, time_slot, type, reason, symptoms, patient_notes),
           prescriptions(*)
         `)
         .eq('doctor_id', doctor.id)
@@ -2391,7 +2392,7 @@ class DoctorService {
         .order('created_at', { ascending: false }),
       supabaseAdmin
         .from('appointments')
-        .select('id, appointment_date, time_slot, type, status, reason, fee, notes, created_at')
+        .select('id, appointment_date, time_slot, type, status, reason, symptoms, patient_notes, fee, notes, created_at')
         .eq('doctor_id', doctor.id)
         .eq('patient_id', patientId)
         .order('appointment_date', { ascending: false, nullsFirst: false })
@@ -2406,7 +2407,7 @@ class DoctorService {
             diagnosis,
             notes,
             doctor:doctors(id, name, specialization, profile_image_url),
-            appointment:appointments(id, appointment_date, time_slot, type)
+            appointment:appointments(id, appointment_date, time_slot, type, reason, symptoms, patient_notes)
           `)
           .eq('patient_id', patientId)
           .neq('doctor_id', doctor.id)

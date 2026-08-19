@@ -19,6 +19,17 @@ interface EmergencyRepository {
     suspend fun getNearbyAmbulances(latitude: Double, longitude: Double, radius: Int): Result<List<AmbulanceDto>>
     suspend fun trackAmbulance(requestId: String): Result<AmbulanceTrack>
     suspend fun getRoute(originLat: Double, originLng: Double, destLat: Double, destLng: Double): Result<RouteDto>
+    
+    // First Responder Emergency Network
+    suspend fun registerFirstResponder(request: RegisterResponderRequest): Result<FirstResponderProfile>
+    suspend fun getMyResponderProfile(): Result<FirstResponderProfile?>
+    suspend fun updateDutyStatus(isOnDuty: Boolean): Result<FirstResponderProfile>
+    suspend fun broadcastEmergency(request: EmergencyBroadcastRequest): Result<EmergencyBroadcastResponse>
+    suspend fun getNearbyEmergencyBroadcasts(lat: Double?, lng: Double?, radiusMeters: Int? = 3000): Result<List<EmergencyBroadcastDto>>
+    suspend fun getEmergencyBroadcast(id: String): Result<EmergencyBroadcastDto>
+    suspend fun acceptEmergencyBroadcast(id: String): Result<Unit>
+    suspend fun updateAssignmentStatus(id: String, status: String, notes: String = ""): Result<Unit>
+    suspend fun dispatchVerifiedAmbulance(id: String, triageLevel: String = "RED", notes: String = ""): Result<Unit>
 }
 
 /**
@@ -183,6 +194,127 @@ class EmergencyRepositoryImpl @Inject constructor(
                 } ?: Result.Error("No route data received")
             } else {
                 Result.Error(response.apiError("Failed to fetch route"))
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun registerFirstResponder(request: RegisterResponderRequest): Result<FirstResponderProfile> {
+        return try {
+            val response = apiService.registerFirstResponder(request)
+            if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
+                Result.Success(response.body()!!.data!!)
+            } else {
+                Result.Error(response.apiError("Failed to register first responder"))
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun getMyResponderProfile(): Result<FirstResponderProfile?> {
+        return try {
+            val response = apiService.getMyResponderProfile()
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()?.data)
+            } else {
+                Result.Success(null)
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun updateDutyStatus(isOnDuty: Boolean): Result<FirstResponderProfile> {
+        return try {
+            val response = apiService.updateDutyStatus(UpdateDutyRequest(isOnDuty))
+            if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
+                Result.Success(response.body()!!.data!!)
+            } else {
+                Result.Error(response.apiError("Failed to update duty status"))
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun broadcastEmergency(request: EmergencyBroadcastRequest): Result<EmergencyBroadcastResponse> {
+        return try {
+            val response = apiService.broadcastEmergency(request)
+            if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
+                Result.Success(response.body()!!.data!!)
+            } else {
+                Result.Error(response.apiError("Failed to broadcast emergency"))
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun getNearbyEmergencyBroadcasts(
+        lat: Double?,
+        lng: Double?,
+        radiusMeters: Int?
+    ): Result<List<EmergencyBroadcastDto>> {
+        return try {
+            val response = apiService.getNearbyEmergencyBroadcasts(lat, lng, radiusMeters)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()?.data ?: emptyList())
+            } else {
+                Result.Error(response.apiError("Failed to fetch nearby broadcasts"))
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun getEmergencyBroadcast(id: String): Result<EmergencyBroadcastDto> {
+        return try {
+            val response = apiService.getEmergencyBroadcast(id)
+            if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
+                Result.Success(response.body()!!.data!!)
+            } else {
+                Result.Error(response.apiError("Failed to fetch emergency broadcast"))
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun acceptEmergencyBroadcast(id: String): Result<Unit> {
+        return try {
+            val response = apiService.acceptEmergencyBroadcast(id)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.apiError("Failed to accept emergency"))
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun updateAssignmentStatus(id: String, status: String, notes: String): Result<Unit> {
+        return try {
+            val response = apiService.updateAssignmentStatus(id, UpdateAssignmentStatusRequest(status, notes))
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.apiError("Failed to update status"))
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun dispatchVerifiedAmbulance(id: String, triageLevel: String, notes: String): Result<Unit> {
+        return try {
+            val response = apiService.dispatchVerifiedAmbulance(id, DispatchAmbulanceRequest(triageLevel, notes))
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.apiError("Failed to dispatch ambulance"))
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
