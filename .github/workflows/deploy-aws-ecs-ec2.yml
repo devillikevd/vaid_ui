@@ -72,6 +72,13 @@ jobs:
           echo "ai_image=${registry}/${ai_repo}:${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
           echo "ai_latest=${registry}/${ai_repo}:latest" >> "${GITHUB_OUTPUT}"
 
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'swastik-backend/package-lock.json'
+
       - name: Backend tests
         working-directory: swastik-backend
         env:
