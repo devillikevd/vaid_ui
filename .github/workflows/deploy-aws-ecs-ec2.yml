@@ -287,6 +287,9 @@ jobs:
                 --output json 2>/dev/null || true
             fi
 
+            echo "--- Recent Application CloudWatch Logs ---"
+            aws logs tail "/ecs/${PROJECT_NAME}-${ENVIRONMENT}" --since 15m --format short 2>/dev/null || true
+
             exit 1
           fi
 

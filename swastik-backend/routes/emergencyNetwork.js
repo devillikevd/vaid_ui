@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
 const { validate } = require('../middleware/validate');
-const { requireAuth } = require('../middleware/auth');
-const asyncHandler = require('../utils/asyncHandler');
+const { authenticate } = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/errorHandler');
 const firstResponderService = require('../services/firstResponderService');
 
 // All routes require authenticated user
-router.use(requireAuth);
+router.use(authenticate);
 
 /**
  * @route POST /api/v1/emergency-network/register
