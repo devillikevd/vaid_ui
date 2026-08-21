@@ -886,7 +886,7 @@ class PatientDashboardViewModel @Inject constructor(
     fun syncHealthConnectData() {
         viewModelScope.launch {
             _healthConnectSyncState.value = ProfileUpdateState.Loading
-            if (!healthConnectManager.hasAllPermissions()) {
+            if (!healthConnectManager.hasPermissions()) {
                 _healthConnectSyncState.value = ProfileUpdateState.Error("Permissions not granted")
                 return@launch
             }

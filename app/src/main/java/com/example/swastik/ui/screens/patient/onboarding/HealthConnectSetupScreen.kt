@@ -42,18 +42,25 @@ fun HealthConnectSetupScreen(
 
     LaunchedEffect(Unit) {
         if (status == androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE) {
-            hasPermissions = healthConnectManager.hasAllPermissions()
+            hasPermissions = healthConnectManager.hasPermissions()
         }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = PermissionController.createRequestPermissionResultContract()
     ) { granted ->
-        if (granted.containsAll(healthConnectManager.permissions)) {
+        if (granted.isNotEmpty()) {
             hasPermissions = true
             navController.popBackStack()
         } else {
-            android.widget.Toast.makeText(context, "Permissions denied. Received: ${granted.size}", android.widget.Toast.LENGTH_SHORT).show()
+            scope.launch {
+                if (healthConnectManager.hasPermissions()) {
+                    hasPermissions = true
+                    navController.popBackStack()
+                } else {
+                    android.widget.Toast.makeText(context, "Permissions not granted", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 

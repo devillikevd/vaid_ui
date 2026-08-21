@@ -5,6 +5,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -118,8 +119,8 @@ fun GuardianDashboardScreen(
                 isActive = guardianEnabled
             )
 
-            // 5.5. Swastik Community First-Responder Hero Mesh
-            CommunityResponderMeshCard(onJoinClick = onNavigateToVolunteerRegistration)
+            // 5.5. Community First-Responder Profile & Settings Shortcut
+            EmergencyResponderShortcutCard(onClick = onNavigateToVolunteerRegistration)
 
             // 6. ABDM Consent-Based Doctor & Emergency Sharing Switch
             EmergencyConsentSwitchCard()
@@ -133,79 +134,83 @@ fun GuardianDashboardScreen(
 }
 
 @Composable
-private fun CommunityResponderMeshCard(onJoinClick: () -> Unit) {
+private fun EmergencyResponderShortcutCard(onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF881337).copy(alpha = 0.08f)
+            containerColor = MaterialTheme.colorScheme.surface
         ),
-        border = BorderStroke(1.5.dp, Color(0xFFE11D48).copy(alpha = 0.4f))
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(1.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("🛡️", fontSize = 22.sp)
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            "Community Responder Mesh",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = Color(0xFF9F1239)
-                        )
-                        Text(
-                            "4 Verified Medical Heroes Active Nearby",
-                            fontSize = 11.5.sp,
-                            color = Color(0xFFE11D48),
-                            fontWeight = FontWeight.SemiBold
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFE11D48).copy(alpha = 0.12f),
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.VolunteerActivism,
+                            contentDescription = null,
+                            tint = Color(0xFFE11D48),
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFDCFCE7)
-                ) {
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Emergency Hero Responder",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.5.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFFDCFCE7)
+                        ) {
+                            Text(
+                                text = "Live 🟢",
+                                color = Color(0xFF166534),
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 9.5.sp,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     Text(
-                        "Live 🟢",
-                        color = Color(0xFF166534),
-                        fontWeight = FontWeight.ExtraBold,
+                        text = "Manage volunteer status, skills & dispatch radius in Profile",
                         fontSize = 11.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        color = Color(0xFF64748B),
+                        lineHeight = 14.sp
                     )
                 }
             }
 
-            Text(
-                "If a severe crash or sudden collapse occurs, nearby verified doctors, nurses & CPR volunteers (<1.5 km) are automatically dispatched to provide Basic Life Support before the ambulance arrives.",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 17.sp
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "Open Responder Settings",
+                tint = Color(0xFF94A3B8),
+                modifier = Modifier.size(22.dp)
             )
-
-            Button(
-                onClick = onJoinClick,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.VolunteerActivism, contentDescription = null, tint = Color.White)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    "Join As A Certified First Responder / Volunteer ➔",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp
-                )
-            }
         }
     }
 }

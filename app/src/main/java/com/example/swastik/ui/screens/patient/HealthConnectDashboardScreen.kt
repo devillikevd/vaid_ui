@@ -63,8 +63,10 @@ fun HealthConnectDashboardScreen(
 
     // Check permissions and load data on entry
     LaunchedEffect(Unit) {
-        if (sdkStatus == HealthConnectClient.SDK_AVAILABLE) {
-            hasPermissions = healthConnectManager.hasAllPermissions()
+        val status = healthConnectManager.checkAvailability()
+        sdkStatus = status
+        if (status == HealthConnectClient.SDK_AVAILABLE) {
+            hasPermissions = healthConnectManager.hasPermissions()
             if (hasPermissions) {
                 isSyncing = true
                 try {
@@ -82,8 +84,9 @@ fun HealthConnectDashboardScreen(
         contract = PermissionController.createRequestPermissionResultContract()
     ) { granted ->
         scope.launch {
-            if (granted.containsAll(healthConnectManager.permissions)) {
-                hasPermissions = true
+            val hasPerms = granted.isNotEmpty() || healthConnectManager.hasPermissions()
+            hasPermissions = hasPerms
+            if (hasPerms) {
                 isSyncing = true
                 try {
                     val data = healthConnectManager.fetchVitalsData(days = 7)
@@ -157,7 +160,9 @@ fun HealthConnectDashboardScreen(
                 }
                 !hasPermissions -> {
                     PermissionRequestHeroCard(onConnect = {
-                        permissionLauncher.launch(healthConnectManager.permissions)
+                        try {
+                            permissionLauncher.launch(healthConnectManager.permissions)
+                        } catch (_: Exception) {}
                     })
                 }
                 else -> {

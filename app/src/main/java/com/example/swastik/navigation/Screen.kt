@@ -37,6 +37,19 @@ sealed class Screen(val route: String) {
     object AllSpecialities : Screen("all_specialities?mode={mode}") {
         fun createRoute(mode: String = "in_person"): String = "all_specialities?mode=$mode"
     }
+    object SpecialityDetail : Screen("speciality_detail?specialization={specialization}&search={search}&mode={mode}") {
+        fun createRoute(
+            specialization: String,
+            search: String? = null,
+            mode: String = "in_person"
+        ): String {
+            val params = mutableListOf<String>()
+            params.add("specialization=${java.net.URLEncoder.encode(specialization, "UTF-8").replace("+", "%20")}")
+            if (search != null) params.add("search=${java.net.URLEncoder.encode(search, "UTF-8").replace("+", "%20")}")
+            params.add("mode=$mode")
+            return "speciality_detail?${params.joinToString("&")}"
+        }
+    }
     object AllCategories : Screen("all_categories")
     object AppointmentBooking : Screen("appointment_booking?doctorId={doctorId}&hospitalId={hospitalId}&clinicId={clinicId}&specialization={specialization}&consultationMode={consultationMode}&search={search}") {
         fun createRoute(

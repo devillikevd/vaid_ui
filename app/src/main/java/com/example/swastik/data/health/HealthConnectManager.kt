@@ -35,6 +35,15 @@ class HealthConnectManager(private val context: Context) {
         return HealthConnectClient.getSdkStatus(context)
     }
 
+    suspend fun hasPermissions(): Boolean {
+        return try {
+            val granted = healthConnectClient.permissionController.getGrantedPermissions()
+            granted.isNotEmpty()
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     suspend fun hasAllPermissions(): Boolean {
         return try {
             val granted = healthConnectClient.permissionController.getGrantedPermissions()

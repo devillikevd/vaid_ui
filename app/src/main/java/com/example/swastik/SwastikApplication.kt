@@ -24,13 +24,21 @@ class SwastikApplication : Application() {
         super.onCreate()
         AppSettingsStore.init(this)
         // Initialize osmdroid map configuration with valid User-Agent to prevent 403 errors
+        val validUserAgent = "SwastikHealth-Telemedicine/2.0 ($packageName; contact: support@swastikhealth.in)"
         Configuration.getInstance().apply {
-            val validUserAgent = "$packageName/1.0.0 (Swastik Healthcare Telemedicine App; contact: support@swastik.com)"
             userAgentValue = validUserAgent
-            additionalHttpRequestProperties.put("User-Agent", validUserAgent)
+            additionalHttpRequestProperties["User-Agent"] = validUserAgent
             osmdroidBasePath = cacheDir
             osmdroidTileCache = java.io.File(cacheDir, "osmdroid/tiles")
         }
+
+        // Purge any stale 403 error tiles cached from previous failed sessions
+        try {
+            val tileCacheDir = java.io.File(cacheDir, "osmdroid/tiles")
+            if (tileCacheDir.exists()) {
+                tileCacheDir.deleteRecursively()
+            }
+        } catch (_: Exception) {}
 
         // Start SyncManager to drain offline queue when network restores
         syncManager.startObserving()

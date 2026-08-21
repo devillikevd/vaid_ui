@@ -18,9 +18,9 @@ router.get('/',
   optionalAuth,
   cacheMiddleware(60 * 5), // Cache for 5 minutes
   asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, specialization, isAvailable, minRating, maxFee, search, city, latitude, longitude, global } = req.query;
+    const { page = 1, limit = 10, specialization, isAvailable, minRating, maxFee, search, city, latitude, longitude, global, consultationType, sortBy, hospitalId, clinicId } = req.query;
     const result = await doctorService.getAllDoctors(
-      { specialization, isAvailable, minRating, maxFee, search, city, latitude, longitude, global: global === 'true' },
+      { specialization, isAvailable, minRating, maxFee, search, city, latitude, longitude, global: global === 'true', consultationType, sortBy, hospitalId, clinicId },
       parseInt(page),
       parseInt(limit)
     );

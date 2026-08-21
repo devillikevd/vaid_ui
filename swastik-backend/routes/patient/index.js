@@ -519,7 +519,15 @@ router.get('/reminders/adherence',
 router.post('/reminders',
   [
     body('title').notEmpty().withMessage('Title is required'),
-    body('type').isIn(['medicine', 'appointment', 'test']).withMessage('Invalid reminder type'),
+    body('type')
+      .customSanitizer(val => {
+        if (!val) return 'medicine';
+        const s = String(val).toLowerCase().trim();
+        if (s === 'medication') return 'medicine';
+        return s;
+      })
+      .isIn(['medicine', 'appointment', 'test', 'water', 'workout', 'sleep', 'custom', 'other'])
+      .withMessage('Invalid reminder type'),
     body('time').notEmpty().withMessage('Time is required'),
   ],
   validate,

@@ -356,9 +356,17 @@ data class MedicalRecordAccessDto(
     val expiresAt: String? = null
 )
 
+data class AdherenceStatsDto(
+    @SerializedName("adherence_rate") val adherenceRate: Int? = 100,
+    @SerializedName("streak_days") val streakDays: Int? = 1,
+    @SerializedName("taken_today") val takenToday: Int? = 0,
+    @SerializedName("total_today") val totalToday: Int? = 0
+)
+
 data class PatientDashboardResponse(
     val success: Boolean,
     val reminders: List<ReminderDto>?,
+    val adherence: AdherenceStatsDto? = null,
     val upcomingAppointments: List<AppointmentDto>?,
     val recentConsultations: List<ConsultationDto>?,
     val stats: PatientStatsDto?,

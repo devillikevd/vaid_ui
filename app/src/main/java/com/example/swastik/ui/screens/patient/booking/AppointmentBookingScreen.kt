@@ -963,8 +963,6 @@ private fun DoctorSelectionStep(
                             if (currentConsultationType == "video") {
                                 doc.videoConsultationFee != null || doc.consultationTypes?.contains("video") == true
                             } else {
-                                // Default to assuming they support in_person if video isn't the sole requirement, 
-                                // or check explicit types if present.
                                 doc.consultationTypes?.contains("in_person") != false
                             }
                         }
@@ -973,12 +971,37 @@ private fun DoctorSelectionStep(
                     }
                     
                     when (currentSortBy) {
-                        "rating_desc" -> typeFiltered.sortedByDescending { it.averageRating ?: 0f }
-                        "consultations_desc" -> typeFiltered.sortedByDescending { it.totalReviews }
-                        "experience_desc" -> typeFiltered.sortedByDescending { it.experienceYears ?: 0 }
-                        "fee_asc" -> typeFiltered.sortedBy { it.consultationFee }
-                        "fee_desc" -> typeFiltered.sortedByDescending { it.consultationFee }
-                        "distance_asc" -> typeFiltered // Distance sorting not available locally without location
+                        "rating_desc" -> typeFiltered.sortedWith(
+                            compareByDescending<Doctor> { it.averageRating ?: 0f }
+                                .thenByDescending { it.totalReviews ?: 0 }
+                        )
+                        "consultations_desc" -> typeFiltered.sortedWith(
+                            compareByDescending<Doctor> { it.totalConsultations ?: it.totalReviews ?: 0 }
+                                .thenByDescending { it.averageRating ?: 0f }
+                        )
+                        "experience_desc" -> typeFiltered.sortedWith(
+                            compareByDescending<Doctor> { it.experienceYears ?: 0 }
+                                .thenByDescending { it.averageRating ?: 0f }
+                        )
+                        "fee_asc" -> typeFiltered.sortedWith(
+                            compareBy { doc ->
+                                when {
+                                    currentConsultationType == "video" && doc.videoConsultationFee != null -> doc.videoConsultationFee
+                                    currentConsultationType == "in_person" && doc.consultationFee != null -> doc.consultationFee
+                                    else -> listOfNotNull(doc.consultationFee, doc.videoConsultationFee).minOrNull() ?: 999999
+                                }
+                            }
+                        )
+                        "fee_desc" -> typeFiltered.sortedWith(
+                            compareByDescending { doc ->
+                                when {
+                                    currentConsultationType == "video" && doc.videoConsultationFee != null -> doc.videoConsultationFee
+                                    currentConsultationType == "in_person" && doc.consultationFee != null -> doc.consultationFee
+                                    else -> listOfNotNull(doc.consultationFee, doc.videoConsultationFee).maxOrNull() ?: -1
+                                }
+                            }
+                        )
+                        "distance_asc" -> typeFiltered.sortedBy { it.distanceKm ?: 999999f }
                         else -> typeFiltered
                     }
                 }
@@ -1095,6 +1118,36 @@ private fun DoctorBookingCard(doctor: Doctor, onSelect: () -> Unit, onViewProfil
                     Text(doctor.specialization, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(doctor.experienceYears?.takeIf { it > 0 }?.let { "$it+ Yrs Exp" } ?: "Experience not listed", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    
+                    val locationText = buildString {
+                        if (doctor.distanceKm != null && doctor.distanceKm > 0) {
+                            append(String.format(Locale.US, "📍 %.1f km away", doctor.distanceKm))
+                            if (!doctor.hospital?.name.isNullOrBlank()) {
+                                append(" • ")
+                                append(doctor.hospital?.name)
+                            }
+                        } else if (!doctor.hospital?.name.isNullOrBlank()) {
+                            append("📍 ")
+                            append(doctor.hospital?.name)
+                        }
+                    }
+                    if (locationText.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = SwastikPrimaryLight.copy(alpha = 0.6f)
+                        ) {
+                            Text(
+                                text = locationText,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = SwastikPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
                 Surface(color = Color(0xFFFFF8E1), shape = RoundedCornerShape(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
@@ -1111,7 +1164,14 @@ private fun DoctorBookingCard(doctor: Doctor, onSelect: () -> Unit, onViewProfil
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(stringResource(R.string.consultation_fee), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(doctor.consultationFee?.let { "₹$it" } ?: "Fee not listed", color = SwastikPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            val feeText = when {
+                                doctor.consultationFee != null && doctor.consultationFee > 0 -> "₹${doctor.consultationFee}"
+                                doctor.videoConsultationFee != null && doctor.videoConsultationFee > 0 -> "₹${doctor.videoConsultationFee}"
+                                doctor.consultationFee == 0 || doctor.videoConsultationFee == 0 -> "Free"
+                                else -> "Fee not listed"
+                            }
+                            val feeColor = if (feeText == "Free") Color(0xFF16A34A) else SwastikPrimary
+                            Text(feeText, color = feeColor, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         if (!compact) {
                             Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -44,6 +44,7 @@ data class WellnessUiState(
     val workoutsCompletedToday: Int = 0,
     val stepsToday: Int = 0,
     val activeCaloriesToday: Int = 0,
+    val activeMinutesToday: Int = 0,
     val streakDays: Int = 0,
     val activePlan: PatientWorkoutPlanDto? = null,
     val reels: List<WellnessReelDto> = emptyList(),
@@ -140,7 +141,9 @@ class WellnessViewModel @Inject constructor(
         communityCount = (hub?.counts?.groups ?: 0) + (hub?.counts?.challenges ?: 0),
         supplementCount = hub?.counts?.supplements ?: 0,
         workoutsCompletedToday = hub?.workoutsCompletedToday ?: 0,
-        // stepsToday and activeCaloriesToday are managed by local FitnessRepository flow
+        stepsToday = if (stepsToday > 0) stepsToday else (hub?.todayStats?.steps ?: 0),
+        activeCaloriesToday = if (activeCaloriesToday > 0) activeCaloriesToday else (hub?.todayStats?.activeCalories ?: 0),
+        activeMinutesToday = hub?.todayStats?.activeMinutes ?: 0,
         streakDays = hub?.activeWorkoutPlan?.streakDays ?: 0,
         activePlan = hub?.activeWorkoutPlan,
         reels = hub?.reels ?: emptyList()

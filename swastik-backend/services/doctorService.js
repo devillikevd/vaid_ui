@@ -843,31 +843,45 @@ class DoctorService {
     if (filters.sortBy) {
       switch (filters.sortBy) {
         case 'rating_desc':
-          result.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
+          result.sort((a, b) => {
+            const diff = (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
+            if (diff !== 0) return diff;
+            return (parseInt(b.total_reviews) || 0) - (parseInt(a.total_reviews) || 0);
+          });
           break;
         case 'consultations_desc':
-          result.sort((a, b) => (parseInt(b.total_consultations) || 0) - (parseInt(a.total_consultations) || 0));
+          result.sort((a, b) => {
+            const consA = parseInt(a.total_consultations) || parseInt(a.total_reviews) || 0;
+            const consB = parseInt(b.total_consultations) || parseInt(b.total_reviews) || 0;
+            if (consB !== consA) return consB - consA;
+            return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
+          });
           break;
         case 'experience_desc':
-          result.sort((a, b) => (parseInt(b.experience_years) || 0) - (parseInt(a.experience_years) || 0));
+          result.sort((a, b) => {
+            const expA = parseInt(a.experience_years) || 0;
+            const expB = parseInt(b.experience_years) || 0;
+            if (expB !== expA) return expB - expA;
+            return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
+          });
           break;
         case 'fee_asc':
           result.sort((a, b) => {
             const getFee = (doc) => {
               let fee = 999999;
-              if (filters.consultationType === 'video' && doc.video_consultation_fee != null) {
+              if (filters.consultationType === 'video' && doc.video_consultation_fee !== null && doc.video_consultation_fee !== undefined) {
                 fee = parseFloat(doc.video_consultation_fee);
-              } else if (filters.consultationType === 'in_person' && doc.consultation_fee != null) {
+              } else if (filters.consultationType === 'in_person' && doc.consultation_fee !== null && doc.consultation_fee !== undefined) {
                 fee = parseFloat(doc.consultation_fee);
               } else {
-                const cFee = parseFloat(doc.consultation_fee);
-                const vFee = parseFloat(doc.video_consultation_fee);
+                const cFee = doc.consultation_fee !== null && doc.consultation_fee !== undefined ? parseFloat(doc.consultation_fee) : NaN;
+                const vFee = doc.video_consultation_fee !== null && doc.video_consultation_fee !== undefined ? parseFloat(doc.video_consultation_fee) : NaN;
                 let validFees = [];
-                if (!isNaN(cFee) && cFee > 0) validFees.push(cFee);
-                if (!isNaN(vFee) && vFee > 0) validFees.push(vFee);
+                if (!isNaN(cFee) && cFee >= 0) validFees.push(cFee);
+                if (!isNaN(vFee) && vFee >= 0) validFees.push(vFee);
                 if (validFees.length > 0) fee = Math.min(...validFees);
               }
-              return (isNaN(fee) || fee <= 0) ? 999999 : fee;
+              return (isNaN(fee) || fee < 0) ? 999999 : fee;
             };
             return getFee(a) - getFee(b);
           });
@@ -876,25 +890,29 @@ class DoctorService {
           result.sort((a, b) => {
             const getFee = (doc) => {
               let fee = -1;
-              if (filters.consultationType === 'video' && doc.video_consultation_fee != null) {
+              if (filters.consultationType === 'video' && doc.video_consultation_fee !== null && doc.video_consultation_fee !== undefined) {
                 fee = parseFloat(doc.video_consultation_fee);
-              } else if (filters.consultationType === 'in_person' && doc.consultation_fee != null) {
+              } else if (filters.consultationType === 'in_person' && doc.consultation_fee !== null && doc.consultation_fee !== undefined) {
                 fee = parseFloat(doc.consultation_fee);
               } else {
-                const cFee = parseFloat(doc.consultation_fee);
-                const vFee = parseFloat(doc.video_consultation_fee);
+                const cFee = doc.consultation_fee !== null && doc.consultation_fee !== undefined ? parseFloat(doc.consultation_fee) : NaN;
+                const vFee = doc.video_consultation_fee !== null && doc.video_consultation_fee !== undefined ? parseFloat(doc.video_consultation_fee) : NaN;
                 let validFees = [];
-                if (!isNaN(cFee) && cFee > 0) validFees.push(cFee);
-                if (!isNaN(vFee) && vFee > 0) validFees.push(vFee);
+                if (!isNaN(cFee) && cFee >= 0) validFees.push(cFee);
+                if (!isNaN(vFee) && vFee >= 0) validFees.push(vFee);
                 if (validFees.length > 0) fee = Math.max(...validFees);
               }
-              return (isNaN(fee) || fee <= 0) ? -1 : fee;
+              return (isNaN(fee) || fee < 0) ? -1 : fee;
             };
             return getFee(b) - getFee(a);
           });
           break;
         case 'distance_asc':
-          result.sort((a, b) => (parseFloat(a.distance_km) || 999999) - (parseFloat(b.distance_km) || 999999));
+          result.sort((a, b) => {
+            const distA = a.distance_km !== null && a.distance_km !== undefined ? parseFloat(a.distance_km) : 999999;
+            const distB = b.distance_km !== null && b.distance_km !== undefined ? parseFloat(b.distance_km) : 999999;
+            return distA - distB;
+          });
           break;
         default:
           result.sort((a, b) => b.smart_score - a.smart_score);

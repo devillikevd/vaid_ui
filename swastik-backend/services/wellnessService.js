@@ -777,16 +777,16 @@ const getHubSummary = async (userId) => {
     fitnessProfile: profileResult.status === 'fulfilled' ? profileResult.value.data || null : null,
     wearableToday: latest?.summary_date === today ? latest : null,
     wearableTrend: wearables,
-    todayStats: latest?.summary_date === today
+    today_stats: latest?.summary_date === today
       ? {
           steps: latest.steps || 0,
-          activeCalories: latest.active_calories || 0,
-          activeMinutes: latest.active_minutes || 0,
+          active_calories: latest.active_calories || 0,
+          active_minutes: latest.active_minutes || 0,
         }
       : null,
-    activeWorkoutPlan: activePlanResult.status === 'fulfilled' ? activePlanResult.value.data || null : null,
-    workoutsCompletedToday: workoutCountResult.status === 'fulfilled' ? workoutCountResult.value.count || 0 : 0,
-    upcomingSessions: sessionResult.status === 'fulfilled' ? sessionResult.value.data || [] : [],
+    active_workout_plan: activePlanResult.status === 'fulfilled' ? activePlanResult.value.data || null : null,
+    workouts_completed_today: workoutCountResult.status === 'fulfilled' ? workoutCountResult.value.count || 0 : 0,
+    upcoming_sessions: sessionResult.status === 'fulfilled' ? sessionResult.value.data || [] : [],
     badges: badgeResult.status === 'fulfilled' ? badgeResult.value.data || [] : [],
     reels,
   };
@@ -2725,7 +2725,10 @@ const getWellnessReports = async (userId, filters = {}) => {
       workouts_change_pct: calcDelta(workouts.length, priorWCount),
       steps_change_pct: calcDelta(totalSteps, priorSteps),
       calories_change_pct: calcDelta(totalActiveCalories, priorCalories),
-      sleep_change_pct: +((avgSleepHours ? 4.5 : 0)).toFixed(1),
+      sleep_change_pct: calcDelta(
+        totalSleepMinutes,
+        (priorWearables.data || []).reduce((s, i) => s + Number(i.sleep_minutes || 0), 0)
+      ),
     };
   } catch (err) {
     console.warn(`[wellness] period delta calculation failed: ${err.message}`);
@@ -2749,7 +2752,7 @@ const getWellnessReports = async (userId, filters = {}) => {
     const dayWorkoutBurn = dayWorkouts.reduce((sum, w) => sum + Number(w.calories_burned || 0), 0);
     const daySteps = wear ? Number(wear.steps || 0) : 0;
     const dayActiveCal = wear ? Number(wear.active_calories || 0) : dayWorkoutBurn;
-    const daySleep = wear && wear.sleep_minutes ? +(wear.sleep_minutes / 60).toFixed(1) : (avgSleepHours || 7.2);
+    const daySleep = wear && wear.sleep_minutes ? +(wear.sleep_minutes / 60).toFixed(1) : null;
     const dayHr = wear && wear.heart_rate_avg ? Number(wear.heart_rate_avg) : (avgHeartRate || 68);
 
     dailyTrends.push({

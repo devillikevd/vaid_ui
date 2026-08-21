@@ -107,7 +107,9 @@ fun PatientDashboardScreen(
     onDoctorClick: (String) -> Unit = {},
     onNavigateToAllRecommendedDoctors: () -> Unit = {},
     onNavigateToActiveBooking: (String) -> Unit = {},
-    onJoinVideoConsultation: (String, String) -> Unit = { _, _ -> }
+    onJoinVideoConsultation: (String, String) -> Unit = { _, _ -> },
+    onNavigateToGuardianDashboard: () -> Unit = {},
+    onNavigateToVolunteerRegistration: () -> Unit = {}
 ) {
     val selectedTab by viewModel.selectedTab.collectAsState()
     var showNotificationPanel by remember { mutableStateOf(false) }
@@ -721,9 +723,11 @@ fun PatientDashboardScreen(
                                 unreadNotificationsCount = unreadCount,
                                 onNotificationClick = { showNotificationPanel = true },
                                 onLogout = onLogout,
-                        onAddressesClick = {
-                            showAddressListDialog = true
-                        },
+                                onAddressesClick = {
+                                    showAddressListDialog = true
+                                },
+                                onNavigateToGuardianDashboard = onNavigateToGuardianDashboard,
+                                onNavigateToVolunteerRegistration = onNavigateToVolunteerRegistration,
                                 viewModel = viewModel
                             )
                         }

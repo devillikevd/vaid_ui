@@ -58,6 +58,8 @@ fun ProfileTabContent(
     onLogout: () -> Unit = {},
     onNavigateToVitals: () -> Unit = {},
     onAddressesClick: () -> Unit = {},
+    onNavigateToGuardianDashboard: () -> Unit = {},
+    onNavigateToVolunteerRegistration: () -> Unit = {},
     viewModel: PatientDashboardViewModel? = null
 ) {
     var showEditProfileDialog by remember { mutableStateOf(false) }
@@ -279,7 +281,11 @@ fun ProfileTabContent(
 
 
     if (showGuardianSettingsDialog) {
-        com.example.swastik.ui.screens.patient.profile.GuardianSettingsDialog(onDismiss = { showGuardianSettingsDialog = false })
+        com.example.swastik.ui.screens.patient.profile.GuardianSettingsDialog(
+            onDismiss = { showGuardianSettingsDialog = false },
+            onNavigateToVolunteerRegistration = onNavigateToVolunteerRegistration,
+            onNavigateToGuardianDashboard = onNavigateToGuardianDashboard
+        )
     }
 
     if (showFeedbackDialog) {
