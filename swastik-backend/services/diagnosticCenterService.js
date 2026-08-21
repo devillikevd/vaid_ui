@@ -11,7 +11,6 @@ const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
 const eventEmitter = require('./eventEmitter');
 const { buildProviderResubmissionFields } = require('../utils/providerApproval');
-const organizationPartnershipService = require('./organizationPartnershipService');
 
 const normalizeDiagnosticBookingStatus = (status) => (
   status === 'booked' ? 'pending' : status
@@ -489,7 +488,7 @@ const deleteTest = async (centerId, testId) => {
 const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
   let query = supabaseAdmin
     .from('diagnostic_bookings')
-    .select('*, patient:patients(name, user_id, user:users(phone)), test:diagnostic_tests(name, category, sample_type), center:diagnostic_centers(id, name, phone, address, latitude, longitude), prescription:prescriptions(file_url), clinic:clinics(name), delivery_agents(*)', {
+    .select('*, patient:patients(name, user_id, user:users(phone)), test:diagnostic_tests(name, category, sample_type), center:diagnostic_centers(id, name, phone, address, latitude, longitude), prescription:prescriptions(file_url), delivery_agents(*)', {
       count: 'exact',
     })
     .eq('center_id', centerId);
@@ -805,86 +804,6 @@ const bookTest = async (patientId, centerId, testId, bookingData) => {
   return normalizeDiagnosticBookingRecord(data);
 };
 
-// Create booking (from clinic on behalf of a patient)
-const createClinicDiagnosticBooking = async (clinicId, doctorId, bookingData) => {
-  // 1. Verify Active Partnership
-  await organizationPartnershipService.verifyActivePartnership('clinic', clinicId, 'diagnostic_center', bookingData.centerId);
-
-  // 2. We allow either passing prescription_id, or just passing patient_id with consultation_id
-  if (!bookingData.patientId && !bookingData.prescriptionId) {
-    throw new ApiError(400, 'Either patientId or prescriptionId must be provided for clinic-routed bookings');
-  }
-
-  let finalPatientId = bookingData.patientId || bookingData.patient_id;
-
-  if (bookingData.prescriptionId) {
-    // Validate prescription ownership
-    const { data: prescription, error: prescriptionError } = await supabaseAdmin
-      .from('prescriptions')
-      .select(`
-        id,
-        patient_id,
-        consultations (
-          appointments (
-            clinic_id
-          )
-        )
-      `)
-      .eq('id', bookingData.prescriptionId)
-      .single();
-
-    if (prescriptionError || !prescription) {
-      throw new ApiError(404, 'Prescription not found');
-    }
-
-    const presClinicId = prescription.consultations?.appointments?.clinic_id;
-    if (presClinicId !== clinicId) {
-      throw new ApiError(403, 'Prescription does not belong to your clinic');
-    }
-
-    finalPatientId = prescription.patient_id;
-  }
-
-  if (!finalPatientId) {
-     throw new ApiError(400, 'Failed to resolve patient context');
-  }
-
-  // Use the internal bookTest but provide our verified finalPatientId and add clinic_id context.
-  // Wait, bookTest doesn't accept clinic_id. We'll directly insert using the same shape.
-  const { data, error } = await supabaseAdmin
-    .from('diagnostic_bookings')
-    .insert({
-      patient_id: finalPatientId,
-      center_id: bookingData.centerId,
-      test_id: bookingData.testId || null,
-      prescription_id: bookingData.prescriptionId || bookingData.prescription_id || null,
-      booking_date: bookingData.bookingDate || bookingData.booking_date,
-      booking_time: bookingData.bookingTime || bookingData.booking_time || null,
-      collection_type: bookingData.collectionType || bookingData.collection_type || 'walk_in',
-      collection_address: bookingData.patientPhone ? `${bookingData.collectionAddress || bookingData.collection_address || ''} | Phone: ${bookingData.patientPhone}` : (bookingData.collectionAddress || bookingData.collection_address || null),
-      notes: bookingData.notes || null,
-      status: 'pending',
-      result_status: 'pending',
-      clinic_id: clinicId, // Needs 082 migration
-      doctor_id: doctorId, // Needs 082 migration
-      consultation_id: bookingData.consultationId || null // Needs 082 migration
-    })
-    .select('*, test:diagnostic_tests(name, category, price)')
-    .single();
-
-  if (error) throw error;
-
-  // Emit event to center
-  const centerOwnerId = await getCenterOwnerId(bookingData.centerId);
-  eventEmitter.emitDiagnosticBookingCreated({
-      ...data,
-      center_id: bookingData.centerId,
-      center_owner_id: centerOwnerId,
-  });
-
-  return normalizeDiagnosticBookingRecord(data);
-};
-
 // DC5: Resolve patient ID from user ID (extracted from route handler)
 const resolvePatientId = async (userId) => {
   const { data, error } = await supabaseAdmin
@@ -953,5 +872,4 @@ module.exports = {
   // Helpers (DC5: extracted from inline route handlers)
   resolvePatientId,
   getCenterOwnerId,
-  createClinicDiagnosticBooking,
 };

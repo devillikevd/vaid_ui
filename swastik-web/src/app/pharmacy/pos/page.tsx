@@ -304,8 +304,8 @@ export default function PharmacyPOSPage() {
                             </div>
                           )}
                           <div>
-                            <h3 className="font-semibold text-gray-900 text-lg leading-tight">{item.name}</h3>
-                            {item.generic_name && <p className="text-sm text-gray-500 mt-1">{item.generic_name}</p>}
+                            <h3 className="font-semibold text-gray-900 text-lg leading-tight">{item.medicine?.name || item.name}</h3>
+                            {(item.medicine?.generic_name || item.generic_name) && <p className="text-sm text-gray-500 mt-1">{item.medicine?.generic_name || item.generic_name}</p>}
                             {(item.medicine?.dosage_form || item.medicine?.strength || item.medicine?.pack_size) && (
                               <p className="text-xs text-gray-500 mt-1">
                                 {[item.medicine.dosage_form, item.medicine.strength, item.medicine.pack_size].filter(Boolean).join(' • ')}

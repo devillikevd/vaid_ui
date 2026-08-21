@@ -39,6 +39,7 @@ const ADMIN_CONFIG: DashboardConfig = {
         { name: 'Pending Approvals', href: '/admin/approvals', icon: ClipboardCheck },
         { name: 'All Providers', href: '/admin/providers', icon: Users },
         { name: 'Medicine Catalog', href: '/admin/medicines', icon: Package },
+        { name: 'Unmapped Inventory', href: '/admin/unmapped-inventory', icon: Package },
         { name: 'Campaigns', href: '/admin/campaigns', icon: BadgePercent },
         { name: 'Wellness & Community', href: '/admin/wellness', icon: Flame },
         { name: 'Emergencies', href: '/admin/emergencies', icon: AlertTriangle },

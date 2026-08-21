@@ -1769,6 +1769,32 @@ export const clinicApi = {
 
 export const diagnosticCenterApi = {
     getDashboard: () => fetchWithAuth('/diagnostic-centers/owner/dashboard'),
+    
+    // Staff Management
+    getStaff: () => fetchWithAuth('/diagnostic-centers/owner/staff'),
+    
+    inviteStaff: (email: string, role: string) => 
+        fetchWithAuth('/diagnostic-centers/owner/staff/invite', {
+            method: 'POST',
+            body: JSON.stringify({ email, role }),
+        }),
+        
+    updateStaffRole: (id: string, role: string) =>
+        fetchWithAuth(`/diagnostic-centers/owner/staff/${id}/role`, {
+            method: 'PATCH',
+            body: JSON.stringify({ role }),
+        }),
+        
+    updateStaffStatus: (id: string, action: 'suspend' | 'activate') =>
+        fetchWithAuth(`/diagnostic-centers/owner/staff/${id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ action }),
+        }),
+        
+    removeStaff: (id: string) =>
+        fetchWithAuth(`/diagnostic-centers/owner/staff/${id}`, {
+            method: 'DELETE',
+        }),
 
     getReviews: (page: number = 1, limit: number = 10) =>
         fetchWithAuth(`/diagnostic-centers/owner/reviews?page=${page}&limit=${limit}`),
@@ -1798,13 +1824,14 @@ export const diagnosticCenterApi = {
             method: 'DELETE',
         }),
 
-    getTests: (params: { page?: number; limit?: number; search?: string; category?: string } = {}) => {
+    getTests: (params: { page?: number; limit?: number; search?: string; category?: string; isActive?: boolean } = {}) => {
         const query = new URLSearchParams({
             page: String(params.page ?? 1),
             limit: String(params.limit ?? 20),
         });
         if (params.search) query.set('search', params.search);
         if (params.category) query.set('category', params.category);
+        if (typeof params.isActive === 'boolean') query.set('isActive', String(params.isActive));
         return fetchWithAuth(`/diagnostic-centers/owner/tests?${query}`);
     },
 
@@ -1830,7 +1857,7 @@ export const diagnosticCenterApi = {
     deleteTest: (testId: string) =>
         fetchWithAuth(`/diagnostic-centers/owner/tests/${testId}`, { method: 'DELETE' }),
 
-    getBookings: (params: { page?: number; limit?: number; status?: string; resultStatus?: string; date?: string; search?: string } = {}) => {
+    getBookings: (params: { page?: number; limit?: number; status?: string; resultStatus?: string; date?: string; dateFrom?: string; dateTo?: string; collectionType?: string; patientId?: string; search?: string } = {}) => {
         const query = new URLSearchParams({
             page: String(params.page ?? 1),
             limit: String(params.limit ?? 20),
@@ -1838,8 +1865,27 @@ export const diagnosticCenterApi = {
         if (params.status) query.set('status', params.status);
         if (params.resultStatus) query.set('resultStatus', params.resultStatus);
         if (params.date) query.set('date', params.date);
+        if (params.dateFrom) query.set('dateFrom', params.dateFrom);
+        if (params.dateTo) query.set('dateTo', params.dateTo);
+        if (params.collectionType) query.set('collectionType', params.collectionType);
+        if (params.patientId) query.set('patientId', params.patientId);
         if (params.search) query.set('search', params.search);
         return fetchWithAuth(`/diagnostic-centers/owner/bookings?${query}`);
+    },
+
+    getPatients: (params: { page?: number; limit?: number; search?: string } = {}) => {
+        const query = new URLSearchParams();
+        if (params.page) query.append('page', params.page.toString());
+        if (params.limit) query.append('limit', params.limit.toString());
+        if (params.search) query.append('search', params.search);
+        return fetchWithAuth(`/diagnostic-centers/owner/patients?${query}`);
+    },
+
+    getPatientHistory: (patientId: string, params: { page?: number; limit?: number } = {}) => {
+        const query = new URLSearchParams();
+        if (params.page) query.append('page', params.page.toString());
+        if (params.limit) query.append('limit', params.limit.toString());
+        return fetchWithAuth(`/diagnostic-centers/owner/patients/${patientId}/history?${query}`);
     },
 
     getBookingById: (bookingId: string) =>
@@ -1857,15 +1903,19 @@ export const diagnosticCenterApi = {
             body: data,
         }),
 
-    getAnalytics: () => fetchWithAuth('/diagnostic-centers/owner/analytics'),
+    getAnalytics: (period: number = 30) => fetchWithAuth(`/diagnostic-centers/owner/analytics?period=${period}`),
 
-    getResults: (params: { page?: number; limit?: number; resultStatus?: string; search?: string } = {}) => {
+    getResults: (params: { page?: number; limit?: number; resultStatus?: string; search?: string; status?: string; collectionType?: string; dateFrom?: string; dateTo?: string } = {}) => {
         const query = new URLSearchParams({
             page: String(params.page ?? 1),
             limit: String(params.limit ?? 20),
         });
         if (params.resultStatus) query.set('resultStatus', params.resultStatus);
         if (params.search) query.set('search', params.search);
+        if (params.status) query.set('status', params.status);
+        if (params.collectionType) query.set('collectionType', params.collectionType);
+        if (params.dateFrom) query.set('dateFrom', params.dateFrom);
+        if (params.dateTo) query.set('dateTo', params.dateTo);
         return fetchWithAuth(`/diagnostic-centers/owner/bookings?${query}`);
     },
 
@@ -2551,6 +2601,7 @@ export const publicDiscoveryApi = {
     searchHospitals: (query: string = '') => fetchWithAuth(`/hospitals/search?q=${encodeURIComponent(query)}`),
     searchPharmacies: (query: string = '') => fetchWithAuth(`/pharmacy/search?search=${encodeURIComponent(query)}`),
     searchDiagnosticCenters: (query: string = '') => fetchWithAuth(`/diagnostic-centers/search?search=${encodeURIComponent(query)}`),
+    searchClinics: (query: string = '') => fetchWithAuth(`/clinics/search?search=${encodeURIComponent(query)}`),
 };
 
 // ==================== Unified Export ====================

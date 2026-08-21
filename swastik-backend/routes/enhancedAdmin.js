@@ -787,6 +787,95 @@ router.get('/audit-logs', asyncHandler(async (req, res) => {
     );
     res.json({ success: true, ...result });
 }));
+// ==================== LEGACY INVENTORY (ADMIN) ====================
+
+/**
+ * @route GET /api/admin/unmapped-inventory
+ * @desc List all pharmacy_inventory records where medicine_id IS NULL
+ */
+router.get('/unmapped-inventory', asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../config/supabase');
+    const { data, error } = await supabaseAdmin
+        .from('pharmacy_inventory')
+        .select('*, pharmacy:pharmacies(id, name, owner_id)')
+        .is('medicine_id', null)
+        .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({
+        success: true,
+        data: data || [],
+    });
+}));
+
+/**
+ * @route POST /api/admin/unmapped-inventory/map
+ * @desc Map a legacy inventory record to a master medicine
+ */
+router.post('/unmapped-inventory/map', [
+    body('inventoryId').isUUID().withMessage('Valid inventory ID is required'),
+    body('medicineId').isUUID().withMessage('Valid master medicine ID is required'),
+    validate
+], asyncHandler(async (req, res) => {
+    const { inventoryId, medicineId } = req.body;
+    const { supabaseAdmin } = require('../config/supabase');
+    const ApiError = require('../utils/apiError');
+
+    // 1. Validate inventory record exists and is unmapped
+    const { data: inventoryItem, error: invError } = await supabaseAdmin
+        .from('pharmacy_inventory')
+        .select('id, pharmacy_id, medicine_id')
+        .eq('id', inventoryId)
+        .single();
+    
+    if (invError || !inventoryItem) {
+        throw new ApiError(404, 'Legacy inventory record not found');
+    }
+    if (inventoryItem.medicine_id !== null) {
+        throw new ApiError(400, 'This inventory record is already mapped to a master medicine');
+    }
+
+    // 2. Validate master medicine exists and is active
+    const { data: masterMed, error: medError } = await supabaseAdmin
+        .from('medicines')
+        .select('id, is_active')
+        .eq('id', medicineId)
+        .single();
+    
+    if (medError || !masterMed) {
+        throw new ApiError(404, 'Target master medicine not found');
+    }
+    if (!masterMed.is_active) {
+        throw new ApiError(400, 'Cannot map to an inactive master medicine');
+    }
+
+    // 3. Verify pharmacy doesn't already have this medicine mapped
+    const { data: existingMap, error: existError } = await supabaseAdmin
+        .from('pharmacy_inventory')
+        .select('id')
+        .eq('pharmacy_id', inventoryItem.pharmacy_id)
+        .eq('medicine_id', medicineId)
+        .maybeSingle();
+
+    if (existError) throw existError;
+    if (existingMap) {
+        throw new ApiError(409, 'This pharmacy already has an inventory record mapped to this master medicine');
+    }
+
+    // 4. Update the inventory record
+    const { error: updateError } = await supabaseAdmin
+        .from('pharmacy_inventory')
+        .update({ medicine_id: medicineId, updated_at: new Date().toISOString() })
+        .eq('id', inventoryId);
+    
+    if (updateError) throw updateError;
+
+    res.json({
+        success: true,
+        message: 'Inventory successfully mapped to master medicine',
+    });
+}));
 
 // ==================== MEDICINES CATALOG (ADMIN) ====================
 

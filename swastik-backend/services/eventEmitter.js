@@ -458,7 +458,7 @@ class AppEventEmitter extends EventEmitter {
     this.emitDistributed('order:new', order);
   }
 
-  emitDiagnosticBookingCreated(booking) {
+  emitDiagnosticBookingCreated(booking, patientUserId) {
     const { patient_id, center_id, center_owner_id } = booking;
     const normalizedBooking = {
       ...booking,
@@ -476,10 +476,10 @@ class AppEventEmitter extends EventEmitter {
         centerId: normalizedBooking.center_id,
       },
     };
-    this.notifyUser(patient_id, 'notification:new', patientNotif);
+    if (patientUserId) this.notifyUser(patientUserId, 'notification:new', patientNotif);
     try {
       const notificationService = require('./notificationService');
-      notificationService.sendNotification(patient_id, patientNotif).catch(() => {});
+      if (patientUserId) notificationService.sendNotification(patientUserId, patientNotif).catch(() => {});
     } catch {}
     // Notify the diagnostic center owner for real-time dashboard updates
     if (center_owner_id) {

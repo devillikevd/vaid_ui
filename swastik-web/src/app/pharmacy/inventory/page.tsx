@@ -164,23 +164,30 @@ export default function PharmacyInventoryPage() {
             total_quantity: number;
             total_reserved: number;
             total_available: number;
+            medicine?: any;
         }> = {};
 
         displayInventory.forEach((item: any) => {
-            const key = item.medicine_id || `${item.name}|${item.generic_name || ''}|${item.manufacturer || ''}|${item.pack_size || item.packSize || ''}`;
+            const mName = item.medicine?.name || (item.medicine_id ? 'Not available' : item.name);
+            const mGen = item.medicine?.generic_name || (item.medicine_id ? 'Not available' : (item.generic_name || item.genericName));
+            const mMan = item.medicine?.manufacturer || (item.medicine_id ? 'Not available' : item.manufacturer);
+            const mPack = item.medicine?.pack_size || item.pack_size || item.packSize;
+            
+            const key = item.medicine_id || `${mName}|${mGen || ''}|${mMan || ''}|${mPack || ''}`;
             if (!groups[key]) {
                 groups[key] = {
                     identityKey: key,
                     medicine_id: item.medicine_id,
-                    name: item.name,
-                    generic_name: item.generic_name || item.genericName,
-                    manufacturer: item.manufacturer,
-                    pack_size: item.pack_size || item.packSize,
+                    name: mName,
+                    generic_name: mGen,
+                    manufacturer: mMan,
+                    pack_size: mPack,
                     barcode: item.barcode,
                     batches: [],
                     total_quantity: 0,
                     total_reserved: 0,
                     total_available: 0,
+                    medicine: item.medicine,
                 };
             }
             groups[key].batches.push(item);
@@ -336,16 +343,25 @@ export default function PharmacyInventoryPage() {
             return mapped;
         });
 
-        if (!mappedData.some(item => item.name)) {
-            toast.error('Missing Mapping', 'Please map at least the Medicine Name field');
+        if (!mappedData.some(item => item.name || item.medicine_id)) {
+            toast.error('Missing Mapping', 'Please map at least the Medicine Name or ID field');
             return;
         }
 
         setActionLoading('import');
-        const success = await addBulkInventoryItems(mappedData);
-        if (success) {
-            toast.success('Import Successful', `Successfully imported ${mappedData.length} items`);
+        const response = await addBulkInventoryItems(mappedData);
+        if (response.success) {
+            const imported = response.data?.imported || 0;
+            const unmatched = response.data?.unmatchedRows?.length || 0;
+            
+            if (unmatched > 0) {
+                toast.warning('Import Partially Completed', `Successfully imported ${imported} items. ${unmatched} rows could not be matched to the Vaididea Master Catalog.`);
+            } else {
+                toast.success('Import Successful', `Successfully imported ${imported} items.`);
+            }
             setRefreshKey(k => k + 1);
+        } else {
+            toast.error('Import Failed', response.message);
         }
         setActionLoading(null);
         setShowCsvMapping(false);
@@ -556,8 +572,8 @@ export default function PharmacyInventoryPage() {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <div className="text-gray-700 dark:text-gray-300">{group.generic_name || '-'}</div>
-                                                    <div className="text-xs text-gray-500 mt-0.5">{group.manufacturer || '-'}</div>
+                                                    <div className="text-gray-700 dark:text-gray-300">{group.medicine?.generic_name ?? group.generic_name ?? 'Not available'}</div>
+                                                    <div className="text-xs text-gray-500 mt-0.5">{group.medicine?.manufacturer ?? group.manufacturer ?? 'Not available'}</div>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="text-sm text-gray-500">{group.batches.length} Batch{group.batches.length !== 1 ? 'es' : ''}</div>
@@ -850,11 +866,11 @@ export default function PharmacyInventoryPage() {
                                 <div>
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2"><Package className="h-3 w-3 text-orange-600" /> Medicine Information</h3>
                                     <div className="space-y-4">
-                                        <Input label="Medicine Name *" value={form.name} onChange={(e) => setForm(c => ({ ...c, name: e.target.value }))} placeholder="Enter medicine name" error={!form.name.trim() ? "Medicine name is required." : undefined} />
-                                        <Input label="Generic / Salt Name" value={form.genericName} onChange={(e) => setForm(c => ({ ...c, genericName: e.target.value }))} placeholder="Active ingredients" />
+                                        <Input label="Medicine Name *" value={form.name} onChange={(e) => {}} disabled={true} placeholder="Select from catalog above" error={!form.medicine_id && !editItem ? "Please select a valid medicine from the Vaididea catalog." : undefined} />
+                                        <Input label="Generic / Salt Name" value={form.genericName} onChange={(e) => {}} disabled={true} placeholder="Active ingredients" />
                                         <div className="grid grid-cols-2 gap-4">
                                             <Input label="Pack Size" value={form.packSize} onChange={(e) => setForm(c => ({ ...c, packSize: e.target.value }))} placeholder="e.g. 10 tablets" />
-                                            <Input label="Manufacturer" value={form.manufacturer} onChange={(e) => setForm(c => ({ ...c, manufacturer: e.target.value }))} placeholder="Manufacturer name" />
+                                            <Input label="Manufacturer" value={form.manufacturer} onChange={(e) => {}} disabled={true} placeholder="Manufacturer name" />
                                         </div>
                                     </div>
                                 </div>
@@ -905,11 +921,11 @@ export default function PharmacyInventoryPage() {
                                 {/* SECTION D: COMPLIANCE */}
                                 <div>
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2"><Tag className="h-3 w-3 text-orange-600" /> Compliance</h3>
-                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-                                        <input type="checkbox" id="rx" checked={form.requiresPrescription} onChange={(e) => setForm(c => ({ ...c, requiresPrescription: e.target.checked }))} className="w-5 h-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500" />
-                                        <label htmlFor="rx" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700 opacity-70 pointer-events-none">
+                                        <input type="checkbox" id="rx" checked={form.requiresPrescription} readOnly className="w-5 h-5 rounded border-gray-300 text-orange-600 bg-gray-100" />
+                                        <label htmlFor="rx" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-not-allowed">
                                             Prescription Required (Rx)
-                                            <p className="text-xs text-gray-500 font-normal mt-0.5">Check this if the medicine requires a valid prescription to dispense.</p>
+                                            <p className="text-xs text-gray-500 font-normal mt-0.5">This is strictly enforced by the Vaididea Master Catalog.</p>
                                         </label>
                                     </div>
                                 </div>
@@ -932,7 +948,7 @@ export default function PharmacyInventoryPage() {
                             <Button 
                                 onClick={handleSave} 
                                 disabled={
-                                    !form.name.trim() || 
+                                    (!editItem && !form.medicine_id) || 
                                     actionLoading === 'save' || 
                                     (form.quantity !== '' && Number(form.quantity) < 0) || 
                                     (form.minQuantity !== '' && Number(form.minQuantity) < 0) ||

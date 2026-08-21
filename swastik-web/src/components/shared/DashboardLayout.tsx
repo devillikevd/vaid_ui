@@ -563,7 +563,7 @@ export function BaseDashboardLayout({
     const displayName = user?.role === 'doctor' ? formatDoctorName(rawName) : rawName;
 
     const baseRoleStr = Array.isArray(config.role) ? config.role[0] : config.role;
-    const basePath = `/${baseRoleStr?.replace(/_owner|_manager/, '')}`;
+    const basePath = `/${baseRoleStr?.replace(/_owner|_manager|_admin|_staff/, '')?.replace(/_/g, '-')}`;
 
     const activeNavItem = config.navItems.find(item => item.href === pathname);
 
@@ -903,7 +903,10 @@ export function BaseDashboardLayout({
                                         onClick={() => setDropdownOpen(false)}
                                         role="presentation"
                                     />
-                                    <div className="absolute right-0 mt-2 w-[95vw] sm:w-[500px] bg-white/95 dark:bg-[#0B1020]/95 backdrop-blur-xl rounded-[18px] border border-gray-200 dark:border-gray-800 shadow-2xl z-50 overflow-hidden ring-1 ring-black/5 dark:ring-white/5 flex flex-col max-h-[85vh]">
+                                    <div className={cn(
+                                        "absolute right-0 mt-2 w-[95vw] bg-white/95 dark:bg-[#0B1020]/95 backdrop-blur-xl rounded-[18px] border border-gray-200 dark:border-gray-800 shadow-2xl z-50 overflow-hidden ring-1 ring-black/5 dark:ring-white/5 flex flex-col max-h-[85vh]",
+                                        config.theme?.dataTheme === 'diagnostic-center' ? 'sm:w-[320px]' : 'sm:w-[500px]'
+                                    )}>
                                         {user?.role === 'doctor' ? (
                                             <>
                                                 <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">
@@ -1190,7 +1193,17 @@ export function BaseDashboardLayout({
                                                         </div>
                                                         <div className="min-w-0">
                                                             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{displayName}</p>
-                                                            <span className="inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 capitalize">
+                                                            <span className={cn(
+                                                                "inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full capitalize",
+                                                                colors.activeIcon,
+                                                                config.theme.color === 'purple'
+                                                                    ? 'bg-purple-100 dark:bg-purple-900/40'
+                                                                    : config.theme.color === 'pink'
+                                                                    ? 'bg-pink-100 dark:bg-pink-900/40'
+                                                                    : config.theme.color === 'orange'
+                                                                    ? 'bg-orange-100 dark:bg-orange-900/40'
+                                                                    : 'bg-emerald-100 dark:bg-emerald-900/40'
+                                                            )}>
                                                                 {user?.role?.replace(/_/g, ' ')}
                                                             </span>
                                                         </div>
@@ -1199,27 +1212,35 @@ export function BaseDashboardLayout({
 
                                                 {/* Navigation Links */}
                                                 {config.showFullDropdown && (
-                                                    <div className="py-1.5">
+                                                    <div className="p-3 space-y-1 border-b border-gray-100 dark:border-gray-700">
                                                         <Link
                                                             href={config.profileHref || `/${user?.role?.replace(/_owner|_manager/, '')}/settings`}
                                                             onClick={() => setDropdownOpen(false)}
-                                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                                            className={cn(
+                                                                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 transition-all duration-150 group w-full",
+                                                                "hover:bg-purple-50 dark:hover:bg-purple-900/10 hover:text-purple-900 dark:hover:text-purple-100"
+                                                            )}
                                                         >
-                                                            <span className="flex items-center justify-center h-7 w-7 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                                                                <UserIcon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                                            <span className="flex items-center justify-center h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-800 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/30 transition-colors shrink-0">
+                                                                <UserIcon className="h-4 w-4 text-gray-500 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
                                                             </span>
-                                                            <span>View Profile</span>
+                                                            <span className="flex-1">View Profile</span>
+                                                            <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600 group-hover:text-purple-400 dark:group-hover:text-purple-500 group-hover:translate-x-0.5 transition-all shrink-0" />
                                                         </Link>
                                                         {config.settingsHref && (
                                                             <Link
                                                                 href={config.settingsHref}
                                                                 onClick={() => setDropdownOpen(false)}
-                                                                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                                                className={cn(
+                                                                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 transition-all duration-150 group w-full",
+                                                                    "hover:bg-purple-50 dark:hover:bg-purple-900/10 hover:text-purple-900 dark:hover:text-purple-100"
+                                                                )}
                                                             >
-                                                                <span className="flex items-center justify-center h-7 w-7 rounded-lg bg-gray-100 dark:bg-gray-700">
-                                                                    <Settings2 className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                                                                <span className="flex items-center justify-center h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-800 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/30 transition-colors shrink-0">
+                                                                    <Settings2 className="h-4 w-4 text-gray-500 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
                                                                 </span>
-                                                                <span>Account &amp; Settings</span>
+                                                                <span className="flex-1">Account &amp; Settings</span>
+                                                                <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600 group-hover:text-purple-400 dark:group-hover:text-purple-500 group-hover:translate-x-0.5 transition-all shrink-0" />
                                                             </Link>
                                                         )}
                                                     </div>

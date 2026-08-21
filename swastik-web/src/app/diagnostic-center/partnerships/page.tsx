@@ -11,7 +11,8 @@ export default function DiagnosticCenterPartnershipsPage() {
             currentOrgType="diagnostic_center"
             availableTargetTypes={[
                 { value: 'clinic', label: 'Clinic' },
-                { value: 'hospital', label: 'Hospital' }
+                { value: 'hospital', label: 'Hospital' },
+                { value: 'pharmacy', label: 'Pharmacy' }
             ]}
             fetchPartnerships={api.diagnosticCenter.getPartnerships}
             sendInvite={api.diagnosticCenter.invitePartnership}

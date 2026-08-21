@@ -16,6 +16,8 @@ const ROLES = {
   PHARMACY_STAFF: 'pharmacy_staff',
   CLINIC_OWNER: 'clinic_owner',
   DIAGNOSTIC_CENTER_OWNER: 'diagnostic_center_owner',
+  DIAGNOSTIC_MANAGER: 'diagnostic_manager',
+  LAB_TECHNICIAN: 'lab_technician',
   WELLNESS_COACH: 'wellness_coach',
   FITNESS_CENTER_OWNER: 'fitness_center_owner',
   AMBULANCE_OPERATOR: 'ambulance_operator',
@@ -58,6 +60,8 @@ const ROLE_HIERARCHY = [
   ROLES.HOSPITAL_MANAGER,
   ROLES.HOSPITAL_OWNER,
   ROLES.CLINIC_OWNER,
+  ROLES.LAB_TECHNICIAN,
+  ROLES.DIAGNOSTIC_MANAGER,
   ROLES.DIAGNOSTIC_CENTER_OWNER,
   ROLES.WELLNESS_COACH,
   ROLES.FITNESS_CENTER_OWNER,
@@ -108,6 +112,8 @@ const ROLE_TO_TABLE = {
   [ROLES.PHARMACY_STAFF]: 'pharmacies',   // approval checked via linked pharmacy
   [ROLES.CLINIC_OWNER]: 'clinics',
   [ROLES.DIAGNOSTIC_CENTER_OWNER]: 'diagnostic_centers',
+  [ROLES.DIAGNOSTIC_MANAGER]: 'diagnostic_centers',
+  [ROLES.LAB_TECHNICIAN]: 'diagnostic_centers',
   [ROLES.WELLNESS_COACH]: 'wellness_coaches',
   [ROLES.FITNESS_CENTER_OWNER]: 'fitness_centers',
   [ROLES.AMBULANCE_OPERATOR]: 'ambulance_operators',
@@ -185,6 +191,26 @@ const requireApproval = async (req, res, next) => {
         return res.status(403).json({
           success: false,
           message: 'Your pharmacy membership is not active. Contact your pharmacy owner.',
+        });
+      }
+    } else if (req.user.role === ROLES.DIAGNOSTIC_MANAGER || req.user.role === ROLES.LAB_TECHNICIAN) {
+      const { data: memberEntry } = await supabaseAdmin
+        .from('diagnostic_members')
+        .select('diagnostic_center_id, status')
+        .eq('user_id', req.user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (memberEntry) {
+        const { data: center } = await supabaseAdmin
+          .from('diagnostic_centers')
+          .select('approval_status')
+          .eq('id', memberEntry.diagnostic_center_id)
+          .single();
+        provider = center;
+      } else {
+        return res.status(403).json({
+          success: false,
+          message: 'Your diagnostic center membership is not active. Contact your center owner.',
         });
       }
     } else {
@@ -369,4 +395,89 @@ const requirePharmacyMember = async (req, res, next) => {
   }
 };
 
-module.exports = { ROLES, requireRole, requireMinRole, requireApproval, requireMfa, isAdminRole, requirePharmacyMember };
+/**
+ * requireDiagnosticMember — live membership check for diagnostic_manager and lab_technician.
+ */
+const requireDiagnosticMember = async (req, res, next) => {
+  try {
+    const { role, id: userId } = req.user || {};
+
+    if (role === ROLES.DIAGNOSTIC_CENTER_OWNER) {
+      const { data: center, error } = await supabaseAdmin
+        .from('diagnostic_centers')
+        .select('id, is_active, approval_status')
+        .eq('owner_id', userId)
+        .maybeSingle();
+
+      if (error || !center) {
+        return res.status(404).json({ success: false, message: 'Diagnostic Center not found for this owner.' });
+      }
+      if (!center.is_active) {
+        return res.status(403).json({ success: false, message: 'Diagnostic Center account is deactivated.' });
+      }
+
+      req.diagnosticCenterId = center.id;
+      req.diagnosticApprovalStatus = center.approval_status;
+      return next();
+    }
+
+    if (role === ROLES.DIAGNOSTIC_MANAGER || role === ROLES.LAB_TECHNICIAN) {
+      const { data: member, error: memberError } = await supabaseAdmin
+        .from('diagnostic_members')
+        .select('diagnostic_center_id, status, member_role')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (memberError || !member) {
+        return res.status(403).json({
+          success: false,
+          message: 'Diagnostic Center membership not found. Contact your center owner.',
+        });
+      }
+
+      if (member.status !== 'active') {
+        const statusMessages = {
+          invited: 'Your invitation is pending acceptance.',
+          suspended: 'Your diagnostic center access has been suspended.',
+          removed: 'Your diagnostic center access has been removed.',
+        };
+        return res.status(403).json({
+          success: false,
+          message: statusMessages[member.status] || 'Diagnostic center access denied.',
+          code: 'DIAGNOSTIC_MEMBER_INACTIVE',
+        });
+      }
+
+      const { data: center, error: centerError } = await supabaseAdmin
+        .from('diagnostic_centers')
+        .select('id, is_active, approval_status')
+        .eq('id', member.diagnostic_center_id)
+        .maybeSingle();
+
+      if (centerError || !center) {
+        return res.status(404).json({ success: false, message: 'Linked diagnostic center not found.' });
+      }
+      if (!center.is_active) {
+        return res.status(403).json({ success: false, message: 'Diagnostic Center account is deactivated.' });
+      }
+
+      req.diagnosticCenterId = center.id;
+      req.diagnosticMemberRole = member.member_role; // 'manager' or 'lab_technician'
+      req.diagnosticApprovalStatus = center.approval_status;
+      return next();
+    }
+
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Diagnostic Center role required.',
+    });
+  } catch (err) {
+    console.error('requireDiagnosticMember error:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to verify diagnostic center access. Please try again.',
+    });
+  }
+};
+
+module.exports = { ROLES, requireRole, requireMinRole, requireApproval, requireMfa, isAdminRole, requirePharmacyMember, requireDiagnosticMember };

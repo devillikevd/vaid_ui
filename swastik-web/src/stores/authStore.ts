@@ -29,19 +29,23 @@ function isJwtExpired(token: string): boolean {
 
 // Web portal roles (ambulance_operator removed — uses separate Kotlin app)
 export type UserRole =
-    | 'admin'
-    | 'super_admin'
-    | 'doctor'
     | 'patient'
+    | 'doctor'
+    | 'clinic_owner'
     | 'hospital_owner'
     | 'hospital_manager'
-    | 'clinic_owner'
-    | 'diagnostic_center_owner'
-    | 'wellness_coach'
-    | 'fitness_center_owner'
     | 'pharmacy_owner'
     | 'pharmacy_manager'
-    | 'pharmacy_staff';
+    | 'pharmacy_staff'
+    | 'diagnostic_center_owner'
+    | 'diagnostic_manager'
+    | 'lab_technician'
+    | 'ambulance_driver'
+    | 'admin'
+    | 'super_admin'
+    | 'wellness_coach'
+    | 'fitness_center_owner'
+    | 'fitness_trainer';
 
 export type ApprovalStatus = 'pending' | 'review' | 'under_review' | 'approved' | 'rejected' | 'suspended';
 
@@ -92,8 +96,12 @@ export const ROLE_HOME_ROUTES: Record<UserRole, string> = {
     hospital_manager: '/hospital',
     clinic_owner: '/clinic',
     diagnostic_center_owner: '/diagnostic-center',
+    diagnostic_manager: '/diagnostic-center',
+    lab_technician: '/diagnostic-center/work-queue',
+    ambulance_driver: '/ambulance',
     wellness_coach: '/wellness',
     fitness_center_owner: '/fitness-center',
+    fitness_trainer: '/fitness-center',
     pharmacy_owner: '/pharmacy',
     pharmacy_manager: '/pharmacy',
     pharmacy_staff: '/pharmacy',
@@ -108,8 +116,12 @@ export const ROLE_LOGIN_ROUTES: Record<UserRole, string> = {
     hospital_manager: '/login/hospital',
     clinic_owner: '/login/clinic',
     diagnostic_center_owner: '/login/diagnostic-center',
+    diagnostic_manager: '/login/diagnostic-center',
+    lab_technician: '/login/diagnostic-center',
+    ambulance_driver: '/login/ambulance',
     wellness_coach: '/login/wellness',
     fitness_center_owner: '/login/fitness-center',
+    fitness_trainer: '/login/fitness-center',
     pharmacy_owner: '/login/pharmacy',
     pharmacy_manager: '/login/pharmacy',
     pharmacy_staff: '/login/pharmacy',
@@ -373,8 +385,12 @@ export function canAccessRoute(userRole: UserRole | undefined, path: string): bo
         hospital_manager: ['/hospital'],
         clinic_owner: ['/clinic'],
         diagnostic_center_owner: ['/diagnostic-center'],
+        diagnostic_manager: ['/diagnostic-center'],
+        lab_technician: ['/diagnostic-center/work-queue'],
+        ambulance_driver: ['/ambulance'],
         wellness_coach: ['/wellness'],
         fitness_center_owner: ['/fitness-center'],
+        fitness_trainer: ['/fitness-center'],
         pharmacy_owner: ['/pharmacy'],
         pharmacy_manager: ['/pharmacy'],
         pharmacy_staff: ['/pharmacy'],

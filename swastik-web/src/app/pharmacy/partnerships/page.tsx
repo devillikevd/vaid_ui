@@ -11,7 +11,8 @@ export default function PharmacyPartnershipsPage() {
             currentOrgType="pharmacy"
             availableTargetTypes={[
                 { value: 'clinic', label: 'Clinic' },
-                { value: 'hospital', label: 'Hospital' }
+                { value: 'hospital', label: 'Hospital' },
+                { value: 'diagnostic_center', label: 'Diagnostic Center' }
             ]}
             fetchPartnerships={api.pharmacy.getPartnerships}
             sendInvite={api.pharmacy.invitePartnership}

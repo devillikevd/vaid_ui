@@ -35,9 +35,12 @@ const router = express.Router();
 const normalizeOrderStatus = (status) => (status === 'out_for_delivery' ? 'dispatched' : status);
 const normalizePatientOrder = (order) => (order ? { ...order, status: normalizeOrderStatus(order.status) } : order);
 const normalizeDiagnosticBookingStatus = (status) => (status === 'booked' ? 'pending' : status);
-const normalizePatientDiagnosticBooking = (booking) => (
-  booking ? { ...booking, status: normalizeDiagnosticBookingStatus(booking.status) } : booking
-);
+const normalizePatientDiagnosticBooking = (booking) => {
+  if (!booking) return booking;
+  const sanitized = { ...booking, status: normalizeDiagnosticBookingStatus(booking.status) };
+  delete sanitized.result_url;
+  return sanitized;
+};
 const normalizeEmergencyStatus = (request) => {
   if (!request) return request;
 
@@ -1417,6 +1420,41 @@ router.get('/diagnostic-bookings/:id',
     }
 
     res.json({ success: true, data: normalizePatientDiagnosticBooking(data) });
+  })
+);
+
+// Get diagnostic booking secure report URL
+router.get('/diagnostic-bookings/:id/report',
+  asyncHandler(async (req, res) => {
+    const { data: patient } = await supabaseAdmin
+      .from('patients')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient profile not found' });
+    }
+
+    const { data: booking, error } = await supabaseAdmin
+      .from('diagnostic_bookings')
+      .select('result_url')
+      .eq('id', req.params.id)
+      .eq('patient_id', patient.id)
+      .single();
+
+    if (error || !booking || !booking.result_url) {
+      return res.status(404).json({ success: false, message: 'Report unavailable' });
+    }
+
+    const { getPresignedUrl, extractObjectNameFromUrl } = require('../../config/minio');
+    const objectName = extractObjectNameFromUrl(booking.result_url);
+    if (!objectName) {
+      return res.status(400).json({ success: false, message: 'Invalid storage URL' });
+    }
+
+    const url = await getPresignedUrl(objectName, 3600);
+    res.redirect(302, url);
   })
 );
 

@@ -223,11 +223,6 @@ export default function BookingsPage() {
                                         <div className="flex items-center gap-2">
                                             <h3 className="font-semibold text-gray-900 dark:text-gray-100">{booking.patient_name || booking.patient?.name || 'Patient'}</h3>
                                             <StatusBadge status={booking.status} size="sm" />
-                                            {(booking as any).clinic?.name && (
-                                                <span className="ml-2 inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 dark:bg-blue-900/30 dark:text-blue-400 dark:ring-blue-400/20">
-                                                    Routed by {(booking as any).clinic.name}
-                                                </span>
-                                            )}
                                         </div>
                                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                                             {booking.patient?.user?.phone ? `📞 ${booking.patient.user.phone} • ` : ''}

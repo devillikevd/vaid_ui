@@ -7,7 +7,6 @@ const router = express.Router();
 const { body, param } = require('express-validator');
 const diagnosticCenterService = require('../services/diagnosticCenterService');
 const facilityAssociationService = require('../services/facilityAssociationService');
-const organizationPartnershipService = require('../services/organizationPartnershipService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { validate } = require('../middleware/validate');
@@ -258,88 +257,6 @@ router.get('/owner/associations', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), re
     res.json({ success: true, data });
 }));
 
-// ==========================================
-// UNIFIED ORGANIZATION PARTNERSHIPS (PHASE 1)
-// ==========================================
-
-router.get('/owner/partnerships', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
-    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
-    const { status } = req.query;
-    
-    const partnerships = await organizationPartnershipService.getPartnerships({
-        orgType: 'diagnostic_center',
-        orgId: center.id,
-        status
-    });
-    
-    res.json({ success: true, data: partnerships });
-}));
-
-router.post('/owner/partnerships/invite', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), [
-    body('targetType').isIn(['clinic', 'hospital', 'pharmacy']).withMessage('Invalid target type'),
-    body('targetId').isUUID().withMessage('Valid target ID required'),
-    body('partnershipType').optional().isString(),
-    body('metadata').optional().isObject(),
-    validate
-], asyncHandler(async (req, res) => {
-    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
-    
-    const request = await organizationPartnershipService.createPartnershipRequest({
-        initiatorType: 'diagnostic_center',
-        initiatorId: center.id,
-        initiatorUserId: req.user.id,
-        targetType: req.body.targetType,
-        targetId: req.body.targetId,
-        partnershipType: req.body.partnershipType,
-        metadata: req.body.metadata || {}
-    });
-    
-    res.status(201).json({ success: true, data: request, message: 'Partnership invitation sent successfully.' });
-}));
-
-router.post('/owner/partnerships/:id/respond', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), [
-    param('id').isUUID().withMessage('Valid partnership ID required'),
-    body('action').isIn(['accept', 'reject']).withMessage('Action must be accept or reject'),
-    validate
-], asyncHandler(async (req, res) => {
-    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
-    const updated = await organizationPartnershipService.respondToPartnershipRequest(
-        req.params.id, 'diagnostic_center', center.id, req.body.action
-    );
-    res.json({ success: true, data: updated, message: `Partnership ${req.body.action}ed successfully.` });
-}));
-
-router.post('/owner/partnerships/:id/request-changes', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), [
-    param('id').isUUID().withMessage('Valid partnership ID required'),
-    body('message').isString().notEmpty().withMessage('Changes message is required'),
-    body('metadataUpdates').optional().isObject(),
-    validate
-], asyncHandler(async (req, res) => {
-    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
-    const updated = await organizationPartnershipService.requestChanges(
-        req.params.id, 'diagnostic_center', center.id, req.body.message, req.body.metadataUpdates || {}
-    );
-    res.json({ success: true, data: updated, message: 'Changes requested successfully.' });
-}));
-
-router.post('/owner/partnerships/:id/accept-changes', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), [
-    param('id').isUUID().withMessage('Valid partnership ID required'),
-    validate
-], asyncHandler(async (req, res) => {
-    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
-    const updated = await organizationPartnershipService.acceptChanges(req.params.id, 'diagnostic_center', center.id);
-    res.json({ success: true, data: updated, message: 'Changes accepted successfully.' });
-}));
-
-router.delete('/owner/partnerships/:id', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), [
-    param('id').isUUID().withMessage('Valid partnership ID required'),
-    validate
-], asyncHandler(async (req, res) => {
-    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
-    const updated = await organizationPartnershipService.terminatePartnership(req.params.id, 'diagnostic_center', center.id);
-    res.json({ success: true, data: updated, message: 'Partnership terminated successfully.' });
-}));
-
 // ==================== Test Catalog ====================
 
 router.get('/owner/tests', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
@@ -485,16 +402,4 @@ router.get('/owner/reviews', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), require
     res.json({ success: true, ...result });
 }));
 
-// Respond to Diagnostic Review
-router.post('/owner/reviews/:id/respond', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, [
-    param('id').isUUID().withMessage('Invalid review ID'),
-    body('response').isString().notEmpty().withMessage('Response message is required'),
-    validate
-], asyncHandler(async (req, res) => {
-    const reviewService = require('../services/reviewService');
-    const updated = await reviewService.respondToReview(req.params.id, req.user.id, req.body.response);
-    res.json({ success: true, data: updated, message: 'Response posted successfully' });
-}));
-
 module.exports = router;
-

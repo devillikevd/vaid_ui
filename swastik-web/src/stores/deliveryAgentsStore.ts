@@ -8,10 +8,6 @@ export interface DeliveryAgent {
     name: string;
     phone_number: string;
     status: 'available' | 'busy';
-    vehicle_details?: string | null;
-    latitude?: number | null;
-    longitude?: number | null;
-    last_location_update?: string | null;
     created_at: string;
 }
 
@@ -21,7 +17,7 @@ interface DeliveryAgentsState {
     error: string | null;
     fetchAgents: (facilityId: string, facilityType: 'pharmacy' | 'diagnostic_center') => Promise<void>;
     assignAgent: (orderId: string, orderType: 'pharmacy' | 'diagnostic', agentId: string) => Promise<{ success: boolean; trackingToken?: string }>;
-    addAgent: (facilityId: string, facilityType: 'pharmacy' | 'diagnostic_center', name: string, phoneNumber: string, vehicleDetails?: string) => Promise<boolean>;
+    addAgent: (facilityId: string, facilityType: 'pharmacy' | 'diagnostic_center', name: string, phoneNumber: string) => Promise<boolean>;
     deleteAgent: (agentId: string) => Promise<boolean>;
     clearError: () => void;
 }
@@ -47,12 +43,12 @@ export const useDeliveryAgentsStore = create<DeliveryAgentsState>((set, get) => 
         }
     },
 
-    addAgent: async (facilityId, facilityType, name, phoneNumber, vehicleDetails) => {
+    addAgent: async (facilityId, facilityType, name, phoneNumber) => {
         set({ loading: true, error: null });
         try {
             const response = await fetchWithAuth(`/delivery-agents`, {
                 method: 'POST',
-                body: JSON.stringify({ facility_id: facilityId, facility_type: facilityType, name, phone: phoneNumber, vehicle_details: vehicleDetails || null })
+                body: JSON.stringify({ facility_id: facilityId, facility_type: facilityType, name, phone: phoneNumber })
             });
             if (!response.success) {
                 throw new Error(response.error);

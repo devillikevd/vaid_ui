@@ -56,7 +56,7 @@ export interface DiagnosticBookingUpdate {
     patient_name?: string;
     test_name?: string;
     booking_date?: string;
-    result_url?: string;
+    report_url?: string;
     message?: string;
     timestamp?: string;
 }

@@ -489,7 +489,7 @@ interface PharmacyState {
     fetchAnalytics: (period?: string) => Promise<void>;
     fetchReviews: (page?: number) => Promise<void>;
     addInventoryItem: (data: Record<string, unknown>) => Promise<boolean>;
-    addBulkInventoryItems: (items: any[]) => Promise<boolean>;
+    addBulkInventoryItems: (items: any[]) => Promise<{ success: boolean; data?: any; message?: string }>;
     updateInventoryItem: (id: string, data: Record<string, unknown>) => Promise<boolean>;
     deleteInventoryItem: (id: string) => Promise<boolean>;
     updateOrderStatus: (orderId: string, status: string) => Promise<boolean>;
@@ -753,12 +753,12 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
                     limit: query.limit,
                     lowStock: query.lowStock,
                 });
-                return true;
+                return response;
             }
             throw new Error(response.message || 'Failed to import bulk items');
         } catch (error: any) {
             set({ error: error.message || 'Failed to import bulk items', loadingInventory: false });
-            return false;
+            return { success: false, message: error.message };
         }
     },
 

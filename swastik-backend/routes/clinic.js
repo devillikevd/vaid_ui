@@ -494,9 +494,60 @@ router.get('/owner/partnerships/diagnostic-bookings', requireRole(ROLES.CLINIC_O
             .select('*, center:diagnostic_centers(id, name), test:diagnostic_tests(id, name), patient:patients(id, name)')
             .order('created_at', { ascending: false });
         if (fallback.error) throw fallback.error;
-        return res.json({ success: true, data: fallback.data || [] });
+        
+        const fallbackData = (fallback.data || []).map(b => {
+            const hasReport = b.result_url && (b.result_status === 'uploaded' || b.status === 'completed');
+            const sanitized = { ...b };
+            sanitized.report_url = hasReport ? `/api/clinic/owner/partnerships/diagnostic-bookings/${b.id}/report` : null;
+            delete sanitized.result_url;
+            return sanitized;
+        });
+        
+        return res.json({ success: true, data: fallbackData });
     }
-    res.json({ success: true, data: data || [] });
+    
+    const mappedData = (data || []).map(b => {
+        const hasReport = b.result_url && (b.result_status === 'uploaded' || b.status === 'completed');
+        const sanitized = { ...b };
+        sanitized.report_url = hasReport ? `/api/clinic/owner/partnerships/diagnostic-bookings/${b.id}/report` : null;
+        delete sanitized.result_url;
+        return sanitized;
+    });
+
+    res.json({ success: true, data: mappedData });
+}));
+
+router.get('/owner/partnerships/diagnostic-bookings/:bookingId/report', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const { supabaseAdmin } = require('../config/supabase');
+    const { getPresignedUrl, extractObjectNameFromUrl } = require('../config/minio');
+
+    const { data: booking, error } = await supabaseAdmin
+        .from('diagnostic_bookings')
+        .select('id, clinic_id, result_url, result_status, status')
+        .eq('id', req.params.bookingId)
+        .eq('clinic_id', clinic.id)
+        .single();
+
+    if (error || !booking) {
+        throw new ApiError(404, 'Booking not found or you do not have permission to view it');
+    }
+
+    if (!booking.result_url || (booking.result_status !== 'uploaded' && booking.status !== 'completed')) {
+        throw new ApiError(422, 'Report is not ready yet');
+    }
+
+    const objectName = extractObjectNameFromUrl(booking.result_url);
+    if (!objectName) {
+        throw new ApiError(500, 'Invalid report object reference');
+    }
+
+    const presignedUrl = await getPresignedUrl(objectName, 60 * 15); // 15 minutes
+    if (!presignedUrl) {
+        throw new ApiError(500, 'Failed to generate secure report URL');
+    }
+
+    res.redirect(302, presignedUrl);
 }));
 
 // --- Phase 3: Referrals ---
