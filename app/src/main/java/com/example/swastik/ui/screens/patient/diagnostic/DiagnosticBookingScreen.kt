@@ -449,66 +449,8 @@ private fun CenterTestsView(
     patientDashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel? = null,
     onNavigateToBookingHistory: () -> Unit = {}
 ) {
-    var isUploading by remember { mutableStateOf(false) }
-    var uploadSuccess by remember { mutableStateOf(false) }
-    var showRecordsSheet by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-    var selectedUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var selectedPrescriptionId by remember { mutableStateOf<String?>(null) }
-    
-    val galleryLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
-    ) { uri: android.net.Uri? ->
-        uri?.let {
-            selectedUri = it
-            selectedPrescriptionId = null
-            isUploading = true
-            coroutineScope.launch {
-                kotlinx.coroutines.delay(1500)
-                isUploading = false
-                uploadSuccess = true
-            }
-        }
-    }
-    
-    val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.TakePicturePreview()
-    ) { bitmap ->
-        if (bitmap != null) {
-            selectedPrescriptionId = null
-            isUploading = true
-            coroutineScope.launch {
-                kotlinx.coroutines.delay(1500)
-                isUploading = false
-                uploadSuccess = true
-            }
-        }
-    }
-
-    var showCameraPermissionRationale by remember { mutableStateOf(false) }
-    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            try { cameraLauncher.launch(null) } catch (e: Exception) { e.printStackTrace() }
-        } else {
-            showCameraPermissionRationale = true
-        }
-    }
-
-    if (showCameraPermissionRationale) {
-        AlertDialog(
-            onDismissRequest = { showCameraPermissionRationale = false },
-            title = { Text(stringResource(R.string.permission_required)) },
-            text = { Text(stringResource(R.string.camera_permission_is_required_to)) },
-            confirmButton = {
-                TextButton(onClick = { showCameraPermissionRationale = false }) {
-                    Text(stringResource(R.string.ok_1))
-                }
-            }
-        )
-    }
-
+    var showRecordsSheet by remember { mutableStateOf(false) }
     if (showRecordsSheet) {
         ModalBottomSheet(onDismissRequest = { showRecordsSheet = false }) {
             val uiState by patientDashboardViewModel?.uiState?.collectAsState() ?: remember { mutableStateOf(null) }
@@ -525,12 +467,7 @@ private fun CenterTestsView(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
                                 showRecordsSheet = false
                                 selectedPrescriptionId = testRecord.id
-                                isUploading = true
-                                coroutineScope.launch {
-                                    kotlinx.coroutines.delay(1500)
-                                    isUploading = false
-                                    uploadSuccess = true
-                                }
+                                onPrescriptionUploadClick(testRecord.id)
                             },
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
@@ -606,57 +543,19 @@ private fun CenterTestsView(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
 
-            if (isUploading) {
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = DiagnosticAccent)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(stringResource(R.string.uploading_1), color = DiagnosticAccent)
-                }
-            } else if (uploadSuccess) {
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.uploaded_successfully), color = Color(0xFF4CAF50), fontWeight = FontWeight.SemiBold)
-                }
-                LaunchedEffect(Unit) {
-                    kotlinx.coroutines.delay(1000)
-                    onPrescriptionUploadClick(selectedPrescriptionId)
-                }
-            } else {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).padding(bottom = 8.dp)
+            // Only app-generated prescriptions from Records
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).padding(bottom = 8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { showRecordsSheet = true },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, DiagnosticAccent)
                 ) {
-                    OutlinedButton(
-                        onClick = { galleryLauncher.launch(arrayOf("image/*", "application/pdf")) },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, DiagnosticAccent)
-                    ) {
-                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = DiagnosticAccent, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.gallery), color = DiagnosticAccent, fontSize = 11.sp)
-                    }
-                    OutlinedButton(
-                        onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, DiagnosticAccent)
-                    ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = DiagnosticAccent, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.camera), color = DiagnosticAccent, fontSize = 11.sp)
-                    }
-                    OutlinedButton(
-                        onClick = { showRecordsSheet = true },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, DiagnosticAccent)
-                    ) {
-                        Icon(Icons.Default.Folder, contentDescription = null, tint = DiagnosticAccent, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.records), color = DiagnosticAccent, fontSize = 11.sp)
-                    }
+                    Icon(Icons.Default.Folder, contentDescription = null, tint = DiagnosticAccent, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.records), color = DiagnosticAccent, fontSize = 11.sp)
                 }
             }
         }

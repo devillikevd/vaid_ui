@@ -212,69 +212,10 @@ fun Step1Medicines(
     patientDashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel? = null
 ) {
     var query by remember { mutableStateOf("") }
-    var isUploading by remember { mutableStateOf(false) }
-    var uploadSuccess by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-    var selectedUri by remember { mutableStateOf<Uri?>(null) }
-    val context = androidx.compose.ui.platform.LocalContext.current
-    
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            selectedUri = it
-            isUploading = true
-            coroutineScope.launch {
-                try {
-                    val bitmap = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                        android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(context.contentResolver, it))
-                    } else {
-                        android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, it)
-                    }
-                    onPrescriptionUpload(bitmap)
-                    uploadSuccess = true
-                } catch (e: Exception) { e.printStackTrace() }
-                isUploading = false
-            }
-        }
-    }
-    
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap ->
-        if (bitmap != null) {
-            isUploading = true
-            coroutineScope.launch {
-                onPrescriptionUpload(bitmap)
-                uploadSuccess = true
-                isUploading = false
-            }
-        }
-    }
-
-    var showCameraPermissionRationale by remember { mutableStateOf(false) }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        if (isGranted) {
-            try { cameraLauncher.launch(null) } catch (e: Exception) { e.printStackTrace() }
-        } else {
-            showCameraPermissionRationale = true
-        }
-    }
 
     var showRecordsSheet by remember { mutableStateOf(false) }
     
-    if (showCameraPermissionRationale) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showCameraPermissionRationale = false },
-            title = { Text(stringResource(R.string.permission_required)) },
-            text = { Text(stringResource(R.string.camera_permission_is_required_to)) },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = { showCameraPermissionRationale = false }) {
-                    Text(stringResource(R.string.ok_1))
-                }
-            }
-        )
-    }
+
 
     if (showRecordsSheet) {
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showRecordsSheet = false }) {
@@ -291,13 +232,7 @@ fun Step1Medicines(
                         Card(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
                                 showRecordsSheet = false
-                                // Simulate selection
-                                isUploading = true
-                                coroutineScope.launch {
-                                    kotlinx.coroutines.delay(1500)
-                                    isUploading = false
-                                    uploadSuccess = true
-                                }
+                                onPrescriptionUpload(null)
                             },
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
@@ -494,51 +429,18 @@ fun Step1Medicines(
         HorizontalDivider()
         Spacer(modifier = Modifier.height(16.dp))
         
+        // Order via existing prescription from app records
         Text(stringResource(R.string.or_order_via_prescription), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
         Spacer(modifier = Modifier.height(8.dp))
         
-        if (isUploading) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = SwastikPrimary)
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(stringResource(R.string.uploading_1), color = SwastikPrimary)
-            }
-        } else if (uploadSuccess) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.uploaded_successfully), color = Color(0xFF4CAF50), fontWeight = FontWeight.SemiBold)
-            }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = { galleryLauncher.launch(arrayOf("image/*", "application/pdf")) },
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.gallery), fontSize = 11.sp)
-                }
-                OutlinedButton(
-                    onClick = { permissionLauncher.launch(android.Manifest.permission.CAMERA) },
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.camera), fontSize = 11.sp)
-                }
-                OutlinedButton(
-                    onClick = { showRecordsSheet = true },
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.records), fontSize = 11.sp)
-                }
-            }
+        OutlinedButton(
+            onClick = { showRecordsSheet = true },
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(stringResource(R.string.records), fontSize = 11.sp)
         }
     }
 }

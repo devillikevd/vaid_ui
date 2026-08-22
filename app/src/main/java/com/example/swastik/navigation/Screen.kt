@@ -178,6 +178,7 @@ sealed class Screen(val route: String) {
     }
     object WellnessExperts : Screen("wellness_experts")
     object WellnessCommunity : Screen("wellness_community")
+    object WellnessChallenges : Screen("wellness_challenges")
     object WellnessSupplements : Screen("wellness_supplements")
     object WellnessReports : Screen("wellness_reports")
     object WellnessAICoach : Screen("wellness_ai_coach")

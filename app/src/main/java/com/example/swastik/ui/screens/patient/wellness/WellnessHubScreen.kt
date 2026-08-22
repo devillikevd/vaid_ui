@@ -124,6 +124,7 @@ fun WellnessHubScreen(
     onNavigateToWorkouts: () -> Unit = {},
     onNavigateToExperts: () -> Unit = {},
     onNavigateToCommunity: () -> Unit = {},
+    onNavigateToChallenges: () -> Unit = {},
     onNavigateToSupplements: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
     onNavigateToAICoach: () -> Unit = {},
@@ -187,27 +188,14 @@ fun WellnessHubScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Wellness Hub",
-                            fontWeight = FontWeight.ExtraBold,
-                            color = WellnessTheme.TealDeep,
-                            fontSize = 20.sp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = WellnessTheme.TealSurfaceVariant
-                        ) {
-                            Text(
-                                text = "PRO",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = WellnessTheme.TealDark,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
+                    Text(
+                        text = "Wellness Hub",
+                        fontWeight = FontWeight.ExtraBold,
+                        color = WellnessTheme.TealDeep,
+                        fontSize = 20.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -321,7 +309,14 @@ fun WellnessHubScreen(
                                             JourneyStrip(
                                                 onAssess = onNavigateToAssessment,
                                                 onPlan = onNavigateToWorkouts,
-                                                onAct = onNavigateToWorkouts,
+                                                onAct = {
+                                                    val activePlanId = state.activePlan?.id
+                                                    if (activePlanId != null) {
+                                                        onNavigateToWorkoutPlayer(activePlanId)
+                                                    } else {
+                                                        onNavigateToWorkoutCalendar()
+                                                    }
+                                                },
                                                 onTrack = onNavigateToReports,
                                                 onImprove = onNavigateToAICoach,
                                                 onAchieve = onNavigateToBadges
@@ -404,7 +399,8 @@ fun WellnessHubScreen(
                                                 communityCount = state.communityCount,
                                                 onNavigateToSupplements = onNavigateToSupplements,
                                                 onMarketplace = onNavigateToFitnessCenters,
-                                                onNavigateToCommunity = onNavigateToCommunity
+                                                onNavigateToCommunity = onNavigateToCommunity,
+                                                onNavigateToChallenges = onNavigateToChallenges
                                             )
 
                                             if (state.reels.isNotEmpty()) {
@@ -1454,7 +1450,8 @@ private fun ExploreZoneSection(
     communityCount: Int,
     onNavigateToSupplements: () -> Unit,
     onMarketplace: () -> Unit,
-    onNavigateToCommunity: () -> Unit
+    onNavigateToCommunity: () -> Unit,
+    onNavigateToChallenges: () -> Unit
 ) {
     ZoneSection(title = "🏪 Discovery, Gyms & Community") {
         OverviewRow {
@@ -1494,7 +1491,7 @@ private fun ExploreZoneSection(
                 icon = Icons.Default.EmojiEvents,
                 tint = WellnessTheme.StarYellow,
                 modifier = Modifier.weight(1f),
-                onClick = onNavigateToCommunity
+                onClick = onNavigateToChallenges
             )
         }
     }
@@ -1589,13 +1586,16 @@ private fun EcosystemCard(
         color = Color.White,
         border = BorderStroke(1.dp, Color(0xFFE2F3F0)),
         shadowElevation = 1.5.dp,
-        modifier = modifier.clickable { onClick() }
+        modifier = modifier
+            .height(132.dp)
+            .clickable { onClick() }
     ) {
         Column(
             modifier = Modifier
+                .fillMaxSize()
                 .background(Brush.verticalGradient(listOf(Color(0xFFF8FDFD), Color.White)))
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(13.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1604,14 +1604,17 @@ private fun EcosystemCard(
             ) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = tint.copy(alpha = 0.12f)
+                    color = tint.copy(alpha = 0.12f),
+                    modifier = Modifier.size(32.dp)
                 ) {
-                    Icon(
-                        icon,
-                        contentDescription = null,
-                        tint = tint,
-                        modifier = Modifier.padding(6.dp).size(18.dp)
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            icon,
+                            contentDescription = null,
+                            tint = tint,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
                 if (pillText.isNotBlank()) {
                     Surface(
@@ -1620,16 +1623,18 @@ private fun EcosystemCard(
                     ) {
                         Text(
                             text = pillText,
-                            fontSize = 9.sp,
+                            fontSize = 9.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = tint,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     text = title,
                     fontWeight = FontWeight.ExtraBold,
@@ -1642,7 +1647,8 @@ private fun EcosystemCard(
                     text = subtitle,
                     fontSize = 11.sp,
                     color = Color(0xFF64748B),
-                    lineHeight = 14.sp,
+                    lineHeight = 14.5.sp,
+                    minLines = 2,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )

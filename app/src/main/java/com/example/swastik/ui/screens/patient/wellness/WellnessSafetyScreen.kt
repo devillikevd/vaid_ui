@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.R
@@ -54,6 +56,9 @@ fun WellnessSafetyScreen(
     val certificate = state.clearanceCertificate
     val context = LocalContext.current
 
+    var selectedSafetyTab by remember { mutableIntStateOf(0) }
+    val safetyTabs = listOf("🛡️ Readiness", "💊 Interlocks", "🚨 Triage & SOS")
+
     var expandedProtocolId by remember { mutableStateOf<String?>("dizziness") }
     var showCertificateDialog by remember { mutableStateOf(false) }
 
@@ -64,7 +69,15 @@ fun WellnessSafetyScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Clinical Safety & Readiness 🛡️", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        "Clinical Safety & Readiness 🛡️",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -79,79 +92,134 @@ fun WellnessSafetyScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .background(Color(0xFFF8FAFC))
-                .animateContentSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. HERO CLEARANCE CARD WITH CERTIFICATE BUTTON
-            item {
-                SafetyClearanceHero(
-                    safety = safety,
-                    onRetakeScreening = onNavigateToAssessment,
-                    onViewCertificate = { showCertificateDialog = true }
-                )
+            // Segmented Tab Row
+            TabRow(
+                selectedTabIndex = selectedSafetyTab,
+                containerColor = Color.White,
+                contentColor = SafetyRed,
+                indicator = { tabPositions ->
+                    TabRowDefaults.SecondaryIndicator(
+                        Modifier.tabIndicatorOffset(tabPositions[selectedSafetyTab]),
+                        color = when (selectedSafetyTab) {
+                            0 -> SafetyGreen
+                            1 -> SafetyAmber
+                            else -> SafetyRed
+                        },
+                        height = 3.dp
+                    )
+                },
+                divider = { HorizontalDivider(color = Color(0xFFE2E8F0)) }
+            ) {
+                safetyTabs.forEachIndexed { index, title ->
+                    val isSelected = selectedSafetyTab == index
+                    Tab(
+                        selected = isSelected,
+                        onClick = { selectedSafetyTab = index },
+                        text = {
+                            Text(
+                                text = title,
+                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                fontSize = 11.5.sp,
+                                color = if (isSelected) Color(0xFF0F172A) else Color(0xFF64748B),
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    )
+                }
             }
 
-            // 2. ACTIVE DRUG-NUTRIENT & EXERCISE INTERLOCKS
-            item {
-                DrugNutrientInterlocksSection(interlocks = interlocks)
-            }
+            // Tab Content
+            when (selectedSafetyTab) {
+                0 -> {
+                    // TAB 0: READINESS & PAR-Q SCREENING
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        item {
+                            SafetyClearanceHero(
+                                safety = safety,
+                                onRetakeScreening = onNavigateToAssessment,
+                                onViewCertificate = { showCertificateDialog = true }
+                            )
+                        }
 
-            // 3. PAR-Q READINESS STATUS
-            item {
-                ParQReadinessCard(
-                    isPassed = safety.parQPassed ?: true,
-                    flags = safety.safetyFlags ?: emptyList(),
-                    onRetake = onNavigateToAssessment
-                )
-            }
+                        item {
+                            ParQReadinessCard(
+                                isPassed = safety.parQPassed ?: true,
+                                flags = safety.safetyFlags ?: emptyList(),
+                                onRetake = onNavigateToAssessment
+                            )
+                        }
 
-            // 4. CLINICAL GUARDRAILS & VITALS THRESHOLDS
-            item {
-                VitalsGuardrailsSection(safety = safety)
-            }
+                        item {
+                            VitalsGuardrailsSection(safety = safety)
+                        }
 
-            // 5. JOINT AWARENESS & EXERCISE EXCLUSIONS
-            item {
-                JointExclusionsSection(
-                    excluded = safety.excludedExercises ?: emptyList(),
-                    alternatives = safety.safeAlternatives ?: emptyList()
-                )
-            }
+                        item {
+                            JointExclusionsSection(
+                                excluded = safety.excludedExercises ?: emptyList(),
+                                alternatives = safety.safeAlternatives ?: emptyList()
+                            )
+                        }
+                    }
+                }
+                1 -> {
+                    // TAB 1: DRUG-NUTRIENT & FOOD INTERLOCKS
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        item {
+                            DrugNutrientInterlocksSection(interlocks = interlocks)
+                        }
+                    }
+                }
+                else -> {
+                    // TAB 2: UNWELL TRIAGE & EMERGENCY DOCTOR ACTION
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        item {
+                            Text(
+                                text = "🚨 I Feel Unwell During Workout (Triage)",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF0F172A)
+                            )
+                        }
 
-            // 6. "I FEEL UNWELL" GUIDED EMERGENCY TRIAGE
-            item {
-                Text(
-                    text = "🚨 I Feel Unwell During Workout (Triage)",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF0F172A)
-                )
-            }
+                        items(safety.unwellProtocols ?: defaultUnwellProtocols) { protocol ->
+                            UnwellProtocolCard(
+                                protocol = protocol,
+                                isExpanded = expandedProtocolId == protocol.id,
+                                onToggle = {
+                                    expandedProtocolId = if (expandedProtocolId == protocol.id) null else protocol.id
+                                },
+                                onTriggerSos = onNavigateToEmergency
+                            )
+                        }
 
-            items(safety.unwellProtocols ?: defaultUnwellProtocols) { protocol ->
-                UnwellProtocolCard(
-                    protocol = protocol,
-                    isExpanded = expandedProtocolId == protocol.id,
-                    onToggle = {
-                        expandedProtocolId = if (expandedProtocolId == protocol.id) null else protocol.id
-                    },
-                    onTriggerSos = onNavigateToEmergency
-                )
-            }
-
-            // 7. FAST-TRACK DOCTOR / PHYSIO ACTION
-            item {
-                DoctorReferralCard(
-                    recommended = safety.doctorReferralRecommended ?: false,
-                    onBookConsult = onNavigateToDoctorConsult,
-                    onEmergency = onNavigateToEmergency
-                )
+                        item {
+                            DoctorReferralCard(
+                                recommended = safety.doctorReferralRecommended ?: false,
+                                onBookConsult = onNavigateToDoctorConsult,
+                                onEmergency = onNavigateToEmergency
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -163,13 +231,13 @@ fun WellnessSafetyScreen(
             onDismiss = { showCertificateDialog = false },
             onShare = {
                 val certText = """
-                    📄 SWASTIK MEDICAL CLEARANCE CERTIFICATE
+                    📄 VAIDIDEA MEDICAL CLEARANCE CERTIFICATE
                     Patient: ${certificate?.patientName ?: "Athlete"}
-                    Certificate ID: ${certificate?.certificateId ?: "SWK-CLR-VERIFIED"}
+                    Certificate ID: ${certificate?.certificateId ?: "VAID-CLR-VERIFIED"}
                     Clearance: ${certificate?.clearanceTitle ?: "100% Cleared"}
                     PAR-Q Score: ${certificate?.parQStatus ?: "7/7 Passed"}
-                    Medical Officer: ${certificate?.authorizedMedicalOfficer?.name ?: "Dr. Rajesh Vardhan, MD"}
-                    Verify Online: ${certificate?.verificationQrUrl ?: "https://swastik.health/verify"}
+                    Medical Officer: ${certificate?.authorizedMedicalOfficer?.name ?: "Dr. Rajesh Vardhan, MD (Chief Medical Officer)"}
+                    Verify Online: https://vaididea.in/verify/clearance
                 """.trimIndent()
                 val sendIntent = Intent().apply {
                     action = Intent.ACTION_SEND
@@ -250,22 +318,35 @@ private fun SafetyClearanceHero(
                     onClick = onViewCertificate,
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF065F46)),
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1.3f)
                 ) {
                     Icon(Icons.Default.VerifiedUser, null, modifier = Modifier.size(15.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Clearance Certificate (QR)", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "Certificate (QR)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
 
                 OutlinedButton(
                     onClick = onRetakeScreening,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f)),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(0.9f)
                 ) {
-                    Icon(Icons.Default.EditNote, null, modifier = Modifier.size(15.dp))
+                    Icon(Icons.Default.Refresh, null, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Retake", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "Retake",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
             }
         }
@@ -281,30 +362,48 @@ private fun DrugNutrientInterlocksSection(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text("💊", fontSize = 20.sp)
                     Spacer(Modifier.width(8.dp))
                     Column {
-                        Text("AI Drug-Nutrient & Food Interlocks", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Text("Cross-referenced with your active prescriptions", fontSize = 11.sp, color = Color.Gray)
+                        Text(
+                            text = "AI Drug-Nutrient Interlocks",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "Cross-referenced with active prescriptions",
+                            fontSize = 11.sp,
+                            color = Color.Gray,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
+                Spacer(Modifier.width(8.dp))
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = Color(0xFFFEF3C7)
                 ) {
                     Text(
-                        text = "ACTIVE GUARDRAILS",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
+                        text = "GUARDRAILS",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
                         color = SafetyAmber,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
@@ -319,16 +418,49 @@ private fun DrugNutrientInterlocksSection(
                     border = BorderStroke(1.dp, if (item.severity == "high") Color(0xFFFECACA) else Color(0xFFFDE68A)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // Title: Medication Class
+                        Text(
+                            text = item.medicationClass,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = if (item.severity == "high") SafetyRed else SafetyAmber
+                        )
+
+                        // Avoid Tag / Contraindication
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFFFEE2E2),
+                            border = BorderStroke(0.5.dp, Color(0xFFFCA5A5))
                         ) {
-                            Text(item.medicationClass, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = if (item.severity == "high") SafetyRed else SafetyAmber)
-                            Text("⛔ ${item.contraindicatedNutrient}", fontWeight = FontWeight.Black, fontSize = 11.5.sp, color = Color(0xFF991B1B))
+                            Text(
+                                text = "⛔ Avoid: ${item.contraindicatedNutrient}",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.5.sp,
+                                color = Color(0xFF991B1B),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
                         }
-                        Text(item.riskMechanism, fontSize = 11.sp, color = Color(0xFF475569), lineHeight = 15.sp)
-                        Text("✅ Safe Alternative: ${item.safeSubstitute}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = SafetyGreen)
+
+                        // Risk Mechanism
+                        Text(
+                            text = item.riskMechanism,
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF475569),
+                            lineHeight = 16.sp
+                        )
+
+                        // Safe Alternative
+                        Text(
+                            text = "✅ Safe Alternative: ${item.safeSubstitute}",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = SafetyGreen,
+                            lineHeight = 16.sp
+                        )
                     }
                 }
             }
@@ -353,23 +485,41 @@ private fun ParQReadinessCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text("📋", fontSize = 20.sp)
                     Spacer(Modifier.width(8.dp))
                     Column {
-                        Text("PAR-Q Screening Readiness", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Text("Physical Activity Readiness Questionnaire", fontSize = 11.sp, color = Color.Gray)
+                        Text(
+                            text = "PAR-Q Screening Readiness",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "Physical Activity Readiness Questionnaire",
+                            fontSize = 11.sp,
+                            color = Color.Gray,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
+                Spacer(Modifier.width(8.dp))
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = if (isPassed) Color(0xFFDCFCE7) else Color(0xFFFEE2E2)
                 ) {
                     Text(
-                        text = if (isPassed) "VERIFIED PASS" else "ATTENTION",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
+                        text = if (isPassed) "PASSED" else "ATTENTION",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
                         color = if (isPassed) SafetyGreen else SafetyRed,
+                        maxLines = 1,
+                        softWrap = false,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
@@ -519,15 +669,15 @@ private fun JointExclusionsSection(
             // Excluded Exercises
             Text("⛔ Movements to Avoid / High Impact", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SafetyRed)
             excluded.forEach { item ->
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(SafetyRedBg, RoundedCornerShape(8.dp))
-                        .padding(8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Text("• ${item.name}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF991B1B))
-                    Text(item.reason, fontSize = 11.sp, color = Color(0xFFB91C1C))
+                    Text("• ${item.name}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF991B1B))
+                    Text(item.reason, fontSize = 11.5.sp, color = Color(0xFFB91C1C).copy(alpha = 0.9f))
                 }
             }
 
@@ -536,15 +686,15 @@ private fun JointExclusionsSection(
             // Safe Alternatives
             Text("✅ Safe Prescribed Replacements", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SafetyGreen)
             alternatives.forEach { alt ->
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFFF0FDF4), RoundedCornerShape(8.dp))
-                        .padding(8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Text("✓ ${alt.name}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF166534))
-                    Text(alt.benefit, fontSize = 11.sp, color = Color(0xFF15803D))
+                    Text("✓ ${alt.name}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF166534))
+                    Text(alt.benefit, fontSize = 11.5.sp, color = Color(0xFF15803D).copy(alpha = 0.9f))
                 }
             }
         }
@@ -777,7 +927,7 @@ private fun MedicalClearanceCertificateDialog(
                     ) {
                         Column {
                             Text("SCAN TO VERIFY OFFICIAL RECORD", fontSize = 9.sp, fontWeight = FontWeight.Black, color = SafetyPurple)
-                            Text("swastik.health/verify/clearance", fontSize = 10.sp, color = Color.Gray)
+                            Text("vaididea.in/verify/clearance", fontSize = 10.sp, color = Color.Gray)
                         }
                         Icon(Icons.Default.QrCode2, null, tint = SafetyPurple, modifier = Modifier.size(32.dp))
                     }

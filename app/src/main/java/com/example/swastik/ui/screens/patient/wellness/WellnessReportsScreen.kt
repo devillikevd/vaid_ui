@@ -100,8 +100,7 @@ fun WellnessReportsScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
-                    .animateContentSize(),
+                    .padding(paddingValues),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
@@ -197,8 +196,8 @@ fun WellnessReportsScreen(
 
                 // 7. Workout Summary Section with Period-over-Period Delta
                 item {
-                    val deltas = state.reports?.getAsJsonObject("periodDeltas")
-                    val workoutDelta = deltas?.get("workouts_change_pct")?.takeIf { !it.isJsonNull }?.asDouble ?: 0.0
+                    val deltas = state.reports.optObj("periodDeltas")
+                    val workoutDelta = deltas.optDouble("workouts_change_pct", 0.0)
 
                     ReportSection(
                         title = stringResource(R.string.workout_summary_title),
@@ -244,9 +243,9 @@ fun WellnessReportsScreen(
                         actionIcon = Icons.Default.CameraAlt,
                         onAction = onNavigateToDietTracker,
                         extraContent = {
-                            val protein = state.reports?.get("avg_protein")?.takeIf { !it.isJsonNull }?.asDouble ?: 0.0
-                            val carbs = state.reports?.get("avg_carbs")?.takeIf { !it.isJsonNull }?.asDouble ?: 0.0
-                            val fat = state.reports?.get("avg_fat")?.takeIf { !it.isJsonNull }?.asDouble ?: 0.0
+                            val protein = state.reports.optDouble("avg_protein", 0.0)
+                            val carbs = state.reports.optDouble("avg_carbs", 0.0)
+                            val fat = state.reports.optDouble("avg_fat", 0.0)
                             if (protein > 0 || carbs > 0 || fat > 0) {
                                 Spacer(modifier = Modifier.height(12.dp))
                                 MacroBreakdownBar(protein = protein, carbs = carbs, fat = fat)
@@ -257,8 +256,8 @@ fun WellnessReportsScreen(
 
                 // 9. Recovery & Health Section + Sleep Benchmark Meter
                 item {
-                    val deltas = state.reports?.getAsJsonObject("periodDeltas")
-                    val sleepDelta = deltas?.get("sleep_change_pct")?.takeIf { !it.isJsonNull }?.asDouble ?: 0.0
+                    val deltas = state.reports.optObj("periodDeltas")
+                    val sleepDelta = deltas.optDouble("sleep_change_pct", 0.0)
 
                     ReportSection(
                         title = stringResource(R.string.recovery_health_title),
@@ -273,7 +272,7 @@ fun WellnessReportsScreen(
                         actionIcon = Icons.Default.Watch,
                         onAction = onNavigateToHealthConnect,
                         extraContent = {
-                            val sleepHours = state.reports?.get("avg_sleep_hours")?.takeIf { !it.isJsonNull }?.asDouble ?: 0.0
+                            val sleepHours = state.reports.optDouble("avg_sleep_hours", 0.0)
                             if (sleepHours > 0) {
                                 Spacer(modifier = Modifier.height(12.dp))
                                 SleepQualityBar(sleepHours = sleepHours)
@@ -345,13 +344,14 @@ fun WellnessReportsScreen(
                 showExportDialog = false
             },
             onShareText = {
-                val adherence = state.reports?.getAsJsonObject("adherence")
-                val grade = adherence?.get("grade")?.takeIf { !it.isJsonNull }?.asString ?: "A"
-                val score = adherence?.get("score")?.takeIf { !it.isJsonNull }?.asInt ?: 90
-                val workouts = state.workoutProgress?.get("total_workouts")?.takeIf { !it.isJsonNull }?.asInt ?: 0
-                val duration = state.workoutProgress?.get("total_duration_minutes")?.takeIf { !it.isJsonNull }?.asInt ?: 0
-                val sleep = state.reports?.get("avg_sleep_hours")?.takeIf { !it.isJsonNull }?.asDouble ?: 7.5
-                val recovery = state.reports?.get("recovery_score")?.takeIf { !it.isJsonNull }?.asInt ?: 85
+                val adherence = state.reports.optObj("adherence")
+                val grade = adherence.optStr("grade", "A")
+                val score = adherence.optInt("score", 90)
+                val workouts = state.workoutProgress.optInt("total_workouts", 0)
+                val duration = state.workoutProgress.optInt("total_duration_minutes", 0)
+                val sleep = state.reports.optDouble("avg_sleep_hours", 7.5)
+                val recovery = state.reports.optInt("recovery_score", 85)
+                val avgCal = state.reports.optInt("avg_calories", 0)
 
                 val reportText = """
                     📊 SWASTIK TELEMEDICINE — CLINICAL WELLNESS PROGRESS REPORT
@@ -360,7 +360,7 @@ fun WellnessReportsScreen(
                     🏆 Adherence Score: $score/100 (Grade: $grade)
                     💪 Total Workouts: $workouts sessions ($duration minutes)
                     😴 Sleep & Recovery: $sleep hrs avg (Recovery: $recovery/100)
-                    🥗 Nutrition Average: ${state.reports?.get("avg_calories")?.takeIf { !it.isJsonNull }?.asInt ?: 0} kcal/day
+                    🥗 Nutrition Average: $avgCal kcal/day
                     
                     👨‍⚕️ Clinical Remarks:
                     "Athlete demonstrates positive cardiovascular and neuromuscular adaptation with verified PAR-Q safety readiness."
@@ -384,11 +384,11 @@ fun WellnessReportsScreen(
 
 @Composable
 private fun AdherenceGradeCard(reports: JsonObject?) {
-    val adherence = reports?.getAsJsonObject("adherence")
-    val grade = adherence?.get("grade")?.takeIf { !it.isJsonNull }?.asString ?: "A+"
-    val score = adherence?.get("score")?.takeIf { !it.isJsonNull }?.asInt ?: 94
-    val title = adherence?.get("title")?.takeIf { !it.isJsonNull }?.asString ?: "Elite Clinical Consistency"
-    val remarks = adherence?.get("remarks")?.takeIf { !it.isJsonNull }?.asString ?: "Your physical activity and biometric adherence reflect positive cardiovascular adaptation."
+    val adherence = reports.optObj("adherence")
+    val grade = adherence.optStr("grade", "A+")
+    val score = adherence.optInt("score", 94)
+    val title = adherence.optStr("title", "Elite Clinical Consistency")
+    val remarks = adherence.optStr("remarks", "Your physical activity and biometric adherence reflect positive cardiovascular adaptation.")
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -435,22 +435,22 @@ private fun DailyTrendsChartCard(
     selectedTab: TrendMetricTab,
     onSelectTab: (TrendMetricTab) -> Unit
 ) {
-    val dailyTrendsArray = reports?.getAsJsonArray("dailyTrends") ?: JsonArray()
+    val dailyTrendsArray = reports.optArr("dailyTrends") ?: JsonArray()
     val trends = remember(dailyTrendsArray) {
         val list = mutableListOf<TrendPoint>()
         dailyTrendsArray.forEach { elem ->
-            if (elem.isJsonObject) {
+            if (elem != null && elem.isJsonObject) {
                 val obj = elem.asJsonObject
                 list.add(
                     TrendPoint(
-                        date = obj.get("date")?.asString ?: "",
-                        day = obj.get("day")?.asString ?: "",
-                        steps = obj.get("steps")?.asInt ?: 0,
-                        caloriesBurned = obj.get("calories_burned")?.asInt ?: 0,
-                        caloriesConsumed = obj.get("calories_consumed")?.asInt ?: 0,
-                        sleepHours = obj.get("sleep_hours")?.asDouble ?: 7.0,
-                        heartRate = obj.get("avg_heart_rate")?.asInt ?: 70,
-                        recoveryScore = obj.get("recovery_score")?.asInt ?: 80
+                        date = obj.optStr("date"),
+                        day = obj.optStr("day"),
+                        steps = obj.optInt("steps", 0),
+                        caloriesBurned = obj.optInt("calories_burned", 0),
+                        caloriesConsumed = obj.optInt("calories_consumed", 0),
+                        sleepHours = obj.optDouble("sleep_hours", 7.0),
+                        heartRate = obj.optInt("avg_heart_rate", 70),
+                        recoveryScore = obj.optInt("recovery_score", 80)
                     )
                 )
             }
@@ -501,12 +501,12 @@ private fun DailyTrendsChartCard(
 
             // Interactive Bar Graph
             if (trends.isNotEmpty()) {
-                val maxVal = remember(trends, selectedTab) {
+                val maxVal: Float = remember(trends, selectedTab) {
                     when (selectedTab) {
-                        TrendMetricTab.STEPS -> trends.maxOfOrNull { it.steps }?.coerceAtLeast(10000) ?: 10000
-                        TrendMetricTab.ENERGY -> trends.maxOfOrNull { maxOf(it.caloriesBurned, it.caloriesConsumed) }?.coerceAtLeast(2000) ?: 2000
-                        TrendMetricTab.SLEEP -> 10
-                        TrendMetricTab.HEART_RATE -> 120
+                        TrendMetricTab.STEPS -> (trends.maxOfOrNull { it.steps }?.coerceAtLeast(10000) ?: 10000).toFloat()
+                        TrendMetricTab.ENERGY -> (trends.maxOfOrNull { maxOf(it.caloriesBurned, it.caloriesConsumed) }?.coerceAtLeast(2000) ?: 2000).toFloat()
+                        TrendMetricTab.SLEEP -> 10f
+                        TrendMetricTab.HEART_RATE -> 120f
                     }
                 }
 
@@ -518,43 +518,47 @@ private fun DailyTrendsChartCard(
                     verticalAlignment = Alignment.Bottom
                 ) {
                     trends.takeLast(7).forEach { pt ->
-                        val heightFraction = when (selectedTab) {
-                            TrendMetricTab.STEPS -> (pt.steps.toFloat() / maxVal.toFloat()).coerceIn(0.08f, 1f)
-                            TrendMetricTab.ENERGY -> (pt.caloriesBurned.toFloat() / maxVal.toFloat()).coerceIn(0.08f, 1f)
-                            TrendMetricTab.SLEEP -> (pt.sleepHours.toFloat() / 10f).coerceIn(0.08f, 1f)
-                            TrendMetricTab.HEART_RATE -> (pt.heartRate.toFloat() / 120f).coerceIn(0.08f, 1f)
+                        val (primaryFrac, secondaryFrac, barColor) = when (selectedTab) {
+                            TrendMetricTab.STEPS -> Triple(
+                                (pt.steps.toFloat() / maxVal).coerceIn(0.05f, 1f),
+                                0f,
+                                TrendMetricTab.STEPS.color
+                            )
+                            TrendMetricTab.ENERGY -> Triple(
+                                (pt.caloriesBurned.toFloat() / maxVal).coerceIn(0.05f, 1f),
+                                (pt.caloriesConsumed.toFloat() / maxVal).coerceIn(0.05f, 1f),
+                                TrendMetricTab.ENERGY.color
+                            )
+                            TrendMetricTab.SLEEP -> Triple(
+                                (pt.sleepHours.toFloat() / maxVal).coerceIn(0.05f, 1f),
+                                0f,
+                                TrendMetricTab.SLEEP.color
+                            )
+                            TrendMetricTab.HEART_RATE -> Triple(
+                                (pt.heartRate.toFloat() / maxVal).coerceIn(0.05f, 1f),
+                                0f,
+                                TrendMetricTab.HEART_RATE.color
+                            )
                         }
 
                         Column(
-                            modifier = Modifier.weight(1f),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Bottom
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Text(
-                                text = when (selectedTab) {
-                                    TrendMetricTab.STEPS -> if (pt.steps >= 1000) "${pt.steps / 1000}k" else "${pt.steps}"
-                                    TrendMetricTab.ENERGY -> "${pt.caloriesBurned}"
-                                    TrendMetricTab.SLEEP -> "${pt.sleepHours}h"
-                                    TrendMetricTab.HEART_RATE -> "${pt.heartRate}"
-                                },
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = selectedTab.color
-                            )
-                            Spacer(Modifier.height(4.dp))
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth(0.65f)
-                                    .fillMaxHeight(heightFraction)
+                                    .fillMaxHeight(primaryFrac)
                                     .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
-                                    .background(
-                                        Brush.verticalGradient(
-                                            listOf(selectedTab.color, selectedTab.color.copy(alpha = 0.6f))
-                                        )
-                                    )
+                                    .background(color = barColor)
                             )
-                            Spacer(Modifier.height(6.dp))
-                            Text(pt.day, fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = pt.day.take(3).ifEmpty { pt.date.takeLast(2) },
+                                fontSize = 9.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
@@ -570,7 +574,7 @@ private fun DailyTrendsChartCard(
     }
 }
 
-private data class TrendPoint(
+data class TrendPoint(
     val date: String,
     val day: String,
     val steps: Int,
@@ -588,10 +592,10 @@ private fun AICoachInsightCard(
     workoutProgress: JsonObject?,
     reports: JsonObject?
 ) {
-    val totalWorkouts = workoutProgress?.get("total_workouts")?.takeIf { !it.isJsonNull }?.asInt ?: 0
-    val streakDays = workoutProgress?.get("streak_days")?.takeIf { !it.isJsonNull }?.asInt ?: 0
-    val sleepHours = reports?.get("avg_sleep_hours")?.takeIf { !it.isJsonNull }?.asDouble ?: 0.0
-    val avgCalories = reports?.get("avg_calories")?.takeIf { !it.isJsonNull }?.asDouble ?: 0.0
+    val totalWorkouts = workoutProgress.optInt("total_workouts", 0)
+    val streakDays = workoutProgress.optInt("streak_days", 0)
+    val sleepHours = reports.optDouble("avg_sleep_hours", 0.0)
+    val avgCalories = reports.optDouble("avg_calories", 0.0)
 
     val (insightText, badgeTag, badgeColor) = remember(totalWorkouts, streakDays, sleepHours, avgCalories) {
         when {
@@ -1065,15 +1069,20 @@ private fun ReportSection(
                 chunkedPairs.forEach { pair ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         pair.forEach { (key, label) ->
-                            val value = data?.get(key)?.let {
-                                when {
-                                    it.isJsonNull -> null
-                                    it.isJsonPrimitive && it.asJsonPrimitive.isNumber -> {
-                                        val num = it.asDouble
-                                        if (num == num.toLong().toDouble()) num.toLong().toString() else String.format("%.1f", num)
+                            val value = data?.let { d ->
+                                if (d.has(key)) {
+                                    val elem = d.get(key)
+                                    when {
+                                        elem == null || elem.isJsonNull -> null
+                                        elem.isJsonPrimitive && elem.asJsonPrimitive.isNumber -> {
+                                            val num = elem.asDouble
+                                            if (num == num.toLong().toDouble()) num.toLong().toString() else String.format("%.1f", num)
+                                        }
+                                        elem.isJsonPrimitive && elem.asJsonPrimitive.isString -> elem.asString
+                                        elem.isJsonPrimitive && elem.asJsonPrimitive.isBoolean -> elem.asBoolean.toString()
+                                        else -> null
                                     }
-                                    else -> it.asString
-                                }
+                                } else null
                             }
                             AnimatedMetricCard(
                                 label = label,
@@ -1173,8 +1182,8 @@ private fun ExportReportDialog(
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("• Selected Window: Last $periodDays Days", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                        Text("• Total Workouts: ${workoutProgress?.get("total_workouts")?.takeIf { !it.isJsonNull }?.asInt ?: 0} sessions", fontSize = 11.5.sp)
-                        Text("• Avg Sleep: ${reports?.get("avg_sleep_hours")?.takeIf { !it.isJsonNull }?.asDouble ?: 7.5} hrs (Recovery: ${reports?.get("recovery_score")?.takeIf { !it.isJsonNull }?.asInt ?: 85}/100)", fontSize = 11.5.sp)
+                        Text("• Total Workouts: ${workoutProgress.optInt("total_workouts", 0)} sessions", fontSize = 11.5.sp)
+                        Text("• Avg Sleep: ${reports.optDouble("avg_sleep_hours", 7.5)} hrs (Recovery: ${reports.optInt("recovery_score", 85)}/100)", fontSize = 11.5.sp)
                         Text("• Clinical Status: Verified PAR-Q Clearance (Dr. Rajesh Vardhan, MD)", fontSize = 11.5.sp, color = SuccessGreen, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -1219,5 +1228,49 @@ private fun ReportsShimmerSkeleton(modifier: Modifier = Modifier) {
         Box(modifier = Modifier.fillMaxWidth().height(90.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFFE2E8F0)))
         Box(modifier = Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(18.dp)).background(Color(0xFFE2E8F0)))
         Box(modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(18.dp)).background(Color(0xFFE2E8F0)))
+    }
+}
+
+// ==================== NULL-SAFE & TYPE-SAFE JSON EXTENSIONS ====================
+
+private fun JsonObject?.optObj(key: String): JsonObject? {
+    if (this == null || !has(key)) return null
+    val elem = get(key)
+    return if (elem != null && elem.isJsonObject) elem.asJsonObject else null
+}
+
+private fun JsonObject?.optArr(key: String): JsonArray? {
+    if (this == null || !has(key)) return null
+    val elem = get(key)
+    return if (elem != null && elem.isJsonArray) elem.asJsonArray else null
+}
+
+private fun JsonObject?.optStr(key: String, default: String = ""): String {
+    if (this == null || !has(key)) return default
+    val elem = get(key)
+    return try {
+        if (elem != null && !elem.isJsonNull && elem.isJsonPrimitive) elem.asString else default
+    } catch (_: Exception) {
+        default
+    }
+}
+
+private fun JsonObject?.optInt(key: String, default: Int = 0): Int {
+    if (this == null || !has(key)) return default
+    val elem = get(key)
+    return try {
+        if (elem != null && !elem.isJsonNull && elem.isJsonPrimitive) elem.asInt else default
+    } catch (_: Exception) {
+        default
+    }
+}
+
+private fun JsonObject?.optDouble(key: String, default: Double = 0.0): Double {
+    if (this == null || !has(key)) return default
+    val elem = get(key)
+    return try {
+        if (elem != null && !elem.isJsonNull && elem.isJsonPrimitive) elem.asDouble else default
+    } catch (_: Exception) {
+        default
     }
 }

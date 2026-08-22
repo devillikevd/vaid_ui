@@ -711,6 +711,7 @@ fun PatientDashboardScreen(
                             onNavigateToAppointments = onNavigateToAppointments,
                             onNavigateToOrderHistory = onNavigateToOrderHistory,
                             onNavigateToBookingHistory = onNavigateToBookingHistory,
+                            onNavigateToWellnessSessions = onNavigateToWellnessSessions,
                             onNavigateToFavoriteDoctors = onNavigateToFavoriteDoctors,
                             onNavigateToFavoriteMedicines = onNavigateToFavoriteMedicines,
                             onNavigateToFavoriteFacilities = onNavigateToFavoriteFacilities

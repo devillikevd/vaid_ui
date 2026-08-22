@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swastik.data.remote.dto.BookWellnessSessionRequest
 import com.example.swastik.data.remote.dto.WellnessCoachDetailDto
+import com.example.swastik.data.remote.dto.WellnessCoachDto
 import com.example.swastik.data.remote.dto.WellnessSessionDto
 import com.example.swastik.data.repository.Result
 import com.example.swastik.data.repository.WellnessRepository
@@ -106,10 +107,22 @@ class WellnessSessionsViewModel @Inject constructor(
 
     fun loadSessions(status: String? = null) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             when (val result = wellnessRepository.getWellnessSessions(status)) {
-                is Result.Success -> _uiState.value = WellnessSessionsUiState(isLoading = false, sessions = result.data)
-                is Result.Error -> _uiState.value = WellnessSessionsUiState(isLoading = false, error = result.message)
+                is Result.Success -> {
+                    _uiState.value = WellnessSessionsUiState(
+                        isLoading = false,
+                        sessions = result.data,
+                        error = null
+                    )
+                }
+                is Result.Error -> {
+                    _uiState.value = WellnessSessionsUiState(
+                        isLoading = false,
+                        sessions = emptyList(),
+                        error = result.message
+                    )
+                }
                 is Result.Loading -> {}
             }
         }

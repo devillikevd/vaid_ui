@@ -60,7 +60,7 @@ fun RecordsTabContent(
     initialFilter: RecordFilter = RecordFilter.ALL
 ) {
     var selectedFilter by remember { mutableStateOf(initialFilter) }
-    var showUploadDialog by remember { mutableStateOf(false) }
+
 
     androidx.activity.compose.BackHandler(enabled = selectedFilter != RecordFilter.ALL) {
         selectedFilter = RecordFilter.ALL
@@ -73,30 +73,11 @@ fun RecordsTabContent(
     val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
 
-    // Handle upload state changes
-    LaunchedEffect(state.uploadState) {
-        when (val uploadState = state.uploadState) {
-            is UploadState.Success -> {
-                Toast.makeText(context, uploadState.message, Toast.LENGTH_SHORT).show()
-                viewModel.clearUploadState()
-            }
-            is UploadState.Error -> {
-                Toast.makeText(context, uploadState.message, Toast.LENGTH_LONG).show()
-                viewModel.clearUploadState()
-            }
-            else -> {}
-        }
-    }
 
-    val blurRadius by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (showUploadDialog) 12.dp else 0.dp,
-        label = "blur"
-    )
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .blur(blurRadius)
             .background(colorScheme.background)
     ) {
     Column(
@@ -180,18 +161,9 @@ fun RecordsTabContent(
                     // Empty state with Lottie
                     LottieEmptyState(
                         title = stringResource(R.string.no_medical_records_yet),
-                        subtitle = stringResource(R.string.upload_reports_or_consult),
+                        subtitle = "Your consultation records and prescriptions will appear here automatically.",
                         lottieUrl = "https://assets10.lottiefiles.com/packages/lf20_ch9qxg.json"
-                    ) {
-                        OutlinedButton(
-                            onClick = { showUploadDialog = true },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary)
-                        ) {
-                            Icon(Icons.Outlined.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.upload_report))
-                        }
-                    }
+                    )
                 } else {
                     var prescriptionSubFilter by remember { mutableStateOf("All") }
                     val filteredPrescriptions = remember(prescriptions, prescriptionSubFilter) {
@@ -326,31 +298,6 @@ fun RecordsTabContent(
             }
         }
     }
-    
-        // FAB for uploading records anytime
-        FloatingActionButton(
-            onClick = { showUploadDialog = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-                .padding(bottom = 72.dp), // Account for bottom navigation
-            containerColor = SwastikPrimary,
-            contentColor = Color.White
-        ) {
-            Icon(Icons.Outlined.CloudUpload, contentDescription = "Upload Medical Record")
-        }
-    }
-
-    // Upload Report Dialog
-    if (showUploadDialog) {
-        UploadReportDialog(
-            onDismiss = { showUploadDialog = false },
-            onUpload = { uri, name, type, externalUrl ->
-                viewModel.uploadReport(uri, name, type, externalUrl)
-                showUploadDialog = false
-            },
-            isUploading = state.uploadState is UploadState.Uploading
-        )
     }
 }
 

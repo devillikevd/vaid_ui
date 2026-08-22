@@ -2018,10 +2018,7 @@ const listChallenges = async (filters = {}, userId = null) => {
   if (filters.groupId) query = query.eq('group_id', filters.groupId);
   if (filters.type) query = query.eq('challenge_type', filters.type);
   const { data, error } = await query.order('created_at', { ascending: false }).limit(50);
-  if (error) {
-    // Graceful fallback
-  }
-
+  
   let myEntries = new Map();
   if (userId) {
     try {
@@ -2038,7 +2035,7 @@ const listChallenges = async (filters = {}, userId = null) => {
     steps: { coach: 'Coach Vikram Malhotra', medcoins: 100, xp: 250, unit: 'Steps' },
     yoga: { coach: 'Priya Sharma (Yoga Guru)', medcoins: 250, xp: 350, unit: 'Sessions' },
     cardio: { coach: 'Coach Aryan Deshmukh', medcoins: 75, xp: 200, unit: 'Mins' },
-    hydration: { coach: 'Dr. Ananya Roy (Nutrition)', medcoins: 50, xp: 150, unit: 'Days' },
+    hydration: { coach: 'Dr. Ananya Roy (Nutrition)', medcoins: 50, xp: 150, unit: 'ml Water' },
   };
 
   const rawChallenges = [...customChallengesStore, ...(data || [])];
@@ -2051,11 +2048,11 @@ const listChallenges = async (filters = {}, userId = null) => {
   });
 
   return uniqueChallenges.map((ch, idx) => {
-    const attr = coachAttribution[ch.challenge_type] || { coach: 'Swastik Wellness Team', medcoins: 100, xp: 200, unit: 'Units' };
+    const attr = coachAttribution[ch.challenge_type] || { coach: 'Vaididea Wellness Team', medcoins: 100, xp: 200, unit: 'Units' };
     const myEntry = myEntries.get(ch.id);
-    const progressVal = myEntry ? Number(myEntry.progress_value || 0) : (idx === 0 ? 42000 : idx === 1 ? 14 : 60);
     const targetVal = Number(ch.target_value) || 100;
-    const progressPct = Math.min(100, Math.round((progressVal / targetVal) * 100));
+    const progressVal = myEntry ? Number(myEntry.progress_value || 0) : 0;
+    const progressPct = targetVal > 0 ? Math.min(100, Math.round((progressVal / targetVal) * 100)) : 0;
 
     return {
       ...ch,

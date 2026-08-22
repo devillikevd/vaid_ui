@@ -187,7 +187,6 @@ fun DashboardHeader(
                 }
                 
                 // Notification Bell
-                Box {
                 IconButton(onClick = onNotificationClick) {
                     Icon(
                         Icons.Outlined.Notifications,
@@ -195,28 +194,6 @@ fun DashboardHeader(
                         tint = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.size(24.dp)
                     )
-                }
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = unreadNotificationsCount > 0,
-                    enter = androidx.compose.animation.scaleIn() + androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.scaleOut() + androidx.compose.animation.fadeOut(),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(x = (-2).dp, y = 2.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (unreadNotificationsCount > 9) "9+" else unreadNotificationsCount.toString(),
-                            color = Color.Black,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
                 }
             } // Close Action Icons Row
         } // Close Main Row
@@ -309,16 +286,19 @@ fun DashboardHeader(
 
                     // Cart Icon (Optional)
                     if (onCartClick != null) {
-                        BadgedBox(
-                            badge = {
-                                if (cartItemCount > 0) {
-                                    Badge(containerColor = Color.Red, contentColor = MaterialTheme.colorScheme.onPrimary) { 
-                                        Text(cartItemCount.toString(), fontSize = 10.sp) 
+                        IconButton(onClick = onCartClick) {
+                            BadgedBox(
+                                badge = {
+                                    if (cartItemCount > 0) {
+                                        Badge(
+                                            containerColor = Color.White,
+                                            contentColor = MaterialTheme.colorScheme.primary
+                                        ) { 
+                                            Text(cartItemCount.toString(), fontSize = 9.sp, fontWeight = FontWeight.Bold) 
+                                        }
                                     }
                                 }
-                            }
-                        ) {
-                            IconButton(onClick = onCartClick) {
+                            ) {
                                 Icon(
                                     Icons.Outlined.ShoppingCart,
                                     contentDescription = "Cart",
@@ -330,48 +310,13 @@ fun DashboardHeader(
                     }
 
                     // Notification Bell
-                    Box {
-                        IconButton(onClick = onNotificationClick) {
-                            Icon(
-                                Icons.Outlined.Notifications,
-                                contentDescription = "Notifications",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = unreadNotificationsCount > 0,
-                            enter = androidx.compose.animation.scaleIn() + androidx.compose.animation.fadeIn(),
-                            exit = androidx.compose.animation.scaleOut() + androidx.compose.animation.fadeOut(),
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .offset(x = (-4).dp, y = 4.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                androidx.compose.animation.AnimatedContent(
-                                    targetState = unreadNotificationsCount,
-                                    transitionSpec = {
-                                        if (targetState > initialState) {
-                                            (androidx.compose.animation.slideInVertically { height -> height } + androidx.compose.animation.fadeIn()).with(androidx.compose.animation.slideOutVertically { height -> -height } + androidx.compose.animation.fadeOut())
-                                        } else {
-                                            (androidx.compose.animation.slideInVertically { height -> -height } + androidx.compose.animation.fadeIn()).with(androidx.compose.animation.slideOutVertically { height -> height } + androidx.compose.animation.fadeOut())
-                                        }.using(androidx.compose.animation.SizeTransform(clip = false))
-                                    },
-                                    label = "unreadCount2"
-                                ) { count ->
-                                    Text(
-                                        text = if (count > 9) "9+" else count.toString(),
-                                        color = Color.Black,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
+                    IconButton(onClick = onNotificationClick) {
+                        Icon(
+                            Icons.Outlined.Notifications,
+                            contentDescription = "Notifications",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
             }

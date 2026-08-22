@@ -62,14 +62,8 @@ fun WellnessCommunityScreen(
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
 
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Communities", "Challenges", "Trophy Room")
-
     // Interactive Sheets
     var selectedGroupForDetail by remember { mutableStateOf<WellnessGroupDto?>(null) }
-    var selectedChallengeForLeaderboard by remember { mutableStateOf<WellnessChallengeDto?>(null) }
-
-    // Celebration Confetti Dialog State
     var celebrationData by remember { mutableStateOf<CelebrationPayload?>(null) }
 
     LaunchedEffect(Unit) {
@@ -80,34 +74,14 @@ fun WellnessCommunityScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "Community & Challenges",
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 19.sp,
-                                color = TealDeep
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = TealDark
-                            ) {
-                                Text(
-                                    "LIVE",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                        Text(
-                            "Goal Circles • Step Contests • Gamification Badges",
-                            fontSize = 11.sp,
-                            color = TealDark.copy(alpha = 0.85f)
-                        )
-                    }
+                    Text(
+                        text = "Community Tribes & Circles",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 18.sp,
+                        color = TealDeep,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -121,132 +95,39 @@ fun WellnessCommunityScreen(
                 actions = {
                     IconButton(onClick = {
                         viewModel.refreshCommunity()
-                        Toast.makeText(context, "Community & leaderboards updated", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Community tribes updated", Toast.LENGTH_SHORT).show()
                     }) {
                         Icon(Icons.Default.Refresh, "Refresh", tint = TealPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = TealSurface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
         containerColor = TealSurface
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Gamification Level & XP Top Bar
-            GamificationStatusBar(
-                streakDays = state.streakDays.coerceAtLeast(7),
-                currentXp = 350,
-                targetXp = 500,
-                level = 3,
-                medcoins = 150
-            )
-
-            // Luxury Segmented Tabs
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = TealSurface,
-                contentColor = TealDeep,
-                indicator = { tabPositions ->
-                    TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                        color = TealPrimary,
-                        height = 3.dp
-                    )
-                },
-                divider = { HorizontalDivider(color = TealMint) }
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    val isSelected = selectedTab == index
-                    Tab(
-                        selected = isSelected,
-                        onClick = { selectedTab = index },
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    when (index) {
-                                        0 -> "👥 "
-                                        1 -> "🏆 "
-                                        else -> "🎖️ "
-                                    },
-                                    fontSize = 13.sp
-                                )
-                                Text(
-                                    title,
-                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                    fontSize = 13.sp,
-                                    color = if (isSelected) TealDeep else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    )
-                }
-            }
-
-            // Tab Content
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f)
-            ) {
-                when (selectedTab) {
-                    0 -> CommunitiesTab(
-                        groups = state.groups,
-                        onGroupClick = { selectedGroupForDetail = it },
-                        onJoinGroup = { group ->
-                            viewModel.joinCommunityGroup(group.id) { success, msg ->
-                                Toast.makeText(context, msg ?: if (success) "Joined community!" else "Failed to join", Toast.LENGTH_SHORT).show()
-                                if (success) {
-                                    celebrationData = CelebrationPayload(
-                                        title = "Community Circle Joined! 👥",
-                                        subtitle = "Welcome to ${group.name}. Start posting daily accountability check-ins!",
-                                        iconEmoji = "🤝",
-                                        xpEarned = 50,
-                                        medcoinsEarned = 25
-                                    )
-                                }
-                            }
-                        }
-                    )
-                    1 -> ChallengesTab(
-                        challenges = state.challenges,
-                        onChallengeClick = { selectedChallengeForLeaderboard = it },
-                        onJoinChallenge = { challenge ->
-                            viewModel.joinWellnessChallenge(challenge.id) { success, msg ->
-                                Toast.makeText(context, msg ?: if (success) "Sprint Joined!" else "Failed to join", Toast.LENGTH_SHORT).show()
-                                if (success) {
-                                    celebrationData = CelebrationPayload(
-                                        title = "Sprint Contest Joined! 🏃",
-                                        subtitle = "You are now live in ${challenge.title}. Walk, log workouts, and aim for the podium!",
-                                        iconEmoji = "🏆",
-                                        xpEarned = 100,
-                                        medcoinsEarned = 50
-                                    )
-                                }
-                            }
-                        },
-                        onOpenLeaderboard = { selectedChallengeForLeaderboard = it }
-                    )
-                    2 -> TrophyRoomTab(
-                        badges = state.badges,
-                        onBadgeClick = { badge ->
-                            val isEarned = badge.get("is_earned")?.asBoolean == true
-                            val name = badge.get("name")?.asString ?: "Badge"
-                            val desc = badge.get("description")?.asString ?: ""
+            CommunitiesTab(
+                groups = state.groups,
+                onGroupClick = { selectedGroupForDetail = it },
+                onJoinGroup = { group ->
+                    viewModel.joinCommunityGroup(group.id) { success, msg ->
+                        Toast.makeText(context, msg ?: if (success) "Joined community!" else "Failed to join", Toast.LENGTH_SHORT).show()
+                        if (success) {
                             celebrationData = CelebrationPayload(
-                                title = if (isEarned) "Trophy Milestone! 🏆" else "Milestone Target 🎯",
-                                subtitle = "$name\n$desc",
-                                iconEmoji = if (isEarned) "🏅" else "🔒",
-                                xpEarned = badge.get("reward_xp")?.asInt ?: 150,
-                                medcoinsEarned = 50
+                                title = "Community Circle Joined! 👥",
+                                subtitle = "Welcome to ${group.name}. Start posting daily accountability check-ins!",
+                                iconEmoji = "🤝",
+                                xpEarned = 50,
+                                medcoinsEarned = 25
                             )
                         }
-                    )
+                    }
                 }
-            }
+            )
         }
     }
 
@@ -270,15 +151,6 @@ fun WellnessCommunityScreen(
                     }
                 }
             }
-        )
-    }
-
-    // BottomSheet 2: Challenge 3D Podium Leaderboard
-    selectedChallengeForLeaderboard?.let { challenge ->
-        ChallengeLeaderboardBottomSheet(
-            challenge = challenge,
-            viewModel = viewModel,
-            onDismiss = { selectedChallengeForLeaderboard = null }
         )
     }
 
@@ -387,10 +259,92 @@ private fun CommunitiesTab(
         }
     }
 
+    val joinedGroups = remember(groups) { groups.filter { it.isJoined == true } }
+
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // My Joined Circles Section
+        if (joinedGroups.isNotEmpty()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "🌟 My Joined Circles (${joinedGroups.size})",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = TealDeep
+                        )
+                        Text(
+                            "Tap to open feed",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(joinedGroups, key = { "joined_${it.id}" }) { group ->
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = Color.White,
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, TealPrimary),
+                                modifier = Modifier
+                                    .width(220.dp)
+                                    .clickable { onGroupClick(group) }
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = TealMint.copy(alpha = 0.6f)
+                                        ) {
+                                            Text(
+                                                "JOINED ✓",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = TealDark,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                        Text(
+                                            "💬 Feed",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TealPrimary
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        group.name,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TealDeep,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        "👥 ${group.memberCount ?: 120} members",
+                                        fontSize = 10.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Goal Filter Chips
         item {
             LazyRow(
@@ -452,10 +406,11 @@ private fun GroupCard(
     onClick: () -> Unit,
     onJoinClick: () -> Unit
 ) {
+    val isJoined = group.isJoined == true
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
@@ -468,7 +423,7 @@ private fun GroupCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = TealMint.copy(alpha = 0.6f)
                 ) {
                     Text(
@@ -481,7 +436,7 @@ private fun GroupCard(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Place, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(13.dp))
+                    Icon(Icons.Default.Place, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(12.dp))
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         group.city ?: "All India",
@@ -493,15 +448,16 @@ private fun GroupCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Title & Description
+            // Title
             Text(
                 group.name,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 16.sp,
                 color = TealDeep
             )
+
             group.description?.let {
-                Spacer(modifier = Modifier.height(3.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     it,
                     fontSize = 12.sp,
@@ -511,112 +467,69 @@ private fun GroupCard(
                 )
             }
 
-            // Host Coach Row
+            // Coach Row - clean single line
             group.hostCoachName?.let { coachName ->
-                Spacer(modifier = Modifier.height(10.dp))
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = TealSurface.copy(alpha = 0.7f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(shape = CircleShape, color = TealDark, modifier = Modifier.size(24.dp)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text("👨‍⚕️", fontSize = 12.sp)
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                coachName,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TealDeep
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(Icons.Default.Verified, null, tint = TealPrimary, modifier = Modifier.size(12.dp))
-                        }
-                    }
-                }
-            }
-
-            // Coach Tip Quote Box
-            group.recentTip?.let { tip ->
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFFEF3C7).copy(alpha = 0.6f), RoundedCornerShape(10.dp))
-                        .padding(8.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Text("💡", fontSize = 12.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("👨‍⚕️", fontSize = 13.sp)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        tip,
-                        fontSize = 11.sp,
-                        color = Color(0xFF92400E),
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        coachName,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TealDeep
                     )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(Icons.Default.Verified, null, tint = TealPrimary, modifier = Modifier.size(13.dp))
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = Color(0xFFF1F5F9))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Footer Row: Members Stack + Join Action
+            // Footer Row: Members on left, Action Button on right
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = CircleShape, color = TealDark, modifier = Modifier.size(22.dp)) {
-                        Box(contentAlignment = Alignment.Center) { Text("👤", fontSize = 10.sp) }
-                    }
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFF0284C7),
-                        modifier = Modifier.offset(x = (-6).dp).size(22.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) { Text("🏃", fontSize = 10.sp) }
-                    }
-                    Spacer(modifier = Modifier.width(2.dp))
+                    Text("👥", fontSize = 13.sp)
+                    Spacer(modifier = Modifier.width(5.dp))
                     Text(
-                        "${group.memberCount ?: 120} active members",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
+                        "${group.memberCount ?: 120} members",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                // Join Button
-                val isJoined = group.isJoined == true
                 Surface(
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = if (isJoined) TealMint else TealPrimary,
-                    modifier = Modifier.clickable { onJoinClick() }
+                    modifier = Modifier.clickable {
+                        if (isJoined) onClick() else onJoinClick()
+                    }
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = if (isJoined) Icons.Default.Check else Icons.Default.Add,
+                            imageVector = if (isJoined) Icons.Default.ChatBubbleOutline else Icons.Default.Add,
                             contentDescription = null,
                             tint = if (isJoined) TealDark else Color.White,
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(13.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
                         Text(
-                            if (isJoined) "Joined" else "Join Circle",
-                            fontSize = 11.sp,
+                            if (isJoined) "Enter Circle ➔" else "+ Join Circle",
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = if (isJoined) TealDark else Color.White
+                            color = if (isJoined) TealDark else Color.White,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
@@ -789,13 +702,12 @@ private fun HeroChallengeBanner(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Bottom action row: Leaderboard + Join
-            Row(
+            // Action Row: Bounty on top, Buttons below with full width
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Bounty pill
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -804,14 +716,18 @@ private fun HeroChallengeBanner(
                     Text("• +${challenge.rewardXp ?: 250} XP", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF5EEAD4))
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Button(
                         onClick = onOpenLeaderboard,
                         colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
                         shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
                     ) {
-                        Text("🏅 Podium", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("🏅 Podium", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, softWrap = false)
                     }
 
                     val isJoined = challenge.isJoined == true
@@ -819,13 +735,16 @@ private fun HeroChallengeBanner(
                         onClick = onJoinChallenge,
                         colors = ButtonDefaults.buttonColors(containerColor = if (isJoined) Color(0xFF5EEAD4) else Color(0xFFF59E0B)),
                         shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        modifier = Modifier.weight(1.2f),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Text(
                             if (isJoined) "Joined ✓" else "Join Sprint",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF042F2E)
+                            color = Color(0xFF042F2E),
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
@@ -1306,7 +1225,9 @@ private fun GroupDetailBottomSheet(
     onDismiss: () -> Unit,
     onJoinGroup: () -> Unit
 ) {
-    var selectedSheetTab by remember { mutableIntStateOf(0) }
+    var selectedSheetTab by remember(group.isJoined) {
+        mutableIntStateOf(if (group.isJoined == true) 1 else 0)
+    }
     val groupPosts by viewModel.groupPosts.collectAsState()
     val isPostingCheckin by viewModel.isPostingCheckin.collectAsState()
 

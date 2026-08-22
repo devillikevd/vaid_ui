@@ -1414,6 +1414,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onNavigateToWorkouts = { navController.navigateSafe(Screen.WellnessWorkouts.route) },
                     onNavigateToExperts = { navController.navigateSafe(Screen.WellnessExperts.route) },
                     onNavigateToCommunity = { navController.navigateSafe(Screen.WellnessCommunity.route) },
+                    onNavigateToChallenges = { navController.navigateSafe(Screen.WellnessChallenges.route) },
                     onNavigateToSupplements = { navController.navigateSafe(Screen.WellnessSupplements.route) },
                     onNavigateToReports = { navController.navigateSafe(Screen.WellnessReports.route) },
                     onNavigateToAICoach = { navController.navigateSafe(Screen.WellnessAICoach.route) },
@@ -1475,6 +1476,16 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             AuthGuard(navController, tokenManager) {
                 val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 com.example.swastik.ui.screens.patient.wellness.WellnessCommunityScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    viewModel = wellnessViewModel
+                )
+            }
+        }
+
+        composable(Screen.WellnessChallenges.route) {
+            AuthGuard(navController, tokenManager) {
+                val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.wellness.WellnessChallengesScreen(
                     onNavigateBack = { navController.popBackStack() },
                     viewModel = wellnessViewModel
                 )
@@ -1578,6 +1589,15 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onBackClick = { navController.popBackStack() },
                     onJoinVideoCall = { sessionId, coachName ->
                         navController.navigateSafe(Screen.WellnessVideoCall.createRoute(sessionId, coachName))
+                    },
+                    onChatWithCoach = { sessionId, coachName ->
+                        navController.navigateSafe(Screen.WellnessChat.createRoute(sessionId, coachName))
+                    },
+                    onBookNewSession = {
+                        navController.navigateSafe(Screen.WellnessExperts.route)
+                    },
+                    onCoachDetailClick = { coachId ->
+                        navController.navigateSafe(Screen.WellnessCoachDetail.createRoute(coachId))
                     }
                 )
             }

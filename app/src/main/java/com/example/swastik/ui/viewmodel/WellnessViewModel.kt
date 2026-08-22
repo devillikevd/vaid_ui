@@ -484,7 +484,7 @@ class WellnessViewModel @Inject constructor(
             if (_uiState.value.aiChatMessages.isEmpty()) {
                 val welcome = com.example.swastik.data.model.AiChatMessage(
                     isUser = false,
-                    text = "Hello! 🌟 I'm your Swastik AI Health & Fitness Coach. Ask me anything about your personalized workouts, nutrition plans, sleep recovery, or injury prevention!",
+                    text = "Hello! 🌟 I'm your Vaididea AI Health & Fitness Coach. Ask me anything about your personalized workouts, nutrition plans, sleep recovery, or injury prevention!",
                     quickPrompts = listOf("🥗 High-Protein Diet Plan", "🏃 15-min Home Workout", "😴 Deep Sleep Fix", "💧 Daily Hydration Target")
                 )
                 _uiState.value = _uiState.value.copy(aiChatMessages = listOf(welcome))
