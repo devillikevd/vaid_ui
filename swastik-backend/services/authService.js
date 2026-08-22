@@ -455,8 +455,21 @@ const register = async (userData) => {
   if (existing) {
     if (!existing.is_verified) {
       // The user abandoned the previous registration before verifying their email
-      // Delete the ghost account and allow the new registration to proceed
-      await supabaseAdmin.from('users').delete().eq('id', existing.id);
+      // Delete child rows first before deleting the ghost account to prevent FK constraint violations
+      try {
+        await supabaseAdmin.from('patients').delete().eq('user_id', existing.id);
+        await supabaseAdmin.from('doctors').delete().eq('user_id', existing.id);
+        await supabaseAdmin.from('pharmacy_members').delete().eq('user_id', existing.id);
+        await supabaseAdmin.from('pharmacies').delete().eq('owner_id', existing.id);
+        await supabaseAdmin.from('clinics').delete().eq('owner_id', existing.id);
+        await supabaseAdmin.from('hospitals').delete().eq('owner_id', existing.id);
+        await supabaseAdmin.from('diagnostic_centers').delete().eq('owner_id', existing.id);
+        await supabaseAdmin.from('ambulances').delete().eq('operator_id', existing.id);
+        await supabaseAdmin.from('refresh_tokens').delete().eq('user_id', existing.id);
+        await supabaseAdmin.from('users').delete().eq('id', existing.id);
+      } catch (cleanupErr) {
+        console.error('Error cleaning up unverified existing user:', cleanupErr);
+      }
     } else {
       const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, existing.role, existing.id);
       const isSameRole = existing.role === role;
@@ -521,22 +534,29 @@ const register = async (userData) => {
     throw error;
   }
 
-  const { data: user, error } = await supabaseAdmin
-    .from('users')
-    .insert({
-      email,
-      phone: phone || null,
-      password_hash,
-      name,
-      role: finalRole,
-      requested_role: requestedRole,
-      is_active: true,
-      is_verified: true, // Mark as verified immediately
-    })
-    .select('*')
-    .single();
+  let user;
+  try {
+    const { data: insertedUser, error: insertUserError } = await supabaseAdmin
+      .from('users')
+      .insert({
+        email,
+        phone: phone || null,
+        password_hash,
+        name,
+        role: finalRole,
+        requested_role: requestedRole,
+        is_active: true,
+        is_verified: true, // Mark as verified immediately
+      })
+      .select('*')
+      .single();
 
-  if (error) throw error;
+    if (insertUserError) throw insertUserError;
+    user = insertedUser;
+  } catch (insertError) {
+    console.error(`User insertion failed for ${email}:`, insertError.message);
+    throw toUserFacingRegistrationError(insertError);
+  }
 
   try {
     // If the role was forced to patient, we still want to create the provider profile
@@ -553,7 +573,11 @@ const register = async (userData) => {
     }
   } catch (profileError) {
     console.error(`Registration profile creation failed for ${role}:`, profileError.message);
-    await supabaseAdmin.from('users').delete().eq('id', user.id);
+    try {
+      await supabaseAdmin.from('patients').delete().eq('user_id', user.id);
+      await supabaseAdmin.from('doctors').delete().eq('user_id', user.id);
+      await supabaseAdmin.from('users').delete().eq('id', user.id);
+    } catch (_) {}
     throw toUserFacingRegistrationError(profileError);
   }
 
@@ -585,16 +609,20 @@ const createRoleProfile = async (userId, role, data) => {
   };
 
   switch (role) {
-    case 'patient':
+    case 'patient': {
+      const sanitizedGender = data.gender && ['male', 'female', 'other'].includes(String(data.gender).toLowerCase())
+        ? String(data.gender).toLowerCase()
+        : null;
       await insertProfile('patients', {
         user_id: userId,
-        name: data.name,
-        blood_group: data.bloodGroup,
-        date_of_birth: data.dateOfBirth,
-        gender: data.gender,
-        address: data.address,
+        name: data.name || 'Patient',
+        blood_group: data.bloodGroup || null,
+        date_of_birth: data.dateOfBirth || null,
+        gender: sanitizedGender,
+        address: data.address || null,
       });
       break;
+    }
     case 'doctor': {
       const doctorQualifications = normalizeTextArray(firstProvided(data.qualifications, data.qualification, data.degree));
       const doctorLanguages = normalizeTextArray(data.languages);
@@ -994,57 +1022,69 @@ const verifyEmailOtp = async (rawEmail, otp) => {
     throw createOtpError('OTP_REQUIRED', 'Email and verification code are required.');
   }
 
-  const record = await consumeOtpRecord({
-    email,
-    purpose: OTP_PURPOSE_EMAIL_VERIFICATION,
-    otp,
-  });
-
-  const { data: user, error } = await supabaseAdmin
-    .from('users')
-    .update({ is_verified: true })
-    .eq('id', record.user_id)
-    .select('*')
-    .single();
-
-  if (error) throw error;
-
-  // Determine if we should auto-login the user after email verification
-  // We only auto-login patients because web roles and ambulance operators need admin approval before logging in
-  const shouldAutoLogin = ['patient'].includes(user.role);
-
-  if (shouldAutoLogin) {
-    const tokens = generateTokens(user);
-
-    try {
-      await supabaseAdmin.from('refresh_tokens').insert({
-        user_id: user.id,
-        token: tokens.refreshToken,
-        family_id: require('crypto').randomUUID(),
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        is_revoked: false,
+  // Check for email_verification OTP first, or fallback to registration OTP
+  let record;
+  try {
+    record = await consumeOtpRecord({
+      email,
+      purpose: OTP_PURPOSE_EMAIL_VERIFICATION,
+      otp,
+    });
+  } catch (err) {
+    if (err.code === 'OTP_NOT_FOUND') {
+      record = await consumeOtpRecord({
+        email,
+        purpose: 'registration',
+        otp,
       });
-    } catch (err) {
-      console.error('Error storing refresh token during email verification:', err);
+    } else {
+      throw err;
     }
-
-    // Sanitize user object before returning
-    delete user.password_hash;
-
-    return {
-      message: 'Email verified successfully. You are now logged in.',
-      user,
-      access_token: tokens.accessToken,
-      refresh_token: tokens.refreshToken,
-    };
   }
 
-  // Sanitize user object before returning
-  delete user.password_hash;
+  if (record.user_id) {
+    const { data: user, error } = await supabaseAdmin
+      .from('users')
+      .update({ is_verified: true })
+      .eq('id', record.user_id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (user) {
+      const shouldAutoLogin = ['patient'].includes(user.role);
+      if (shouldAutoLogin) {
+        const tokens = generateTokens(user);
+        try {
+          await supabaseAdmin.from('refresh_tokens').insert({
+            user_id: user.id,
+            token: tokens.refreshToken,
+            family_id: require('crypto').randomUUID(),
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            is_revoked: false,
+          });
+        } catch (err) {
+          console.error('Error storing refresh token during email verification:', err);
+        }
+        delete user.password_hash;
+        return {
+          message: 'Email verified successfully. You are now logged in.',
+          user,
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+        };
+      }
+      delete user.password_hash;
+      return {
+        message: 'Email verified successfully. You can now log in.',
+        user,
+      };
+    }
+  }
 
   return {
-    message: 'Email verified successfully. You can now log in.',
-    user,
+    message: 'Email verified successfully. Please complete your registration.',
+    is_verified: true,
   };
 };
 

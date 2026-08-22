@@ -151,13 +151,13 @@ export default function DoctorRegistrationWizard() {
         setIsLoading(true);
         setError('');
         try {
-            const res = await authApi.sendRegistrationOtp(email, name);
+            const res = await authApi.sendRegistrationOtp(email, name, 'doctor');
             if (res.success) {
                 setOtpSent(true);
                 setOtpError('');
                 setResendTimer(60);
             } else {
-                setError(res.error || 'Failed to send OTP');
+                setError(res.message || res.error || 'Failed to send OTP');
             }
         } catch (err: any) {
             setError(err.message || 'Error sending OTP');

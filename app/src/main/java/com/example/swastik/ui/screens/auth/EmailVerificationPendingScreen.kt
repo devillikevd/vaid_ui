@@ -31,6 +31,9 @@ import com.example.swastik.R
 @Composable
 fun EmailVerificationPendingScreen(
     email: String = "",
+    name: String = "",
+    phone: String = "",
+    password: String = "",
     onBackClick: () -> Unit,
     onLoginSuccess: () -> Unit
 ) {
@@ -211,7 +214,7 @@ fun EmailVerificationPendingScreen(
                 OutlinedButton(
                     onClick = {
                         viewModel.clearFeedback()
-                        viewModel.resendVerification(email)
+                        viewModel.resendRegistrationOtp(email, name)
                         resendCooldown = 60
                     },
                     modifier = Modifier
@@ -237,7 +240,15 @@ fun EmailVerificationPendingScreen(
             if (!uiState.emailVerificationComplete) {
                 SwastikButton(
                     text = stringResource(R.string.verify_email_otp_1),
-                    onClick = { viewModel.verifyEmailOtp(email, otp) },
+                    onClick = {
+                        viewModel.verifyRegistrationOtp(
+                            otp = otp,
+                            email = email,
+                            password = password,
+                            name = name,
+                            phone = phone.takeIf { it.isNotBlank() }
+                        )
+                    },
                     enabled = otp.length == 6 && !uiState.isLoading
                 )
 

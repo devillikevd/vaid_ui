@@ -163,6 +163,17 @@ data class RegisterRequest(
     val role: String = "patient"
 )
 
+data class SendRegistrationOtpRequest(
+    val email: String,
+    val name: String? = null,
+    val role: String = "patient"
+)
+
+data class VerifyRegistrationOtpRequest(
+    val email: String,
+    val otp: String
+)
+
 data class ResendVerificationRequest(
     val email: String
 )
@@ -213,12 +224,12 @@ data class AuthResponse(
 
 data class UserDto(
     val id: String,
-    val email: String,
-    val phone: String,
-    val role: String,
-    val name: String?,
+    val email: String? = null,
+    val phone: String? = null,
+    val role: String = "patient",
+    val name: String? = null,
     @SerializedName("is_verified")
-    val isVerified: Boolean
+    val isVerified: Boolean = false
 )
 
 // ==================== PATIENT DTOs ====================

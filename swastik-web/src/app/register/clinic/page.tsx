@@ -161,14 +161,14 @@ export default function ClinicRegisterPage() {
                 setIsLoading(false);
                 return;
             }
-            const otpRes = await authApi.sendRegistrationOtp(email.trim(), name.trim());
+            const otpRes = await authApi.sendRegistrationOtp(email.trim(), name.trim(), 'clinic_owner');
             if (otpRes.success) {
                 setVerificationSent(true);
                 setVerificationComplete(false);
                 setVerificationError('');
                 setVerificationInfo('We sent a 6-digit verification code to your email.');
             } else {
-                setError(otpRes.error || 'Failed to send verification code. Please try again.');
+                setError(otpRes.message || otpRes.error || 'Failed to send verification code. Please try again.');
             }
         } catch (err: any) {
             setError(err.message || 'An unexpected error occurred');
@@ -182,7 +182,7 @@ export default function ClinicRegisterPage() {
         setResendingOtp(true);
         setVerificationError('');
         try {
-            const result = await authApi.resendVerification(email.trim());
+            const result = await authApi.sendRegistrationOtp(email.trim(), name.trim(), 'clinic_owner');
             if (result.success) {
                 setVerificationInfo(result.message || 'Verification code sent.');
                 setResendCooldown(60);

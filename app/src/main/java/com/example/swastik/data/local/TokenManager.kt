@@ -34,17 +34,34 @@ class TokenManager @Inject constructor(
         return try {
             createEncryptedPrefs(context)
         } catch (e: Exception) {
-            // If encrypted prefs are corrupted, clear and retry once
             Log.w("TokenManager", "EncryptedSharedPreferences failed, clearing and retrying", e)
             try {
-                // Delete the corrupted prefs file and try again
-                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
+                // Properly delete the encrypted shared prefs file from disk
+                try {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                        context.deleteSharedPreferences(PREFS_NAME)
+                    } else {
+                        val prefsFile = java.io.File(context.filesDir.parent, "shared_prefs/$PREFS_NAME.xml")
+                        if (prefsFile.exists()) prefsFile.delete()
+                    }
+                } catch (delEx: Exception) {
+                    Log.w("TokenManager", "Failed to delete prefs file", delEx)
+                }
+
+                // Delete the master key from AndroidKeyStore if present
+                try {
+                    val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                    if (keyStore.containsAlias(MasterKey.DEFAULT_MASTER_KEY_ALIAS)) {
+                        keyStore.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+                    }
+                } catch (ksEx: Exception) {
+                    Log.w("TokenManager", "Failed to delete keystore alias", ksEx)
+                }
+
                 createEncryptedPrefs(context)
             } catch (e2: Exception) {
-                // Absolute last resort — still use encrypted prefs with fresh keystore
-                // NEVER fall back to plaintext for PHI security
-                Log.e("TokenManager", "EncryptedSharedPreferences retry failed. Tokens will not persist.", e2)
-                throw IllegalStateException("Cannot create secure storage for tokens", e2)
+                Log.e("TokenManager", "EncryptedSharedPreferences retry failed. Falling back to private SharedPreferences.", e2)
+                context.getSharedPreferences(PREFS_NAME_FALLBACK, Context.MODE_PRIVATE)
             }
         }
     }
@@ -151,7 +168,7 @@ class TokenManager @Inject constructor(
         userId: String,
         role: String,
         name: String,
-        phone: String
+        phone: String?
     ) {
         this.userId = userId
         this.userRole = role

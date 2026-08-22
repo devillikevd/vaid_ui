@@ -103,7 +103,7 @@ private fun AuthGuard(
         content()
     } else {
         LaunchedEffect(Unit) {
-            navController.navigateSafe(Screen.Home.route) {
+            navController.navigateSafe(Screen.Splash.route) {
                 popUpTo(0) { inclusive = true }
             }
         }
@@ -172,7 +172,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             if (tokenManager.isAuthenticated()) {
                 Screen.PatientDashboard.createRoute()
             } else {
-                Screen.Home.route
+                Screen.Splash.route
             }
         }
         val startDestination = Screen.Splash.route
@@ -247,8 +247,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     }
                 },
                 onBackClick = { navController.popBackStack() },
-                onRegisterSuccess = { email ->
-                    navController.navigateSafe(Screen.EmailVerificationPending.createRoute(email)) {
+                onRegisterSuccess = { email, name, phone, password ->
+                    navController.navigateSafe(Screen.EmailVerificationPending.createRoute(email, name, phone, password)) {
                         popUpTo(Screen.PatientRegister.route) { inclusive = true }
                     }
                 }
@@ -278,16 +278,43 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     type = androidx.navigation.NavType.StringType
                     defaultValue = ""
                     nullable = true
+                },
+                androidx.navigation.navArgument("name") {
+                    type = androidx.navigation.NavType.StringType
+                    defaultValue = ""
+                    nullable = true
+                },
+                androidx.navigation.navArgument("phone") {
+                    type = androidx.navigation.NavType.StringType
+                    defaultValue = ""
+                    nullable = true
+                },
+                androidx.navigation.navArgument("password") {
+                    type = androidx.navigation.NavType.StringType
+                    defaultValue = ""
+                    nullable = true
                 }
             )
         ) { backStackEntry ->
             val email = backStackEntry.arguments?.getString("email")?.let {
-                java.net.URLDecoder.decode(it, "UTF-8")
+                try { java.net.URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
+            } ?: ""
+            val name = backStackEntry.arguments?.getString("name")?.let {
+                try { java.net.URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
+            } ?: ""
+            val phone = backStackEntry.arguments?.getString("phone")?.let {
+                try { java.net.URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
+            } ?: ""
+            val password = backStackEntry.arguments?.getString("password")?.let {
+                try { java.net.URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
             } ?: ""
             EmailVerificationPendingScreen(
                 email = email,
+                name = name,
+                phone = phone,
+                password = password,
                 onBackClick = { 
-                    navController.navigate(Screen.Home.route) {
+                    navController.navigateSafe(Screen.Splash.route) {
                         popUpTo(0) { inclusive = true }
                     }
                 },
@@ -428,7 +455,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             PatientDashboardScreen(
                 initialTab = initialTab,
                 onLogout = {
-                    navController.navigateSafe(Screen.Home.route) {
+                    navController.navigateSafe(Screen.Splash.route) {
                         popUpTo(0) { inclusive = true }
                     }
                 },

@@ -43,7 +43,7 @@ class AuthInterceptor @Inject constructor(
 
         // Skip auth header for login/register/public endpoints
         val path = originalRequest.url.encodedPath
-        if (path.endsWith("auth/login") || path.endsWith("auth/register") || path.endsWith("auth/forgot-password") || path.endsWith("auth/resend-verification") || path.endsWith("auth/verify-email") || path.endsWith("auth/verify-email-otp")) {
+        if (path.endsWith("auth/login") || path.endsWith("auth/register") || path.endsWith("auth/send-registration-otp") || path.endsWith("auth/verify-registration-otp") || path.endsWith("auth/forgot-password") || path.endsWith("auth/resend-verification") || path.endsWith("auth/verify-email") || path.endsWith("auth/verify-email-otp")) {
             return proceedWithRetry(chain, originalRequest) ?: Response.Builder()
                 .request(originalRequest)
                 .protocol(okhttp3.Protocol.HTTP_1_1)

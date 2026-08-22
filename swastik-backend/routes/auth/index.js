@@ -197,34 +197,54 @@ router.post('/send-registration-otp',
   [
     body('email').trim().isEmail().toLowerCase().withMessage('Valid email is required'),
     body('name').optional().trim().escape(),
+    body('role').optional().trim(),
   ],
   validate,
   asyncHandler(async (req, res) => {
     const { supabaseAdmin } = require('../../config/supabase');
+    const email = req.body.email.toLowerCase().trim();
+    const rawRole = (req.body.role || 'patient').trim().toLowerCase();
     
-    // Check if email already exists
+    // Check if email already exists as a verified user
     const { data: existingUser } = await supabaseAdmin
       .from('users')
-      .select('id')
-      .eq('email', req.body.email)
+      .select('id, is_verified')
+      .eq('email', email)
       .maybeSingle();
 
-    if (existingUser) {
+    if (existingUser && existingUser.is_verified) {
       return res.status(409).json({
         success: false,
-        error: 'This email is already registered. Please login instead.'
+        message: 'This email is already registered. Please login instead.'
       });
     }
 
+    const roleTitleMap = {
+      patient: 'Patient Registration',
+      doctor: 'Doctor Registration',
+      pharmacy_owner: 'Pharmacy Registration',
+      pharmacy_manager: 'Pharmacy Registration',
+      pharmacy_staff: 'Pharmacy Registration',
+      hospital_owner: 'Hospital Registration',
+      hospital_manager: 'Hospital Registration',
+      clinic_owner: 'Clinic Registration',
+      ambulance_operator: 'Ambulance Operator Registration',
+      ambulance_driver: 'Ambulance Operator Registration',
+      diagnostic_center_owner: 'Diagnostic Center Registration',
+    };
+
+    const title = roleTitleMap[rawRole] || 'Account Registration';
+
     const result = await authService.issueUniversalOtp({
-      email: req.body.email,
+      email,
       name: req.body.name,
       purpose: 'registration',
-      title: 'Doctor Registration',
-      intro: 'Please use the OTP below to complete your registration on Vaididea.'
+      title,
+      intro: `Please use the OTP below to complete your ${title.toLowerCase()} on Vaididea.`
     });
     res.json({
       success: true,
+      message: 'Verification code sent to your email.',
       ...result,
     });
   })

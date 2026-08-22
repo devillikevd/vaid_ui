@@ -164,7 +164,7 @@ export default function PharmacyRegisterPage() {
             }
 
             // Fire registration OTP
-            const otpResult = await authApi.sendRegistrationOtp(email.trim(), name.trim());
+            const otpResult = await authApi.sendRegistrationOtp(email.trim(), name.trim(), 'pharmacy_owner');
             if (otpResult.success) {
                 setVerificationSent(true);
                 setResendCooldown(60);
@@ -237,7 +237,7 @@ export default function PharmacyRegisterPage() {
         setVerificationError('');
         setVerificationInfo('');
         try {
-            const res = await authApi.sendRegistrationOtp(email.trim(), name.trim());
+            const res = await authApi.sendRegistrationOtp(email.trim(), name.trim(), 'pharmacy_owner');
             if (res.success) {
                 setVerificationInfo('A new verification code has been sent.');
                 setResendCooldown(60);

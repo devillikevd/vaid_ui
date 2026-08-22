@@ -359,11 +359,11 @@ export const authApi = {
         return response.json();
     },
 
-    sendRegistrationOtp: async (email: string, name?: string) => {
+    sendRegistrationOtp: async (email: string, name?: string, role?: string) => {
         const response = await fetch(`${API_BASE_URL}/auth/send-registration-otp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, name }),
+            body: JSON.stringify({ email, name, role }),
         });
         return response.json();
     },
