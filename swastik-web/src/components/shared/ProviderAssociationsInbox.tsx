@@ -12,8 +12,12 @@ import {
     Phone,
     RefreshCw,
     XCircle,
+    Info,
+    Network,
+    PlusCircle
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { DashboardCard, CardHeader } from '@/components/shared/DashboardCard';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 
@@ -67,7 +71,7 @@ export default function ProviderAssociationsInbox({
     title,
     subtitle,
     providerLabel,
-    accentClass = 'text-orange-600',
+    accentClass = 'text-purple-600',
     fetchInvites,
     fetchAssociations,
     respondToInvite,
@@ -146,6 +150,11 @@ export default function ProviderAssociationsInbox({
     };
 
     const pendingInvites = invites.filter((invite) => invite.status === 'pending');
+    
+    const pendingCount = pendingInvites.length;
+    const activeCount = associations.length;
+    const hospitalCount = associations.filter(a => a.facilityType === 'hospital').length;
+    const clinicCount = associations.filter(a => a.facilityType === 'clinic').length;
 
     const formatAddress = (record: { address?: string; city?: string; state?: string }) => {
         const location = [record.city, record.state].filter(Boolean).join(', ');
@@ -153,151 +162,238 @@ export default function ProviderAssociationsInbox({
         return record.address || location || 'Address not available';
     };
 
+    const isPurple = accentClass.includes('purple');
+    const isBlue = accentClass.includes('blue');
+    const colorFamily = isPurple ? 'purple' : isBlue ? 'blue' : 'slate';
+    const bgClass = `bg-${colorFamily}-50 dark:bg-${colorFamily}-900/20`;
+    const borderClass = `border-${colorFamily}-100 dark:border-${colorFamily}-800`;
+
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{title}</h1>
-                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{subtitle}</p>
+            <PageHeader 
+                title={title}
+                subtitle={subtitle}
+                actions={
+                    <Button variant="outline" onClick={() => void loadData()} leftIcon={<RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />}>
+                        Refresh
+                    </Button>
+                }
+            />
+
+            <div className={`flex items-start gap-3 rounded-lg border ${borderClass} ${bgClass} p-3 text-sm`} >
+                <Info className={`mt-0.5 h-4 w-4 ${accentClass}`} />
+                <div className="text-slate-700 dark:text-slate-300 font-medium">
+                    Hospitals and clinics can reference your {providerLabel.toLowerCase()} through these associations. Operational ownership remains with your {providerLabel.toLowerCase()}.
                 </div>
-                <Button variant="outline" onClick={() => void loadData()} leftIcon={<RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />}>
-                    Refresh
-                </Button>
             </div>
 
-            <Card>
-                <CardContent className="pt-6">
-                    <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                        <div className="font-medium">Operational ownership stays here</div>
-                        <p className="mt-1">
-                            These links only let hospitals and clinics reference your {providerLabel.toLowerCase()} as an associated provider. Inventory, orders, tests, bookings, and patient-facing workflows remain fully managed from the {providerLabel.toLowerCase()} portal.
-                        </p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <DashboardCard>
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-xl ${bgClass} ${accentClass}`}>
+                            <Clock3 className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Pending Invites</p>
+                            <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                                {loading ? <span className="animate-pulse bg-slate-200 dark:bg-slate-700 h-7 w-12 rounded inline-block"></span> : pendingCount}
+                            </p>
+                        </div>
                     </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>Pending Invites</CardTitle>
-                    <span className={`text-sm font-medium ${accentClass}`}>{pendingInvites.length} pending</span>
-                </CardHeader>
-                <CardContent>
-                    {loading ? (
-                        <div className="flex min-h-[160px] items-center justify-center">
-                            <Loader2 className={`h-8 w-8 animate-spin ${accentClass}`} />
+                </DashboardCard>
+                <DashboardCard>
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-xl ${bgClass} ${accentClass}`}>
+                            <Network className="h-5 w-5" />
                         </div>
-                    ) : pendingInvites.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-gray-200 px-6 py-10 text-center dark:border-gray-700">
-                            <Clock3 className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" />
-                            <p className="mt-3 text-base font-medium text-gray-900 dark:text-gray-100">No pending invites</p>
-                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">New hospital or clinic invites will appear here for acceptance.</p>
+                        <div>
+                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Active Associations</p>
+                            <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                                {loading ? <span className="animate-pulse bg-slate-200 dark:bg-slate-700 h-7 w-12 rounded inline-block"></span> : activeCount}
+                            </p>
+                        </div>
+                    </div>
+                </DashboardCard>
+                <DashboardCard>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/20">
+                            <Building2 className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Hospitals</p>
+                            <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                                {loading ? <span className="animate-pulse bg-slate-200 dark:bg-slate-700 h-7 w-12 rounded inline-block"></span> : hospitalCount}
+                            </p>
+                        </div>
+                    </div>
+                </DashboardCard>
+                <DashboardCard>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20">
+                            <PlusCircle className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Clinics</p>
+                            <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                                {loading ? <span className="animate-pulse bg-slate-200 dark:bg-slate-700 h-7 w-12 rounded inline-block"></span> : clinicCount}
+                            </p>
+                        </div>
+                    </div>
+                </DashboardCard>
+            </div>
+
+            <DashboardCard noPadding>
+                <CardHeader 
+                    title="Pending Invites" 
+                    icon={Clock3} 
+                    iconColor={accentClass}
+                    action={<span className={`text-sm font-medium ${accentClass} px-2.5 py-1 rounded-full ${bgClass}`}>{pendingCount} pending</span>}
+                />
+                <div className="p-5 pt-2">
+                    {loading ? (
+                        <div className="space-y-3 mt-4">
+                            {[1, 2].map(i => (
+                                <div key={i} className="animate-pulse flex items-center justify-between p-4 border border-slate-100 dark:border-slate-800 rounded-xl">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+                                        <div className="space-y-2">
+                                            <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                                            <div className="h-3 w-48 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : pendingCount === 0 ? (
+                        <div className="py-8 text-center bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 mt-2">
+                            <Clock3 className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600 mb-2" />
+                            <h3 className="text-sm font-medium text-slate-900 dark:text-slate-200">No pending invites</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">New hospital or clinic invitations will appear here.</p>
                         </div>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-3 mt-2">
                             {pendingInvites.map((invite) => (
-                                <div key={invite.id} className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                        <div className="space-y-1">
+                                <div key={invite.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition-shadow gap-4">
+                                    <div className="flex items-start sm:items-center gap-4">
+                                        <div className={`p-3 rounded-lg shrink-0 ${bgClass} ${accentClass}`}>
+                                            <Building2 className="h-5 w-5" />
+                                        </div>
+                                        <div>
                                             <div className="flex items-center gap-2">
-                                                <Building2 className={`h-4 w-4 ${accentClass}`} />
-                                                <p className="font-semibold text-gray-900 dark:text-gray-100">{invite.facility?.name || 'Facility'}</p>
+                                                <h4 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{invite.facility?.name || 'Facility'}</h4>
+                                                <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${bgClass} ${accentClass}`}>
+                                                    {invite.facility?.label || invite.facility_type || 'Facility'}
+                                                </span>
                                             </div>
-                                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                                {(invite.facility?.label || invite.facility_type || 'Facility')} invite
+                                            <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+                                                <MapPin className="h-3.5 w-3.5" />
+                                                {formatAddress(invite.facility || {})}
                                             </p>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">{formatAddress(invite.facility || {})}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                Invited by {invite.invitedBy?.name || invite.invitedBy?.email || 'Provider Admin'}
-                                            </p>
-                                            {invite.expires_at ? (
-                                                <p className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
-                                                    <Clock3 className="h-3.5 w-3.5" />
-                                                    Expires {new Date(invite.expires_at).toLocaleString('en-IN')}
+                                            <div className="flex items-center gap-3 mt-1.5">
+                                                <p className="text-xs text-slate-400 dark:text-slate-500">
+                                                    Invited by {invite.invitedBy?.name || invite.invitedBy?.email || 'Provider Admin'}
                                                 </p>
-                                            ) : null}
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <Button
-                                                variant="outline"
-                                                disabled={actionId === invite.id}
-                                                isLoading={actionId === invite.id}
-                                                leftIcon={<XCircle className="h-4 w-4" />}
-                                                onClick={() => void handleRespond(invite.id, 'reject')}
-                                            >
-                                                Reject
-                                            </Button>
-                                            <Button
-                                                disabled={actionId === invite.id}
-                                                isLoading={actionId === invite.id}
-                                                leftIcon={<CheckCircle2 className="h-4 w-4" />}
-                                                onClick={() => void handleRespond(invite.id, 'accept')}
-                                            >
-                                                Accept
-                                            </Button>
-                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                                        <Button
+                                            variant="outline"
+                                            className="w-full sm:w-auto"
+                                            disabled={actionId === invite.id}
+                                            isLoading={actionId === invite.id}
+                                            leftIcon={<XCircle className="h-4 w-4" />}
+                                            onClick={() => void handleRespond(invite.id, 'reject')}
+                                        >
+                                            Decline
+                                        </Button>
+                                        <Button
+                                            className="w-full sm:w-auto"
+                                            disabled={actionId === invite.id}
+                                            isLoading={actionId === invite.id}
+                                            leftIcon={<CheckCircle2 className="h-4 w-4" />}
+                                            onClick={() => void handleRespond(invite.id, 'accept')}
+                                        >
+                                            Accept
+                                        </Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
-                </CardContent>
-            </Card>
+                </div>
+            </DashboardCard>
 
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>Current Associations</CardTitle>
-                    <span className={`text-sm font-medium ${accentClass}`}>{associations.length} linked</span>
-                </CardHeader>
-                <CardContent>
+            <DashboardCard noPadding>
+                <CardHeader 
+                    title="Current Associations" 
+                    icon={Link2} 
+                    iconColor={accentClass}
+                    action={<span className={`text-sm font-medium ${accentClass} px-2.5 py-1 rounded-full ${bgClass}`}>{activeCount} linked</span>}
+                />
+                <div className="p-5 pt-2">
                     {loading ? (
-                        <div className="flex min-h-[160px] items-center justify-center">
-                            <Loader2 className={`h-8 w-8 animate-spin ${accentClass}`} />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            {[1, 2].map(i => (
+                                <div key={i} className="animate-pulse p-4 border border-slate-100 dark:border-slate-800 rounded-xl space-y-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
+                                        <div className="space-y-2">
+                                            <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ) : associations.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-gray-200 px-6 py-10 text-center dark:border-gray-700">
-                            <Link2 className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" />
-                            <p className="mt-3 text-base font-medium text-gray-900 dark:text-gray-100">No active associations</p>
-                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Accepted hospital and clinic links will appear here.</p>
+                    ) : activeCount === 0 ? (
+                        <div className="py-10 text-center bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 mt-2">
+                            <Link2 className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600 mb-3" />
+                            <h3 className="text-sm font-medium text-slate-900 dark:text-slate-200">No active associations</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">Accepted hospital and clinic references will appear here.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                             {associations.map((association) => (
-                                <div key={association.associationId} className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <Building2 className={`h-4 w-4 ${accentClass}`} />
-                                            <p className="font-semibold text-gray-900 dark:text-gray-100">{association.name}</p>
+                                <div key={association.associationId} className="flex flex-col p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="flex items-start gap-3">
+                                        <div className={`p-2.5 rounded-lg shrink-0 ${association.facilityType === 'hospital' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20'}`}>
+                                            <Building2 className="h-5 w-5" />
                                         </div>
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                            {association.label}
-                                        </p>
-                                        {association.associatedAt ? (
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                Linked on {new Date(association.associatedAt).toLocaleString('en-IN')}
-                                            </p>
-                                        ) : null}
-                                    </div>
-
-                                    <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                                        <div className="flex items-center gap-2">
-                                            <Mail className="h-4 w-4 text-gray-400" />
-                                            <span className="truncate">{association.email || 'Email not available'}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Phone className="h-4 w-4 text-gray-400" />
-                                            <span>{association.phone || 'Phone not available'}</span>
-                                        </div>
-                                        <div className="flex items-start gap-2">
-                                            <MapPin className="mt-0.5 h-4 w-4 text-gray-400" />
-                                            <span>{formatAddress(association)}</span>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <h4 className="font-semibold text-slate-900 dark:text-slate-100 text-sm truncate" title={association.name}>{association.name}</h4>
+                                                <span className={`shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${association.facilityType === 'hospital' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30'}`}>
+                                                    {association.label}
+                                                </span>
+                                            </div>
+                                            {association.associatedAt && (
+                                                <p className="text-[11px] text-slate-400 mt-0.5">
+                                                    Linked on {new Date(association.associatedAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                                </p>
+                                            )}
+                                            
+                                            <div className="mt-3 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                                <div className="flex items-center gap-2">
+                                                    <Phone className="h-3.5 w-3.5 text-slate-400" />
+                                                    <span className="truncate">{association.phone || 'Phone not available'}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Mail className="h-3.5 w-3.5 text-slate-400" />
+                                                    <span className="truncate">{association.email || 'Email not available'}</span>
+                                                </div>
+                                                <div className="flex items-start gap-2">
+                                                    <MapPin className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
+                                                    <span className="line-clamp-1" title={formatAddress(association)}>{formatAddress(association)}</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
-                </CardContent>
-            </Card>
+                </div>
+            </DashboardCard>
         </div>
     );
 }

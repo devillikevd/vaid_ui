@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { Search, Loader2, Upload, Eye, FileCheck, Clock, CheckCircle2, AlertCircle, Send } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useDiagnosticCenterStore, type DiagnosticBooking } from '@/stores/diagnosticCenterStore';
 import { Pagination } from '@/components/ui/Pagination';
+import { DashboardCard } from '@/components/shared/DashboardCard';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 const RESULT_STATUS_FILTERS = [
     { label: 'All', value: '', icon: FileCheck },
@@ -80,11 +81,10 @@ export default function ResultsPage() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Test Results</h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">Manage and upload test results for patient bookings</p>
-            </div>
+            <PageHeader 
+                title="Test Results"
+                subtitle="Manage and upload test results for patient bookings"
+            />
 
             {error && (
                 <div className="px-4 py-3 rounded-lg text-sm border bg-red-50 border-red-200 text-red-700">{error}</div>
@@ -92,9 +92,9 @@ export default function ResultsPage() {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <SummaryCard label="Pending" count={totalPending} icon={<Clock className="h-5 w-5" />} color="yellow" />
-                <SummaryCard label="Processing" count={totalProcessing} icon={<AlertCircle className="h-5 w-5" />} color="blue" />
-                <SummaryCard label="Completed" count={totalCompleted} icon={<CheckCircle2 className="h-5 w-5" />} color="green" />
+                <SummaryCard label="Pending" count={totalPending} icon={<Clock className="h-5 w-5 text-yellow-600" />} color="yellow" />
+                <SummaryCard label="Processing" count={totalProcessing} icon={<AlertCircle className="h-5 w-5 text-blue-600" />} color="blue" />
+                <SummaryCard label="Completed" count={totalCompleted} icon={<CheckCircle2 className="h-5 w-5 text-green-600" />} color="green" />
             </div>
 
             {/* Filters */}
@@ -138,7 +138,7 @@ export default function ResultsPage() {
             ) : results.length > 0 ? (
                 <div className="space-y-4">
                     {results.map((booking: DiagnosticBooking) => (
-                        <Card key={booking.id}>
+                        <DashboardCard key={booking.id}>
                             <div className="space-y-4">
                                 {/* Booking Header */}
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -205,7 +205,7 @@ export default function ResultsPage() {
                                                             type="file"
                                                             accept="application/pdf,image/*"
                                                             onChange={e => setResultForm(f => ({ ...f, file: e.target.files?.[0] || null }))}
-                                                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-gray-700 dark:file:text-gray-200"
+                                                            className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-gray-700 dark:file:text-gray-200"
                                                         />
                                                     </div>
                                                     <Input
@@ -252,7 +252,7 @@ export default function ResultsPage() {
                                         </div>
                                     )}
                             </div>
-                        </Card>
+                        </DashboardCard>
                     ))}
                 </div>
             ) : (
@@ -285,19 +285,23 @@ function SummaryCard({
     color: 'yellow' | 'blue' | 'green' | 'purple';
 }) {
     const colorMap = {
-        yellow: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-        blue: 'bg-blue-50 text-blue-700 border-blue-200',
-        green: 'bg-green-50 text-green-700 border-green-200',
-        purple: 'bg-purple-50 text-purple-700 border-purple-200',
+        yellow: 'bg-yellow-100',
+        blue: 'bg-blue-100',
+        green: 'bg-green-100',
+        purple: 'bg-purple-100',
     };
 
     return (
-        <div className={`rounded-lg border p-4 ${colorMap[color]}`}>
-            <div className="flex items-center gap-2 mb-1">
-                {icon}
-                <span className="text-sm font-medium">{label}</span>
+        <DashboardCard noPadding>
+            <div className="p-4 flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${colorMap[color]}`}>
+                    {icon}
+                </div>
+                <div>
+                    <p className="text-xl font-bold">{count}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+                </div>
             </div>
-            <p className="text-2xl font-bold">{count}</p>
-        </div>
+        </DashboardCard>
     );
 }

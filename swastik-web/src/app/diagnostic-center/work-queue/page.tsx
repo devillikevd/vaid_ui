@@ -86,7 +86,7 @@ export default function LabTechnicianWorkQueue() {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh]">
                 <Shield className="h-16 w-16 text-gray-300 mb-4" />
-                <h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Access Denied</h1>
             </div>
         );
     }
@@ -95,10 +95,10 @@ export default function LabTechnicianWorkQueue() {
         <div className="p-4 sm:p-8 max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Work Queue</h1>
-                    <p className="text-gray-500 mt-1">Manage sample collection, processing, and results.</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Work Queue</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">Manage sample collection, processing, and results.</p>
                 </div>
-                <button onClick={fetchQueue} className="p-2 text-gray-500 hover:text-[#5B2A86] hover:bg-[#F3ECF8] rounded-xl transition-colors">
+                <button onClick={fetchQueue} className="p-2 text-gray-500 dark:text-gray-400 hover:text-[#5B2A86] hover:bg-[#F3ECF8] rounded-xl transition-colors">
                     <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
                 </button>
             </div>
@@ -107,19 +107,19 @@ export default function LabTechnicianWorkQueue() {
             <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-xl max-w-md overflow-x-auto scrollbar-hide">
                 <button
                     onClick={() => { setActiveTab('samples_to_collect'); setPage(1); }}
-                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${activeTab === 'samples_to_collect' ? 'bg-white text-[#5B2A86] shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${activeTab === 'samples_to_collect' ? 'bg-white dark:bg-slate-900 text-[#5B2A86] shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-100'}`}
                 >
                     Samples to Collect
                 </button>
                 <button
                     onClick={() => { setActiveTab('processing'); setPage(1); }}
-                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${activeTab === 'processing' ? 'bg-white text-[#5B2A86] shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${activeTab === 'processing' ? 'bg-white dark:bg-slate-900 text-[#5B2A86] shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-100'}`}
                 >
                     Processing
                 </button>
                 <button
                     onClick={() => { setActiveTab('results_pending'); setPage(1); }}
-                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${activeTab === 'results_pending' ? 'bg-white text-[#5B2A86] shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                    className={`flex-1 py-2 px-4 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${activeTab === 'results_pending' ? 'bg-white dark:bg-slate-900 text-[#5B2A86] shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-100'}`}
                 >
                     Results Pending
                 </button>
@@ -128,43 +128,43 @@ export default function LabTechnicianWorkQueue() {
             {loading ? (
                 <div className="space-y-4">
                     {[1, 2, 3, 4].map(i => (
-                        <div key={i} className="animate-pulse bg-white border border-gray-100 h-24 rounded-2xl w-full"></div>
+                        <div key={i} className="animate-pulse bg-white dark:bg-slate-900 border border-gray-100 dark:border-gray-800 h-24 rounded-2xl w-full"></div>
                     ))}
                 </div>
             ) : error ? (
-                <div className="flex flex-col items-center justify-center py-16 bg-white rounded-3xl border border-gray-100">
+                <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-gray-800">
                     <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900">Unable to load data.</h3>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Unable to load data.</h3>
                     <button onClick={fetchQueue} className="mt-4 px-4 py-2 text-[#5B2A86] bg-[#F3ECF8] rounded-lg font-medium">Retry</button>
                 </div>
             ) : bookings.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24 bg-white rounded-3xl border border-gray-100">
+                <div className="flex flex-col items-center justify-center py-24 bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-gray-800">
                     <ClipboardList className="h-12 w-12 text-gray-300 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900">No work items right now.</h3>
-                    <p className="text-gray-500 mt-1">Check back later for new tasks.</p>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No work items right now.</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">Check back later for new tasks.</p>
                 </div>
             ) : (
-                <div className="bg-white rounded-[20px] border border-gray-100 shadow-sm overflow-hidden">
+                <div className="bg-white dark:bg-slate-900 rounded-[20px] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
-                            <thead className="bg-[#FAF6FC] border-b border-gray-100">
+                            <thead className="bg-[#FAF6FC] border-b border-gray-100 dark:border-gray-800">
                                 <tr>
-                                    <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Patient & Test</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Last Updated</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider text-right">Action</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Patient & Test</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Last Updated</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {bookings.map((booking) => (
-                                    <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
+                                    <tr key={booking.id} className="hover:bg-gray-50 dark:bg-gray-800/50 transition-colors">
                                         <td className="px-6 py-4">
-                                            <div className="font-medium text-gray-900">{booking.patient?.user?.name || 'Unknown Patient'}</div>
-                                            <div className="text-sm text-gray-500 mt-0.5">{booking.test?.name || 'Unknown Test'}</div>
+                                            <div className="font-medium text-gray-900 dark:text-gray-100">{booking.patient?.user?.name || 'Unknown Patient'}</div>
+                                            <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{booking.test?.name || 'Unknown Test'}</div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 capitalize border border-gray-200">
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 dark:text-gray-300 capitalize border border-gray-200 dark:border-gray-700">
                                                 {booking.collection_type?.replace('_', ' ')}
                                             </span>
                                         </td>
@@ -173,7 +173,7 @@ export default function LabTechnicianWorkQueue() {
                                                 {booking.status?.replace('_', ' ')}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                                             {new Date(booking.updated_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                                         </td>
                                         <td className="px-6 py-4 text-right">
@@ -204,19 +204,19 @@ export default function LabTechnicianWorkQueue() {
                     
                     {/* Pagination Controls */}
                     {totalPages > 1 && (
-                        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between bg-gray-50">
+                        <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50">
                             <button 
                                 disabled={page === 1}
                                 onClick={() => setPage(p => p - 1)}
-                                className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md disabled:opacity-50"
+                                className="px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-900 border border-gray-300 dark:border-gray-600 rounded-md disabled:opacity-50"
                             >
                                 Previous
                             </button>
-                            <span className="text-sm text-gray-600">Page {page} of {totalPages}</span>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Page {page} of {totalPages}</span>
                             <button 
                                 disabled={page === totalPages}
                                 onClick={() => setPage(p => p + 1)}
-                                className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md disabled:opacity-50"
+                                className="px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-900 border border-gray-300 dark:border-gray-600 rounded-md disabled:opacity-50"
                             >
                                 Next
                             </button>

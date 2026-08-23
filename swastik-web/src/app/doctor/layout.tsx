@@ -20,6 +20,7 @@ import {
     Building2,
     Lightbulb,
     MessageSquare,
+    Send,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 import { IncomingAppointmentAlert } from '@/components/shared/IncomingAppointmentAlert';
@@ -43,6 +44,7 @@ const DOCTOR_CONFIG: DashboardConfig = {
         { name: 'Appointments',    href: '/doctor/appointments',      icon: Calendar,                section: 'Clinical Work' },
         { name: 'Prescriptions',   href: '/doctor/prescriptions',     icon: ClipboardList,           section: 'Clinical Work' },
         { name: 'Patients',        href: '/doctor/patients',          icon: Users,                   section: 'Clinical Work' },
+        { name: 'Referrals',       href: '/doctor/referrals',         icon: Send,                    section: 'Clinical Work' },
         { name: 'Vitals',          href: '/doctor/vitals',            icon: Activity,                section: 'Clinical Work' },
         { name: 'Health Alerts',   href: '/doctor/health-alerts',     icon: Radar,                   section: 'Clinical Work' },
         { name: 'Schedule',        href: '/doctor/schedule',          icon: Clock,                   section: 'Management' },

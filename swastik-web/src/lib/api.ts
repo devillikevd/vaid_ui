@@ -2604,6 +2604,81 @@ export const publicDiscoveryApi = {
     searchClinics: (query: string = '') => fetchWithAuth(`/clinics/search?search=${encodeURIComponent(query)}`),
 };
 
+// ==================== Universal Referrals API ====================
+// Single unified client — works identically across all sender portal contexts:
+// Clinic, Hospital, Diagnostic Center, Pharmacy (and Doctor-via-Clinic/Hospital).
+
+const universalReferralsApi = {
+    createReferral: (data: any) =>
+        fetchWithAuth('/referrals', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    getReferralInbox: (params?: Record<string, string>) => {
+        const query = params ? '?' + new URLSearchParams(params).toString() : '';
+        return fetchWithAuth(`/referrals/inbox${query}`);
+    },
+
+    getSentReferrals: (params?: Record<string, string>) => {
+        const query = params ? '?' + new URLSearchParams(params).toString() : '';
+        return fetchWithAuth(`/referrals/sent${query}`);
+    },
+
+    getReferral: (id: string) => fetchWithAuth(`/referrals/${id}`),
+
+    updateReferralStatus: (id: string, status: string) =>
+        fetchWithAuth(`/referrals/${id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status }),
+        }),
+
+    addReferralAttachment: (id: string, data: any) =>
+        fetchWithAuth(`/referrals/${id}/attachments`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    /**
+     * Fetch the patient's eligible reports & prescriptions for referral attachment selection.
+     *
+     * sender_type and sender_id are CONTEXT PARAMETERS only — the backend revalidates
+     * that the authenticated user actually controls that sender_type/sender_id before
+     * returning any document metadata. The frontend must treat results as selectable
+     * candidates only. Backend is authoritative at submission time.
+     */
+    getPatientDocumentsForReferral: (patientId: string, senderType: string, senderId: string) => {
+        const params = new URLSearchParams({ sender_type: senderType, sender_id: senderId });
+        return fetchWithAuth(`/referrals/patients/${patientId}/documents?${params.toString()}`);
+    },
+
+    /**
+     * P7.7 — Search patients the authenticated sender is authorized to refer.
+     *
+     * sender_type and sender_id are CONTEXT PARAMETERS only. The backend runs
+     * validateProviderAccess(senderType, senderId, req.user) before returning any data.
+     * A forged senderId will result in a 403 — never in data exposure.
+     *
+     * Returns: { success, data: [{ id, name, phone }], pagination: { page, limit, total, totalPages } }
+     */
+    searchPatients: (params: {
+        senderType: string;
+        senderId: string;
+        q?: string;
+        page?: number;
+        limit?: number;
+    }) => {
+        const qs = new URLSearchParams({
+            sender_type: params.senderType,
+            sender_id: params.senderId,
+            ...(params.q ? { q: params.q } : {}),
+            ...(params.page !== undefined ? { page: String(params.page) } : {}),
+            ...(params.limit !== undefined ? { limit: String(params.limit) } : {}),
+        });
+        return fetchWithAuth(`/referrals/patients/search?${qs.toString()}`);
+    },
+};
+
 // ==================== Unified Export ====================
 
 export const api = {
@@ -2626,6 +2701,7 @@ export const api = {
     publicDiscovery: publicDiscoveryApi,
     reviews: reviewsApi,
     feedback: feedbackApi,
+    universalReferrals: universalReferralsApi,
 };
 
 export default api;

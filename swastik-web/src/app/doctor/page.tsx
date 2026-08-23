@@ -424,11 +424,11 @@ export default function DoctorDashboard() {
                                                         <User className="h-3 w-3 text-gray-600 dark:text-gray-400" />
                                                     )}
                                                     <span className="text-xs text-gray-500 dark:text-gray-400">{appointment.type}</span>
-                                                    {Boolean(
-                                                        appointment.reason?.toLowerCase().includes('wellness') ||
-                                                        appointment.reason?.toLowerCase().includes('guardrail') ||
-                                                        appointment.reason?.toLowerCase().includes('elevated') ||
-                                                        appointment.reason?.toLowerCase().includes('coach')
+                                                    {typeof appointment.reason === 'string' && Boolean(
+                                                        appointment.reason.toLowerCase().includes('wellness') ||
+                                                        appointment.reason.toLowerCase().includes('guardrail') ||
+                                                        appointment.reason.toLowerCase().includes('elevated') ||
+                                                        appointment.reason.toLowerCase().includes('coach')
                                                     ) && (
                                                         <span className="inline-flex items-center gap-1 rounded bg-red-100 dark:bg-red-950/50 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/60">
                                                             🚨 AI Guardrail
@@ -849,7 +849,7 @@ export default function DoctorDashboard() {
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
                             <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Reason for Consultation</p>
                             <p className="text-sm text-gray-900 dark:text-gray-100">
-                                {selectedAppointment.reason
+                                {Array.isArray(selectedAppointment.reason) ? selectedAppointment.reason.join(', ') : (typeof selectedAppointment.reason === 'object' && selectedAppointment.reason !== null ? JSON.stringify(selectedAppointment.reason) : selectedAppointment.reason)
                                     || selectedAppointment.patient_notes
                                     || (!Array.isArray(selectedAppointment.symptoms) || selectedAppointment.symptoms.length === 0 ? <span className="text-gray-400 italic">Not specified</span> : null)}
                             </p>

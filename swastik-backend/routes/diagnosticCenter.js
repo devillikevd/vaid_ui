@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const { body, param } = require('express-validator');
 const diagnosticCenterService = require('../services/diagnosticCenterService');
+const organizationPartnershipService = require('../services/organizationPartnershipService');
 const facilityAssociationService = require('../services/facilityAssociationService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
@@ -140,7 +141,7 @@ router.post('/book',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { centerId, testId, bookingDate, bookingTime, collectionType, collectionAddress, notes, patientPhone, prescriptionId } = req.body;
+    const { centerId, testId, bookingDate, bookingTime, collectionType, collectionAddress, notes, patientPhone, prescriptionId, source_referral_id } = req.body;
 
     // DC5: Use service-layer helpers instead of inline Supabase calls
     const patientId = await diagnosticCenterService.resolvePatientId(req.user.id);
@@ -152,7 +153,7 @@ router.post('/book',
         patientId,
         centerId,
         testId,
-        { bookingDate, bookingTime, collectionType, collectionAddress, notes, patientPhone, prescriptionId }
+        { bookingDate, bookingTime, collectionType, collectionAddress, notes, patientPhone, prescriptionId, source_referral_id }
     );
 
     // DC5: Use service-layer helper for center owner lookup
@@ -297,6 +298,36 @@ router.delete('/owner/tests/:testId', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER)
     res.json({ success: true, message: 'Test removed' });
 }));
 
+// ==================== Patients ====================
+
+router.get('/owner/patients', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+    const { search, page = 1, limit = 20 } = req.query;
+
+    const result = await diagnosticCenterService.getPatients(
+        center.id,
+        { search },
+        parseInt(page),
+        parseInt(limit)
+    );
+
+    res.json({ success: true, ...result });
+}));
+
+router.get('/owner/patients/:patientId/history', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+    const { page = 1, limit = 10 } = req.query;
+
+    const result = await diagnosticCenterService.getPatientHistory(
+        center.id,
+        req.params.patientId,
+        parseInt(page),
+        parseInt(limit)
+    );
+
+    res.json({ success: true, ...result });
+}));
+
 // ==================== Bookings / Results ====================
 
 router.get('/owner/bookings', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
@@ -387,9 +418,141 @@ router.patch('/owner/bookings/:bookingId/result', requireRole(ROLES.DIAGNOSTIC_C
 }));
 
 // Analytics
+
+
+// ==================== Partnerships ====================
+
+router.get('/owner/partnerships', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+    const { status } = req.query;
+    
+    const partnerships = await organizationPartnershipService.getPartnerships({
+        orgType: 'diagnostic_center',
+        orgId: center.id,
+        status
+    });
+    
+    res.json({ success: true, data: partnerships });
+}));
+
+router.post('/owner/partnerships/invite', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, [
+    body('targetType').isIn(['hospital', 'clinic', 'pharmacy']).withMessage('Invalid target type'),
+    body('targetId').isUUID().withMessage('Valid target ID required'),
+    body('partnershipType').optional().isString(),
+    body('metadata').optional().isObject(),
+    validate
+], asyncHandler(async (req, res) => {
+    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+    
+    const result = await organizationPartnershipService.sendInvite(
+        'diagnostic_center',
+        center.id,
+        req.body.targetType,
+        req.body.targetId,
+        req.user.id,
+        req.body.partnershipType,
+        req.body.metadata
+    );
+    
+    res.json({ success: true, message: 'Partnership invite sent', data: result });
+}));
+
+router.post('/owner/partnerships/:id/respond', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    body('action').isIn(['accept', 'reject']).withMessage('Action must be accept or reject'),
+    validate
+], asyncHandler(async (req, res) => {
+    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+    
+    const updated = await organizationPartnershipService.updatePartnershipStatus(
+        req.params.id,
+        'diagnostic_center',
+        center.id,
+        req.body.action === 'accept' ? 'active' : 'rejected'
+    );
+    
+    res.json({ success: true, message: `Partnership ${req.body.action}ed`, data: updated });
+}));
+
+router.post('/owner/partnerships/:id/request-changes', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    body('message').isString().notEmpty().withMessage('Changes message is required'),
+    body('metadataUpdates').optional().isObject(),
+    validate
+], asyncHandler(async (req, res) => {
+    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+    const updated = await organizationPartnershipService.requestChanges(
+        req.params.id,
+        'diagnostic_center',
+        center.id,
+        req.body.message,
+        req.body.metadataUpdates
+    );
+    res.json({ success: true, message: 'Changes requested', data: updated });
+}));
+
+router.post('/owner/partnerships/:id/accept-changes', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    validate
+], asyncHandler(async (req, res) => {
+    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+    const updated = await organizationPartnershipService.acceptChanges(req.params.id, 'diagnostic_center', center.id);
+    res.json({ success: true, message: 'Changes accepted', data: updated });
+}));
+
+router.delete('/owner/partnerships/:id', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    validate
+], asyncHandler(async (req, res) => {
+    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+    const updated = await organizationPartnershipService.terminatePartnership(req.params.id, 'diagnostic_center', center.id);
+    res.json({ success: true, message: 'Partnership terminated', data: updated });
+}));
+
+
+// ==================== Staff Management ====================
+
+router.get('/owner/staff', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+  const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+  const staff = await diagnosticCenterService.getDiagnosticMembers(center.id);
+  res.json({ success: true, data: staff });
+}));
+
+router.post('/owner/staff/invite', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+  const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+  const { email, role } = req.body;
+  if (!email || !role) throw new ApiError(400, 'Email and role are required');
+  const result = await diagnosticCenterService.inviteDiagnosticMember(center.id, req.user.id, email, role);
+  res.json({ success: true, message: 'Member invited successfully', data: result });
+}));
+
+router.patch('/owner/staff/:id/role', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+  const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+  const { role } = req.body;
+  if (!role) throw new ApiError(400, 'Role is required');
+  const result = await diagnosticCenterService.updateDiagnosticMemberRole(center.id, req.params.id, role);
+  res.json({ success: true, message: 'Member role updated successfully', data: result });
+}));
+
+router.patch('/owner/staff/:id/status', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+  const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+  const { action } = req.body;
+  if (!action || !['suspend', 'activate'].includes(action)) throw new ApiError(400, 'Valid action (suspend/activate) is required');
+  const result = await diagnosticCenterService.updateDiagnosticMemberStatus(center.id, req.params.id, action);
+  res.json({ success: true, message: 'Member updated successfully', data: result });
+}));
+
+router.delete('/owner/staff/:id', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+  const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+  const result = await diagnosticCenterService.removeDiagnosticMember(center.id, req.params.id);
+  res.json({ success: true, message: 'Member removed successfully', data: result });
+}));
+
+
 router.get('/owner/analytics', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
-    const analytics = await diagnosticCenterService.getAnalytics(center.id);
+    const { from, to } = req.query;
+    const analytics = await diagnosticCenterService.getAnalytics(center.id, { from, to });
     res.json({ success: true, data: analytics });
 }));
 

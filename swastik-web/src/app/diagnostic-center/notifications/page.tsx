@@ -16,7 +16,7 @@ const getDiagnosticIconForType = (type: string) => {
     if (type.includes('record') || type.includes('report')) return <FileText className="w-5 h-5 text-emerald-500" />;
     if (type.includes('sos') || type.includes('emergency') || type.includes('health_alert') || type.includes('outbreak')) return <AlertTriangle className="w-5 h-5 text-red-500" />;
     if (type.includes('invite')) return <UserPlus className="w-5 h-5 text-purple-500" />;
-    return <Bell className="w-5 h-5 text-gray-500" />;
+    return <Bell className="w-5 h-5 text-gray-500 dark:text-gray-400" />;
 };
 
 export default function DiagnosticNotificationsPage() {

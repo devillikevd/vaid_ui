@@ -678,8 +678,7 @@ export function BaseDashboardLayout({
                                     <div className="h-px hidden lg:block bg-gray-200 dark:bg-gray-800/50 mx-2 mb-2" />
                                 )}
                                 {items.map((item) => {
-                                    const isActive = pathname === item.href ||
-                                        (item.href !== basePath && pathname?.startsWith(item.href));
+                                    const isActive = navItemToDisplay?.href === item.href;
                                     const Icon = item.icon;
 
                                     return (

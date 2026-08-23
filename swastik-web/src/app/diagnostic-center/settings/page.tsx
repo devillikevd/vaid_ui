@@ -51,7 +51,7 @@ const NAV_CATEGORIES = [
 function SectionCard({ children, className }: { children: React.ReactNode; className?: string }) {
     return (
         <div className={cn(
-            'bg-white dark:bg-[#0B1020] rounded-2xl border border-gray-200/70 dark:border-gray-800/60 shadow-md shadow-gray-200/40 dark:shadow-none overflow-hidden',
+            'bg-white dark:bg-[#0B1020] rounded-2xl border border-gray-200 dark:border-gray-700/70 dark:border-gray-800/60 shadow-md shadow-gray-200/40 dark:shadow-none overflow-hidden',
             className
         )}>
             {children}
@@ -97,7 +97,7 @@ function SectionHeader({
 function FieldView({ label, value, className }: { label: string; value: React.ReactNode; className?: string }) {
     return (
         <div className={className}>
-            <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">{label}</p>
+            <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">{label}</p>
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100 break-words">{value || <EmptyValue />}</p>
         </div>
     );
@@ -128,7 +128,7 @@ function SaveCancelButtons({
 }) {
     return (
         <>
-            <Button variant="ghost" size="sm" onClick={onCancel} disabled={isSaving} className="h-8 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+            <Button variant="ghost" size="sm" onClick={onCancel} disabled={isSaving} className="h-8 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-300">
                 Cancel
             </Button>
             <Button size="sm" onClick={onSave} disabled={isSaving} className="h-8 gap-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-sm font-medium">
@@ -292,17 +292,17 @@ export default function DiagnosticSettingsPage() {
             <div className="flex flex-col items-center justify-center h-[60vh] text-center px-4">
                 <ShieldCheck className="h-16 w-16 text-gray-300 mb-4" />
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">Access Denied</h2>
-                <p className="text-gray-500 mt-2">You do not have permission to manage center settings.</p>
+                <p className="text-gray-500 dark:text-gray-400 mt-2">You do not have permission to manage center settings.</p>
             </div>
         );
     }
 
     /* ─────────────────── RENDER ──────────────────────────────── */
     return (
-        <div className="min-h-full bg-gray-50/60 dark:bg-[#070D1A]">
+        <div className="min-h-full bg-gray-50 dark:bg-gray-800/50/60 dark:bg-[#070D1A]">
 
             {/* ── Page header ──────────────────────────────── */}
-            <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-4 border-b border-gray-200/60 dark:border-gray-800/60 bg-white dark:bg-[#0B1020]">
+            <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700/60 dark:border-gray-800/60 bg-white dark:bg-[#0B1020]">
                 <div className="max-w-[1200px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Settings</h1>
@@ -392,12 +392,12 @@ export default function DiagnosticSettingsPage() {
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                             <div>
-                                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Center Name</label>
-                                                <Input value={profileForm.name} onChange={(e: any) => setProfileForm(p => ({ ...p, name: e.target.value }))} className="rounded-xl bg-gray-50/50" />
+                                                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Center Name</label>
+                                                <Input value={profileForm.name} onChange={(e: any) => setProfileForm(p => ({ ...p, name: e.target.value }))} className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50" />
                                             </div>
                                             <div className="md:col-span-2">
-                                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Description / About</label>
-                                                <Input value={profileForm.description} onChange={(e: any) => setProfileForm(p => ({ ...p, description: e.target.value }))} className="rounded-xl bg-gray-50/50" />
+                                                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Description / About</label>
+                                                <Input value={profileForm.description} onChange={(e: any) => setProfileForm(p => ({ ...p, description: e.target.value }))} className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50" />
                                             </div>
                                         </div>
                                     </div>
@@ -423,12 +423,12 @@ export default function DiagnosticSettingsPage() {
                                                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
                                                     {profileForm.name || 'Diagnostic Center'}
                                                 </h2>
-                                                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
+                                                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                                                     <span className="text-xs font-semibold text-purple-700 bg-purple-50 dark:bg-purple-900/30 dark:text-purple-300 px-2.5 py-0.5 rounded-md">
                                                         Diagnostic Center
                                                     </span>
-                                                    {complianceForm.license_number && <span className="text-xs text-gray-500">Lic: {complianceForm.license_number}</span>}
-                                                    {complianceForm.registration_number && <span className="text-xs text-gray-500">Reg: {complianceForm.registration_number}</span>}
+                                                    {complianceForm.license_number && <span className="text-xs text-gray-500 dark:text-gray-400">Lic: {complianceForm.license_number}</span>}
+                                                    {complianceForm.registration_number && <span className="text-xs text-gray-500 dark:text-gray-400">Reg: {complianceForm.registration_number}</span>}
                                                     {complianceForm.nabl_accreditation && (
                                                         <span className="flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-md">
                                                             <CheckCircle2 className="h-3 w-3" /> {complianceForm.nabl_accreditation}
@@ -481,21 +481,21 @@ export default function DiagnosticSettingsPage() {
                                 {editMode.location ? (
                                     <div className="px-6 py-6 space-y-5">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                            <div><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Email Address</label><Input value={locationForm.email} onChange={(e: any) => setLocationForm(p => ({ ...p, email: e.target.value }))} type="email" className="rounded-xl bg-gray-50/50" /></div>
-                                            <div><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Phone Number</label><Input value={locationForm.phone} onChange={(e: any) => setLocationForm(p => ({ ...p, phone: e.target.value }))} className="rounded-xl bg-gray-50/50" /></div>
-                                            <div><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Emergency Phone</label><Input value={locationForm.emergency_phone} onChange={(e: any) => setLocationForm(p => ({ ...p, emergency_phone: e.target.value }))} className="rounded-xl bg-gray-50/50" /></div>
-                                            <div><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Website</label><Input value={locationForm.website} onChange={(e: any) => setLocationForm(p => ({ ...p, website: e.target.value }))} placeholder="https://" className="rounded-xl bg-gray-50/50" /></div>
+                                            <div><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Email Address</label><Input value={locationForm.email} onChange={(e: any) => setLocationForm(p => ({ ...p, email: e.target.value }))} type="email" className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50" /></div>
+                                            <div><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Phone Number</label><Input value={locationForm.phone} onChange={(e: any) => setLocationForm(p => ({ ...p, phone: e.target.value }))} className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50" /></div>
+                                            <div><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Emergency Phone</label><Input value={locationForm.emergency_phone} onChange={(e: any) => setLocationForm(p => ({ ...p, emergency_phone: e.target.value }))} className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50" /></div>
+                                            <div><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Website</label><Input value={locationForm.website} onChange={(e: any) => setLocationForm(p => ({ ...p, website: e.target.value }))} placeholder="https://" className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50" /></div>
                                         </div>
                                         <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
                                             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Address</p>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                                <div className="md:col-span-2"><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Street Address</label><Input value={locationForm.address} onChange={(e: any) => setLocationForm(p => ({ ...p, address: e.target.value }))} className="rounded-xl bg-gray-50/50" /></div>
-                                                <div><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">City</label><Input value={locationForm.city} onChange={(e: any) => setLocationForm(p => ({ ...p, city: e.target.value }))} className="rounded-xl bg-gray-50/50" /></div>
-                                                <div><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">State</label><Input value={locationForm.state} onChange={(e: any) => setLocationForm(p => ({ ...p, state: e.target.value }))} className="rounded-xl bg-gray-50/50" /></div>
-                                                <div><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Pincode</label><Input value={locationForm.pincode} onChange={(e: any) => setLocationForm(p => ({ ...p, pincode: e.target.value }))} className="rounded-xl bg-gray-50/50" /></div>
+                                                <div className="md:col-span-2"><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Street Address</label><Input value={locationForm.address} onChange={(e: any) => setLocationForm(p => ({ ...p, address: e.target.value }))} className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50" /></div>
+                                                <div><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">City</label><Input value={locationForm.city} onChange={(e: any) => setLocationForm(p => ({ ...p, city: e.target.value }))} className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50" /></div>
+                                                <div><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">State</label><Input value={locationForm.state} onChange={(e: any) => setLocationForm(p => ({ ...p, state: e.target.value }))} className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50" /></div>
+                                                <div><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Pincode</label><Input value={locationForm.pincode} onChange={(e: any) => setLocationForm(p => ({ ...p, pincode: e.target.value }))} className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50" /></div>
                                             </div>
                                         </div>
-                                        <div className="rounded-xl overflow-hidden border border-gray-200/60 dark:border-gray-800">
+                                        <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700/60 dark:border-gray-800">
                                             <LocationPicker
                                                 latitude={locationForm.latitude}
                                                 longitude={locationForm.longitude}
@@ -562,16 +562,16 @@ export default function DiagnosticSettingsPage() {
 
                                 {editMode.operations ? (
                                     <div className="px-6 py-6">
-                                        <div className="flex items-center justify-between p-5 bg-gray-50/80 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800">
+                                        <div className="flex items-center justify-between p-5 bg-gray-50 dark:bg-gray-800/50/80 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800">
                                             <div>
                                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100">24/7 Operations</h4>
-                                                <p className="text-sm text-gray-500 mt-0.5">Is your center open 24 hours a day?</p>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Is your center open 24 hours a day?</p>
                                             </div>
                                             <label className="flex items-center gap-3 cursor-pointer">
                                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Enable</span>
                                                 <input
                                                     type="checkbox"
-                                                    className="w-5 h-5 text-purple-600 rounded-md focus:ring-purple-500 border-gray-300 shadow-sm"
+                                                    className="w-5 h-5 text-purple-600 rounded-md focus:ring-purple-500 border-gray-300 dark:border-gray-600 shadow-sm"
                                                     checked={operationsForm.is_24_hours}
                                                     onChange={(e: any) => setOperationsForm(p => ({ ...p, is_24_hours: e.target.checked }))}
                                                 />
@@ -584,16 +584,16 @@ export default function DiagnosticSettingsPage() {
                                             'p-5 rounded-2xl border flex flex-col justify-center min-h-[90px]',
                                             operationsForm.is_24_hours
                                                 ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/30'
-                                                : 'bg-gray-50/50 dark:bg-[#131A2B]/30 border-gray-100 dark:border-gray-800'
+                                                : 'bg-gray-50 dark:bg-gray-800/50/50 dark:bg-[#131A2B]/30 border-gray-100 dark:border-gray-800'
                                         )}>
                                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">24/7 Operations</p>
                                             <p className={cn('text-base font-bold', operationsForm.is_24_hours ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400')}>
                                                 {operationsForm.is_24_hours ? 'Open 24/7' : 'Not 24/7'}
                                             </p>
                                         </div>
-                                        <div className="p-5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#131A2B]/30 flex flex-col justify-center min-h-[90px]">
+                                        <div className="p-5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50/50 dark:bg-[#131A2B]/30 flex flex-col justify-center min-h-[90px]">
                                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Working Hours</p>
-                                            <p className="text-base font-bold text-gray-400 dark:text-gray-500">Not configured</p>
+                                            <p className="text-base font-bold text-gray-400 dark:text-gray-500 dark:text-gray-400">Not configured</p>
                                         </div>
                                     </div>
                                 )}
@@ -618,16 +618,16 @@ export default function DiagnosticSettingsPage() {
 
                                 {editMode.homeCollection ? (
                                     <div className="px-6 py-6 space-y-4">
-                                        <div className="flex items-center justify-between p-5 bg-gray-50/80 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800">
+                                        <div className="flex items-center justify-between p-5 bg-gray-50 dark:bg-gray-800/50/80 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800">
                                             <div>
                                                 <h4 className="font-semibold text-gray-900 dark:text-gray-100">Home Collection</h4>
-                                                <p className="text-sm text-gray-500 mt-0.5">Do you offer sample collection at patient's home?</p>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Do you offer sample collection at patient's home?</p>
                                             </div>
                                             <label className="flex items-center gap-3 cursor-pointer">
                                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Enable</span>
                                                 <input
                                                     type="checkbox"
-                                                    className="w-5 h-5 text-purple-600 rounded-md focus:ring-purple-500 border-gray-300 shadow-sm"
+                                                    className="w-5 h-5 text-purple-600 rounded-md focus:ring-purple-500 border-gray-300 dark:border-gray-600 shadow-sm"
                                                     checked={homeCollectionForm.home_collection_available}
                                                     onChange={(e: any) => setHomeCollectionForm(p => ({ ...p, home_collection_available: e.target.checked }))}
                                                 />
@@ -646,7 +646,7 @@ export default function DiagnosticSettingsPage() {
                                             'p-5 rounded-2xl border flex flex-col justify-center min-h-[90px]',
                                             homeCollectionForm.home_collection_available
                                                 ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/30'
-                                                : 'bg-gray-50/50 dark:bg-[#131A2B]/30 border-gray-100 dark:border-gray-800'
+                                                : 'bg-gray-50 dark:bg-gray-800/50/50 dark:bg-[#131A2B]/30 border-gray-100 dark:border-gray-800'
                                         )}>
                                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Home Collection</p>
                                             <p className={cn('text-base font-bold', homeCollectionForm.home_collection_available ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400')}>
@@ -656,7 +656,7 @@ export default function DiagnosticSettingsPage() {
                                                 <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Fee: ₹{homeCollectionForm.home_collection_fee || '0'}</p>
                                             )}
                                             {!homeCollectionForm.home_collection_available && (
-                                                <p className="text-sm text-gray-500 mt-1">Home sample collection is not enabled.</p>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Home sample collection is not enabled.</p>
                                             )}
                                         </div>
                                     </div>
@@ -683,19 +683,19 @@ export default function DiagnosticSettingsPage() {
                                 {editMode.compliance ? (
                                     <div className="px-6 py-6 space-y-6">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                            <div><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Registration Number</label><Input value={complianceForm.registration_number} onChange={(e: any) => setComplianceForm(p => ({ ...p, registration_number: e.target.value }))} className="rounded-xl bg-gray-50/50" /></div>
-                                            <div><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">License Number</label><Input value={complianceForm.license_number} onChange={(e: any) => setComplianceForm(p => ({ ...p, license_number: e.target.value }))} className="rounded-xl bg-gray-50/50" /></div>
-                                            <div><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">NABL Accreditation</label><Input value={complianceForm.nabl_accreditation} onChange={(e: any) => setComplianceForm(p => ({ ...p, nabl_accreditation: e.target.value }))} placeholder="e.g. MC-1234" className="rounded-xl bg-gray-50/50" /></div>
+                                            <div><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Registration Number</label><Input value={complianceForm.registration_number} onChange={(e: any) => setComplianceForm(p => ({ ...p, registration_number: e.target.value }))} className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50" /></div>
+                                            <div><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">License Number</label><Input value={complianceForm.license_number} onChange={(e: any) => setComplianceForm(p => ({ ...p, license_number: e.target.value }))} className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50" /></div>
+                                            <div><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">NABL Accreditation</label><Input value={complianceForm.nabl_accreditation} onChange={(e: any) => setComplianceForm(p => ({ ...p, nabl_accreditation: e.target.value }))} placeholder="e.g. MC-1234" className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50" /></div>
                                         </div>
                                         <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
-                                            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Other Accreditations</label>
+                                            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Other Accreditations</label>
                                             <div className="flex gap-2 max-w-md">
                                                 <Input
                                                     value={newAccreditation}
                                                     onChange={(e: any) => setNewAccreditation(e.target.value)}
                                                     placeholder="e.g. ISO 9001"
                                                     onKeyDown={(e: any) => e.key === 'Enter' && (e.preventDefault(), addAccreditation())}
-                                                    className="rounded-xl bg-gray-50/50"
+                                                    className="rounded-xl bg-gray-50 dark:bg-gray-800/50/50"
                                                 />
                                                 <Button type="button" onClick={addAccreditation} variant="outline" className="rounded-xl shrink-0"><Plus className="h-4 w-4" /></Button>
                                             </div>
@@ -756,19 +756,19 @@ export default function DiagnosticSettingsPage() {
 
                                 {editMode.security ? (
                                     <div className="px-6 py-6 space-y-4 max-w-sm">
-                                        <div><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Current Password</label><Input type="password" value={securityForm.current} onChange={(e: any) => setSecurityForm(p => ({ ...p, current: e.target.value }))} className="rounded-xl" /></div>
-                                        <div><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">New Password</label><Input type="password" value={securityForm.new} onChange={(e: any) => setSecurityForm(p => ({ ...p, new: e.target.value }))} className="rounded-xl" /></div>
-                                        <div><label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Confirm New Password</label><Input type="password" value={securityForm.confirm} onChange={(e: any) => setSecurityForm(p => ({ ...p, confirm: e.target.value }))} className="rounded-xl" /></div>
+                                        <div><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Current Password</label><Input type="password" value={securityForm.current} onChange={(e: any) => setSecurityForm(p => ({ ...p, current: e.target.value }))} className="rounded-xl" /></div>
+                                        <div><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">New Password</label><Input type="password" value={securityForm.new} onChange={(e: any) => setSecurityForm(p => ({ ...p, new: e.target.value }))} className="rounded-xl" /></div>
+                                        <div><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Confirm New Password</label><Input type="password" value={securityForm.confirm} onChange={(e: any) => setSecurityForm(p => ({ ...p, confirm: e.target.value }))} className="rounded-xl" /></div>
                                     </div>
                                 ) : (
                                     <div className="px-6 py-5">
-                                        <div className="flex items-center gap-4 p-5 rounded-2xl bg-gray-50/80 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
+                                        <div className="flex items-center gap-4 p-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50/80 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
                                             <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0">
                                                 <Lock className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                                             </div>
                                             <div>
                                                 <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Password</p>
-                                                <p className="text-lg font-bold text-gray-400 dark:text-gray-500 tracking-widest mt-0.5">••••••••</p>
+                                                <p className="text-lg font-bold text-gray-400 dark:text-gray-500 dark:text-gray-400 tracking-widest mt-0.5">••••••••</p>
                                             </div>
                                         </div>
                                     </div>

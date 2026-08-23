@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useDeliveryAgentsStore } from '@/stores/deliveryAgentsStore';
 import { useAuthStore } from '@/stores/authStore';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { UserPlus, Trash2, Users, AlertCircle, Loader2 } from 'lucide-react';
 import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { DashboardCard } from '@/components/shared/DashboardCard';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 
 export default function DiagnosticCenterAgentsPage() {
     const { user } = useAuthStore();
@@ -53,10 +54,10 @@ export default function DiagnosticCenterAgentsPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Delivery & Collection Agents</h1>
-                <p className="mt-1 text-gray-600 dark:text-gray-400">Manage your fleet for home sample collections.</p>
-            </div>
+            <PageHeader 
+                title="Delivery & Collection Agents"
+                subtitle="Manage your fleet for home sample collections."
+            />
 
             {error && (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-center gap-2">
@@ -68,8 +69,8 @@ export default function DiagnosticCenterAgentsPage() {
 
             <div className="grid gap-6 md:grid-cols-3">
                 <div className="md:col-span-1">
-                    <Card>
-                        <form onSubmit={handleAddAgent} className="space-y-4 p-4">
+                    <DashboardCard>
+                        <form onSubmit={handleAddAgent} className="space-y-4">
                             <h2 className="text-lg font-semibold flex items-center gap-2">
                                 <UserPlus className="h-5 w-5 text-purple-600" />
                                 Add New Agent
@@ -98,13 +99,13 @@ export default function DiagnosticCenterAgentsPage() {
                                 Add Agent
                             </Button>
                         </form>
-                    </Card>
+                    </DashboardCard>
                 </div>
 
                 <div className="md:col-span-2">
-                    <Card padding="none">
+                    <DashboardCard noPadding>
                         <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                            <Users className="h-5 w-5 text-gray-500" />
+                            <Users className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                             <h2 className="font-semibold text-gray-900 dark:text-gray-100">Active Agents ({agents.length})</h2>
                         </div>
                         
@@ -113,13 +114,13 @@ export default function DiagnosticCenterAgentsPage() {
                                 <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
                             </div>
                         ) : agents.length === 0 ? (
-                            <div className="p-8 text-center text-gray-500">
+                            <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                                 No delivery agents added yet.
                             </div>
                         ) : (
                             <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {agents.map(agent => (
-                                    <li key={agent.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                    <li key={agent.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:bg-gray-800/50 dark:hover:bg-gray-800/50">
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <p className="font-medium text-gray-900 dark:text-gray-100">{agent.name}</p>
@@ -141,7 +142,7 @@ export default function DiagnosticCenterAgentsPage() {
                                 ))}
                             </ul>
                         )}
-                    </Card>
+                    </DashboardCard>
                 </div>
             </div>
             <ConfirmDialog {...dialogProps} />

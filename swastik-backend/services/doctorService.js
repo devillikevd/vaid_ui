@@ -1320,7 +1320,7 @@ class DoctorService {
         .from('doctor_slots')
         .insert(fallbackRows);
 
-      if (insertFallbackError && insertFallbackError.code === '42703') {
+      if (insertFallbackError && (insertFallbackError.code === '42703' || insertFallbackError.code === 'PGRST204')) {
         // doctor_slots is missing the is_home_enabled column (migration 033 not
         // applied). Retry with the pre-033 column set so video/clinic slots can
         // still be created; home-visit slots persist only after 033 is applied.
@@ -3346,17 +3346,28 @@ class DoctorService {
     try {
       rows = await fetchRows(selectColumns);
     } catch (error) {
-      // Organization columns may not exist yet (pending migration) — retry with base columns.
       if (error && (error.code === '42703' || error.code === 'PGRST204')) {
-        rows = await fetchRows(
-          ['id', 'doctor_id', 'slot_date', 'start_time', 'end_time', 'slot_duration',
-            'buffer_time', 'is_video_enabled', 'is_clinic_enabled', 'is_active'].join(',')
-        );
-      } else if (error && (error.code === '42703' || error.code === 'PGRST204')) {
-        rows = await fetchRows(
-          ['id', 'doctor_id', 'slot_date', 'start_time', 'end_time', 'slot_duration',
-            'is_video_enabled', 'is_clinic_enabled', 'is_active'].join(',')
-        );
+        // Organization columns may not exist yet (pending migration) - retry with base columns.
+        try {
+          rows = await fetchRows(
+            ['id', 'doctor_id', 'slot_date', 'start_time', 'end_time', 'slot_duration',
+              'buffer_time', 'is_video_enabled', 'is_clinic_enabled', 'is_active'].join(',')
+          );
+        } catch (fallbackError) {
+          if (fallbackError && (fallbackError.code === '42703' || fallbackError.code === 'PGRST204')) {
+            // buffer_time also doesn't exist (older migration) - retry with most basic columns
+            try {
+              rows = await fetchRows(
+                ['id', 'doctor_id', 'slot_date', 'start_time', 'end_time', 'slot_duration',
+                  'is_video_enabled', 'is_clinic_enabled', 'is_active'].join(',')
+              );
+            } catch (deepFallbackError) {
+              throw new ApiError(400, 'Failed to check schedule conflicts. Database schema may be too old.');
+            }
+          } else {
+            throw new ApiError(400, 'Failed to check schedule conflicts');
+          }
+        }
       } else {
         throw new ApiError(400, 'Failed to check schedule conflicts');
       }
@@ -3432,7 +3443,7 @@ class DoctorService {
         .insert(rows.map(baseRow))
         .select();
       if (!error) return data;
-      if (error.code === '42703') {
+      if (error.code === '42703' || error.code === 'PGRST204') {
         // is_home_enabled / buffer_time missing (migration 033 not applied)
         const compatRows = rows.map((r) => ({
           doctor_id: doctorId,
@@ -3448,10 +3459,10 @@ class DoctorService {
           .from('doctor_slots')
           .insert(compatRows)
           .select();
-        if (compatError) throw new ApiError(400, 'Failed to create video schedule.');
+        if (compatError) throw new ApiError(400, `Failed to create video schedule (compat): ${compatError.message}`);
         return compatData;
       }
-      throw new ApiError(400, 'Failed to create video schedule.');
+      throw new ApiError(400, `Failed to create video schedule: ${error.message}`);
     }
 
     // Organization-scoped in-person schedule
@@ -3469,7 +3480,7 @@ class DoctorService {
       .insert(orgRows)
       .select();
     if (!error) return data;
-    if (error.code === '42703') {
+    if (error.code === '42703' || error.code === 'PGRST204') {
       throw new ApiError(400, 'Organization-specific In-Person scheduling requires a database migration that has not been applied yet. Please run the pending doctor_slots migration (organization_type, clinic_id, hospital_id, department_id, department_name columns).');
     }
     throw new ApiError(400, 'Failed to create in-person schedule.');
@@ -3633,7 +3644,7 @@ class DoctorService {
       .eq('id', scheduleId)
       .eq('doctor_id', doctor.id);
     if (updateError) {
-      if (updateError.code === '42703') {
+      if (updateError.code === '42703' || updateError.code === 'PGRST204') {
         delete updatePayload.buffer_time;
         const { error: retryError } = await supabaseAdmin
           .from('doctor_slots')

@@ -15,11 +15,13 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Pagination } from '@/components/ui/Pagination';
 import { useDiagnosticCenterStore, type DiagnosticTest } from '@/stores/diagnosticCenterStore';
+import { DashboardCard } from '@/components/shared/DashboardCard';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { DiagnosticMasterCatalogSearch } from '@/components/diagnostic-center/DiagnosticMasterCatalogSearch';
 import { useToast } from '@/components/ui/Toast';
+import { Pagination } from '@/components/ui/Pagination';
 
 const DEFAULT_CATEGORIES = [
     'Pathology',
@@ -192,28 +194,27 @@ export default function DiagnosticCenterTestsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Test Catalog</h1>
-                    <p className="text-gray-600 dark:text-gray-400 mt-1">Manage the tests patients can book from your center</p>
-                </div>
-                <div className="flex gap-2">
-                    <Button
-                        variant="outline"
-                        onClick={() => fetchTests({ page, limit: pageSize, search: debouncedSearch || undefined, category: categoryFilter || undefined })}
-                        leftIcon={<RefreshCw className="h-4 w-4" />}
-                    >
-                        Refresh
-                    </Button>
-                    <Button onClick={startCreate} leftIcon={<Plus className="h-4 w-4" />}>
-                        Add Test
-                    </Button>
-                </div>
-            </div>
+            <PageHeader
+                title="Test Catalog"
+                subtitle="Manage the tests patients can book from your center"
+                actions={
+                    <>
+                        <Button
+                            variant="outline"
+                            onClick={() => fetchTests({ page, limit: pageSize, search: debouncedSearch || undefined, category: categoryFilter || undefined })}
+                            leftIcon={<RefreshCw className="h-4 w-4" />}
+                        >
+                            Refresh
+                        </Button>
+                        <Button onClick={startCreate} leftIcon={<Plus className="h-4 w-4" />}>
+                            Add Test
+                        </Button>
+                    </>
+                }
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Card>
-                    <div className="flex items-center gap-3">
+                <DashboardCard noPadding><div className="p-4 flex items-center gap-3">
                         <div className="p-3 bg-purple-100 rounded-xl">
                             <FlaskConical className="h-5 w-5 text-purple-600" />
                         </div>
@@ -222,9 +223,8 @@ export default function DiagnosticCenterTestsPage() {
                             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{testsPagination.total}</p>
                         </div>
                     </div>
-                </Card>
-                <Card>
-                    <div className="flex items-center gap-3">
+                </DashboardCard>
+                <DashboardCard noPadding><div className="p-4 flex items-center gap-3">
                         <div className="p-3 bg-green-100 rounded-xl">
                             <Clock3 className="h-5 w-5 text-green-600" />
                         </div>
@@ -233,9 +233,8 @@ export default function DiagnosticCenterTestsPage() {
                             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{activeCount}</p>
                         </div>
                     </div>
-                </Card>
-                <Card>
-                    <div className="flex items-center gap-3">
+                </DashboardCard>
+                <DashboardCard noPadding><div className="p-4 flex items-center gap-3">
                         <div className="p-3 bg-blue-100 rounded-xl">
                             <IndianRupee className="h-5 w-5 text-blue-600" />
                         </div>
@@ -246,7 +245,7 @@ export default function DiagnosticCenterTestsPage() {
                             </p>
                         </div>
                     </div>
-                </Card>
+                </DashboardCard>
             </div>
 
             {error && (

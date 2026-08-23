@@ -2,7 +2,8 @@
 
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { Loader2, RefreshCw, Plus, Building2, Network, Search, CheckCircle2, Building, ArrowLeft, Pill, Microscope, Clock, X, FileText, ChevronRight, Activity, AlertCircle, Shield, Calendar, Trash2 } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import { DashboardCard } from '@/components/shared/DashboardCard';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
@@ -334,33 +335,33 @@ export default function OrganizationPartnershipManager({
             <ConfirmDialog {...dialogProps} />
             
             {/* 1. Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-[20px] font-semibold tracking-tight text-slate-900">{title}</h1>
-                    <p className="text-slate-500 text-[13px] mt-0.5">{subtitle}</p>
-                </div>
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <button 
-                        onClick={loadPartnerships}
-                        disabled={loading}
-                        className="px-4 py-2 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-[10px] border border-slate-200 transition-all font-medium text-sm flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
-                    >
-                        <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                        <span className="hidden sm:inline">Refresh</span>
-                    </button>
-                    <button 
-                        onClick={() => setIsAddDrawerOpen(true)}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-[10px] transition-all font-medium text-sm shadow-sm hover:shadow"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Add Partnership
-                    </button>
-                </div>
-            </div>
+            <PageHeader
+                title={title}
+                subtitle={subtitle}
+                actions={
+                    <>
+                        <button 
+                            onClick={loadPartnerships}
+                            disabled={loading}
+                            className="px-4 py-2 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-[10px] border border-slate-200 transition-all font-medium text-sm flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                        >
+                            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                            <span className="hidden sm:inline">Refresh</span>
+                        </button>
+                        <button 
+                            onClick={() => setIsAddDrawerOpen(true)}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-[10px] transition-all font-medium text-sm shadow-sm hover:shadow"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Add Partnership
+                        </button>
+                    </>
+                }
+            />
 
             {/* 2. KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="p-5 flex items-center gap-4">
+                <DashboardCard noPadding><div className="p-5 flex items-center gap-4">
                     <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
                         <Network className="h-5 w-5" />
                     </div>
@@ -368,8 +369,8 @@ export default function OrganizationPartnershipManager({
                         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Partners</p>
                         <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : counts.total}</p>
                     </div>
-                </Card>
-                <Card className="p-5 flex items-center gap-4">
+                </div></DashboardCard>
+                <DashboardCard noPadding><div className="p-5 flex items-center gap-4">
                     <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
                         <CheckCircle2 className="h-5 w-5" />
                     </div>
@@ -377,8 +378,8 @@ export default function OrganizationPartnershipManager({
                         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Active</p>
                         <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : counts.active}</p>
                     </div>
-                </Card>
-                <Card className="p-5 flex items-center gap-4">
+                </div></DashboardCard>
+                <DashboardCard noPadding><div className="p-5 flex items-center gap-4">
                     <div className="p-3 bg-amber-50 rounded-xl text-amber-600">
                         <Clock className="h-5 w-5" />
                     </div>
@@ -386,8 +387,8 @@ export default function OrganizationPartnershipManager({
                         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Invitations</p>
                         <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : counts.invitations}</p>
                     </div>
-                </Card>
-                <Card className="p-5 flex items-center gap-4">
+                </div></DashboardCard>
+                <DashboardCard noPadding><div className="p-5 flex items-center gap-4">
                     <div className="p-3 bg-red-50 rounded-xl text-red-600">
                         <AlertCircle className="h-5 w-5" />
                     </div>
@@ -395,11 +396,11 @@ export default function OrganizationPartnershipManager({
                         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Action Required</p>
                         <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : counts.requests}</p>
                     </div>
-                </Card>
+                </div></DashboardCard>
             </div>
 
             {/* 3. Filters */}
-            <Card className="p-2 sm:p-3">
+            <DashboardCard noPadding><div className="p-2 sm:p-3">
                 <div className="flex flex-col sm:flex-row gap-3">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -432,48 +433,52 @@ export default function OrganizationPartnershipManager({
                         </select>
                     </div>
                 </div>
-            </Card>
+            </div></DashboardCard>
 
             {/* 4. Main Content */}
             {error ? (
-                <Card className="py-16 text-center flex flex-col items-center">
+                <DashboardCard noPadding><div className="py-16 text-center flex flex-col items-center">
                     <AlertCircle className="h-10 w-10 text-red-400 mb-3" />
                     <h3 className="text-sm font-medium text-slate-900">{error}</h3>
                     <button onClick={loadPartnerships} className="mt-4 px-4 py-2 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
                         Try Again
                     </button>
-                </Card>
+                </div></DashboardCard>
             ) : loading ? (
-                <Card className="p-0 overflow-hidden divide-y divide-slate-100">
-                    {[1, 2, 3, 4, 5].map(i => (
-                        <div key={i} className="p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-3 w-1/3">
-                                <div className="h-10 w-10 rounded-xl bg-slate-100 animate-pulse" />
-                                <div className="space-y-2 flex-1">
-                                    <div className="h-4 bg-slate-100 rounded animate-pulse w-3/4" />
-                                    <div className="h-3 bg-slate-100 rounded animate-pulse w-1/2" />
+                <DashboardCard noPadding><div className="p-0 overflow-hidden divide-y divide-slate-100">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="p-5 flex flex-col sm:flex-row gap-4">
+                            <div className="h-16 w-16 bg-slate-100 rounded-xl animate-pulse shrink-0" />
+                            <div className="space-y-3 flex-1 w-full">
+                                <div className="h-5 bg-slate-100 rounded animate-pulse w-1/3" />
+                                <div className="h-4 bg-slate-100 rounded animate-pulse w-1/4" />
+                                <div className="flex gap-2">
+                                    <div className="h-6 bg-slate-100 rounded-full animate-pulse w-16" />
+                                    <div className="h-6 bg-slate-100 rounded-full animate-pulse w-20" />
                                 </div>
                             </div>
-                            <div className="h-6 bg-slate-100 rounded-full animate-pulse w-20 hidden sm:block" />
-                            <div className="h-6 bg-slate-100 rounded-full animate-pulse w-24 hidden sm:block" />
                         </div>
                     ))}
-                </Card>
+                </div></DashboardCard>
             ) : filteredPartnerships.length === 0 ? (
-                <Card className="py-20 text-center flex flex-col items-center">
-                    <Network className="h-12 w-12 text-slate-300 mb-4" />
+                <DashboardCard noPadding><div className="py-16 text-center flex flex-col items-center">
+                    <Building className="h-10 w-10 text-slate-300 mb-3" />
                     <h3 className="text-sm font-medium text-slate-900">No partnerships found.</h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                        {searchQuery ? "No matches for your search." : `No ${statusFilter} partnerships in this category.`}
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                        {searchQuery ? "No partners match your search." : "Build your network to streamline patient referrals and care coordination."}
                     </p>
-                    {!searchQuery && statusFilter === 'active' && (
-                        <button onClick={() => setIsAddDrawerOpen(true)} className="mt-5 px-5 py-2 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
+                    {!searchQuery && (
+                        <button 
+                            onClick={() => setIsAddDrawerOpen(true)}
+                            className="mt-5 px-5 py-2 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors inline-flex items-center gap-2"
+                        >
+                            <Plus className="h-4 w-4" />
                             Find Partners
                         </button>
                     )}
-                </Card>
+                </div></DashboardCard>
             ) : (
-                <Card className="p-0 overflow-hidden">
+                <DashboardCard noPadding><div className="p-0 overflow-hidden">
                     {/* Desktop Table */}
                     <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-left text-sm text-[#1a202c]">
@@ -564,7 +569,7 @@ export default function OrganizationPartnershipManager({
                             );
                         })}
                     </div>
-                </Card>
+                </div></DashboardCard>
             )}
 
             {/* 5. Add Partnership Drawer */}

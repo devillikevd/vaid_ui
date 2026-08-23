@@ -60,10 +60,10 @@ export default function PatientDetailsDrawer({ isOpen, onClose, patientId, patie
                     <div>
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                             {patientData.name || 'Unknown Patient'}
-                            <span className="text-xs font-mono font-normal text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">ID: {patientData.id.split('-')[0]}</span>
+                            <span className="text-xs font-mono font-normal text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">ID: {patientData.id.split('-')[0]}</span>
                         </h3>
                         {patientData.phone && (
-                            <div className="flex items-center gap-1.5 text-gray-500 text-sm mt-1">
+                            <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 text-sm mt-1">
                                 <Phone className="w-3.5 h-3.5" /> {patientData.phone}
                             </div>
                         )}
@@ -80,19 +80,19 @@ export default function PatientDetailsDrawer({ isOpen, onClose, patientId, patie
                     {/* PATIENT SUMMARY METRICS */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
-                            <div className="text-gray-500 text-xs font-medium uppercase tracking-wide">Total Bookings</div>
+                            <div className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-wide">Total Bookings</div>
                             <div className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{patientData.total_bookings || 0}</div>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
-                            <div className="text-gray-500 text-xs font-medium uppercase tracking-wide">Pending</div>
+                            <div className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-wide">Pending</div>
                             <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-500 mt-1">{patientData.pending_bookings || 0}</div>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
-                            <div className="text-gray-500 text-xs font-medium uppercase tracking-wide">Completed</div>
+                            <div className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-wide">Completed</div>
                             <div className="text-2xl font-bold text-green-600 dark:text-green-500 mt-1">{patientData.completed_bookings || 0}</div>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
-                            <div className="text-gray-500 text-xs font-medium uppercase tracking-wide">Gender / DOB</div>
+                            <div className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-wide">Gender / DOB</div>
                             <div className="text-md font-semibold text-gray-900 dark:text-gray-200 mt-1">
                                 {patientData.gender ? patientData.gender.charAt(0).toUpperCase() + patientData.gender.slice(1) : 'Unknown'} 
                                 {patientData.dob ? ` • ${new Date().getFullYear() - new Date(patientData.dob).getFullYear()}y` : ''}
@@ -120,7 +120,7 @@ export default function PatientDetailsDrawer({ isOpen, onClose, patientId, patie
                         ) : history.length === 0 ? (
                             <div className="text-center p-8 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
                                 <FileText className="w-8 h-8 text-gray-400 mx-auto mb-3" />
-                                <p className="text-gray-500">No diagnostic bookings found for this patient.</p>
+                                <p className="text-gray-500 dark:text-gray-400">No diagnostic bookings found for this patient.</p>
                             </div>
                         ) : (
                             <div className="space-y-3">
@@ -153,7 +153,7 @@ export default function PatientDetailsDrawer({ isOpen, onClose, patientId, patie
                                                         {booking.price_snapshot !== null && booking.price_snapshot !== undefined ? (
                                                             <span className="font-medium text-gray-800 dark:text-gray-200">{booking.price_snapshot}</span>
                                                         ) : (
-                                                            <span className="italic text-gray-500 text-xs">Price unavailable</span>
+                                                            <span className="italic text-gray-500 dark:text-gray-400 text-xs">Price unavailable</span>
                                                         )}
                                                     </div>
                                                 </div>

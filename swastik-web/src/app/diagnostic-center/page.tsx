@@ -82,7 +82,7 @@ export default function DiagnosticCenterDashboard() {
 
     const STATS = [
         { label: 'Total Tests', value: stats?.totalTests ?? 0, icon: FlaskConical, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20' },
-        { label: "Today's Bookings", value: stats?.todayBookings ?? 0, icon: CalendarCheck, color: 'text-blue-700', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+        { label: "Today's Bookings", value: stats?.todaysBookings ?? 0, icon: CalendarCheck, color: 'text-blue-700', bg: 'bg-blue-50 dark:bg-blue-900/20' },
         { label: 'Pending Results', value: stats?.pendingResults ?? 0, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
         { label: 'Total Patients', value: stats?.totalPatients ?? 0, icon: Users, color: 'text-emerald-700', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
     ];
@@ -126,11 +126,11 @@ export default function DiagnosticCenterDashboard() {
                 {STATS.map((stat) => {
                     const Icon = stat.icon;
                     return (
-                        <DashboardCard key={stat.label} hoverable className="group border-slate-200 hover:border-purple-300">
+                        <DashboardCard key={stat.label} hoverable className="group border-slate-200 dark:border-slate-700 hover:border-purple-300">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{stat.label}</p>
-                                    <p className="text-3xl font-bold text-slate-900 mt-1">{stat.value}</p>
+                                    <p className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-1">{stat.value}</p>
                                 </div>
                                 <div className={`p-3 rounded-xl transition-all duration-200 ${stat.bg} group-hover:bg-opacity-80`}>
                                     <Icon className={`h-[22px] w-[22px] ${stat.color}`} strokeWidth={2} />
@@ -161,7 +161,7 @@ export default function DiagnosticCenterDashboard() {
                                     ? 'bg-red-50 text-red-900 border-red-200' 
                                     : isNonZero 
                                     ? 'bg-purple-50/50 text-purple-700 border-purple-200'
-                                    : 'bg-purple-50/30 text-slate-500 border-slate-200 dark:bg-slate-800/50 dark:border-slate-800';
+                                    : 'bg-purple-50/30 text-slate-500 border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 dark:border-slate-800';
 
                                 const Icon = item.icon;
 
@@ -256,7 +256,7 @@ export default function DiagnosticCenterDashboard() {
                             { label: 'Arrived', count: homeCollection?.arrived ?? 0, icon: MapPin },
                             { label: 'Collected', count: homeCollection?.sampleCollected ?? 0, icon: CheckCircle2 },
                         ].map((item) => (
-                            <div key={item.label} className="flex-1 min-w-[120px] py-4 px-2 text-center flex flex-col items-center justify-center transition-colors hover:bg-white dark:hover:bg-slate-800 group">
+                            <div key={item.label} className="flex-1 min-w-[120px] py-4 px-2 text-center flex flex-col items-center justify-center transition-colors hover:bg-white dark:bg-slate-900 dark:hover:bg-slate-800 group">
                                 <item.icon className="h-4 w-4 text-purple-600/70 mb-1.5 group-hover:text-purple-600 transition-colors" />
                                 <span className="text-3xl font-bold text-slate-900 dark:text-slate-100 leading-none">{item.count}</span>
                                 <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1.5">{item.label}</span>
@@ -298,18 +298,6 @@ export default function DiagnosticCenterDashboard() {
                                                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                                                             {booking.collection_type === 'home_collection' ? 'Home' : 'Walk-in'}
                                                         </span>
-                                                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
-                                                            booking.source === 'online' ? 'bg-blue-50 text-blue-700' :
-                                                            booking.source === 'walk_in' ? 'bg-purple-50 text-purple-700' :
-                                                            booking.source === 'clinic_referral' ? 'bg-teal-50 text-teal-700' :
-                                                            booking.source === 'hospital_referral' ? 'bg-rose-50 text-rose-700' :
-                                                            'bg-slate-100 text-slate-600'
-                                                        }`}>
-                                                            {booking.source === 'online' ? 'Online' :
-                                                             booking.source === 'walk_in' ? 'Manual' :
-                                                             booking.source === 'clinic_referral' ? 'Clinic' :
-                                                             booking.source === 'hospital_referral' ? 'Hospital' : 'Unknown'}
-                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -320,7 +308,7 @@ export default function DiagnosticCenterDashboard() {
                             ) : (
                                 <div className="py-16 flex flex-col items-center justify-center text-slate-400 text-center">
                                     <ClipboardList className="h-10 w-10 text-slate-300 mb-3" strokeWidth={1.5} />
-                                    <p className="text-[14px] font-medium text-slate-600">No bookings scheduled for today.</p>
+                                    <p className="text-[14px] font-medium text-slate-600 dark:text-slate-400">No bookings scheduled for today.</p>
                                     <p className="text-[12px] mt-1 text-slate-500">New appointments and walk-in bookings will appear here.</p>
                                 </div>
                             )}
@@ -379,7 +367,7 @@ export default function DiagnosticCenterDashboard() {
                                         </div>
                                     );
                                     return reviews.slice(0, 2).map((review) => (
-                                        <div key={review.id} className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
+                                        <div key={review.id} className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50/50 dark:bg-slate-800/30 text-slate-700 dark:text-slate-300">
                                             <div className="flex items-center justify-between mb-2">
                                                 <span className="text-[12px] font-semibold text-slate-900 dark:text-slate-100">
                                                     {review.is_anonymous ? 'Anonymous' : (review.patient?.name || 'Patient')}

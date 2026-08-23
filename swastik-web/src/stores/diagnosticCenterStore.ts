@@ -10,6 +10,17 @@ export interface DiagnosticDashboardStats {
     totalPatients: number;
 }
 
+export interface DiagnosticPatient {
+    id: string;
+    name?: string;
+    phone?: string;
+    total_bookings?: number;
+    pending_bookings?: number;
+    last_test_name?: string;
+    last_booking_date?: string;
+    last_booking_status?: string;
+}
+
 export interface DiagnosticTest {
     id: string;
     name: string;
@@ -131,6 +142,15 @@ interface DiagnosticCenterState {
     error: string | null;
     reviews: Review[];
 
+    collectionModes: { walk_in: number; home_collection: number };
+    workflow: { pending: number; confirmed: number; dispatched: number; arrived: number; sampleCollected: number; processing: number; completed: number };
+    homeCollection: { scheduled: number; pendingDispatch: number; dispatched: number; arrived: number; sampleCollected: number };
+    attention: { pendingConfirmations: number; pendingSampleCollection: number; processing: number; pendingResults: number };
+    patients: DiagnosticPatient[];
+    patientsPagination: DiagnosticPagination;
+    loadingPatients: boolean;
+    fetchPatients: (params?: { page?: number; limit?: number; search?: string }) => Promise<void>;
+
     fetchDashboardData: () => Promise<void>;
     fetchTests: (params?: { page?: number; limit?: number; search?: string; category?: string }) => Promise<void>;
     addTest: (data: Record<string, unknown>) => Promise<boolean>;
@@ -169,6 +189,13 @@ const diagnosticInitialState = {
     loadingReviews: false,
     error: null as string | null,
     reviews: [] as Review[],
+    collectionModes: { walk_in: 0, home_collection: 0 },
+    workflow: { pending: 0, confirmed: 0, dispatched: 0, arrived: 0, sampleCollected: 0, processing: 0, completed: 0 },
+    homeCollection: { scheduled: 0, pendingDispatch: 0, dispatched: 0, arrived: 0, sampleCollected: 0 },
+    attention: { pendingConfirmations: 0, pendingSampleCollection: 0, processing: 0, pendingResults: 0 },
+    patients: [] as DiagnosticPatient[],
+    patientsPagination: { page: 1, limit: 20, total: 0, totalPages: 1 } as DiagnosticPagination,
+    loadingPatients: false,
 };
 
 export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get) => ({
@@ -176,6 +203,33 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
 
     clearError: () => set({ error: null }),
     reset: () => set({ ...diagnosticInitialState }),
+
+    fetchPatients: async (params = {}) => {
+        set({ loadingPatients: true, error: null });
+        try {
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await diagnosticCenterApi.getPatients({
+                page,
+                limit,
+                search: params.search,
+            });
+            if (!response.success) {
+                set({ error: response.error || 'Failed to load patients', loadingPatients: false });
+                return;
+            }
+            const rawData = response.data;
+            const rawPatients = (Array.isArray(rawData) ? rawData : (rawData as any)?.patients || (rawData as any)?.data || []) as DiagnosticPatient[];
+            set({
+                patients: rawPatients,
+                patientsPagination: normalizePagination(response.pagination as Record<string, any> | undefined, page, limit),
+                loadingPatients: false,
+            });
+        } catch (error) {
+            console.error('Error fetching patients:', error);
+            set({ error: 'Failed to load patients.', loadingPatients: false });
+        }
+    },
 
     fetchDashboardData: async () => {
         set({ loadingDashboard: true, isLoading: true, error: null });
@@ -195,6 +249,13 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
                 return new Date(b.booking_date).toDateString() === new Date().toDateString();
             });
             const todaysBookings = (todaysRaw.length > 0 ? todaysRaw.map(normalizeDiagnosticBooking) : derivedToday);
+
+            set({
+                collectionModes: (rawStats.collectionModes || { walk_in: 0, home_collection: 0 }) as { walk_in: number; home_collection: number },
+                workflow: (rawStats.workflow || { pending: 0, confirmed: 0, dispatched: 0, arrived: 0, sampleCollected: 0, processing: 0, completed: 0 }) as { pending: number; confirmed: number; dispatched: number; arrived: number; sampleCollected: number; processing: number; completed: number },
+                homeCollection: (rawStats.homeCollection || { scheduled: 0, pendingDispatch: 0, dispatched: 0, arrived: 0, sampleCollected: 0 }) as { scheduled: number; pendingDispatch: number; dispatched: number; arrived: number; sampleCollected: number },
+                attention: (rawStats.attention || { pendingConfirmations: 0, pendingSampleCollection: 0, processing: 0, pendingResults: 0 }) as { pendingConfirmations: number; pendingSampleCollection: number; processing: number; pendingResults: number }
+            });
 
             const normalizedStats: DiagnosticDashboardStats = {
                 totalTests: Number(rawStats.totalTests || 0),

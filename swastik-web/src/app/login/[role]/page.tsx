@@ -134,6 +134,16 @@ export default function LoginPage({ params }: LoginPageProps) {
 
     const config = ROLE_CONFIG[role];
 
+    useEffect(() => {
+        if (role === 'admin') {
+            router.replace('/admin/login');
+        }
+    }, [role, router]);
+
+    if (role === 'admin') {
+        return null;
+    }
+
     if (!config) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">

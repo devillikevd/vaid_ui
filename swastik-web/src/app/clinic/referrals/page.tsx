@@ -50,7 +50,7 @@ export interface PatientReferral {
     };
 }
 
-export default function ClinicHospitalReferralsPage() {
+function LegacyClinicHospitalReferralsPage() {
     const toast = useToast();
     const router = useRouter();
 
@@ -748,6 +748,48 @@ export default function ClinicHospitalReferralsPage() {
                     </div>
                 )}
             </AnimatePresence>
+        </div>
+    );
+}
+
+
+import { ReferralInbox } from '@/components/referrals/ReferralInbox';
+import { ReferralSent } from '@/components/referrals/ReferralSent';
+
+export default function ReferralsWrapperPage() {
+    const [activeTab, setActiveTab] = useState<'legacy' | 'universal_inbox' | 'universal_sent'>('universal_inbox');
+
+    return (
+        <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Referrals Center</h1>
+                <div className="flex gap-4 mt-4">
+                    <button 
+                        onClick={() => setActiveTab('legacy')}
+                        className={`font-medium text-sm px-4 py-2 ${activeTab === 'legacy' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400'}`}
+                    >
+                        Legacy Hospital Referrals
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('universal_inbox')}
+                        className={`font-medium text-sm px-4 py-2 ${activeTab === 'universal_inbox' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400'}`}
+                    >
+                        Universal Inbox
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('universal_sent')}
+                        className={`font-medium text-sm px-4 py-2 ${activeTab === 'universal_sent' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400'}`}
+                    >
+                        Universal Sent
+                    </button>
+                </div>
+            </div>
+
+            <div className="flex-1 p-6 overflow-auto">
+                {activeTab === 'legacy' && <LegacyClinicHospitalReferralsPage />}
+                {activeTab === 'universal_inbox' && <ReferralInbox />}
+                {activeTab === 'universal_sent' && <ReferralSent />}
+            </div>
         </div>
     );
 }

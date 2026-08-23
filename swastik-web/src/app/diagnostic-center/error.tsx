@@ -27,7 +27,7 @@ export default function DiagnosticCenterError({
                     An error occurred while loading this page. Please try again.
                 </p>
                 {error.digest && (
-                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500 dark:text-gray-400">
                         Error ID: {error.digest}
                     </p>
                 )}

@@ -1942,6 +1942,7 @@ const createOrder = async (patientUserId, orderData) => {
     pharmacy_id: orderData.pharmacyId,
     clinic_id: orderData.clinicId || null,
     hospital_id: orderData.hospitalId || null,
+    source_referral_id: orderData.source_referral_id || null,
     subtotal: totalAmount,
     delivery_fee: orderData.deliveryFee || 0,
     total_amount: finalTotalAmount + (orderData.deliveryFee || 0),

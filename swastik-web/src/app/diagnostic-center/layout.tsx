@@ -15,6 +15,7 @@ import {
     Network,
     MessageCircle,
     ClipboardList,
+    DollarSign,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
@@ -42,6 +43,7 @@ const DC_CONFIG: DashboardConfig = {
         { name: 'Partnerships', href: '/diagnostic-center/partnerships', icon: Network, section: 'NETWORK', allowedRoles: ['diagnostic_center_owner'] },
         { name: 'Associations', href: '/diagnostic-center/associations', icon: Link2, section: 'NETWORK', allowedRoles: ['diagnostic_center_owner', 'diagnostic_manager'] },
         { name: 'Reports', href: '/diagnostic-center/reports', icon: BarChart3, section: 'INSIGHTS & REPUTATION', allowedRoles: ['diagnostic_center_owner', 'diagnostic_manager'] },
+        { name: 'Revenue', href: '/diagnostic-center/revenue', icon: DollarSign, section: 'INSIGHTS & REPUTATION', allowedRoles: ['diagnostic_center_owner', 'diagnostic_manager'] },
         { name: 'Reviews', href: '/diagnostic-center/reviews', icon: Star, section: 'INSIGHTS & REPUTATION', allowedRoles: ['diagnostic_center_owner', 'diagnostic_manager'] },
         { name: 'Community Q&A', href: '/diagnostic-center/community', icon: MessageCircle, section: 'COMMUNITY', allowedRoles: ['diagnostic_center_owner', 'diagnostic_manager'] },
         { name: 'Reels', href: '/diagnostic-center/reels', icon: FileCheck, section: 'COMMUNITY', allowedRoles: ['diagnostic_center_owner', 'diagnostic_manager'] },

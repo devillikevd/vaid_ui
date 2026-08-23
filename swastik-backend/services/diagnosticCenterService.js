@@ -638,6 +638,165 @@ const updateBookingStatus = async (centerId, bookingId, status, meta = {}) => {
   return normalizedBooking;
 };
 
+// Get aggregated patients for a diagnostic center
+const getPatients = async (centerId, { search = '', page = 1, limit = 20 } = {}) => {
+  let query = supabaseAdmin
+    .from('diagnostic_bookings')
+    .select(`
+      patient_id,
+      status,
+      booking_date,
+      patient:patients(id, name, user_id, user:users(phone)),
+      test:diagnostic_tests(name)
+    `)
+    .eq('center_id', centerId)
+    .order('booking_date', { ascending: false });
+
+  const { data, error } = await query;
+  if (error) throw new ApiError(500, 'Database error');
+
+  const byPatient = new Map();
+
+  for (const booking of data || []) {
+    const patient = booking?.patient || {};
+    if (!patient?.id) continue;
+
+    if (search) {
+      const searchLower = search.toLowerCase();
+      const nameMatch = patient.name?.toLowerCase().includes(searchLower);
+      const phoneMatch = patient.user?.phone?.includes(search);
+      const idMatch = patient.id.includes(searchLower);
+      if (!nameMatch && !phoneMatch && !idMatch) {
+        continue;
+      }
+    }
+
+    if (!byPatient.has(patient.id)) {
+      byPatient.set(patient.id, {
+        id: patient.id,
+        name: patient.name || 'Unknown',
+        phone: patient.user?.phone || '',
+        total_bookings: 0,
+        pending_bookings: 0,
+        completed_bookings: 0,
+        last_test_name: null,
+        last_booking_date: null,
+        last_booking_status: null,
+      });
+    }
+
+    const record = byPatient.get(patient.id);
+    record.total_bookings += 1;
+    
+    if (booking.status === 'pending') {
+      record.pending_bookings += 1;
+    }
+    
+    if (booking.status === 'completed') {
+      record.completed_bookings += 1;
+    }
+
+    // Since bookings are ordered by booking_date descending, the first one encountered is the latest
+    if (!record.last_booking_date) {
+      record.last_test_name = booking.test?.name || 'Unknown Test';
+      record.last_booking_date = booking.booking_date;
+      record.last_booking_status = booking.status;
+    }
+  }
+
+  const allPatients = Array.from(byPatient.values());
+  const total = allPatients.length;
+  
+  // Pagination
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit;
+  const paginatedPatients = allPatients.slice(startIndex, endIndex);
+
+  return {
+    data: paginatedPatients,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
+// Get history of diagnostic bookings for a specific patient at a specific center
+const getPatientHistory = async (centerId, patientId, page = 1, limit = 10) => {
+  // First, verify the patient has interacted with this center
+  const { data: interactionCheck, error: checkError } = await supabaseAdmin
+    .from('diagnostic_bookings')
+    .select('id')
+    .eq('center_id', centerId)
+    .eq('patient_id', patientId)
+    .limit(1);
+
+  if (checkError) {
+    console.error('getPatientHistory checkError:', checkError);
+    throw new ApiError(500, 'Database error verifying patient interaction');
+  }
+  if (!interactionCheck || interactionCheck.length === 0) {
+    // If no interaction, we can either throw 403 or return empty.
+    // Given the prompt says "Return the patient's diagnostic history belonging ONLY to the authenticated Diagnostic Center.", an empty list is appropriate if there is no history.
+    return {
+      data: [],
+      pagination: {
+        page,
+        limit,
+        total: 0,
+        totalPages: 0,
+      }
+    };
+  }
+
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit - 1;
+
+  const { data, error, count } = await supabaseAdmin
+    .from('diagnostic_bookings')
+    .select(`
+      id,
+      status,
+      result_status,
+      booking_date,
+      collection_type,
+      test:diagnostic_tests(name, price),
+      prescription:prescriptions(id)
+    `, { count: 'exact' })
+    .eq('center_id', centerId)
+    .eq('patient_id', patientId)
+    .order('booking_date', { ascending: false })
+    .range(startIndex, endIndex);
+
+  if (error) {
+    console.error('getPatientHistory query error:', error);
+    throw new ApiError(500, 'Database error fetching patient history');
+  }
+
+  const formattedData = data.map(booking => ({
+    id: booking.id,
+    test_name: booking.test?.name || 'Unknown Test',
+    status: booking.status,
+    result_status: booking.result_status,
+    collection_type: booking.collection_type,
+    booking_date: booking.booking_date,
+    price_snapshot: booking.amount ?? booking.test?.price ?? null,
+    has_report: booking.result_status === 'completed' || booking.status === 'completed' // Based on existing logic
+  }));
+
+  return {
+    data: formattedData,
+    pagination: {
+      page,
+      limit,
+      total: count || 0,
+      totalPages: count ? Math.ceil(count / limit) : 0,
+    }
+  };
+};
+
 // Upload test result
 const uploadResult = async (centerId, bookingId, resultData, uploadedByUserId) => {
   const { data, error } = await supabaseAdmin
@@ -692,88 +851,423 @@ const uploadResult = async (centerId, bookingId, resultData, uploadedByUserId) =
   return data;
 };
 
-// Get analytics
-const getAnalytics = async (centerId) => {
-  const today = new Date();
-  const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+// ==================== Staff Management ====================
 
-  const [
-    { count: totalBookings },
-    { count: completedResults },
-    { count: monthlyBookings },
-    { data: monthlyCompletedBookings },
-    { data: bookingsByStatusRows },
-    { data: popularTests },
-  ] = await Promise.all([
-    supabaseAdmin.from('diagnostic_bookings').select('*', { count: 'exact', head: true }).eq('center_id', centerId),
-    supabaseAdmin
-      .from('diagnostic_bookings')
-      .select('*', { count: 'exact', head: true })
-      .eq('center_id', centerId)
-      .eq('result_status', 'completed'),
-    supabaseAdmin
-      .from('diagnostic_bookings')
-      .select('*', { count: 'exact', head: true })
-      .eq('center_id', centerId)
-      .gte('created_at', thirtyDaysAgo),
-    supabaseAdmin
-      .from('diagnostic_bookings')
-      .select('test_id, test:diagnostic_tests(price)')
-      .eq('center_id', centerId)
-      .eq('status', 'completed')
-      .gte('created_at', thirtyDaysAgo),
-    supabaseAdmin
-      .from('diagnostic_bookings')
-      .select('status')
-      .eq('center_id', centerId),
-    supabaseAdmin
-      .from('diagnostic_tests')
-      .select('id, name, category, price')
-      .eq('center_id', centerId)
-      .eq('is_active', true)
-      .order('name')
-      .limit(20),
-  ]);
+const getDiagnosticMembers = async (centerId) => {
+  const { data, error } = await supabaseAdmin
+    .from('diagnostic_members')
+    .select(`
+      id,
+      user_id,
+      member_role,
+      status,
+      created_at,
+      user:users!diagnostic_members_user_id_fkey(id, name, email, phone, profile_image_url)
+    `)
+    .eq('diagnostic_center_id', centerId)
+    .order('created_at', { ascending: false });
 
-  // Rank tests by actual booking count
-  let rankedTests = popularTests || [];
-  if (rankedTests.length > 0) {
-    const testIds = rankedTests.map((t) => t.id);
-    const { data: bookingCounts } = await supabaseAdmin
-      .from('diagnostic_bookings')
-      .select('test_id')
-      .eq('center_id', centerId)
-      .in('test_id', testIds);
-
-    const countMap = {};
-    (bookingCounts || []).forEach((b) => {
-      countMap[b.test_id] = (countMap[b.test_id] || 0) + 1;
-    });
-
-    rankedTests = rankedTests
-      .map((t) => ({ ...t, bookingCount: countMap[t.id] || 0 }))
-      .sort((a, b) => b.bookingCount - a.bookingCount)
-      .slice(0, 10);
+  if (error) {
+    console.error('Database error fetching staff:', error);
+    throw new ApiError(500, 'Database error fetching staff members');
   }
 
-  const revenueThisMonth = (monthlyCompletedBookings || []).reduce((sum, b) => {
-    const fee = b.amount ?? b.test?.price ?? 0;
-    return sum + Number(fee || 0);
-  }, 0);
+  return data.map(m => ({
+    id: m.id,
+    user_id: m.user_id,
+    role: m.member_role,
+    status: m.status,
+    created_at: m.created_at,
+    user: m.user
+  }));
+};
 
-  const bookingsByStatus = (bookingsByStatusRows || []).reduce((acc, row) => {
-    acc[row.status] = (acc[row.status] || 0) + 1;
-    return acc;
-  }, {});
+const inviteDiagnosticMember = async (centerId, inviterUserId, targetEmail, requestedRole) => {
+  const ALLOWED_MEMBER_ROLES = ['manager', 'lab_technician'];
+  // Map 'staff' from frontend to 'lab_technician' in backend
+  const backendRole = requestedRole === 'staff' ? 'lab_technician' : requestedRole;
+  if (!ALLOWED_MEMBER_ROLES.includes(backendRole)) {
+    throw new ApiError(400, `Invalid role. Allowed: ${ALLOWED_MEMBER_ROLES.join(', ')}`);
+  }
+
+  const { data: targetUser } = await supabaseAdmin.from('users').select('*').eq('email', targetEmail).single();
+  if (!targetUser) throw new ApiError(404, 'No user found with this email.');
+  if (['admin', 'super_admin', 'pharmacy_owner', 'hospital_owner', 'clinic_owner', 'diagnostic_center_owner'].includes(targetUser.role)) {
+    throw new ApiError(409, 'This user already holds an organization owner role and cannot be added as staff.');
+  }
+
+  const { data: existing } = await supabaseAdmin
+    .from('diagnostic_members')
+    .select('*')
+    .eq('user_id', targetUser.id)
+    .eq('diagnostic_center_id', centerId)
+    .single();
+
+  if (existing) {
+    if (existing.status === 'active') throw new ApiError(409, 'This user is already an active member.');
+    const { data: updated } = await supabaseAdmin
+      .from('diagnostic_members')
+      .update({ member_role: backendRole, status: 'active', invited_by: inviterUserId, updated_at: new Date().toISOString() })
+      .eq('id', existing.id)
+      .select().single();
+    await supabaseAdmin.from('users').update({ role: backendRole === 'manager' ? 'diagnostic_manager' : 'lab_technician' }).eq('id', targetUser.id);
+    return { member: updated, reactivated: true };
+  }
+
+  const { data: member, error } = await supabaseAdmin
+    .from('diagnostic_members')
+    .insert({
+      user_id: targetUser.id,
+      diagnostic_center_id: centerId,
+      member_role: backendRole,
+      status: 'active',
+      invited_by: inviterUserId
+    })
+    .select()
+    .single();
+
+  if (error) throw new ApiError(500, 'Error adding member.');
+  
+  await supabaseAdmin.from('users').update({ role: backendRole === 'manager' ? 'diagnostic_manager' : 'lab_technician' }).eq('id', targetUser.id);
+  return { member, user: targetUser };
+};
+
+const updateDiagnosticMemberRole = async (centerId, memberId, newRole) => {
+  const ALLOWED_MEMBER_ROLES = ['manager', 'lab_technician'];
+  // Map 'staff' from frontend to 'lab_technician' in backend
+  const backendRole = newRole === 'staff' ? 'lab_technician' : newRole;
+  if (!ALLOWED_MEMBER_ROLES.includes(backendRole)) {
+    throw new ApiError(400, `Invalid role. Allowed: ${ALLOWED_MEMBER_ROLES.join(', ')}`);
+  }
+
+  const { data: member, error: findError } = await supabaseAdmin
+    .from('diagnostic_members')
+    .select('*')
+    .eq('id', memberId)
+    .eq('diagnostic_center_id', centerId)
+    .single();
+
+  if (findError || !member) throw new ApiError(404, 'Member not found in this center.');
+  if (member.status === 'removed') throw new ApiError(400, 'Cannot update a removed member.');
+
+  const { error: updateError } = await supabaseAdmin
+    .from('diagnostic_members')
+    .update({ member_role: backendRole })
+    .eq('id', memberId);
+
+  if (updateError) throw new ApiError(500, 'Failed to update member role');
+
+  await supabaseAdmin.from('users').update({ role: backendRole === 'manager' ? 'diagnostic_manager' : 'lab_technician' }).eq('id', member.user_id);
+  return { success: true };
+};
+
+const updateDiagnosticMemberStatus = async (centerId, memberId, action) => {
+  const { data: member, error: findError } = await supabaseAdmin
+    .from('diagnostic_members')
+    .select('*')
+    .eq('id', memberId)
+    .eq('diagnostic_center_id', centerId)
+    .single();
+
+  if (findError || !member) throw new ApiError(404, 'Member not found in this center.');
+
+  const newStatus = action === 'suspend' ? 'suspended' : 'active';
+
+  const { error: updateError } = await supabaseAdmin
+    .from('diagnostic_members')
+    .update({ status: newStatus })
+    .eq('id', memberId);
+
+  if (updateError) throw new ApiError(500, 'Failed to update member status');
+
+  return { success: true };
+};
+
+const removeDiagnosticMember = async (centerId, memberId) => {
+  const { data: member, error: findError } = await supabaseAdmin
+    .from('diagnostic_members')
+    .select('*')
+    .eq('id', memberId)
+    .eq('diagnostic_center_id', centerId)
+    .single();
+
+  if (findError || !member) throw new ApiError(404, 'Member not found in this center.');
+
+  const { error: updateError } = await supabaseAdmin
+    .from('diagnostic_members')
+    .update({ status: 'removed' })
+    .eq('id', memberId);
+
+  if (updateError) throw new ApiError(500, 'Failed to remove member');
+
+  await supabaseAdmin.from('users').update({ role: 'patient' }).eq('id', member.user_id);
+  return { success: true };
+};
+
+
+// Get analytics
+const getAnalytics = async (centerId, { from, to } = {}) => {
+  const toDate = to ? new Date(to) : new Date();
+  let fromDate = from ? new Date(from) : new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+  
+  // Previous period equivalent length
+  const periodLength = toDate.getTime() - fromDate.getTime();
+  const prevToDate = new Date(fromDate.getTime() - 1);
+  const prevFromDate = new Date(prevToDate.getTime() - periodLength);
+
+  const fromISO = fromDate.toISOString();
+  const toISO = toDate.toISOString();
+  const prevFromISO = prevFromDate.toISOString();
+  const prevToISO = prevToDate.toISOString();
+
+  // Current period query
+  let currentQuery = supabaseAdmin
+    .from('diagnostic_bookings')
+    .select('*, test:diagnostic_tests(id, name, price)')
+    .eq('center_id', centerId)
+    .gte('created_at', fromISO)
+    .lte('created_at', toISO);
+
+  // Previous period query
+  let previousQuery = supabaseAdmin
+    .from('diagnostic_bookings')
+    .select('*, test:diagnostic_tests(price)')
+    .eq('center_id', centerId)
+    .gte('created_at', prevFromISO)
+    .lte('created_at', prevToISO);
+
+  const [{ data: currentBookings }, { data: previousBookings }] = await Promise.all([
+    currentQuery,
+    previousQuery
+  ]);
+
+  const current = currentBookings || [];
+  const previous = previousBookings || [];
+
+  // Determine trend grouping (daily vs weekly)
+  const diffDays = periodLength / (1000 * 3600 * 24);
+  const useWeekly = diffDays > 60;
+  const useMonthly = diffDays > 180;
+
+  // Current Period Summary
+  let totalBookings = current.length;
+  let completed = 0;
+  let pending = 0;
+  let cancelled = 0;
+  let revenue = 0; // Only realized (completed) revenue
+  let pendingValue = 0;
+  
+  // Patient Tracking
+  const uniquePatientsSet = new Set();
+  
+  // Peak Tracking
+  const peakHours = new Array(6).fill(0);
+  const peakDays = new Array(7).fill(0);
+
+  // Sample Collection tracking
+  const sampleCollection = {
+    home: { total: 0, completed: 0, revenue: 0 },
+    walkIn: { total: 0, completed: 0, revenue: 0 }
+  };
+
+  const statusBreakdown = {};
+  const revenueByStatus = {};
+  const testStats = {};
+  const trendsMap = {}; // key -> { date, bookings, revenue }
+
+  current.forEach(b => {
+    // Basic status counts
+    const isCompleted = b.status === 'completed' || b.result_status === 'completed';
+    if (isCompleted) completed++;
+    else if (b.status === 'cancelled') cancelled++;
+    else pending++;
+
+    statusBreakdown[b.status] = (statusBreakdown[b.status] || 0) + 1;
+    if (b.patient_id) uniquePatientsSet.add(b.patient_id);
+
+    // Revenue tracking
+    const fee = Number(b.amount ?? b.test?.price ?? 0);
+    revenueByStatus[b.status] = (revenueByStatus[b.status] || 0) + fee;
+    
+    if (isCompleted) {
+      revenue += fee;
+    } else if (b.status !== 'cancelled') {
+      pendingValue += fee;
+    }
+    
+    // Sample collection analytics
+    if (b.collection_type === 'home_collection') {
+        sampleCollection.home.total++;
+        if (isCompleted) {
+            sampleCollection.home.completed++;
+            sampleCollection.home.revenue += fee;
+        }
+    } else {
+        sampleCollection.walkIn.total++;
+        if (isCompleted) {
+            sampleCollection.walkIn.completed++;
+            sampleCollection.walkIn.revenue += fee;
+        }
+    }
+
+    // Peak Hours / Days
+    if (b.created_at) {
+        const d = new Date(b.created_at);
+        const hour = d.getHours();
+        const hourIndex = Math.floor(hour / 4);
+        if (hourIndex >= 0 && hourIndex < 6) peakHours[hourIndex]++;
+        
+        const day = d.getDay();
+        if (day >= 0 && day < 7) peakDays[day]++;
+    }
+
+    // Trends grouping
+    const dateObj = new Date(b.created_at);
+    let dateKey = dateObj.toISOString().split('T')[0];
+    if (useWeekly) {
+        const d = new Date(dateObj);
+        d.setDate(d.getDate() - d.getDay());
+        dateKey = d.toISOString().split('T')[0];
+    }
+    if (useMonthly) {
+        const d = new Date(dateObj);
+        d.setDate(1);
+        dateKey = d.toISOString().split('T')[0].substring(0, 7); // YYYY-MM
+    }
+    
+    if (!trendsMap[dateKey]) trendsMap[dateKey] = { date: dateKey, bookings: 0, completed: 0, revenue: 0 };
+    trendsMap[dateKey].bookings++;
+    if (isCompleted) {
+      trendsMap[dateKey].completed++;
+      trendsMap[dateKey].revenue += fee;
+    }
+
+    // Test stats
+    if (b.test) {
+      if (!testStats[b.test.id]) {
+        testStats[b.test.id] = { id: b.test.id, name: b.test.name, total: 0, completed: 0, pending: 0, cancelled: 0, revenue: 0 };
+      }
+      testStats[b.test.id].total++;
+      if (isCompleted) {
+          testStats[b.test.id].completed++;
+          testStats[b.test.id].revenue += fee;
+      }
+      else if (b.status === 'cancelled') testStats[b.test.id].cancelled++;
+      else testStats[b.test.id].pending++;
+    }
+  });
+
+  const completionRate = totalBookings > 0 ? Math.round((completed / totalBookings) * 100) : 0;
+  const cancellationRate = totalBookings > 0 ? Math.round((cancelled / totalBookings) * 100) : 0;
+  const averageRevenuePerBooking = completed > 0 ? Math.round(revenue / completed) : 0;
+
+  // Previous Period Summary
+  let prevTotal = previous.length;
+  let prevCompleted = 0;
+  let prevRevenue = 0;
+  let prevCancelled = 0;
+
+  previous.forEach(b => {
+    if (b.status === 'completed' || b.result_status === 'completed') {
+      prevCompleted++;
+      const fee = Number(b.amount ?? b.test?.price ?? 0);
+      prevRevenue += fee;
+    }
+    else if (b.status === 'cancelled') prevCancelled++;
+  });
+  
+  const prevCancellationRate = prevTotal > 0 ? Math.round((prevCancelled / prevTotal) * 100) : 0;
+  const prevAverageRevenue = prevCompleted > 0 ? Math.round(prevRevenue / prevCompleted) : 0;
+
+  let revenueGrowth = null;
+  if (prevRevenue > 0) {
+      revenueGrowth = Math.round(((revenue - prevRevenue) / prevRevenue) * 100);
+  }
+
+  // Compile arrays
+  const trends = Object.values(trendsMap)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(t => ({
+        ...t,
+        averageRevenue: t.completed > 0 ? Math.round(t.revenue / t.completed) : 0
+    }));
+  
+  const testPerformance = Object.values(testStats).map(t => ({
+    ...t,
+    completionRate: t.total > 0 ? Math.round((t.completed / t.total) * 100) : 0
+  })).sort((a, b) => b.total - a.total);
+
+  const popularTests = [...testPerformance].slice(0, 10).map(t => ({
+    id: t.id,
+    name: t.name,
+    count: t.total,
+    percentage: totalBookings > 0 ? Math.round((t.total / totalBookings) * 100) : 0
+  }));
+  
+  const revenueByTest = [...testPerformance].sort((a, b) => b.revenue - a.revenue).slice(0, 10).map(t => ({
+      id: t.id,
+      name: t.name,
+      revenue: t.revenue,
+      count: t.total,
+      average: t.completed > 0 ? Math.round(t.revenue / t.completed) : 0,
+      percentage: revenue > 0 ? Math.round((t.revenue / revenue) * 100) : 0
+  }));
+
+  let newPatientsCount = 0;
+  if (uniquePatientsSet.size > 0) {
+      const patientIds = Array.from(uniquePatientsSet);
+      const { data: earlyBookings } = await supabaseAdmin
+        .from('diagnostic_bookings')
+        .select('patient_id')
+        .eq('center_id', centerId)
+        .lt('created_at', fromISO)
+        .in('patient_id', patientIds);
+        
+      const returningPatientsSet = new Set((earlyBookings || []).map(b => b.patient_id));
+      newPatientsCount = patientIds.length - returningPatientsSet.size;
+  }
 
   return {
-    totalBookings: totalBookings || 0,
-    completedResults: completedResults || 0,
-    monthlyBookings: monthlyBookings || 0,
-    completionRate: `${totalBookings ? Math.round(((completedResults || 0) / totalBookings) * 100) : 0}%`,
-    popularTests: rankedTests.map((t) => ({ name: t.name, count: t.bookingCount || 0 })),
-    revenueThisMonth,
-    bookingsByStatus,
+    summary: {
+      totalBookings,
+      completed,
+      pending,
+      cancelled,
+      completionRate,
+      cancellationRate,
+      revenue,
+      pendingValue,
+      averageRevenuePerBooking,
+      revenueGrowth
+    },
+    previousPeriod: {
+      totalBookings: prevTotal,
+      completed: prevCompleted,
+      revenue: prevRevenue,
+      cancellationRate: prevCancellationRate,
+      averageRevenuePerBooking: prevAverageRevenue
+    },
+    patientAnalytics: {
+      totalUnique: uniquePatientsSet.size,
+      newPatients: newPatientsCount,
+      returningPatients: uniquePatientsSet.size - newPatientsCount
+    },
+    sampleCollection,
+    cancellationAnalytics: {
+        total: cancelled,
+        rate: cancellationRate,
+        previousRate: prevCancellationRate
+    },
+    peakAnalytics: {
+        peakHours,
+        peakDays
+    },
+    trends,
+    statusBreakdown,
+    revenueByStatus,
+    popularTests,
+    testPerformance,
+    revenueByTest
   };
 };
 
@@ -794,6 +1288,7 @@ const bookTest = async (patientId, centerId, testId, bookingData) => {
       notes: bookingData.notes || null,
       status: 'pending',
       result_status: 'pending',
+        source_referral_id: bookingData.source_referral_id || null,
     })
     .select('*, test:diagnostic_tests(name, category, price)')
     .single();
@@ -863,10 +1358,18 @@ module.exports = {
   deleteTest,
   // Bookings / Results
   getBookings,
+  getPatients,
+  getPatientHistory,
   getBookingById,
   updateBookingStatus,
   uploadResult,
   getAnalytics,
+  getDiagnosticMembers,
+  inviteDiagnosticMember,
+  updateDiagnosticMemberRole,
+  updateDiagnosticMemberStatus,
+  removeDiagnosticMember,
+
   // Patient-facing
   bookTest,
   // Helpers (DC5: extracted from inline route handlers)

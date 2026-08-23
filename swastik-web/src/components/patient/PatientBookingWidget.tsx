@@ -96,8 +96,8 @@ export function PatientBookingWidget({ doctor }: PatientBookingWidgetProps) {
                 <p className="text-gray-600 mb-6">
                     Your {consultationType} consultation with Dr. {doctor.name.split(' ')[0]} has been scheduled for {selectedDate.toLocaleDateString()} at {selectedSlot}.
                 </p>
-                <Button className="w-full bg-vd-orange text-white" onClick={() => window.location.href = '/patient/dashboard'}>
-                    Go to My Dashboard
+                <Button className="w-full bg-vd-orange text-white" onClick={() => window.location.href = '/'}>
+                    Return Home
                 </Button>
             </div>
         );

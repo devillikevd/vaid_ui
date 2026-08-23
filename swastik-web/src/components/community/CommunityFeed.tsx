@@ -42,7 +42,7 @@ const QuestionSkeleton = () => (
     </DoctorPortalCard>
 );
 
-type PortalType = 'doctor' | 'hospital' | 'clinic' | 'pharmacy' | 'diagnostic';
+type PortalType = 'doctor' | 'hospital' | 'clinic' | 'pharmacy' | 'diagnostic' | 'diagnostic_center';
 
 interface CommunityFeedProps {
     portalType: PortalType;

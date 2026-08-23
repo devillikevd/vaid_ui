@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2, Plus, Trash2, Play } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { DashboardCard } from '@/components/shared/DashboardCard';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { diagnosticCenterApi } from '@/lib/api';
@@ -69,17 +70,17 @@ export default function DiagnosticReelsPage() {
     }
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pharmacy Reels</h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">Upload short 15-30 second video reels to showcase your diagnostic center&apos;s infrastructure, services, and patient care.</p>
-            </div>
+        <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
+            <PageHeader
+                title="Diagnostic Center Reels"
+                subtitle="Upload short 15-30 second video reels to showcase your diagnostic center's infrastructure, services, and patient care."
+            />
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Add New Reel</CardTitle>
-                </CardHeader>
-                <CardContent>
+            <DashboardCard noPadding>
+                <div className="flex flex-row items-center justify-between p-6 pb-2">
+                    <h3 className="font-semibold leading-none tracking-tight">Add New Reel</h3>
+                </div>
+                <div className="p-6 pt-0">
                     <div className="space-y-4">
                         <VideoUpload
                             currentVideo={uploadingUrl}
@@ -107,21 +108,21 @@ export default function DiagnosticReelsPage() {
                             </div>
                         )}
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </DashboardCard>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Published Reels ({reels.length})</CardTitle>
-                </CardHeader>
-                <CardContent>
+            <DashboardCard noPadding>
+                <div className="flex flex-row items-center justify-between p-6 pb-2">
+                    <h3 className="font-semibold leading-none tracking-tight">Published Reels ({reels.length})</h3>
+                </div>
+                <div className="p-6 pt-0">
                     {reels.length === 0 ? (
                         <div className="text-center py-12 px-4">
                             <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Play className="h-8 w-8 text-gray-400" />
                             </div>
                             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">No reels published yet</h3>
-                            <p className="text-sm text-gray-500 max-w-sm mx-auto">Upload engaging short videos to help customers explore your pharmacy and build trust.</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto">Upload engaging short videos to help customers explore your pharmacy and build trust.</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -154,8 +155,8 @@ export default function DiagnosticReelsPage() {
                             ))}
                         </div>
                     )}
-                </CardContent>
-            </Card>
+                </div>
+            </DashboardCard>
         </div>
     );
 }

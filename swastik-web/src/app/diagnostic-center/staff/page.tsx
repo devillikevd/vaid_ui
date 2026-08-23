@@ -4,7 +4,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { diagnosticCenterApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import { Card } from '@/components/ui/Card';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { DashboardCard } from '@/components/shared/DashboardCard';
 import { 
     AlertCircle, Users, PlusCircle, Search, Shield, MoreVertical, 
     CheckCircle2, XCircle, Trash2, Edit2, Activity,
@@ -157,7 +158,7 @@ export default function StaffManagementPage() {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh]">
                 <Shield className="h-16 w-16 text-slate-300 mb-4" />
-                <h1 className="text-2xl font-bold text-slate-900">Access Denied</h1>
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Access Denied</h1>
                 <p className="text-slate-500 mt-2">Only center owners can manage staff.</p>
             </div>
         );
@@ -166,72 +167,72 @@ export default function StaffManagementPage() {
     return (
         <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
             {/* 1. Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-[20px] font-semibold tracking-tight text-slate-900">Staff Management</h1>
-                    <p className="text-slate-500 text-[13px] mt-0.5">Manage your diagnostic center team and access roles.</p>
-                </div>
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <button 
-                        onClick={fetchStaff}
-                        disabled={loading}
-                        className="px-4 py-2 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-[10px] border border-slate-200 transition-all font-medium text-sm flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
-                    >
-                        <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                        <span className="hidden sm:inline">Refresh</span>
-                    </button>
-                    <button 
-                        onClick={() => setIsAddDrawerOpen(true)}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-[10px] transition-all font-medium text-sm shadow-sm hover:shadow"
-                    >
-                        <PlusCircle className="h-4 w-4" />
-                        Add Staff
-                    </button>
-                </div>
-            </div>
+            <PageHeader 
+                title="Staff Management"
+                subtitle="Manage your diagnostic center team and access roles."
+                actions={
+                    <>
+                        <button 
+                            onClick={fetchStaff}
+                            disabled={loading}
+                            className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-600 hover:text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:bg-slate-800/50 rounded-[10px] border border-slate-200 dark:border-slate-700 transition-all font-medium text-sm flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                        >
+                            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                            <span className="hidden sm:inline">Refresh</span>
+                        </button>
+                        <button 
+                            onClick={() => setIsAddDrawerOpen(true)}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-[10px] transition-all font-medium text-sm shadow-sm hover:shadow"
+                        >
+                            <PlusCircle className="h-4 w-4" />
+                            Add Staff
+                        </button>
+                    </>
+                }
+            />
 
             {/* 2. KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="p-5 flex items-center gap-4">
+                <DashboardCard noPadding><div className="p-5 flex items-center gap-4">
                     <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
                         <Users className="h-5 w-5" />
                     </div>
                     <div>
                         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Staff</p>
-                        <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : staff.length}</p>
+                        <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{loading ? '-' : staff.length}</p>
                     </div>
-                </Card>
-                <Card className="p-5 flex items-center gap-4">
+                </div></DashboardCard>
+                <DashboardCard noPadding><div className="p-5 flex items-center gap-4">
                     <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
                         <Activity className="h-5 w-5" />
                     </div>
                     <div>
                         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Active Staff</p>
-                        <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : activeCount}</p>
+                        <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{loading ? '-' : activeCount}</p>
                     </div>
-                </Card>
-                <Card className="p-5 flex items-center gap-4">
+                </div></DashboardCard>
+                <DashboardCard noPadding><div className="p-5 flex items-center gap-4">
                     <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
                         <Briefcase className="h-5 w-5" />
                     </div>
                     <div>
                         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Managers</p>
-                        <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : managerCount}</p>
+                        <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{loading ? '-' : managerCount}</p>
                     </div>
-                </Card>
-                <Card className="p-5 flex items-center gap-4">
+                </div></DashboardCard>
+                <DashboardCard noPadding><div className="p-5 flex items-center gap-4">
                     <div className="p-3 bg-amber-50 rounded-xl text-amber-600">
                         <Activity className="h-5 w-5" />
                     </div>
                     <div>
                         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Lab Technicians</p>
-                        <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : techCount}</p>
+                        <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{loading ? '-' : techCount}</p>
                     </div>
-                </Card>
+                </div></DashboardCard>
             </div>
 
             {/* 3. Filters */}
-            <Card className="p-2 sm:p-3">
+            <DashboardCard noPadding><div className="p-2 sm:p-3">
                 <div className="flex flex-col sm:flex-row gap-3">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -240,14 +241,14 @@ export default function StaffManagementPage() {
                             placeholder="Search by name or email..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border-transparent focus:bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 transition-all"
+                            className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border-transparent focus:bg-white dark:bg-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 transition-all"
                         />
                     </div>
                     <div className="flex gap-2">
                         <select 
                             value={roleFilter}
                             onChange={(e) => setRoleFilter(e.target.value)}
-                            className="px-3 py-2 text-sm bg-slate-50 border-transparent focus:bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 font-medium text-slate-700"
+                            className="px-3 py-2 text-sm bg-slate-50 border-transparent focus:bg-white dark:bg-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 font-medium text-slate-700 dark:text-slate-300"
                         >
                             <option value="all">All Roles</option>
                             <option value="manager">Manager</option>
@@ -256,7 +257,7 @@ export default function StaffManagementPage() {
                         <select 
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="px-3 py-2 text-sm bg-slate-50 border-transparent focus:bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 font-medium text-slate-700"
+                            className="px-3 py-2 text-sm bg-slate-50 border-transparent focus:bg-white dark:bg-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 font-medium text-slate-700 dark:text-slate-300"
                         >
                             <option value="all">All Status</option>
                             <option value="active">Active</option>
@@ -265,19 +266,19 @@ export default function StaffManagementPage() {
                         </select>
                     </div>
                 </div>
-            </Card>
+            </div></DashboardCard>
 
             {/* 4. Main Content (Mutually Exclusive States) */}
             {error ? (
-                <Card className="py-16 text-center flex flex-col items-center">
+                <DashboardCard noPadding><div className="py-16 text-center flex flex-col items-center">
                     <AlertCircle className="h-10 w-10 text-red-400 mb-3" />
-                    <h3 className="text-sm font-medium text-slate-900">{error}</h3>
+                    <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">{error}</h3>
                     <button onClick={fetchStaff} className="mt-4 px-4 py-2 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
                         Try Again
                     </button>
-                </Card>
+                </div></DashboardCard>
             ) : loading ? (
-                <Card className="p-0 overflow-hidden divide-y divide-slate-100">
+                <DashboardCard noPadding><div className="p-0 overflow-hidden divide-y divide-slate-100">
                     {[1, 2, 3, 4, 5].map(i => (
                         <div key={i} className="p-4 flex items-center justify-between">
                             <div className="flex items-center gap-3 w-1/3">
@@ -292,20 +293,20 @@ export default function StaffManagementPage() {
                             <div className="h-8 w-8 bg-slate-100 rounded animate-pulse" />
                         </div>
                     ))}
-                </Card>
+                </div></DashboardCard>
             ) : filteredStaff.length === 0 ? (
-                <Card className="py-16 text-center flex flex-col items-center">
+                <DashboardCard noPadding><div className="py-16 text-center flex flex-col items-center">
                     <Users className="h-10 w-10 text-slate-300 mb-3" />
-                    <h3 className="text-sm font-medium text-slate-900">No staff found.</h3>
+                    <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">No staff found.</h3>
                     <p className="text-xs text-slate-500 mt-1">
-                        {staff.length === 0 ? "You haven't added any staff yet." : "No staff matches your filters."}
+                        {staff.length === 0 ? "You haven't added any staff yet." : "Clear filters or invite a new team member."}
                     </p>
-                </Card>
+                </div></DashboardCard>
             ) : (
-                <Card className="p-0 overflow-hidden">
+                <DashboardCard noPadding><div className="p-0 overflow-hidden">
                     <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-left text-sm text-[#1a202c]">
-                            <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100">
+                            <thead className="bg-slate-50 dark:bg-slate-800/50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
                                 <tr>
                                     <th className="px-5 py-3.5 font-medium">Name</th>
                                     <th className="px-5 py-3.5 font-medium">Contact</th>
@@ -317,18 +318,18 @@ export default function StaffManagementPage() {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredStaff.map((member) => (
-                                    <tr key={member.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { setSelectedMember(member); setIsDetailsDrawerOpen(true); }}>
+                                    <tr key={member.id} className="hover:bg-slate-50 dark:bg-slate-800/50 transition-colors group cursor-pointer" onClick={() => { setSelectedMember(member); setIsDetailsDrawerOpen(true); }}>
                                         <td className="px-5 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="h-9 w-9 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm">
                                                     {member.user?.name ? member.user.name[0].toUpperCase() : member.user?.email[0].toUpperCase()}
                                                 </div>
-                                                <span className="font-medium text-slate-900">{member.user?.name || 'Unknown'}</span>
+                                                <span className="font-medium text-slate-900 dark:text-slate-100">{member.user?.name || 'Unknown'}</span>
                                             </div>
                                         </td>
                                         <td className="px-5 py-4 text-slate-500">{member.user?.email}</td>
                                         <td className="px-5 py-4">
-                                            <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-slate-700 text-[11px] font-medium uppercase tracking-wider">
+                                            <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-slate-700 dark:text-slate-300 text-[11px] font-medium uppercase tracking-wider">
                                                 {member.member_role.replace('_', ' ')}
                                             </span>
                                         </td>
@@ -337,7 +338,7 @@ export default function StaffManagementPage() {
                                                 member.status === 'active' ? 'bg-emerald-50 text-emerald-700' :
                                                 member.status === 'invited' ? 'bg-amber-50 text-amber-700' :
                                                 member.status === 'suspended' ? 'bg-red-50 text-red-700' :
-                                                'bg-slate-100 text-slate-700'
+                                                'bg-slate-100 text-slate-700 dark:text-slate-300'
                                             }`}>
                                                 {member.status}
                                             </span>
@@ -359,14 +360,14 @@ export default function StaffManagementPage() {
                     {/* Mobile View */}
                     <div className="md:hidden divide-y divide-slate-100">
                         {filteredStaff.map((member) => (
-                            <div key={member.id} className="p-4 hover:bg-slate-50 cursor-pointer" onClick={() => { setSelectedMember(member); setIsDetailsDrawerOpen(true); }}>
+                            <div key={member.id} className="p-4 hover:bg-slate-50 dark:bg-slate-800/50 cursor-pointer" onClick={() => { setSelectedMember(member); setIsDetailsDrawerOpen(true); }}>
                                 <div className="flex items-start justify-between mb-2">
                                     <div className="flex items-center gap-3">
                                         <div className="h-9 w-9 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm shrink-0">
                                             {member.user?.name ? member.user.name[0].toUpperCase() : member.user?.email[0].toUpperCase()}
                                         </div>
                                         <div>
-                                            <div className="font-medium text-slate-900 text-sm">{member.user?.name || 'Unknown'}</div>
+                                            <div className="font-medium text-slate-900 dark:text-slate-100 text-sm">{member.user?.name || 'Unknown'}</div>
                                             <div className="text-xs text-slate-500">{member.user?.email}</div>
                                         </div>
                                     </div>
@@ -374,40 +375,40 @@ export default function StaffManagementPage() {
                                         member.status === 'active' ? 'bg-emerald-50 text-emerald-700' :
                                         member.status === 'invited' ? 'bg-amber-50 text-amber-700' :
                                         member.status === 'suspended' ? 'bg-red-50 text-red-700' :
-                                        'bg-slate-100 text-slate-700'
+                                        'bg-slate-100 text-slate-700 dark:text-slate-300'
                                     }`}>
                                         {member.status}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between mt-3 pl-12">
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-semibold uppercase tracking-wider">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 dark:text-slate-300 text-[10px] font-semibold uppercase tracking-wider">
                                         {member.member_role.replace('_', ' ')}
                                     </span>
-                                    <button className="p-1.5 text-slate-400 hover:text-purple-600 rounded bg-slate-50 border border-slate-100">
+                                    <button className="p-1.5 text-slate-400 hover:text-purple-600 rounded bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
                                         <MoreVertical className="h-4 w-4" />
                                     </button>
                                 </div>
                             </div>
                         ))}
                     </div>
-                </Card>
+                </div></DashboardCard>
             )}
 
             {/* 5. Add Drawer */}
             {isAddDrawerOpen && (
                 <div className="fixed inset-0 z-[100] flex justify-end">
                     <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity" onClick={() => setIsAddDrawerOpen(false)} />
-                    <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white">
-                            <h2 className="text-lg font-semibold text-slate-900">Add Staff Member</h2>
-                            <button onClick={() => setIsAddDrawerOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                    <div className="relative w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
+                            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Add Staff Member</h2>
+                            <button onClick={() => setIsAddDrawerOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-50 dark:bg-slate-800/50 transition-colors">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
-                        <div className="flex-1 p-6 overflow-y-auto bg-slate-50/50">
+                        <div className="flex-1 p-6 overflow-y-auto bg-slate-50 dark:bg-slate-800/50/50">
                             <form id="add-member-form" onSubmit={handleAddMember} className="space-y-5">
                                 <div>
-                                    <label className="block text-[13px] font-medium text-slate-700 mb-1.5">Email Address</label>
+                                    <label className="block text-[13px] font-medium text-slate-700 dark:text-slate-300 mb-1.5">Email Address</label>
                                     <div className="relative">
                                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                         <input 
@@ -415,25 +416,25 @@ export default function StaffManagementPage() {
                                             required
                                             value={addEmail}
                                             onChange={(e) => setAddEmail(e.target.value)}
-                                            className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 transition-all bg-white"
+                                            className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 transition-all bg-white dark:bg-slate-900"
                                             placeholder="doctor@example.com"
                                         />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-[13px] font-medium text-slate-700 mb-2">Role Assignment</label>
+                                    <label className="block text-[13px] font-medium text-slate-700 dark:text-slate-300 mb-2">Role Assignment</label>
                                     <div className="space-y-2.5">
-                                        <label className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${addRole === 'manager' ? 'border-purple-600 bg-purple-50/50 ring-1 ring-purple-600/20' : 'border-slate-200 hover:border-purple-300 bg-white'}`}>
+                                        <label className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${addRole === 'manager' ? 'border-purple-600 bg-purple-50/50 ring-1 ring-purple-600/20' : 'border-slate-200 dark:border-slate-700 hover:border-purple-300 bg-white dark:bg-slate-900'}`}>
                                             <input type="radio" name="role" value="manager" checked={addRole === 'manager'} onChange={() => setAddRole('manager')} className="mt-0.5 accent-purple-600" />
                                             <div>
-                                                <div className="text-sm font-semibold text-slate-900">Manager</div>
+                                                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Manager</div>
                                                 <div className="text-xs text-slate-500 mt-1 leading-relaxed">Full operational access. Can view analytics, manage bookings, and edit the test catalog.</div>
                                             </div>
                                         </label>
-                                        <label className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${addRole === 'lab_technician' ? 'border-purple-600 bg-purple-50/50 ring-1 ring-purple-600/20' : 'border-slate-200 hover:border-purple-300 bg-white'}`}>
+                                        <label className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${addRole === 'lab_technician' ? 'border-purple-600 bg-purple-50/50 ring-1 ring-purple-600/20' : 'border-slate-200 dark:border-slate-700 hover:border-purple-300 bg-white dark:bg-slate-900'}`}>
                                             <input type="radio" name="role" value="lab_technician" checked={addRole === 'lab_technician'} onChange={() => setAddRole('lab_technician')} className="mt-0.5 accent-purple-600" />
                                             <div>
-                                                <div className="text-sm font-semibold text-slate-900">Lab Technician</div>
+                                                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Lab Technician</div>
                                                 <div className="text-xs text-slate-500 mt-1 leading-relaxed">Restricted access. Can view the work queue, collect samples, and upload results.</div>
                                             </div>
                                         </label>
@@ -441,7 +442,7 @@ export default function StaffManagementPage() {
                                 </div>
                             </form>
                         </div>
-                        <div className="p-5 border-t border-slate-100 bg-white">
+                        <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
                             <button 
                                 type="submit" 
                                 form="add-member-form"
@@ -460,45 +461,45 @@ export default function StaffManagementPage() {
             {isDetailsDrawerOpen && selectedMember && (
                 <div className="fixed inset-0 z-[100] flex justify-end">
                     <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity" onClick={() => setIsDetailsDrawerOpen(false)} />
-                    <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white">
-                            <h2 className="text-lg font-semibold text-slate-900">Staff Profile</h2>
-                            <button onClick={() => setIsDetailsDrawerOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                    <div className="relative w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
+                            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Staff Profile</h2>
+                            <button onClick={() => setIsDetailsDrawerOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-50 dark:bg-slate-800/50 transition-colors">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
-                        <div className="flex-1 overflow-y-auto bg-slate-50/50 p-6 space-y-6">
+                        <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-800/50/50 p-6 space-y-6">
                             
-                            <div className="flex flex-col items-center text-center p-6 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                            <div className="flex flex-col items-center text-center p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm">
                                 <div className="h-16 w-16 rounded-full bg-purple-100 text-purple-700 text-2xl flex items-center justify-center font-bold mb-3">
                                     {selectedMember.user?.name ? selectedMember.user.name[0].toUpperCase() : selectedMember.user?.email[0].toUpperCase()}
                                 </div>
-                                <h3 className="text-lg font-bold text-slate-900">{selectedMember.user?.name || 'Unknown'}</h3>
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{selectedMember.user?.name || 'Unknown'}</h3>
                                 <p className="text-sm text-slate-500 mt-0.5">{selectedMember.user?.email}</p>
                                 <div className="flex items-center justify-center gap-2 mt-4">
-                                    <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded text-[10px] font-bold uppercase tracking-wider">
+                                    <span className="px-2.5 py-1 bg-slate-100 text-slate-700 dark:text-slate-300 rounded text-[10px] font-bold uppercase tracking-wider">
                                         {selectedMember.member_role.replace('_', ' ')}
                                     </span>
                                     <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
                                         selectedMember.status === 'active' ? 'bg-emerald-50 text-emerald-700' :
                                         selectedMember.status === 'invited' ? 'bg-amber-50 text-amber-700' :
                                         selectedMember.status === 'suspended' ? 'bg-red-50 text-red-700' :
-                                        'bg-slate-100 text-slate-700'
+                                        'bg-slate-100 text-slate-700 dark:text-slate-300'
                                     }`}>
                                         {selectedMember.status}
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
-                                <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+                                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50/50 flex items-center gap-2">
                                     <Briefcase className="h-4 w-4 text-slate-400" />
-                                    <h4 className="text-sm font-semibold text-slate-900">Account Details</h4>
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Account Details</h4>
                                 </div>
                                 <div className="p-5 space-y-4">
                                     <div>
                                         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Joined Date</p>
-                                        <p className="text-sm font-medium text-slate-900 flex items-center gap-2">
+                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100 flex items-center gap-2">
                                             <Calendar className="h-4 w-4 text-slate-400" />
                                             {new Date(selectedMember.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                                         </p>
@@ -508,14 +509,14 @@ export default function StaffManagementPage() {
                                         <div className="space-y-2">
                                             {selectedMember.member_role === 'manager' ? (
                                                 <>
-                                                    <div className="flex items-center gap-2 text-sm text-slate-700"><CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> Full Dashboard Analytics</div>
-                                                    <div className="flex items-center gap-2 text-sm text-slate-700"><CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> Manage All Bookings</div>
-                                                    <div className="flex items-center gap-2 text-sm text-slate-700"><CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> Edit Test Catalog</div>
+                                                    <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> Full Dashboard Analytics</div>
+                                                    <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> Manage All Bookings</div>
+                                                    <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> Edit Test Catalog</div>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <div className="flex items-center gap-2 text-sm text-slate-700"><CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> View Work Queue</div>
-                                                    <div className="flex items-center gap-2 text-sm text-slate-700"><CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> Upload Test Results</div>
+                                                    <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> View Work Queue</div>
+                                                    <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300"><CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> Upload Test Results</div>
                                                     <div className="flex items-center gap-2 text-sm text-slate-500"><XCircle className="h-4 w-4 text-slate-300 shrink-0" /> No Analytics Access</div>
                                                 </>
                                             )}
@@ -526,10 +527,10 @@ export default function StaffManagementPage() {
 
                         </div>
 
-                        <div className="p-5 border-t border-slate-100 bg-white grid gap-2">
+                        <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 grid gap-2">
                             <button 
                                 onClick={() => handleRoleChange(selectedMember.id, selectedMember.member_role === 'manager' ? 'lab_technician' : 'manager')}
-                                className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-sm font-medium transition-all shadow-sm"
+                                className="w-full flex items-center justify-center gap-2 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-medium transition-all shadow-sm"
                             >
                                 <Edit2 className="h-4 w-4 text-slate-400" />
                                 Change Role to {selectedMember.member_role === 'manager' ? 'Lab Technician' : 'Manager'}

@@ -1054,11 +1054,18 @@ router.post('/prescriptions/:id/forward-to-pharmacy',
     }));
 
     const pharmacyService = require('../../services/pharmacyService');
+    
+    if (req.body.source_referral_id) {
+        const universalReferralService = require('../../services/universalReferralService');
+        await universalReferralService.validateDownstreamAttribution(req.body.source_referral_id, patient.id, 'pharmacy', pharmacy.id, req.user);
+    }
+    
     const order = await pharmacyService.createOrder(req.user.id, {
       pharmacyId: pharmacy.id,
       items,
       prescriptionId: rx.id,
       deliveryAddress: req.body.deliveryAddress || null,
+      source_referral_id: req.body.source_referral_id || null,
     });
 
     res.status(201).json({ success: true, data: order, message: `Prescription forwarded to ${pharmacy.name}` });

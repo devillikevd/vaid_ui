@@ -12,6 +12,8 @@ import { useDiagnosticUpdates } from '@/hooks/useSocket';
 import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { AssignAgentModal } from '@/components/shared/AssignAgentModal';
 import { AgentTrackingMap } from '@/components/shared/AgentTrackingMap';
+import { DashboardCard } from '@/components/shared/DashboardCard';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 const STATUS_FILTERS = [
     { label: 'All', value: '' },
@@ -143,19 +145,19 @@ export default function BookingsPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Bookings</h1>
-                    <p className="text-gray-600 dark:text-gray-400 mt-1">Manage test bookings and upload results</p>
-                </div>
-                <Button
-                    onClick={() => fetchBookings({ status: statusFilter || undefined, search: debouncedSearch || undefined, page, limit: pageSize })}
-                    variant="outline"
-                    leftIcon={<RefreshCw className="h-4 w-4" />}
-                >
-                    Refresh
-                </Button>
-            </div>
+            <PageHeader
+                title="Bookings"
+                subtitle="Manage test bookings and upload results"
+                actions={
+                    <Button
+                        onClick={() => fetchBookings({ status: statusFilter || undefined, search: debouncedSearch || undefined, page, limit: pageSize })}
+                        variant="outline"
+                        leftIcon={<RefreshCw className="h-4 w-4" />}
+                    >
+                        Refresh
+                    </Button>
+                }
+            />
 
             {/* New Booking Alert */}
             {newBookingAlert && (
@@ -168,13 +170,13 @@ export default function BookingsPage() {
 
             {/* Summary Stats */}
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><CalendarCheck className="h-5 w-5 text-purple-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.total}</p><p className="text-xs text-gray-500 dark:text-gray-400">Total</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-amber-100 rounded-lg"><Clock className="h-5 w-5 text-amber-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.pending || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Pending</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><CheckCircle2 className="h-5 w-5 text-blue-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.confirmed || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Confirmed</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-cyan-100 rounded-lg"><Send className="h-5 w-5 text-cyan-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.dispatched || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Dispatched</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-yellow-100 rounded-lg"><FlaskConical className="h-5 w-5 text-yellow-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.sample_collected || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Samples</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-orange-100 rounded-lg"><Loader2 className="h-5 w-5 text-orange-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.processing || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Processing</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><CheckCircle2 className="h-5 w-5 text-green-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.completed || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Completed</p></div></div></Card>
+                <DashboardCard><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><CalendarCheck className="h-5 w-5 text-purple-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.total}</p><p className="text-xs text-gray-500 dark:text-gray-400">Total</p></div></div></DashboardCard>
+                <DashboardCard><div className="flex items-center gap-3"><div className="p-2 bg-amber-100 rounded-lg"><Clock className="h-5 w-5 text-amber-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.pending || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Pending</p></div></div></DashboardCard>
+                <DashboardCard><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><CheckCircle2 className="h-5 w-5 text-blue-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.confirmed || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Confirmed</p></div></div></DashboardCard>
+                <DashboardCard><div className="flex items-center gap-3"><div className="p-2 bg-cyan-100 rounded-lg"><Send className="h-5 w-5 text-cyan-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.dispatched || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Dispatched</p></div></div></DashboardCard>
+                <DashboardCard><div className="flex items-center gap-3"><div className="p-2 bg-yellow-100 rounded-lg"><FlaskConical className="h-5 w-5 text-yellow-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.sample_collected || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Samples</p></div></div></DashboardCard>
+                <DashboardCard><div className="flex items-center gap-3"><div className="p-2 bg-orange-100 rounded-lg"><Loader2 className="h-5 w-5 text-orange-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.processing || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Processing</p></div></div></DashboardCard>
+                <DashboardCard><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><CheckCircle2 className="h-5 w-5 text-green-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.completed || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Completed</p></div></div></DashboardCard>
             </div>
 
             {error && (
@@ -215,7 +217,7 @@ export default function BookingsPage() {
                 <>
                 <div className="space-y-4">
                     {bookings.map((booking: DiagnosticBooking) => (
-                        <Card key={booking.id}>
+                        <DashboardCard key={booking.id}>
                             <div className="space-y-4">
                                 {/* Booking Header */}
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -316,7 +318,7 @@ export default function BookingsPage() {
                                                 type="file"
                                                 accept="application/pdf,image/*"
                                                 onChange={e => setResultForm(f => ({ ...f, file: e.target.files?.[0] || null }))}
-                                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-gray-700 dark:file:text-gray-200"
+                                                className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-gray-700 dark:file:text-gray-200"
                                             />
                                         </div>
                                         <Input
@@ -334,7 +336,7 @@ export default function BookingsPage() {
                                     </div>
                                 )}
                             </div>
-                        </Card>
+                        </DashboardCard>
                     ))}
                 </div>
                 <Pagination

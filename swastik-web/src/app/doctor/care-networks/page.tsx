@@ -109,7 +109,7 @@ export default function MyCareNetworksPage() {
     const [counterFeeAmount, setCounterFeeAmount] = useState('');
     const [counterMessage, setCounterMessage] = useState('');
 
-    const { todaysAppointments } = useDoctorStore();
+    const { todaysAppointments, fetchOrganizations } = useDoctorStore();
     const hasLoadedRef = useRef(false);
 
     const fetchInvites = useCallback(async () => {
@@ -222,10 +222,11 @@ export default function MyCareNetworksPage() {
     }, [toast]);
 
     useEffect(() => {
-        if (hasLoadedRef.current) return;
-        hasLoadedRef.current = true;
+        // Fetch invites and organizations every time the page is visited
+        // Removed hasLoadedRef to ensure fresh data on back navigation
         void fetchInvites();
-    }, [fetchInvites]);
+        void fetchOrganizations();
+    }, [fetchInvites, fetchOrganizations]);
 
     // Update tab if URL param changes
     useEffect(() => {
