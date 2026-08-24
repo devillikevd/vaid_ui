@@ -58,6 +58,9 @@ export interface User {
     profile_image_url?: string;
     approval_status?: ApprovalStatus;
     approval_notes?: string;
+    is_verified?: boolean;
+    created_at?: string;
+    status?: string;
 }
 
 interface AuthState {
