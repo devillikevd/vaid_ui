@@ -178,6 +178,7 @@ export function CreateReferralModal({
 
   // Step 5 — Consent
   const [consentGranted, setConsentGranted] = useState<boolean | null>(null);
+  const [draftReferralId, setDraftReferralId] = useState<string | null>(null);
 
   // ---------------------------------------------------------------------------
   // Debounce Patient Search
@@ -309,12 +310,18 @@ export function CreateReferralModal({
       } else if (receiverType === 'pharmacy') {
         res = await api.publicDiscovery.searchPharmacies(searchQuery);
       }
-      if (res?.success) {
-        setProviders(res.data || []);
-        if (!res.data?.length) toast.error('No verified providers found.');
-      } else if (Array.isArray(res)) {
-        setProviders(res);
-        if (!res.length) toast.error('No verified providers found.');
+
+      let data = res?.success ? (res.data || []) : (Array.isArray(res) ? res : null);
+      
+      if (data) {
+        // P7.8: Exclude the sender organization from appearing as a destination.
+        // We use exact ID + type match. Receiver type is already in `receiverType`.
+        if (contextOrgId && contextOrgType === receiverType) {
+          data = data.filter((p: any) => p.id !== contextOrgId);
+        }
+        
+        setProviders(data);
+        if (!data.length) toast.error('No verified providers found.');
       } else {
         toast.error('Failed to search providers.');
       }
@@ -399,18 +406,46 @@ export function CreateReferralModal({
   // ---------------------------------------------------------------------------
 
   const verifyConsent = async () => {
-    // Consent is ultimately verified server-side on createReferral.
-    // This UI step surfaces the result to the sender before submission.
+    if (!patientId || !receiverId) return;
     setConsentGranted(null);
+    setDraftReferralId(null);
     try {
       setLoading(true);
-      // We attempt a dry-run check via existing consent verification (backend authoritative)
-      // If the portal doesn't expose a standalone consent check, set true to allow send attempt
-      // and let the backend reject with a clear error if consent is missing.
-      setConsentGranted(true);
+      
+      const attachments: any[] = selectedDocs.map((d) => ({
+        ...(d.report_id ? { report_id: d.report_id } : {}),
+        ...(d.prescription_id ? { prescription_id: d.prescription_id } : {}),
+        document_type: d.document_type,
+        file_name: d.file_name,
+      }));
+
+      // Call draft endpoint to check and initialize the referral
+      const res = await api.universalReferrals.createDraft({
+        patient_id: patientId,
+        sender_type: contextOrgType,
+        sender_id: contextOrgId,
+        receiver_type: receiverType,
+        receiver_id: receiverId,
+        reason,
+        urgency,
+        clinical_summary: summary,
+        attachments,
+      });
+
+      if (res?.success && res.data) {
+        setDraftReferralId((res.data as any).referralId);
+        if ((res.data as any).hasConsent) {
+          setConsentGranted(true);
+        } else {
+          setConsentGranted(false);
+        }
+      } else {
+        setConsentGranted(false);
+        toast.error(res?.message || 'Failed to initialize referral.');
+      }
     } catch (e: any) {
       setConsentGranted(false);
-      toast.error(e?.message || 'Consent verification failed.');
+      toast.error(e?.response?.data?.message || e?.message || 'Consent verification failed.');
     } finally {
       setLoading(false);
     }
@@ -425,40 +460,24 @@ export function CreateReferralModal({
       toast.error('Patient consent is required to send this referral.');
       return;
     }
+    if (!draftReferralId) {
+      toast.error('Referral draft not found. Please verify consent again.');
+      return;
+    }
     try {
       setLoading(true);
 
-      // Map selected documents to the backend-expected shape.
-      // DO NOT include patient_id, ownership flags, or storage URLs.
-      // Backend revalidates all document ownership at insertion time.
-      const attachments: any[] = selectedDocs.map((d) => ({
-        ...(d.report_id ? { report_id: d.report_id } : {}),
-        ...(d.prescription_id ? { prescription_id: d.prescription_id } : {}),
-        document_type: d.document_type,
-        file_name: d.file_name,
-      }));
-
-      const res = await api.universalReferrals.createReferral({
-        patient_id: patientId,
-        sender_type: contextOrgType,
-        sender_id: contextOrgId,
-        receiver_type: receiverType,
-        receiver_id: receiverId,
-        reason,
-        urgency,
-        clinical_summary: summary,
-        attachments,  // empty array is valid — attachments are optional
-      });
+      const res = await api.universalReferrals.submitReferral(draftReferralId);
 
       if (res.success) {
         toast.success('Referral created successfully');
         onSuccess?.();
         onClose();
       } else {
-        toast.error(res.message || 'Failed to create referral');
+        toast.error(res.message || res.error || 'Failed to submit referral');
       }
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create referral');
+      toast.error(error?.response?.data?.message || error?.message || 'Failed to submit referral');
     } finally {
       setLoading(false);
     }
@@ -508,68 +527,119 @@ export function CreateReferralModal({
             <div>
               <h3 className="font-semibold mb-3">Select Patient</h3>
               
-              <div className="mb-4 relative">
-                <input
-                  type="text"
-                  placeholder="Search patients by name or phone..."
-                  className="w-full p-2.5 pl-10 border rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
-                  value={patientSearchQuery}
-                  onChange={(e) => setPatientSearchQuery(e.target.value)}
-                />
-                <svg className="w-5 h-5 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                {loading && (
-                  <svg className="animate-spin w-4 h-4 text-gray-400 absolute right-3 top-3.5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                  </svg>
-                )}
-              </div>
-
-              <select
-                className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 mb-3"
-                value={patientId}
-                onChange={(e) => setPatientId(e.target.value)}
-              >
-                <option value="">Select Patient from Results</option>
-                {patients.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.full_name || p.name}{p.uhid ? ` (${p.uhid})` : ''} {p.phone ? `— ${p.phone}` : ''}
-                  </option>
-                ))}
-              </select>
-
-              {patients.length > 0 && patientTotalPages > 1 && (
-                <div className="flex justify-between items-center text-sm mt-2 bg-gray-50 dark:bg-gray-700/30 p-2 rounded-lg">
-                  <button
-                    disabled={patientPage === 1 || loading}
-                    onClick={() => setPatientPage(p => Math.max(1, p - 1))}
-                    className="px-3 py-1 bg-white dark:bg-gray-600 border rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                  >
-                    Previous
-                  </button>
-                  <span className="text-gray-500 font-medium">
-                    Page {patientPage} of {patientTotalPages}
-                  </span>
-                  <button
-                    disabled={patientPage === patientTotalPages || loading}
-                    onClick={() => setPatientPage(p => Math.min(patientTotalPages, p + 1))}
-                    className="px-3 py-1 bg-white dark:bg-gray-600 border rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                  >
-                    Next
-                  </button>
+              {patientId ? (
+                <div className="border rounded-lg p-4 bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-300">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                          {patients.find(p => p.id === patientId)?.name || 'Selected Patient'}
+                          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {patients.find(p => p.id === patientId)?.phone || 'No phone'}
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setPatientId('');
+                        setPatientSearchQuery('');
+                      }} 
+                      className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium px-2 py-1"
+                    >
+                      Change Patient
+                    </button>
+                  </div>
                 </div>
-              )}
+              ) : (
+                <>
+                  <div className="mb-4 relative">
+                    <input
+                      type="text"
+                      placeholder="Search patients by name or phone..."
+                      className="w-full p-2.5 pl-10 border rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
+                      value={patientSearchQuery}
+                      onChange={(e) => setPatientSearchQuery(e.target.value)}
+                      autoFocus
+                    />
+                    <svg className="w-5 h-5 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    {loading && (
+                      <svg className="animate-spin w-4 h-4 text-gray-400 absolute right-3 top-3.5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                    )}
+                  </div>
 
-              {patients.length === 0 && !loading && (
-                <div className="text-center p-6 border border-dashed rounded-lg bg-gray-50 dark:bg-gray-800/50 mt-2">
-                  <p className="text-sm text-gray-500">
-                    {debouncedPatientQuery 
-                      ? "No patients match your search." 
-                      : "No authorized patients found. You must have an existing patient relationship to create a referral."}
-                  </p>
-                </div>
+                  {loading ? (
+                    <div className="text-center p-6 border rounded-lg bg-gray-50 dark:bg-gray-800/50 mt-2">
+                      <p className="text-sm text-gray-500">Searching patients...</p>
+                    </div>
+                  ) : patients.length > 0 ? (
+                    <div className="border rounded-lg overflow-hidden dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm mt-2">
+                      <ul className="divide-y divide-gray-100 dark:divide-gray-700 max-h-64 overflow-y-auto">
+                        {patients.map((p) => (
+                          <li key={p.id}>
+                            <button
+                              onClick={() => setPatientId(p.id)}
+                              className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-3"
+                            >
+                              <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-600 flex items-center justify-center text-gray-500 dark:text-gray-300">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">
+                                  {p.name}{p.uhid ? ` (${p.uhid})` : ''}
+                                </p>
+                                {p.phone && <p className="text-sm text-gray-500 dark:text-gray-400">{p.phone}</p>}
+                              </div>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      
+                      {patientTotalPages > 1 && (
+                        <div className="flex justify-between items-center text-sm p-3 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-600">
+                          <button
+                            disabled={patientPage === 1 || loading}
+                            onClick={() => setPatientPage(p => Math.max(1, p - 1))}
+                            className="px-3 py-1 bg-white dark:bg-gray-600 border rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-500"
+                          >
+                            Previous
+                          </button>
+                          <span className="text-gray-500 font-medium">
+                            Page {patientPage} of {patientTotalPages}
+                          </span>
+                          <button
+                            disabled={patientPage === patientTotalPages || loading}
+                            onClick={() => setPatientPage(p => Math.min(patientTotalPages, p + 1))}
+                            className="px-3 py-1 bg-white dark:bg-gray-600 border rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-500"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : debouncedPatientQuery.length > 0 ? (
+                    <div className="text-center p-6 border border-dashed rounded-lg bg-gray-50 dark:bg-gray-800/50 mt-2">
+                      <p className="text-sm text-gray-500">
+                        No patients match your search.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center p-6 border border-dashed rounded-lg bg-gray-50 dark:bg-gray-800/50 mt-2">
+                      <p className="text-sm text-gray-500">
+                        No authorized patients found. You must have an existing patient relationship to create a referral.
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -784,7 +854,7 @@ export function CreateReferralModal({
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-4 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Patient</span>
-                  <span className="font-medium">{patients.find((p) => p.id === patientId)?.full_name || patients.find((p) => p.id === patientId)?.name || patientId.slice(0, 8)}</span>
+                  <span className="font-medium">{patients.find((p) => p.id === patientId)?.name || patientId.slice(0, 8)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Destination</span>
@@ -801,23 +871,22 @@ export function CreateReferralModal({
               </div>
 
               <div className="border rounded-lg p-4 mb-4">
-                <p className="text-sm font-medium mb-2">Patient Consent</p>
+                <p className="text-sm font-medium mb-2 text-red-600 dark:text-red-400">Patient Consent Required</p>
                 <p className="text-xs text-gray-500 mb-3">
-                  Patient consent will be verified server-side when the referral is sent.
-                  Click below to confirm you have received or will obtain consent.
+                  This referral requires explicit patient consent to share this patient's medical information with {providers.find((p) => p.id === receiverId)?.name || receiverType}.
                 </p>
                 <button
                   onClick={verifyConsent}
                   disabled={loading}
                   className="text-blue-500 underline text-sm disabled:opacity-50"
                 >
-                  {loading ? 'Verifying…' : 'Verify Patient Consent'}
+                  {loading ? 'Checking...' : 'Check Patient Consent'}
                 </button>
                 {consentGranted === true && (
-                  <p className="text-green-600 dark:text-green-400 text-sm mt-2">✓ Consent acknowledged — referral ready to send.</p>
+                  <p className="text-green-600 dark:text-green-400 text-sm mt-2">✓ Patient consent verified</p>
                 )}
                 {consentGranted === false && (
-                  <p className="text-red-500 text-sm mt-2">✗ Consent could not be verified. Referral blocked.</p>
+                  <p className="text-red-500 text-sm mt-2">Patient must grant consent from the Vaididea Patient App before this referral can be sent.</p>
                 )}
               </div>
             </div>

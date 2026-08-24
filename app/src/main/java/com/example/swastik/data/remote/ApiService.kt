@@ -176,6 +176,16 @@ interface ApiService {
         @Query("limit") limit: Int = 20
     ): Response<PaginatedResponse<ReportDto>>
 
+    // ==================== REFERRAL CONSENTS ====================
+    @GET("patient/referrals/pending-consent")
+    suspend fun getPendingReferralConsents(): Response<ApiResponse<List<ReferralConsentDto>>>
+
+    @POST("patient/referrals/{id}/approve-consent")
+    suspend fun approveReferralConsent(@Path("id") id: String): Response<ApiResponse<JsonObject>>
+
+    @POST("patient/referrals/{id}/decline-consent")
+    suspend fun declineReferralConsent(@Path("id") id: String): Response<ApiResponse<JsonObject>>
+
     @POST("doctors/{id}/reviews")
     suspend fun submitDoctorReview(
         @Path("id") doctorId: String,

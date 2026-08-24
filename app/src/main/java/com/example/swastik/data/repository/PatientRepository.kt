@@ -1251,4 +1251,47 @@ class PatientRepository @Inject constructor(
             Result.Error(e.message ?: "Network error occurred")
         }
     }
+
+    // ============================================
+    // REFERRAL CONSENT
+    // ============================================
+
+    suspend fun getPendingReferralConsents(): Result<List<ReferralConsentDto>> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getPendingReferralConsents()
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()?.data ?: emptyList())
+            } else {
+                Result.Error(response.body()?.message ?: "Unable to load consent requests")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Unable to load consent requests")
+        }
+    }
+
+    suspend fun approveReferralConsent(referralId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.approveReferralConsent(referralId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.body()?.message ?: "Unable to process your decision. Please try again.")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Unable to process your decision. Please try again.")
+        }
+    }
+
+    suspend fun declineReferralConsent(referralId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.declineReferralConsent(referralId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.body()?.message ?: "Unable to process your decision. Please try again.")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Unable to process your decision. Please try again.")
+        }
+    }
 }

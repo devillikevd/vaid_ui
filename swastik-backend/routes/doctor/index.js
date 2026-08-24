@@ -83,7 +83,26 @@ router.get('/me/reviews',
     const reviewService = require('../../services/reviewService');
     const result = await reviewService.getEntityReviews('doctor', doctor.id, parseInt(page), parseInt(limit));
     
-    res.json({ success: true, ...result });
+    // Strict patient privacy protection for Doctor Portal reviews:
+    // Ensure real patient names/IDs/photos are completely sanitized from the API response
+    const sanitizedReviews = (result.data || []).map(r => {
+      const review = { ...r };
+      delete review.patient_id;
+      // Do not overwrite review.is_anonymous so metadata remains intact
+      review.patient = {
+        name: 'Anonymous Patient',
+        full_name: 'Anonymous Patient',
+        profile_image_url: null
+      };
+      return review;
+    });
+
+    res.json({
+      success: true,
+      ...result,
+      data: sanitizedReviews,
+      reviews: sanitizedReviews
+    });
   })
 );
 
@@ -340,132 +359,56 @@ router.get('/me/analytics',
   requireApproval,
   asyncHandler(async (req, res) => {
     const { period = '30d' } = req.query;
-    const { supabaseAdmin } = require('../../config/supabase');
-
-    // Resolve doctor ID
-    const { data: doctor } = await supabaseAdmin
-      .from('doctors')
-      .select('id, consultation_fee')
-      .eq('user_id', req.user.id)
-      .maybeSingle();
-
-    if (!doctor) return res.status(404).json({ success: false, message: 'Doctor profile not found' });
-
-    // Calculate date range
-    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    const startDateStr = startDate.toISOString().split('T')[0];
-
-    const prevStartDate = new Date(startDate);
-    prevStartDate.setDate(prevStartDate.getDate() - days);
-    const prevStartDateStr = prevStartDate.toISOString().split('T')[0];
-
-    // Fetch appointments in range
-    const { data: appointments } = await supabaseAdmin
-      .from('appointments')
-      .select('id, appointment_date, status, type, fee, patient_id')
-      .eq('doctor_id', doctor.id)
-      .gte('appointment_date', startDateStr)
-      .order('appointment_date', { ascending: true });
-      
-    const { data: prevAppointments } = await supabaseAdmin
-      .from('appointments')
-      .select('id, status, type, fee')
-      .eq('doctor_id', doctor.id)
-      .gte('appointment_date', prevStartDateStr)
-      .lt('appointment_date', startDateStr);
-
-    const appts = appointments || [];
-
-    // Build daily appointment counts
-    const dailyMap = {};
-    appts.forEach(a => {
-      const d = a.appointment_date;
-      if (!dailyMap[d]) dailyMap[d] = { date: d, appointments: 0, revenue: 0, video: 0, inPerson: 0, cancelled: 0, completed: 0 };
-      dailyMap[d].appointments++;
-      if (a.status === 'completed') {
-        dailyMap[d].completed++;
-        dailyMap[d].revenue += (a.fee || doctor.consultation_fee || 0);
-      }
-      if (a.status === 'cancelled') dailyMap[d].cancelled++;
-      if (a.type === 'Video' || a.type === 'video') dailyMap[d].video++;
-      else dailyMap[d].inPerson++;
-    });
-    const dailyData = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
-
-    // Summary stats
-    const totalAppointments = appts.length;
-    const completedAppts = appts.filter(a => a.status === 'completed').length;
-    const cancelledAppts = appts.filter(a => a.status === 'cancelled').length;
-    const videoAppts = appts.filter(a => a.type === 'Video' || a.type === 'video').length;
-    const inPersonAppts = totalAppointments - videoAppts;
-    const totalRevenue = appts.filter(a => a.status === 'completed').reduce((sum, a) => sum + (a.fee || doctor.consultation_fee || 0), 0);
-    const cancellationRate = totalAppointments > 0 ? Math.round((cancelledAppts / totalAppointments) * 100) : 0;
-    const completionRate = totalAppointments > 0 ? Math.round((completedAppts / totalAppointments) * 100) : 0;
-    const avgRevenue = completedAppts > 0 ? Math.round(totalRevenue / completedAppts) : 0;
-    const uniquePatients = new Set(appts.map(a => a.patient_id).filter(Boolean)).size;
-
-    const prevAppts = prevAppointments || [];
-    const prevTotalAppointments = prevAppts.length;
-    const prevCompletedAppts = prevAppts.filter(a => a.status === 'completed').length;
-    const prevCancelledAppts = prevAppts.filter(a => a.status === 'cancelled').length;
-    const prevTotalRevenue = prevAppts.filter(a => a.status === 'completed').reduce((sum, a) => sum + (a.fee || doctor.consultation_fee || 0), 0);
-    const prevCancellationRate = prevTotalAppointments > 0 ? Math.round((prevCancelledAppts / prevTotalAppointments) * 100) : 0;
-    const prevCompletionRate = prevTotalAppointments > 0 ? Math.round((prevCompletedAppts / prevTotalAppointments) * 100) : 0;
-
-    // Peak hours from appointment times — get from time_slot
-    const { data: slotData } = await supabaseAdmin
-      .from('appointments')
-      .select('time_slot')
-      .eq('doctor_id', doctor.id)
-      .gte('appointment_date', startDateStr)
-      .not('time_slot', 'is', null);
-
-    const hourMap = {};
-    (slotData || []).forEach(a => {
-      if (!a.time_slot) return;
-      const hour = parseInt(a.time_slot.split(':')[0], 10);
-      hourMap[hour] = (hourMap[hour] || 0) + 1;
-    });
-    const peakHours = Object.entries(hourMap)
-      .map(([hour, count]) => ({ hour: parseInt(hour), label: `${hour}:00`, count }))
-      .sort((a, b) => a.hour - b.hour);
-
+    const analytics = await doctorService.getAnalytics(req.user.id, period);
     res.json({
       success: true,
-      data: {
-        period,
-        summary: {
-          totalAppointments,
-          completedAppointments: completedAppts,
-          cancelledAppointments: cancelledAppts,
-          totalRevenue,
-          avgRevenuePerConsultation: avgRevenue,
-          cancellationRate,
-          completionRate,
-          videoConsultations: videoAppts,
-          inPersonConsultations: inPersonAppts,
-          uniquePatients,
-        },
-        previousSummary: {
-          totalAppointments: prevTotalAppointments,
-          totalRevenue: prevTotalRevenue,
-          cancellationRate: prevCancellationRate,
-          completionRate: prevCompletionRate,
-        },
-        charts: {
-          daily: dailyData,
-          consultationType: [
-            { name: 'Video', value: videoAppts, color: '#10b981' },
-            { name: 'In-Person', value: inPersonAppts, color: '#3b82f6' },
-          ],
-          peakHours,
-        },
-      }
+      data: analytics
     });
   })
 );
+
+// Search existing patient by phone (for direct visit linking without duplicates)
+router.get('/me/patients/search-by-phone',
+  authenticate,
+  authorize('doctor'),
+  requireApproval,
+  [
+    query('phone').trim().notEmpty().withMessage('Phone number is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.searchPatientByPhone(req.user.id, req.query.phone);
+    res.json({
+      success: true,
+      data: result
+    });
+  })
+);
+
+// Record direct / walk-in visit
+router.post('/me/direct-visits',
+  authenticate,
+  authorize('doctor'),
+  requireApproval,
+  [
+    body('patientName').optional({ checkFalsy: true }).trim(),
+    body('phone').optional({ checkFalsy: true }).trim(),
+    body('patientId').optional({ checkFalsy: true }).isUUID().withMessage('Invalid patient ID'),
+    body('visitType').optional({ checkFalsy: true }).isIn(['walk_in', 'direct_appointment', 'phone', 'home_visit', 'video']),
+    body('paymentStatus').optional({ checkFalsy: true }).isIn(['paid', 'pending', 'waived']),
+    body('fee').optional({ checkFalsy: true }).isNumeric().withMessage('Fee must be a valid number'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.recordDirectVisit(req.user.id, req.body);
+    res.status(201).json({
+      success: true,
+      message: 'Direct visit recorded successfully',
+      data: result
+    });
+  })
+);
+
 
 // Get AI-powered doctor insights (rule-based, ready for OpenAI integration)
 router.get('/me/insights',
@@ -857,14 +800,16 @@ router.get('/me/patients',
   authenticate,
   authorize('doctor'),
   asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20, search = '', filter = 'all', sort = 'recent' } = req.query;
+    const { page = 1, limit = 20, search = '', filter = 'all', sort = 'recent', source = 'all', visitType = 'all' } = req.query;
     const result = await doctorService.getPatients(
       req.user.id,
       parseInt(page),
       parseInt(limit),
       typeof search === 'string' ? search : '',
       typeof filter === 'string' ? filter : 'all',
-      typeof sort === 'string' ? sort : 'recent'
+      typeof sort === 'string' ? sort : 'recent',
+      typeof source === 'string' ? source : 'all',
+      typeof visitType === 'string' ? visitType : 'all'
     );
     res.json({ success: true, ...result });
   })
@@ -1064,7 +1009,7 @@ router.get('/me/prescriptions',
   authenticate,
   authorize('doctor'),
   asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, source = 'all', visitType = 'all' } = req.query;
     const { data: doctor } = await require('../../config/supabase').supabaseAdmin
       .from('doctors')
       .select('id')
@@ -1082,7 +1027,18 @@ router.get('/me/prescriptions',
         *,
         prescription_medicines (*),
         patients!prescriptions_patient_id_fkey (id, name),
-        consultations!prescriptions_consultation_id_fkey (id, appointment_id)
+        consultations!prescriptions_consultation_id_fkey (
+          id, 
+          appointment_id,
+          type,
+          appointments:appointment_id (
+            id,
+            type,
+            payment_reference,
+            reason_for_visit,
+            reason
+          )
+        )
       `, { count: 'exact' })
       .eq('doctor_id', doctor.id)
       .order('created_at', { ascending: false })
@@ -1090,25 +1046,91 @@ router.get('/me/prescriptions',
 
     if (error) throw error;
 
-    const prescriptions = (data || []).map(rx => ({
-      id: rx.id,
-      patientName: rx.patients?.name || 'Unknown',
-      patientPhone: '',
-      date: rx.created_at,
-      diagnosis: rx.diagnosis,
-      notes: rx.notes,
-      followUpDate: rx.follow_up_date,
-      medications: (rx.prescription_medicines || []).map(m => ({
-        name: m.medicine_name,
-        dosage: m.dosage,
-        frequency: m.frequency,
-        duration: m.duration,
-        instructions: m.instructions,
-      })),
-      consultationId: rx.consultation_id,
-      appointmentId: rx.consultations?.appointment_id || null,
-      status: rx.status || 'active',
-    }));
+    const resolveCanonicalSource = (apt) => {
+      if (!apt) return 'vaididea';
+      const payRef = String(apt.payment_reference || '').toUpperCase();
+      const reason = String(apt.reason_for_visit || apt.reason || '').toLowerCase();
+      const rawSource = String(apt.source || '').toLowerCase();
+      if (rawSource.includes('direct') || rawSource === 'walk_in' || rawSource === 'offline') {
+        return 'direct';
+      }
+      if (payRef.startsWith('DIRECT_') || payRef === 'WAIVED' || payRef.includes('DIRECT_CASH') || payRef.includes('DIRECT_UPI') || payRef.includes('DIRECT_PHONE') || payRef.includes('DIRECT_WALK_IN')) {
+        return 'direct';
+      }
+      if (reason.includes('direct walk-in') || reason.includes('direct practice') || reason.includes('direct consultation') || reason.includes('direct phone')) {
+        return 'direct';
+      }
+      return 'vaididea';
+    };
+
+    const resolveCanonicalVisitType = (apt, fallbackType) => {
+      const rawType = String(apt?.type || fallbackType || '').toLowerCase();
+      const rawSource = String(apt?.source || '').toLowerCase();
+      const reason = String(apt?.reason_for_visit || apt?.reason || '').toLowerCase();
+      const payRef = String(apt?.payment_reference || '').toUpperCase();
+
+      if (rawType === 'video' || rawType === 'video_consultation' || rawType === 'online' || rawType === 'teleconsultation') {
+        return 'video_consultation';
+      }
+      if (rawType === 'home_visit' || rawType === 'home' || reason.includes('home visit')) {
+        return 'home_visit';
+      }
+      if (rawType === 'phone' || rawType === 'phone_consultation' || payRef.includes('DIRECT_PHONE') || reason.includes('direct phone') || rawSource === 'direct_phone') {
+        return 'phone_consultation';
+      }
+      if (rawType === 'walk_in' || rawType === 'walk_in_clinic' || payRef.includes('DIRECT_WALK_IN') || reason.includes('walk-in') || rawSource === 'direct_walk_in') {
+        return 'walk_in_clinic';
+      }
+      return 'in_person_clinic';
+    };
+
+    const getVisitTypeLabel = (vt) => {
+      switch (vt) {
+        case 'video_consultation': return 'Video Consultation';
+        case 'walk_in_clinic': return 'Walk-in Clinic';
+        case 'phone_consultation': return 'Phone Consultation';
+        case 'home_visit': return 'Home Visit';
+        case 'in_person_clinic':
+        default: return 'In-Person Clinic';
+      }
+    };
+
+    let prescriptions = (data || []).map(rx => {
+      const apt = rx.consultations?.appointments;
+      const src = resolveCanonicalSource(apt);
+      const vt = resolveCanonicalVisitType(apt, rx.consultations?.type);
+
+      return {
+        id: rx.id,
+        patientName: rx.patients?.name || 'Unknown',
+        patientPhone: '',
+        date: rx.created_at,
+        diagnosis: rx.diagnosis,
+        notes: rx.notes,
+        followUpDate: rx.follow_up_date,
+        source: src,
+        sourceLabel: src === 'direct' ? 'Direct Practice' : 'Vaididea',
+        visitType: vt,
+        visitTypeLabel: getVisitTypeLabel(vt),
+        medications: (rx.prescription_medicines || []).map(m => ({
+          name: m.medicine_name,
+          dosage: m.dosage,
+          frequency: m.frequency,
+          duration: m.duration,
+          instructions: m.instructions,
+        })),
+        consultationId: rx.consultation_id,
+        appointmentId: rx.consultations?.appointment_id || null,
+        status: rx.status || 'active',
+      };
+    });
+
+    if (source && source !== 'all') {
+      prescriptions = prescriptions.filter(p => p.source === source);
+    }
+    if (visitType && visitType !== 'all') {
+      prescriptions = prescriptions.filter(p => p.visitType === visitType);
+    }
 
     res.json({
       success: true,

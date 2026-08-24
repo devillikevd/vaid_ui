@@ -1,6 +1,6 @@
 
 export type ReferralUrgency = 'routine' | 'urgent' | 'emergency';
-export type ReferralStatus = 'pending' | 'accepted' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
+export type ReferralStatus = 'awaiting_consent' | 'consent_declined' | 'pending' | 'accepted' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
 
 export interface ReferralPatient {
     id: string;

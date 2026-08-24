@@ -42,6 +42,12 @@ export interface Review {
 
 interface ReviewManagerProps {
     reviews: Review[];
+    metrics?: {
+        totalReviews: number;
+        averageRating: number;
+        verifiedReviews: number;
+        distribution: Record<number, number>;
+    } | null;
     loadingReviews: boolean;
     error: string | null;
     fetchReviews: (page?: number) => Promise<void>;
@@ -52,6 +58,7 @@ interface ReviewManagerProps {
     activeTab?: string;
     onTabChange?: (tabId: string) => void;
     hideHero?: boolean;
+    compactHeader?: boolean;
     compactCards?: boolean;
     entityName?: 'Clinic' | 'Hospital' | 'Pharmacy' | 'Diagnostic Center' | 'Doctor';
 }
@@ -142,29 +149,25 @@ const StarRating = ({ rating, size = "md" }: { rating: number, size?: "sm" | "md
     return (
         <div className="flex gap-1 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-yellow-900/10 dark:to-amber-900/10 p-1.5 px-2 rounded-lg border border-yellow-100/50 dark:border-yellow-800/30">
             {Array.from({ length: 5 }).map((_, i) => (
-                <motion.div
-                    key={i}
-                    whileHover={{ scale: 1.2, rotate: 5 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                >
+                <div key={i}>
                     <Star 
                         className={`${starClass} ${
                             i < rating 
-                                ? 'fill-yellow-400 text-yellow-500 drop-shadow-[0_0_2px_rgba(234,179,8,0.5)]' 
+                                ? 'fill-yellow-400 text-yellow-500' 
                                 : 'fill-gray-200 text-gray-300 dark:fill-gray-700/50 dark:text-gray-600'
                         }`} 
                     />
-                </motion.div>
+                </div>
             ))}
         </div>
     );
 };
 
-
 const ReviewCard = ({ 
     review, 
-    compactCards, 
+    compactCards = true, 
     isFacility,
+    entityName,
     onReport,
     onRespond,
     onContextClick,
@@ -173,6 +176,7 @@ const ReviewCard = ({
     review: Review, 
     compactCards?: boolean,
     isFacility?: boolean,
+    entityName?: string,
     onReport: () => void,
     onRespond: () => void,
     onContextClick: () => void,
@@ -180,45 +184,41 @@ const ReviewCard = ({
 }) => {
     const [expanded, setExpanded] = useState(false);
     
-    const patientName = review.patient?.name || review.patient?.full_name || 'Verified Patient';
+    const isAnonymized = review.is_anonymous || entityName === 'Doctor';
+    const patientName = isAnonymized ? 'Anonymous Patient' : (review.patient?.name || review.patient?.full_name || 'Verified Patient');
     const hasResponse = Boolean(review.response || review.doctor_response);
     const responseContent = review.response || review.doctor_response?.content;
     const responseDate = review.responded_at || review.doctor_response?.created_at;
 
-    const needsTruncation = review.comment && review.comment.length > 150;
+    const needsTruncation = review.comment && review.comment.length > 180;
 
     return (
         <motion.div
             layout
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className={`bg-white dark:bg-[#111c2e] rounded-3xl ${compactCards ? 'p-4' : 'p-6 sm:p-8'} border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all h-fit`}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="bg-white dark:bg-gray-900 rounded-3xl p-4 sm:p-5 border border-gray-200 dark:border-gray-800 shadow-sm hover:border-emerald-200 dark:hover:border-emerald-800/50 transition-all space-y-3 min-w-0"
         >
-            {/* Top Row: Avatar + Name + Rating */}
-            <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
-                
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <div className={`h-10 w-10 shrink-0 rounded-2xl flex items-center justify-center font-extrabold text-sm border border-gray-200 dark:border-gray-700 ${
-                        review.is_anonymous 
-                            ? 'bg-gray-100 text-gray-400 dark:bg-gray-800' 
-                            : 'bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-700 dark:from-indigo-900/30 dark:to-purple-900/30 dark:text-indigo-300'
-                    }`}>
-                        {review.is_anonymous ? <UserRoundX className="w-4 h-4" /> : patientName.charAt(0).toUpperCase()}
+            {/* Top Row: Patient Info + Rating */}
+            <div className="flex items-start justify-between gap-3 min-w-0 flex-wrap sm:flex-nowrap">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-9 w-9 shrink-0 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-bold flex items-center justify-center text-xs border border-emerald-200/60 dark:border-emerald-800/40">
+                        {isAnonymized ? <UserRoundX className="w-4 h-4" /> : patientName.charAt(0).toUpperCase()}
                     </div>
                     
-                    <div className="flex-1 min-w-0 pt-0.5">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                            <h4 className="font-extrabold text-gray-900 dark:text-white text-sm truncate max-w-full">
-                                {review.is_anonymous ? 'Anonymous Patient' : patientName}
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate">
+                                {isAnonymized ? 'Anonymous Patient' : patientName}
                             </h4>
-                            {!review.is_anonymous && (
-                                <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 flex items-center gap-1 border border-emerald-200/50 dark:border-emerald-800/50">
-                                    <ShieldCheck className="h-2.5 w-2.5" /> Verified
+                            {review.is_verified && (
+                                <span className="shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center gap-1 border border-emerald-200/60 dark:border-emerald-800/40">
+                                    <ShieldCheck className="h-3 w-3" /> Verified
                                 </span>
                             )}
                         </div>
-                        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             {new Date(review.created_at).toLocaleDateString('en-IN', {
                                 year: 'numeric', month: 'short', day: 'numeric'
@@ -227,13 +227,12 @@ const ReviewCard = ({
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-2 py-1 border border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2 shrink-0">
                     <StarRating rating={review.rating} size="sm" />
-                    <span className="text-xs font-black text-gray-700 dark:text-gray-300 ml-1">{review.rating.toFixed(1)}</span>
-                    <div className="w-px h-3 bg-gray-300 dark:bg-gray-700 mx-1"></div>
+                    <span className="text-xs font-black text-gray-700 dark:text-gray-300">{review.rating.toFixed(1)}</span>
                     <button 
                         onClick={onReport}
-                        className="text-gray-400 hover:text-red-500 transition-colors flex items-center justify-center p-0.5"
+                        className="text-gray-400 hover:text-rose-500 transition-colors p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 ml-1"
                         title="Report review"
                     >
                         <Flag className="w-3.5 h-3.5" />
@@ -241,16 +240,16 @@ const ReviewCard = ({
                 </div>
             </div>
 
-            {/* Review Body */}
+            {/* Review Comment */}
             {review.comment && (
-                <div className="mt-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium break-words">
+                <div className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium break-words bg-gray-50/50 dark:bg-gray-800/30 p-3 rounded-2xl border border-gray-100 dark:border-gray-800">
                     <div className={`${!expanded && needsTruncation ? 'line-clamp-3' : ''}`}>
-                        {review.comment}
+                        "{review.comment}"
                     </div>
                     {needsTruncation && (
                         <button 
                             onClick={() => setExpanded(!expanded)}
-                            className="text-indigo-600 dark:text-indigo-400 text-[11px] font-bold mt-1 hover:underline inline-block"
+                            className="text-emerald-600 dark:text-emerald-400 text-xs font-bold mt-1 hover:underline inline-block"
                         >
                             {expanded ? 'Show Less' : 'Read More'}
                         </button>
@@ -258,10 +257,10 @@ const ReviewCard = ({
                 </div>
             )}
 
-            {/* Provider Response Display */}
+            {/* Provider Response */}
             {hasResponse && (
-                <div className="mt-3 ml-3 p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border-l-2 border-emerald-400 dark:border-emerald-600">
-                    <div className="flex items-center justify-between text-[11px] font-bold text-emerald-800 dark:text-emerald-300 mb-1">
+                <div className="p-3 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border-l-2 border-emerald-500 dark:border-emerald-600 space-y-1">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
                         <span className="flex items-center gap-1">
                             <Building2 className="w-3 h-3 text-emerald-600" />
                             {isFacility ? 'Organization Response' : 'Doctor Response'}
@@ -272,22 +271,22 @@ const ReviewCard = ({
                             </span>
                         )}
                     </div>
-                    <p className="text-[13px] text-emerald-900 dark:text-emerald-200/90 leading-relaxed font-medium">
+                    <p className="text-xs text-emerald-900 dark:text-emerald-200/90 leading-relaxed font-medium">
                         {responseContent}
                     </p>
                 </div>
             )}
 
-            {/* Bottom Actions */}
+            {/* Bottom Actions / Clinical Context */}
             {(review.consultation_id || allowRespond) && (
-                <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-100 dark:border-gray-800">
-                    <div className="flex gap-2 items-center">
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800 text-xs">
+                    <div>
                         {review.consultation_id && (
                             <button
                                 onClick={onContextClick}
-                                className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                                className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
                             >
-                                <FileText className="w-3 h-3" /> View Clinical Context
+                                <FileText className="w-3.5 h-3.5" /> View Clinical Context
                             </button>
                         )}
                     </div>
@@ -297,7 +296,7 @@ const ReviewCard = ({
                             variant="outline"
                             size="sm"
                             onClick={onRespond}
-                            className="text-[11px] font-bold rounded-lg h-7 px-3"
+                            className="text-xs font-bold rounded-xl h-7 px-3 border-gray-200 dark:border-gray-700"
                         >
                             <MessageCircle className="w-3 h-3 mr-1" />
                             {hasResponse ? 'Edit Response' : 'Respond'}
@@ -310,18 +309,20 @@ const ReviewCard = ({
 };
 
 export default function ReviewManager({ 
-    reviews, 
+    reviews,
+    metrics,
     loadingReviews, 
     error, 
     fetchReviews, 
-    themeColor,
+    themeColor = 'emerald',
     onRespond,
     isFacility = false,
     tabs,
     activeTab,
     onTabChange,
     hideHero = false,
-    compactCards = false,
+    compactHeader = true,
+    compactCards = true,
     entityName = 'Doctor'
 }: ReviewManagerProps) {
     const [filter, setFilter] = useState<'all' | 'verified' | 'anonymous'>('all');
@@ -415,12 +416,13 @@ export default function ReviewManager({
                 (filter === 'verified' && (review.is_verified || !review.is_anonymous)) || 
                 (filter === 'anonymous' && review.is_anonymous);
                 
-            const patientName = review.patient?.name || review.patient?.full_name || '';
+            const isAnonymized = review.is_anonymous || entityName === 'Doctor';
+            const patientName = isAnonymized ? 'Anonymous Patient' : (review.patient?.name || review.patient?.full_name || '');
             const doctorName = review.doctor?.name || '';
             const matchesSearch = 
                 !searchQuery || 
                 review.comment?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (!review.is_anonymous && patientName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (!isAnonymized && patientName.toLowerCase().includes(searchQuery.toLowerCase())) ||
                 doctorName.toLowerCase().includes(searchQuery.toLowerCase());
                 
             return matchesFilter && matchesSearch;
@@ -435,7 +437,7 @@ export default function ReviewManager({
         }
 
         return result;
-    }, [reviews, filter, searchQuery, sortBy]);
+    }, [reviews, filter, searchQuery, sortBy, entityName]);
 
     const paginatedReviews = useMemo(() => {
         const start = (currentPage - 1) * itemsPerPage;
@@ -444,8 +446,24 @@ export default function ReviewManager({
 
     const totalPages = Math.ceil(filteredAndSortedReviews.length / itemsPerPage);
 
-    const { averageRating, ratingCounts, verifiedCount, fiveStarCount, responseRate } = useMemo(() => {
-        if (reviews.length === 0) return { averageRating: '0.0', ratingCounts: [0,0,0,0,0], verifiedCount: 0, fiveStarCount: 0, responseRate: '0' };
+    const { averageRating, ratingCounts, verifiedCount, fiveStarCount, responseRate, totalReviewsCount } = useMemo(() => {
+        if (metrics) {
+            let rCount = 0;
+            reviews.forEach(r => {
+                if (r.response || r.doctor_response) rCount++;
+            });
+            const totalCount = metrics.totalReviews || reviews.length;
+            return {
+                averageRating: Number(metrics.averageRating || 0).toFixed(1),
+                ratingCounts: [metrics.distribution[1] || 0, metrics.distribution[2] || 0, metrics.distribution[3] || 0, metrics.distribution[4] || 0, metrics.distribution[5] || 0],
+                verifiedCount: metrics.verifiedReviews || 0,
+                fiveStarCount: metrics.distribution[5] || 0,
+                responseRate: totalCount > 0 ? ((rCount / totalCount) * 100).toFixed(0) : '0',
+                totalReviewsCount: totalCount
+            };
+        }
+
+        if (reviews.length === 0) return { averageRating: '0.0', ratingCounts: [0,0,0,0,0], verifiedCount: 0, fiveStarCount: 0, responseRate: '0', totalReviewsCount: 0 };
         
         let sum = 0;
         let vCount = 0;
@@ -457,7 +475,7 @@ export default function ReviewManager({
             if (r.rating >= 1 && r.rating <= 5) {
                 counts[r.rating - 1]++;
             }
-            if (r.is_verified || !r.is_anonymous) vCount++;
+            if (r.is_verified) vCount++;
             if (r.response || r.doctor_response) rCount++;
         });
         
@@ -466,14 +484,15 @@ export default function ReviewManager({
             ratingCounts: counts,
             verifiedCount: vCount,
             fiveStarCount: counts[4],
-            responseRate: ((rCount / reviews.length) * 100).toFixed(0)
+            responseRate: ((rCount / reviews.length) * 100).toFixed(0),
+            totalReviewsCount: reviews.length
         };
-    }, [reviews]);
+    }, [reviews, metrics]);
     
-    const style = themeStyles[themeColor];
+    const style = themeStyles[themeColor] || themeStyles.emerald;
     
     return (
-        <div className="space-y-8 pb-24">
+        <div className="space-y-5 pb-24 min-w-0">
             {/* Optional Section Tabs (e.g. Clinic Reviews vs Doctor Reviews) */}
             {tabs && tabs.length > 0 && onTabChange && (
                 <div className="flex border-b border-gray-200 dark:border-gray-800 gap-6">
@@ -483,7 +502,7 @@ export default function ReviewManager({
                             onClick={() => onTabChange(tab.id)}
                             className={`pb-3 text-sm font-bold transition-all relative ${
                                 activeTab === tab.id
-                                    ? 'text-gray-900 dark:text-white border-b-2 border-indigo-600'
+                                    ? 'text-gray-900 dark:text-white border-b-2 border-emerald-600'
                                     : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                             }`}
                         >
@@ -498,72 +517,68 @@ export default function ReviewManager({
                 </div>
             )}
 
-            {/* Premium Hero Header */}
-            {!hideHero && !error && reviews.length > 0 && (
-                <div className={`relative rounded-[2rem] overflow-hidden text-white bg-gradient-to-br ${style.gradient} shadow-2xl shadow-${themeColor}-900/20 border border-${themeColor}-500/20`}>
-                    <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] mix-blend-overlay"></div>
-                    <div className="absolute top-0 right-0 w-96 h-96 bg-white opacity-10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3"></div>
-                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-black opacity-20 rounded-full blur-[80px] translate-y-1/3 -translate-x-1/4"></div>
-                    
-                    <div className="relative p-8 sm:p-12 flex flex-col md:flex-row md:items-center justify-between gap-10 z-10">
-                        <div className="flex-1">
-                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-md mb-6 text-xs font-bold tracking-widest uppercase text-white shadow-sm">
+            {/* Compact Header Summary Card */}
+            {!hideHero && !error && (
+                <div className="bg-white dark:bg-gray-900 rounded-3xl p-5 sm:p-6 border border-gray-200 dark:border-gray-800 shadow-sm min-w-0 space-y-4">
+                    {/* Top Row: Title Badge + Overall Rating */}
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                        <div className="min-w-0">
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 text-xs font-bold text-emerald-700 dark:text-emerald-400">
                                 <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
                                 {entityName} Reviews
                             </div>
-                            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white mb-4">
-                                {entityName} Rating & Experience
-                            </h1>
-                            <p className="text-sm sm:text-base text-white/80 max-w-xl font-medium leading-relaxed">
-                                {entityName === 'Doctor'
-                                    ? 'Monitor patient feedback and ratings for doctors. Note: Doctor ratings do not alter facility aggregates.'
-                                    : `Manage verified patient feedback, track clinical quality, and respond directly to your ${entityName.toLowerCase()} community.`}
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-medium">
+                                Patient feedback & consultation experience
                             </p>
                         </div>
 
-                        {/* Overall Rating Display */}
-                        <div className="flex items-center gap-6 bg-white/10 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-white/20 shadow-2xl shrink-0">
-                            <div className="text-center">
-                                <div className="text-5xl sm:text-6xl font-black tracking-tighter text-white drop-shadow-md">
-                                    {averageRating}
-                                </div>
-                                <div className="flex gap-1 justify-center my-2.5">
-                                    {Array.from({ length: 5 }).map((_, i) => (
-                                        <Star 
-                                            key={i} 
-                                            className={`h-4 w-4 ${
-                                                i < Math.round(Number(averageRating))
-                                                    ? 'fill-yellow-400 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]' 
-                                                    : 'fill-white/20 text-white/20'
-                                            }`} 
-                                        />
-                                    ))}
-                                </div>
-                                <p className="text-xs font-bold uppercase tracking-widest text-white/70">
-                                    {reviews.length} Total Reviews
-                                </p>
+                        {/* Top-Right Rating Block */}
+                        <div className="sm:text-right shrink-0">
+                            <div className="flex items-center sm:justify-end gap-1.5 text-2xl sm:text-3xl font-black text-gray-900 dark:text-white tracking-tight">
+                                <span>Rating {averageRating}</span>
+                                <Star className="h-6 w-6 fill-yellow-400 text-yellow-500 inline-block shrink-0" />
                             </div>
+                            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mt-0.5">
+                                {totalReviewsCount} Total Reviews
+                            </p>
                         </div>
                     </div>
 
-                    {/* Rating Distribution & Key Metrics Banner */}
-                    <div className="bg-black/20 backdrop-blur-xl border-t border-white/10 p-6 sm:px-12 grid grid-cols-2 sm:grid-cols-4 gap-6">
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-1">Verified Patients</p>
-                            <p className="text-2xl font-black text-white">{verifiedCount}</p>
+                    {/* Bottom Row: 4 Soft Green Metric Cards */}
+                    <div className="pt-4 border-t border-gray-100 dark:border-gray-800/80 grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div className="p-3 sm:p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 shadow-xs min-w-0">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800/80 dark:text-emerald-300/80 block mb-1 truncate">
+                                Verified Patients
+                            </span>
+                            <p className="text-xl sm:text-2xl font-black text-emerald-950 dark:text-emerald-100 truncate">
+                                {verifiedCount}
+                            </p>
                         </div>
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-1">5-Star Ratings</p>
-                            <p className="text-2xl font-black text-white">{fiveStarCount}</p>
+
+                        <div className="p-3 sm:p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 shadow-xs min-w-0">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800/80 dark:text-emerald-300/80 block mb-1 truncate">
+                                5★ Ratings
+                            </span>
+                            <p className="text-xl sm:text-2xl font-black text-emerald-950 dark:text-emerald-100 truncate">
+                                {fiveStarCount}
+                            </p>
                         </div>
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-1">Response Rate</p>
-                            <p className="text-2xl font-black text-white">{responseRate}%</p>
+
+                        <div className="p-3 sm:p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 shadow-xs min-w-0">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800/80 dark:text-emerald-300/80 block mb-1 truncate">
+                                Response Rate
+                            </span>
+                            <p className="text-xl sm:text-2xl font-black text-emerald-950 dark:text-emerald-100 truncate">
+                                {responseRate}%
+                            </p>
                         </div>
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-1">5★ Distribution</p>
-                            <p className="text-2xl font-black text-white">
-                                {reviews.length > 0 ? Math.round((fiveStarCount / reviews.length) * 100) : 0}%
+
+                        <div className="p-3 sm:p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 shadow-xs min-w-0">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800/80 dark:text-emerald-300/80 block mb-1 truncate">
+                                5★ Distribution
+                            </span>
+                            <p className="text-xl sm:text-2xl font-black text-emerald-950 dark:text-emerald-100 truncate">
+                                {totalReviewsCount > 0 ? Math.round((fiveStarCount / totalReviewsCount) * 100) : 0}%
                             </p>
                         </div>
                     </div>
@@ -571,24 +586,24 @@ export default function ReviewManager({
             )}
 
             {/* Filter Bar & Search */}
-            <div className="flex flex-col gap-3 bg-white dark:bg-gray-900 p-3 sm:p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm w-full">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-gray-900 p-3 sm:p-4 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm w-full min-w-0">
                 {/* Tabs Row */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar w-full">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
                     <button 
                         onClick={() => { setFilter('all'); setCurrentPage(1); }}
-                        className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                        className={`whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                             filter === 'all' 
-                                ? 'bg-indigo-600 text-white shadow-sm' 
+                                ? 'bg-emerald-600 text-white shadow-sm' 
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
                         }`}
                     >
-                        All ({reviews.length})
+                        All ({totalReviewsCount})
                     </button>
                     <button 
                         onClick={() => { setFilter('verified'); setCurrentPage(1); }}
-                        className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                        className={`whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                             filter === 'verified' 
-                                ? 'bg-indigo-600 text-white shadow-sm' 
+                                ? 'bg-emerald-600 text-white shadow-sm' 
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
                         }`}
                     >
@@ -596,18 +611,18 @@ export default function ReviewManager({
                     </button>
                     <button 
                         onClick={() => { setFilter('anonymous'); setCurrentPage(1); }}
-                        className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                        className={`whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                             filter === 'anonymous' 
-                                ? 'bg-indigo-600 text-white shadow-sm' 
+                                ? 'bg-emerald-600 text-white shadow-sm' 
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
                         }`}
                     >
-                        Anonymous ({reviews.length - verifiedCount})
+                        Anonymous ({totalReviewsCount - verifiedCount})
                     </button>
                 </div>
 
                 {/* Search & Sort Row */}
-                <div className="flex items-center gap-2 w-full">
+                <div className="flex items-center gap-2 flex-1 sm:max-w-md min-w-0">
                     <div className="relative flex-1 min-w-0">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                         <input
@@ -615,13 +630,13 @@ export default function ReviewManager({
                             placeholder="Search reviews..."
                             value={searchQuery}
                             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                            className="w-full min-w-0 pl-9 pr-3 py-1.5 rounded-xl text-xs bg-gray-50 dark:bg-gray-800 border-none focus:ring-1 focus:ring-indigo-500 text-gray-900 dark:text-white placeholder-gray-400"
+                            className="w-full min-w-0 h-9 pl-9 pr-3 rounded-xl text-xs bg-gray-50 dark:bg-gray-950/60 border border-gray-200 dark:border-gray-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-gray-900 dark:text-white placeholder:text-gray-400 truncate"
                         />
                     </div>
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as any)}
-                        className="px-2 py-1.5 rounded-xl text-[11px] font-bold bg-gray-50 dark:bg-gray-800 border-none text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-indigo-500 shrink-0 w-28 sm:w-32"
+                        className="h-9 px-2.5 rounded-xl text-xs font-bold bg-gray-50 dark:bg-gray-950/60 border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 shrink-0 cursor-pointer"
                     >
                         <option value="newest">Newest First</option>
                         <option value="highest">Highest Rating</option>
@@ -660,6 +675,7 @@ export default function ReviewManager({
                                 review={review}
                                 compactCards={compactCards}
                                 isFacility={isFacility}
+                                entityName={entityName}
                                 onReport={() => setReportingReview(review)}
                                 onRespond={() => handleOpenResponse(review)}
                                 onContextClick={() => handleReviewClick(review)}

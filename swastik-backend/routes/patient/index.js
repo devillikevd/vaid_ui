@@ -79,6 +79,10 @@ const getDiagnosticBookingStatusFilters = (status) => {
 const reviewsRoutes = require('./reviews');
 router.use('/reviews', reviewsRoutes);
 
+// Mount referrals router
+const referralsRoutes = require('./referrals');
+router.use('/referrals', referralsRoutes);
+
 // All routes require authentication and patient role
 router.use(authenticate);
 router.use(authorize('patient'));

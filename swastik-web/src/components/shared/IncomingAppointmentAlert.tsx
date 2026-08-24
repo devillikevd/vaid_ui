@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Phone, X, CheckCircle, Calendar, Clock, User } from 'lucide-react';
-import { useAppointmentUpdates, useSocket, type AppointmentUpdate } from '@/hooks/useSocket';
+import { useSocket, type AppointmentUpdate } from '@/hooks/useSocket';
 import { useAuthStore } from '@/stores/authStore';
 import { useDoctorStore } from '@/stores/doctorStore';
 
@@ -81,14 +81,9 @@ export function IncomingAppointmentAlert() {
         };
     }, []);
 
-    const addAlert = useCallback((update: AppointmentUpdate) => {
-        // appointment:new event — show for all new bookings (status could be 'scheduled' or missing)
-        // Don't filter strictly by status since backend sends appointment:new for fresh bookings
-        const status = (update.status || '').toLowerCase();
-        if (status && !['scheduled', 'pending', ''].includes(status)) return;
-
-        const alertId = `${(update as any).id || (update as any).appointmentId || Date.now()}`;
-        const raw = update as any;
+    const addAlert = useCallback((update: any) => {
+        const alertId = `${update.id || update.appointmentId || Date.now()}`;
+        const raw = update;
         const newAlert: IncomingAlert = {
             id: alertId,
             patientName: raw.patientName || raw.patient_name || raw.patient?.name || 'A patient',
@@ -104,23 +99,27 @@ export function IncomingAppointmentAlert() {
             if (prev.some(a => a.id === alertId)) return prev;
             return [newAlert, ...prev];
         });
-        console.log('[Ring] appointment:new →', alertId, '|', newAlert.patientName);
+        console.log('[Ring] incoming alert →', alertId, '|', newAlert.patientName);
         playRingTone();
     }, [playRingTone]);
 
-    // Listen to appointment:new specifically for incoming alerts
+    // Listen to appointment:new AND notification:new (as a foolproof fallback)
     const { on } = useSocket();
     useEffect(() => {
         if (!isDoctor) return;
-        const unsub = on('appointment:new', addAlert);
-        return unsub;
+        
+        const unsubAppt = on('appointment:new', addAlert);
+        const unsubNotif = on('notification:new', (notif: any) => {
+            if (notif.type === 'appointment_booked' && notif.data) {
+                addAlert(notif.data);
+            }
+        });
+        
+        return () => {
+            unsubAppt();
+            unsubNotif();
+        };
     }, [on, addAlert, isDoctor]);
-
-    // Also listen via useAppointmentUpdates for appointment:update with scheduled status
-    useAppointmentUpdates(isDoctor ? (update) => {
-        if (update.status === 'scheduled') addAlert(update);
-    } : undefined);
-
     // Auto-dismiss after 30 seconds
     useEffect(() => {
         const timer = setInterval(() => {

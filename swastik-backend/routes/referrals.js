@@ -34,6 +34,44 @@ router.post('/',
 );
 
 /**
+ * @route POST /api/referrals/draft
+ * @desc Create a draft referral awaiting patient consent
+ */
+router.post('/draft',
+  [
+    body('patient_id').isUUID().withMessage('Valid patient_id is required'),
+    body('sender_type').isString().withMessage('sender_type is required'),
+    body('sender_id').isUUID().withMessage('Valid sender_id is required'),
+    body('receiver_type').isString().withMessage('receiver_type is required'),
+    body('receiver_id').isUUID().withMessage('Valid receiver_id is required'),
+    body('reason').isString().notEmpty().withMessage('reason is required'),
+    body('urgency').optional().isIn(['routine', 'urgent', 'emergency']).withMessage('Invalid urgency'),
+    body('clinical_summary').optional().isString(),
+    body('attachments').optional().isArray()
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await universalReferralService.createDraftReferral(req.user, req.body);
+    res.status(201).json({ success: true, data: result });
+  })
+);
+
+/**
+ * @route PATCH /api/referrals/:id/send
+ * @desc Finalize and send an awaiting_consent referral
+ */
+router.patch('/:id/send',
+  [
+    param('id').isUUID().withMessage('Valid referral ID is required')
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const referral = await universalReferralService.submitReferral(req.user, req.params.id);
+    res.json({ success: true, data: referral });
+  })
+);
+
+/**
  * @route GET /api/referrals/patients/search
  * @desc  Search patients the authenticated sender is authorized to refer.
  *
@@ -96,6 +134,35 @@ router.get('/patients/:patientId/documents',
   })
 );
 
+/**
+ * @route GET /api/referrals/patients/:patientId/consent/check
+ * @desc  Check if a patient has explicit consent for a receiving entity
+ *
+ * SECURITY: This only returns true/false. It does not grant consent.
+ * It validates that the sender has a relationship with the patient.
+ */
+router.get('/patients/:patientId/consent/check',
+  [
+    param('patientId').isUUID().withMessage('Valid patientId is required'),
+    query('sender_type').isString().notEmpty().withMessage('sender_type is required'),
+    query('sender_id').isUUID().withMessage('Valid sender_id is required'),
+    query('receiver_type').isString().notEmpty().withMessage('receiver_type is required'),
+    query('receiver_id').isUUID().withMessage('Valid receiver_id is required')
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { sender_type, sender_id, receiver_type, receiver_id } = req.query;
+    const { patientId } = req.params;
+    const result = await universalReferralService.checkReferralConsent(req.user, {
+      patient_id: patientId,
+      sender_type,
+      sender_id,
+      receiver_type,
+      receiver_id
+    });
+    res.json({ success: true, data: result });
+  })
+);
 
 /**
  * @route GET /api/referrals/inbox

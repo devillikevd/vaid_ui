@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     BarChart3, Calendar, IndianRupee, Video, Activity, Clock,
     RefreshCw, Loader2, AlertCircle, CheckCircle2, XCircle, Target,
-    Info, Users, TrendingUp, TrendingDown, Minus, ArrowRight
+    Info, Users, TrendingUp, TrendingDown, Minus, ArrowRight,
+    Compass, Stethoscope, Sparkles
 } from 'lucide-react';
 import { doctorApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
@@ -21,6 +22,8 @@ interface AnalyticsSummary {
     completedAppointments: number;
     cancelledAppointments: number;
     totalRevenue: number;
+    vaidideaRevenue?: number;
+    directRevenue?: number;
     avgRevenuePerConsultation: number;
     cancellationRate: number;
     completionRate: number;
@@ -28,26 +31,74 @@ interface AnalyticsSummary {
     inPersonConsultations: number;
     uniquePatients?: number;
 }
+
+interface VaidideaImpact {
+    vaidideaPatients: number;
+    onlineConsults: number;
+    inPersonVisits: number;
+    networkReferrals: number;
+    vaidideaRevenue: number;
+}
+
+interface OverallPractice {
+    totalPatients: number;
+    totalConsultations: number;
+    directPatients: number;
+    directConsultations: number;
+    vaidideaPatients: number;
+    vaidideaConsultations: number;
+    directRevenue: number;
+    vaidideaRevenue: number;
+    totalRevenue: number;
+    completedConsultations: number;
+    cancelledConsultations: number;
+    pendingPaymentsRevenue?: number;
+    pendingPaymentsCount?: number;
+    sources?: {
+        vaidideaOnline?: number;
+        vaidideaInPerson?: number;
+        directWalkIn?: number;
+        directAppointment?: number;
+        homeVisit?: number;
+        otherDirect?: number;
+    };
+}
+
 interface PreviousSummary {
     totalAppointments: number;
     totalRevenue: number;
     cancellationRate: number;
     completionRate: number;
 }
+
 interface DailyData {
-    date: string; appointments: number; revenue: number;
-    video: number; inPerson: number; cancelled: number; completed: number;
+    date: string;
+    appointments: number;
+    revenue: number;
+    video: number;
+    inPerson: number;
+    cancelled: number;
+    completed: number;
+    direct?: number;
+    vaididea?: number;
 }
+
 interface AnalyticsData {
     period: string;
+    startDate?: string;
+    endDate?: string;
     summary: AnalyticsSummary;
+    vaidideaImpact?: VaidideaImpact;
+    overallPractice?: OverallPractice;
     previousSummary?: PreviousSummary;
     charts: {
         daily: DailyData[];
         consultationType: { name: string; value: number; color: string }[];
+        sourceBreakdown?: { name: string; value: number; color: string }[];
         peakHours: { hour: number; label: string; count: number }[];
     };
 }
+
 type Period = '7d' | '30d' | '90d';
 
 export default function DoctorAnalyticsPage() {
@@ -70,10 +121,35 @@ export default function DoctorAnalyticsPage() {
 
     const pLabel: Record<Period, string> = { '7d': 'Last 7 days', '30d': 'Last 30 days', '90d': 'Last 90 days' };
 
+    // Canonical values resolution
+    const totalPracticeRevenue = data?.overallPractice?.totalRevenue ?? data?.summary.totalRevenue ?? 0;
+    const vaidideaRevenueVal = data?.vaidideaImpact?.vaidideaRevenue ?? data?.summary.vaidideaRevenue ?? 0;
+    const directRevenueVal = data?.overallPractice?.directRevenue ?? data?.summary.directRevenue ?? 0;
+
+    const totalConsultationsCount = data?.overallPractice?.totalConsultations ?? data?.summary.totalAppointments ?? 0;
+    const vaidideaConsultationsCount = data?.overallPractice?.vaidideaConsultations ?? (totalConsultationsCount - (data?.overallPractice?.directConsultations ?? 0));
+    const directConsultationsCount = data?.overallPractice?.directConsultations ?? (totalConsultationsCount - vaidideaConsultationsCount);
+
+    const visitTypeChartData = useMemo(() => {
+        if (!data) return [];
+        return [
+            { name: 'Video Consultation', value: data.summary.videoConsultations, color: '#10b981' },
+            { name: 'In-Person Clinic', value: data.summary.inPersonConsultations, color: '#06b6d4' },
+        ];
+    }, [data]);
+
+    const sourceChartData = useMemo(() => {
+        if (!data) return [];
+        return [
+            { name: 'Vaididea Platform', value: vaidideaConsultationsCount, color: '#10b981' },
+            { name: 'Direct Practice', value: directConsultationsCount, color: '#3b82f6' },
+        ];
+    }, [data, vaidideaConsultationsCount, directConsultationsCount]);
+
     // Derived Insights & Highlights
     const practiceHighlights = useMemo(() => {
         if (!data) return [];
-        const h = [];
+        const h: string[] = [];
         
         // Peak Hour
         const peak = [...data.charts.peakHours].sort((a, b) => b.count - a.count)[0];
@@ -81,21 +157,37 @@ export default function DoctorAnalyticsPage() {
             h.push(`Your busiest booking period is around ${peak.label}.`);
         }
 
-        // Revenue Trend
-        if (data.previousSummary && data.summary.totalRevenue !== data.previousSummary.totalRevenue) {
-            if (data.summary.totalRevenue > data.previousSummary.totalRevenue) h.push(`Revenue increased compared to the previous period.`);
-            else h.push(`Revenue decreased compared to the previous period.`);
+        // Revenue Trend (Total Practice)
+        if (data.previousSummary && totalPracticeRevenue !== data.previousSummary.totalRevenue) {
+            if (totalPracticeRevenue > data.previousSummary.totalRevenue) {
+                h.push(`Total practice revenue increased compared to the previous period.`);
+            } else {
+                h.push(`Total practice revenue decreased compared to the previous period.`);
+            }
         }
 
-        // Consult Type
-        if (data.summary.totalAppointments > 0) {
-            const vidPct = Math.round((data.summary.videoConsultations / data.summary.totalAppointments) * 100);
+        // Source Breakdown Highlight
+        if (totalConsultationsCount > 0) {
+            const vPct = Math.round((vaidideaConsultationsCount / totalConsultationsCount) * 100);
+            const dPct = Math.round((directConsultationsCount / totalConsultationsCount) * 100);
+            if (vPct > 0 && dPct > 0) {
+                h.push(`Vaididea Platform generated ${vPct}% of visits, while Direct Practice accounted for ${dPct}%.`);
+            } else if (vPct === 100) {
+                h.push(`All consultations this period originated from the Vaididea Platform.`);
+            } else if (dPct === 100) {
+                h.push(`All visits this period were recorded via Direct Practice.`);
+            }
+        }
+
+        // Visit Type Breakdown Highlight
+        if (totalConsultationsCount > 0) {
+            const vidPct = Math.round((data.summary.videoConsultations / totalConsultationsCount) * 100);
             if (vidPct > 50) h.push(`Video consultations account for ${vidPct}% of appointments.`);
-            else if (vidPct > 0) h.push(`In-person consultations are your most popular booking type.`);
+            else if (vidPct > 0) h.push(`In-person clinic visits account for ${100 - vidPct}% of consultations.`);
         }
         
         return h;
-    }, [data]);
+    }, [data, totalPracticeRevenue, totalConsultationsCount, vaidideaConsultationsCount, directConsultationsCount]);
 
     const getTrendData = (current: number, previous: number | undefined, inverseGood = false) => {
         if (previous === undefined || previous === null || current === undefined) return undefined;
@@ -117,7 +209,7 @@ export default function DoctorAnalyticsPage() {
     };
 
     const maxRevenueItem = data?.charts.daily.reduce((max, item) => item.revenue > max.revenue ? item : max, { revenue: 0, date: '' });
-    const avgDailyRevenue = data?.charts.daily.length ? Math.round(data.summary.totalRevenue / data.charts.daily.length) : 0;
+    const avgDailyRevenue = data?.charts.daily.length ? Math.round(totalPracticeRevenue / data.charts.daily.length) : 0;
 
     return (
         <div className="space-y-6 pb-24">
@@ -191,9 +283,10 @@ export default function DoctorAnalyticsPage() {
 
             {/* Main Content Render */}
             <div className={`space-y-6 ${loading && data ? 'opacity-50 pointer-events-none' : 'opacity-100'} transition-opacity duration-300`}>
-                {/* KPI Cards */}
+                {/* 6 Clean KPI Cards in 3x2 Grid */}
                 {data && data.summary.totalAppointments > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {/* 1. Total Appointments */}
                         <MetricCard
                             title="Total Appointments"
                             value={data.summary.totalAppointments}
@@ -201,13 +294,84 @@ export default function DoctorAnalyticsPage() {
                             iconClassName="bg-blue-500/15 text-blue-500"
                             trend={getTrendData(data.summary.totalAppointments, data.previousSummary?.totalAppointments)}
                         />
-                        <MetricCard
-                            title="Total Revenue"
-                            value={formatCurrency(data.summary.totalRevenue)}
-                            icon={<IndianRupee className="h-5 w-5" />}
-                            iconClassName="bg-emerald-500/15 text-emerald-500"
-                            trend={getTrendData(data.summary.totalRevenue, data.previousSummary?.totalRevenue)}
-                        />
+
+                        {/* 2. Total Practice Revenue (with internal source breakdown) */}
+                        <DoctorPortalCard variant="compact" className="flex flex-col h-full justify-between">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="p-3 rounded-2xl bg-emerald-500/15 text-emerald-500 shrink-0">
+                                    <IndianRupee className="h-5 w-5" />
+                                </div>
+                                <div className="flex-1 min-w-0 text-right">
+                                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate mb-1">
+                                        Total Practice Revenue
+                                    </p>
+                                    <h3 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white truncate">
+                                        {formatCurrency(totalPracticeRevenue)}
+                                    </h3>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/60 flex items-center justify-between text-[11px] font-bold">
+                                <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/40">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    Vaididea: {formatCurrency(vaidideaRevenueVal)}
+                                </span>
+                                <span className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800/40">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                    Direct: {formatCurrency(directRevenueVal)}
+                                </span>
+                            </div>
+                        </DoctorPortalCard>
+
+                        {/* 3. Vaididea Revenue Dedicated Card */}
+                        <DoctorPortalCard variant="compact" className="flex flex-col h-full justify-between">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 shrink-0 border border-emerald-200 dark:border-emerald-800/40">
+                                    <Sparkles className="h-5 w-5" />
+                                </div>
+                                <div className="flex-1 min-w-0 text-right">
+                                    <div className="flex items-center justify-end gap-1.5 mb-1">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">
+                                            Vaididea Revenue
+                                        </p>
+                                    </div>
+                                    <h3 className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 truncate">
+                                        {formatCurrency(vaidideaRevenueVal)}
+                                    </h3>
+                                </div>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/60 flex items-center justify-between text-xs font-medium text-gray-500">
+                                <span>Ecosystem Bookings</span>
+                                <span className="font-bold text-gray-800 dark:text-gray-200">{vaidideaConsultationsCount} consults</span>
+                            </div>
+                        </DoctorPortalCard>
+
+                        {/* 4. Direct Practice Revenue Dedicated Card */}
+                        <DoctorPortalCard variant="compact" className="flex flex-col h-full justify-between">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shrink-0 border border-blue-200 dark:border-blue-800/40">
+                                    <Stethoscope className="h-5 w-5" />
+                                </div>
+                                <div className="flex-1 min-w-0 text-right">
+                                    <div className="flex items-center justify-end gap-1.5 mb-1">
+                                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">
+                                            Direct Practice Revenue
+                                        </p>
+                                    </div>
+                                    <h3 className="text-2xl sm:text-3xl font-black text-blue-600 dark:text-blue-400 truncate">
+                                        {formatCurrency(directRevenueVal)}
+                                    </h3>
+                                </div>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/60 flex items-center justify-between text-xs font-medium text-gray-500">
+                                <span>Direct & Walk-ins</span>
+                                <span className="font-bold text-gray-800 dark:text-gray-200">{directConsultationsCount} visits</span>
+                            </div>
+                        </DoctorPortalCard>
+
+                        {/* 5. Completion Rate */}
                         <MetricCard
                             title="Completion Rate"
                             value={`${data.summary.completionRate}%`}
@@ -215,6 +379,8 @@ export default function DoctorAnalyticsPage() {
                             iconClassName="bg-green-500/15 text-green-500"
                             trend={getTrendData(data.summary.completionRate, data.previousSummary?.completionRate)}
                         />
+
+                        {/* 6. Cancellation Rate */}
                         <MetricCard
                             title="Cancellation Rate"
                             value={`${data.summary.cancellationRate}%`}
@@ -225,7 +391,7 @@ export default function DoctorAnalyticsPage() {
                     </div>
                 )}
 
-                {/* Main Charts */}
+                {/* Main Charts: Trends */}
                 {data && data.summary.totalAppointments > 0 && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         
@@ -254,12 +420,12 @@ export default function DoctorAnalyticsPage() {
                             </div>
                         </DoctorPortalCard>
 
-                        {/* Revenue Trend */}
+                        {/* Revenue Trend (Daily Total Practice Revenue) */}
                         <DoctorPortalCard variant="compact">
                             <div className="flex items-center justify-between mb-6">
                                 <div>
                                     <h3 className="font-bold text-gray-900 dark:text-white">Revenue Trend</h3>
-                                    <p className="text-xs text-gray-500 mt-1">Daily earnings</p>
+                                    <p className="text-xs text-gray-500 mt-1">Daily Total Practice Revenue</p>
                                 </div>
                                 <IndianRupee className="h-5 w-5 text-gray-400" />
                             </div>
@@ -284,7 +450,7 @@ export default function DoctorAnalyticsPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100 dark:border-gray-800/50">
                                 <div>
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Avg Daily</p>
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Avg Daily Practice</p>
                                     <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(avgDailyRevenue)}</p>
                                 </div>
                                 <div>
@@ -297,11 +463,120 @@ export default function DoctorAnalyticsPage() {
                     </div>
                 )}
 
+                {/* Independent Source vs Visit Type and Operational Metrics */}
                 {data && data.summary.totalAppointments > 0 && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         
-                        {/* Peak Hours Breakdown */}
-                        <DoctorPortalCard variant="compact" className="lg:col-span-1">
+                        {/* 1. CONSULTATION SOURCE (Origin) */}
+                        <DoctorPortalCard variant="compact">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white">Consultation Source</h3>
+                                    <p className="text-xs text-gray-500 mt-1">Vaididea Platform vs Direct Practice</p>
+                                </div>
+                                <Compass className="h-5 w-5 text-emerald-500" />
+                            </div>
+                            
+                            <div className="flex flex-col items-center">
+                                <div className="h-[160px] w-[160px] relative">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie 
+                                                data={sourceChartData} 
+                                                innerRadius={55} 
+                                                outerRadius={75} 
+                                                paddingAngle={2}
+                                                dataKey="value"
+                                                stroke="none"
+                                            >
+                                                {sourceChartData.map((entry, index) => (
+                                                    <Cell key={`cell-src-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Pie>
+                                            <RechartsTooltip content={<CustomTooltip type="pie" />} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                        <span className="text-2xl font-bold text-gray-900 dark:text-white">{totalConsultationsCount}</span>
+                                        <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Total</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="w-full mt-6 space-y-3">
+                                    {sourceChartData.map((item, i) => (
+                                        <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/30">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: item.color }} />
+                                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{item.name}</span>
+                                            </div>
+                                            <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0">
+                                                {item.value}{' '}
+                                                <span className="text-gray-400 dark:text-gray-500 font-medium text-xs ml-1">
+                                                    ({totalConsultationsCount > 0 ? Math.round((item.value / totalConsultationsCount) * 100) : 0}%)
+                                                </span>
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </DoctorPortalCard>
+
+                        {/* 2. VISIT TYPE (Modality) */}
+                        <DoctorPortalCard variant="compact">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white">Visit Type</h3>
+                                    <p className="text-xs text-gray-500 mt-1">Video vs In-Person consultations</p>
+                                </div>
+                                <Video className="h-5 w-5 text-purple-500" />
+                            </div>
+                            
+                            <div className="flex flex-col items-center">
+                                <div className="h-[160px] w-[160px] relative">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie 
+                                                data={visitTypeChartData} 
+                                                innerRadius={55} 
+                                                outerRadius={75} 
+                                                paddingAngle={2}
+                                                dataKey="value"
+                                                stroke="none"
+                                            >
+                                                {visitTypeChartData.map((entry, index) => (
+                                                    <Cell key={`cell-vt-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Pie>
+                                            <RechartsTooltip content={<CustomTooltip type="pie" />} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                        <span className="text-2xl font-bold text-gray-900 dark:text-white">{data.summary.totalAppointments}</span>
+                                        <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Total</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="w-full mt-6 space-y-3">
+                                    {visitTypeChartData.map((item, i) => (
+                                        <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/30">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: item.color }} />
+                                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{item.name}</span>
+                                            </div>
+                                            <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0">
+                                                {item.value}{' '}
+                                                <span className="text-gray-400 dark:text-gray-500 font-medium text-xs ml-1">
+                                                    ({data.summary.totalAppointments > 0 ? Math.round((item.value / data.summary.totalAppointments) * 100) : 0}%)
+                                                </span>
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </DoctorPortalCard>
+
+                        {/* 3. Peak Booking Hours Breakdown */}
+                        <DoctorPortalCard variant="compact">
                             <div className="flex items-center justify-between mb-6">
                                 <div>
                                     <h3 className="font-bold text-gray-900 dark:text-white">Peak Booking Hours</h3>
@@ -338,108 +613,57 @@ export default function DoctorAnalyticsPage() {
                             )}
                         </DoctorPortalCard>
 
-                        {/* Consultation Type */}
+                    </div>
+                )}
+
+                {/* Performance Details & Highlights */}
+                {data && data.summary.totalAppointments > 0 && (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <DoctorPortalCard variant="compact" className="lg:col-span-1">
-                            <div className="flex items-center justify-between mb-6">
-                                <div>
-                                    <h3 className="font-bold text-gray-900 dark:text-white">Consultation Type</h3>
-                                    <p className="text-xs text-gray-500 mt-1">Video vs In-Person</p>
-                                </div>
-                                <Video className="h-5 w-5 text-gray-400" />
+                            <div className="flex items-center justify-between mb-5">
+                                <h3 className="font-bold text-gray-900 dark:text-white">Doctor Performance</h3>
+                                <Target className="h-5 w-5 text-gray-400" />
                             </div>
                             
-                            <div className="flex flex-col items-center">
-                                <div className="h-[160px] w-[160px] relative">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie 
-                                                data={data.charts.consultationType} 
-                                                innerRadius={55} 
-                                                outerRadius={75} 
-                                                paddingAngle={2}
-                                                dataKey="value"
-                                                stroke="none"
-                                            >
-                                                {data.charts.consultationType.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                                ))}
-                                            </Pie>
-                                            <RechartsTooltip content={<CustomTooltip type="pie" />} />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                        <span className="text-2xl font-bold text-gray-900 dark:text-white">{data.summary.totalAppointments}</span>
-                                        <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Total</span>
+                            <div className="space-y-4">
+                                {data.summary.uniquePatients !== undefined && (
+                                    <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800/50 pb-3">
+                                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-1.5"><Users className="w-4 h-4"/> Unique Patients</span>
+                                        <span className="text-sm font-bold text-gray-900 dark:text-white">{data.summary.uniquePatients}</span>
                                     </div>
+                                )}
+                                <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800/50 pb-3">
+                                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+                                        <IndianRupee className="w-4 h-4"/> Avg Revenue / Consult 
+                                        <TooltipIcon content="Gross total practice fees ÷ completed consultations." />
+                                    </span>
+                                    <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(data.summary.avgRevenuePerConsultation)}</span>
                                 </div>
-                                
-                                <div className="w-full mt-6 space-y-3">
-                                    {data.charts.consultationType.map((item, i) => (
-                                        <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/30">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: item.color }} />
-                                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{item.name}</span>
-                                            </div>
-                                            <span className="text-sm font-bold text-gray-900 dark:text-white shrink-0">
-                                                {item.value}{' '}
-                                                <span className="text-gray-400 dark:text-gray-500 font-medium text-xs ml-1">({Math.round((item.value / (data.summary.totalAppointments || 1)) * 100)}%)</span>
-                                            </span>
-                                        </div>
-                                    ))}
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-1.5"><Video className="w-4 h-4"/> Video Comp. Rate</span>
+                                    <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                        {data.summary.videoConsultations > 0 ? Math.round((data.charts.daily.reduce((acc, curr) => acc + (curr.video > 0 && curr.completed > 0 ? curr.video : 0), 0) / data.summary.videoConsultations) * 100) : 0}%
+                                    </span>
                                 </div>
                             </div>
                         </DoctorPortalCard>
 
-                        {/* Performance Details & Highlights */}
-                        <div className="lg:col-span-1 space-y-6">
-                            
-                            <DoctorPortalCard variant="compact">
-                                <div className="flex items-center justify-between mb-5">
-                                    <h3 className="font-bold text-gray-900 dark:text-white">Doctor Performance</h3>
-                                    <Target className="h-5 w-5 text-gray-400" />
-                                </div>
-                                
-                                <div className="space-y-4">
-                                    {data.summary.uniquePatients !== undefined && (
-                                        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800/50 pb-3">
-                                            <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-1.5"><Users className="w-4 h-4"/> Unique Patients</span>
-                                            <span className="text-sm font-bold text-gray-900 dark:text-white">{data.summary.uniquePatients}</span>
-                                        </div>
-                                    )}
-                                    <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800/50 pb-3">
-                                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
-                                            <IndianRupee className="w-4 h-4"/> Avg Revenue / Consult 
-                                            <TooltipIcon content="Gross consultation fees ÷ completed consultations." />
-                                        </span>
-                                        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(data.summary.avgRevenuePerConsultation)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-1.5"><Video className="w-4 h-4"/> Video Comp. Rate</span>
-                                        <span className="text-sm font-bold text-gray-900 dark:text-white">
-                                            {data.summary.videoConsultations > 0 ? Math.round((data.charts.daily.reduce((acc, curr) => acc + (curr.video > 0 && curr.completed > 0 ? curr.video : 0), 0) / data.summary.videoConsultations) * 100) : 0}%
-                                        </span>
-                                    </div>
-                                </div>
-                            </DoctorPortalCard>
-
-                            <DoctorPortalCard variant="compact" className="bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border-indigo-500/10">
-                                <h3 className="font-bold text-indigo-900 dark:text-indigo-300 mb-4 flex items-center gap-2">
-                                    <Info className="w-4 h-4" /> Practice Highlights
-                                </h3>
-                                {practiceHighlights.length > 0 ? (
-                                    <ul className="space-y-3">
-                                        {practiceHighlights.map((h, i) => (
-                                            <li key={i} className="text-sm font-medium text-indigo-800/80 dark:text-indigo-200/80 leading-relaxed flex items-start gap-2">
-                                                <span className="text-indigo-400 mt-1">•</span> {h}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <div className="text-center py-6 text-sm text-gray-500">More data needed for insights</div>
-                                )}
-                            </DoctorPortalCard>
-
-                        </div>
+                        <DoctorPortalCard variant="compact" className="lg:col-span-2 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border-indigo-500/10">
+                            <h3 className="font-bold text-indigo-900 dark:text-indigo-300 mb-4 flex items-center gap-2">
+                                <Info className="w-4 h-4" /> Practice Highlights & Insights
+                            </h3>
+                            {practiceHighlights.length > 0 ? (
+                                <ul className="space-y-3">
+                                    {practiceHighlights.map((h, i) => (
+                                        <li key={i} className="text-sm font-medium text-indigo-800/80 dark:text-indigo-200/80 leading-relaxed flex items-start gap-2">
+                                            <span className="text-indigo-400 mt-1">•</span> {h}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <div className="text-center py-6 text-sm text-gray-500">More data needed for insights</div>
+                            )}
+                        </DoctorPortalCard>
                     </div>
                 )}
                 

@@ -188,6 +188,7 @@ export default function DoctorSchedulePage() {
     } = useDoctorStore();
 
     const [activeTab, setActiveTab] = useState<'schedule' | 'leaves'>('schedule');
+    const [leaveTab, setLeaveTab] = useState<'upcoming' | 'history'>('upcoming');
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingGroup, setEditingGroup] = useState<ScheduleGroup | null>(null);
     const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -590,9 +591,15 @@ export default function DoctorSchedulePage() {
         return (leaves || []).filter(l => l.status !== 'cancelled');
     }, [leaves]);
 
-    const upcomingLeavesCount = useMemo(() => {
-        return activeLeavesList.filter(l => l.end_date >= today).length;
-    }, [activeLeavesList, today]);
+    const upcomingLeaves = useMemo(() => {
+        return (leaves || []).filter(l => l.end_date >= today && l.status !== 'cancelled');
+    }, [leaves, today]);
+
+    const historyLeaves = useMemo(() => {
+        return (leaves || []).filter(l => l.end_date < today || l.status === 'cancelled');
+    }, [leaves, today]);
+
+    const upcomingLeavesCount = upcomingLeaves.length;
 
     const currentlyOnLeaveCount = useMemo(() => {
         return activeLeavesList.filter(l => l.start_date <= today && l.end_date >= today).length;
@@ -980,7 +987,26 @@ export default function DoctorSchedulePage() {
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                {leaves.map((leave) => {
+                                <div className="flex border-b border-gray-200 dark:border-gray-800 mb-6">
+                                    <button
+                                        onClick={() => setLeaveTab('upcoming')}
+                                        className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-colors ${leaveTab === 'upcoming' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                                    >
+                                        Upcoming Leaves
+                                    </button>
+                                    <button
+                                        onClick={() => setLeaveTab('history')}
+                                        className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-colors ${leaveTab === 'history' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                                    >
+                                        Leave History
+                                    </button>
+                                </div>
+                                
+                                {(leaveTab === 'upcoming' ? upcomingLeaves : historyLeaves).length === 0 ? (
+                                    <div className="text-center py-12 text-gray-500 dark:text-gray-400 font-medium">
+                                        No {leaveTab} leaves found.
+                                    </div>
+                                ) : (leaveTab === 'upcoming' ? upcomingLeaves : historyLeaves).map((leave) => {
                                     const startDate = new Date(leave.start_date);
                                     const endDate = new Date(leave.end_date);
                                     const durationDays = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1);

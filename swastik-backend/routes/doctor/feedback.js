@@ -22,9 +22,15 @@ router.use(authenticate, authorize('doctor'), requireApproval, asyncHandler(asyn
 // POST /doctor/feedback
 router.post('/', asyncHandler(async (req, res) => {
     const {
-        type, category, title, description, rating,
-        pageName, route, attachments, browser, device, os, appVersion
+        type, category, title, description, rating, attachments, context
     } = req.body;
+
+    const pageName = context?.pageName || req.body.pageName;
+    const route = context?.route || req.body.route;
+    const browser = context?.browser || req.body.browser;
+    const device = context?.device || req.body.device;
+    const os = context?.os || req.body.os;
+    const appVersion = context?.appVersion || req.body.appVersion;
 
     if (!type || !category || !title || !description) {
         return res.status(400).json({ success: false, message: 'Missing required fields' });

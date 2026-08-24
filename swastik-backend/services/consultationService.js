@@ -334,11 +334,18 @@ const startConsultation = async (doctorUserId, appointmentId) => {
     consultation = rpcResult.consultation;
   } catch (err) {
     console.error('RPC start_consultation failed, falling back to manual insert:', err.message);
+
+    // Generate the completion OTP for video consultations in the fallback path
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
     
-    // Update appointment status to in_progress
+    // Update appointment status to in_progress and set the completion_otp
     const { error: aptUpdateError } = await supabaseAdmin
       .from('appointments')
-      .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+      .update({
+        status: 'in_progress',
+        completion_otp: generatedOtp,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', appointmentId);
       
     if (aptUpdateError) throw new ApiError(400, 'Failed to update appointment status: ' + aptUpdateError.message);
@@ -386,19 +393,24 @@ const startConsultation = async (doctorUserId, appointmentId) => {
     console.warn('[ConsultationService] Lifecycle init skipped:', lifecycleErr.message);
   }
 
-  // Send push notification with OTP to patient
-  const { data: patient } = await supabaseAdmin
-    .from('patients')
-    .select('user_id')
-    .eq('id', consultation.patient_id)
-    .single();
+  // Send push notification with OTP to patient (read the saved OTP from the DB)
+  const [{ data: patient }, { data: aptWithOtp }] = await Promise.all([
+    supabaseAdmin.from('patients').select('user_id').eq('id', consultation.patient_id).single(),
+    supabaseAdmin.from('appointments').select('completion_otp, type').eq('id', appointmentId).single(),
+  ]);
+
+  const completionOtp = aptWithOtp?.completion_otp;
 
   if (patient?.user_id) {
+    const isVideo = aptWithOtp?.type === 'video';
+    const message = isVideo && completionOtp
+      ? `Your video consultation has started. Your completion OTP is ${completionOtp}.`
+      : 'Your consultation has started.';
     notificationService.sendNotification(patient.user_id, {
       title: '🎥 Video Consultation Started',
-      message: `Your video consultation has started. Your completion OTP is ${completionOtp}.`,
+      message,
       type: 'appointment_update',
-      data: { appointmentId: appointmentId, status: 'in_progress', completion_otp: completionOtp },
+      data: { appointmentId: appointmentId, status: 'in_progress', completion_otp: completionOtp || null },
     }).catch(err => console.error('[ConsultationService] Failed to send OTP notification:', err));
   }
 
@@ -425,7 +437,7 @@ const joinConsultation = async (patientUserId, idParam) => {
   // First try: lookup by consultation ID directly
   let { data: consultation, error } = await supabaseAdmin
     .from('consultations')
-    .select('*')
+    .select('*, appointment:appointments(id, type, completion_otp, appointment_date, time_slot)')
     .eq('id', idParam)
     .eq('patient_id', patient.id)
     .eq('status', 'in_progress')
@@ -435,7 +447,7 @@ const joinConsultation = async (patientUserId, idParam) => {
   if (!consultation) {
     const fallback = await supabaseAdmin
       .from('consultations')
-      .select('*')
+      .select('*, appointment:appointments(id, type, completion_otp, appointment_date, time_slot)')
       .eq('appointment_id', idParam)
       .eq('patient_id', patient.id)
       .eq('status', 'in_progress')

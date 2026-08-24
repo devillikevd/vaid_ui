@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Calendar, CalendarClock, Clock, User, Video, Search, RefreshCw, Loader2, AlertCircle, Play, XCircle as XCircleIcon, CheckCircle, Bell, UserCheck, CalendarX, Inbox, FileText, ClipboardList, SearchX, X, Mic } from 'lucide-react';
+import { Calendar, CalendarClock, Clock, User, Video, Search, RefreshCw, Loader2, AlertCircle, Play, XCircle as XCircleIcon, CheckCircle, Bell, UserCheck, CalendarX, Inbox, FileText, ClipboardList, SearchX, X, Mic, Compass, Stethoscope, ChevronDown, ChevronUp } from 'lucide-react';
 import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +13,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAppointmentUpdates, type AppointmentUpdate } from '@/hooks/useSocket';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import {
+    SOURCE_FILTER_OPTIONS,
+    VISIT_TYPE_FILTER_OPTIONS,
+    getSourceDisplay,
+    getVisitTypeDisplay,
+    resolveCanonicalSource,
+    resolveCanonicalVisitType
+} from '@/lib/clinicalDimensions';
 
 // --- Sub-components for better UX and Performance ---
 
@@ -70,12 +78,24 @@ const EmptyState = ({ statusFilter, searchQuery }: { statusFilter: string; searc
 
     if (searchQuery) {
         icon = <SearchX className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-4" />;
-        title = 'No results found';
+        title = 'No appointments found';
         desc = `We couldn't find any patients matching "${searchQuery}".`;
-    } else if (statusFilter === 'active' || statusFilter === 'scheduled') {
+    } else if (statusFilter === 'active') {
         icon = <CalendarX className="h-12 w-12 text-emerald-200 dark:text-emerald-900 mb-4" />;
         title = 'No active appointments';
         desc = 'You are all caught up! There are no upcoming or pending appointments right now.';
+    } else if (statusFilter === 'scheduled') {
+        icon = <Clock className="h-12 w-12 text-blue-200 dark:text-blue-900 mb-4" />;
+        title = 'No scheduled appointments';
+        desc = 'There are no newly scheduled appointments awaiting review.';
+    } else if (statusFilter === 'confirmed') {
+        icon = <Calendar className="h-12 w-12 text-emerald-200 dark:text-emerald-900 mb-4" />;
+        title = 'No confirmed appointments';
+        desc = 'There are no confirmed appointments right now.';
+    } else if (statusFilter === 'in_progress') {
+        icon = <Play className="h-12 w-12 text-indigo-200 dark:text-indigo-900 mb-4" />;
+        title = 'No appointments in progress';
+        desc = 'There are no consultations currently in progress.';
     } else if (statusFilter === 'completed') {
         icon = <CheckCircle className="h-12 w-12 text-emerald-200 dark:text-emerald-900 mb-4" />;
         title = 'No completed appointments';
@@ -100,26 +120,51 @@ const EmptyState = ({ statusFilter, searchQuery }: { statusFilter: string; searc
 const AppointmentCard = React.memo(({ apt, searchQuery, handleConfirm, handleStartConsultation, handleCheckIn, handleComplete, openNewSchedule, handleCancel, setAuditTrailModal, isActing, router }: any) => {
     const isActive = ['scheduled', 'confirmed', 'pending', 'in_progress'].includes((apt.status || '').toLowerCase());
     const consultationId = apt.consultation_id || apt.consultation_room_id;
+    const [isExpanded, setIsExpanded] = React.useState(false);
 
     // Overdue check
     const isOverdue = (() => {
         if (!['scheduled', 'confirmed'].includes(apt.status || '')) return false;
         const timeStr = apt.time || apt.timeSlot || '';
-        if (!timeStr) return false;
+        const dateStr = apt.date || '';
+        if (!timeStr || !dateStr) return false;
+        
         const [hStr, mStr] = timeStr.split(':');
-        const apptDate = new Date();
-        apptDate.setHours(parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
+        
+        let y, m, d;
+        if (dateStr.includes('T')) {
+            const datePart = dateStr.split('T')[0];
+            [y, m, d] = datePart.split('-');
+        } else {
+            [y, m, d] = dateStr.split('-');
+        }
+        if (!y || !m || !d) return false;
+        
+        const apptDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
         return new Date() > apptDate;
     })();
 
     const age = apt.patient?.date_of_birth ? Math.abs(new Date(Date.now() - new Date(apt.patient.date_of_birth).getTime()).getUTCFullYear() - 1970) : null;
+    const hasDetails = Boolean(apt.reason || (apt.symptoms && apt.symptoms.length > 0) || apt.patient_notes || apt.severity_current !== undefined || apt.onset_type || apt.voice_note_url || apt.known_allergies?.length || apt.current_medications || apt.medical_history);
 
     return (
-        <div className={`group flex flex-col lg:flex-row lg:items-start justify-between gap-4 p-5 transition-all duration-200 border-b last:border-b-0 border-gray-100 dark:border-gray-800/60 ${
-            isOverdue
-                ? 'bg-red-50/50 dark:bg-red-950/20 border-l-4 border-l-red-500'
-                : 'hover:bg-gray-50/80 dark:hover:bg-gray-800/40 border-l-4 border-l-transparent hover:border-l-gray-300 dark:hover:border-l-gray-600'
-        }`}>
+        <div 
+            className={`group flex flex-col lg:flex-row lg:items-start justify-between gap-4 p-5 transition-all duration-200 border-b last:border-b-0 border-gray-100 dark:border-gray-800/60 ${
+                isOverdue
+                    ? 'bg-red-50/50 dark:bg-red-950/20 border-l-4 border-l-red-500'
+                    : 'hover:bg-gray-50/80 dark:hover:bg-gray-800/40 border-l-4 border-l-transparent hover:border-l-gray-300 dark:hover:border-l-gray-600'
+            } ${hasDetails ? 'cursor-pointer' : ''}`}
+            onClick={() => { if (hasDetails) setIsExpanded(!isExpanded); }}
+            aria-expanded={hasDetails ? isExpanded : undefined}
+            role={hasDetails ? 'button' : undefined}
+            tabIndex={hasDetails ? 0 : undefined}
+            onKeyDown={(e) => {
+                if (hasDetails && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    setIsExpanded(!isExpanded);
+                }
+            }}
+        >
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 w-full lg:w-[70%]">
                 <div className="flex-shrink-0 mt-1 hidden sm:block">
                     <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 shadow-sm group-hover:bg-emerald-100 group-hover:text-emerald-700 dark:group-hover:bg-emerald-900/40 dark:group-hover:text-emerald-400 group-hover:border-emerald-200 dark:group-hover:border-emerald-800/50 transition-colors">
@@ -133,12 +178,34 @@ const AppointmentCard = React.memo(({ apt, searchQuery, handleConfirm, handleSta
                             href={`/doctor/patients/${apt.patientId || apt.patient?.id || ''}`}
                             className="font-semibold text-lg text-gray-900 dark:text-gray-100 hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline flex items-center gap-1.5 transition-colors"
                             title="Click to view full patient medical record & vitals"
+                            onClick={(e) => e.stopPropagation()}
                         >
                             <HighlightedText text={apt.patientName || 'Patient'} highlight={searchQuery} />
                         </Link>
                         <span className="text-[11px] font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
                             ID: {apt.id.substring(0, 8).toUpperCase()}
                         </span>
+                        {/* Independent Source Badge */}
+                        {(() => {
+                            const srcDisplay = getSourceDisplay(resolveCanonicalSource(apt));
+                            const vtDisplay = getVisitTypeDisplay(resolveCanonicalVisitType(apt));
+                            return (
+                                <>
+                                    <span className={`text-[11px] font-bold inline-flex items-center gap-1 px-2 py-0.5 rounded border ${srcDisplay.badgeClass}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${srcDisplay.dotClass}`}></span>
+                                        {srcDisplay.label}
+                                    </span>
+                                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${vtDisplay.badgeClass}`}>
+                                        {vtDisplay.label}
+                                    </span>
+                                </>
+                            );
+                        })()}
+                        {(apt.fee !== undefined || apt.consultation_fee !== undefined) && (
+                            <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
+                                ₹{apt.fee ?? apt.consultation_fee ?? 0} · {(apt.payment_status || 'PAID').toUpperCase()}
+                            </span>
+                        )}
                         {apt.patient?.gender && (
                             <span className="text-[11px] font-medium text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 capitalize">
                                 {apt.patient.gender}
@@ -175,8 +242,24 @@ const AppointmentCard = React.memo(({ apt, searchQuery, handleConfirm, handleSta
                         </div>
                     )}
 
-                    {(apt.reason || (apt.symptoms && apt.symptoms.length > 0) || apt.patient_notes || apt.severity_current || apt.onset_type || apt.voice_note_url) && (
-                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {hasDetails && (
+                        <div className="flex items-center gap-1 mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-500 select-none">
+                            {isExpanded ? (
+                                <>
+                                    <ChevronUp className="h-4 w-4" />
+                                    Hide Details
+                                </>
+                            ) : (
+                                <>
+                                    <ChevronDown className="h-4 w-4" />
+                                    View Details
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {isExpanded && hasDetails && (
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 animate-in fade-in slide-in-from-top-2 duration-200" onClick={(e) => e.stopPropagation()}>
                             {apt.reason && (
                                 <div className="bg-white dark:bg-gray-900/40 p-3 rounded-lg border border-gray-100 dark:border-gray-800 shadow-sm transition-colors group-hover:border-gray-200 dark:group-hover:border-gray-700">
                                     <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Reason</p>
@@ -278,7 +361,10 @@ const AppointmentCard = React.memo(({ apt, searchQuery, handleConfirm, handleSta
                 </div>
             </div>
             
-            <div className="flex flex-col items-start lg:items-end gap-3 w-full lg:w-[30%] pt-4 lg:pt-0 border-t lg:border-t-0 border-gray-100 dark:border-gray-800">
+            <div 
+                className="flex flex-col items-start lg:items-end gap-3 w-full lg:w-[30%] pt-4 lg:pt-0 border-t lg:border-t-0 border-gray-100 dark:border-gray-800"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className="flex justify-between lg:justify-end w-full">
                     <div className="lg:hidden font-medium text-gray-500 text-sm">Status</div>
                     <StatusBadge status={apt.status || 'scheduled'} size="md" />
@@ -368,20 +454,13 @@ AppointmentCard.displayName = 'AppointmentCard';
 
 export default function DoctorAppointmentsPage() {
     const router = useRouter();
-    const { appointments, isLoading, error, fetchAppointments, startConsultation, completeAppointment, resendOtp, confirmAppointment, cancelAppointment, rescheduleAppointment, checkInAppointment, clearError } = useDoctorStore();
+    const { appointments, loadingAppointments, isLoading, error, fetchAppointments, startConsultation, completeAppointment, resendOtp, confirmAppointment, cancelAppointment, rescheduleAppointment, checkInAppointment, clearError } = useDoctorStore();
+    const isListLoading = Boolean(loadingAppointments || isLoading);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('active');
+    const [sourceFilter, setSourceFilter] = useState('all');
+    const [visitTypeFilter, setVisitTypeFilter] = useState('all');
     
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const params = new URLSearchParams(window.location.search);
-            const status = params.get('status');
-            if (status) {
-                setStatusFilter(status);
-            }
-        }
-    }, []);
-
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [newApptAlert, setNewApptAlert] = useState<string | null>(null);
     const [page, setPage] = useState(1);
@@ -446,15 +525,24 @@ export default function DoctorAppointmentsPage() {
             const matchesStatus = statusFilter === 'all'
                 || (statusFilter === 'active' ? isActiveAppointment(apt.status) : 
                    (statusFilter === 'pending' ? apt.status === 'scheduled' : apt.status === statusFilter));
-            return matchesSearch && matchesStatus;
+            
+            // Source Dimension Filter
+            const canonicalSrc = resolveCanonicalSource(apt);
+            const matchesSource = sourceFilter === 'all' || canonicalSrc === sourceFilter;
+
+            // Visit Type Dimension Filter
+            const canonicalVisitType = resolveCanonicalVisitType(apt);
+            const matchesVisitType = visitTypeFilter === 'all' || canonicalVisitType === visitTypeFilter;
+
+            return matchesSearch && matchesStatus && matchesSource && matchesVisitType;
         });
-    }, [appointments, searchQuery, statusFilter, isActiveAppointment]);
+    }, [appointments, searchQuery, statusFilter, sourceFilter, visitTypeFilter, isActiveAppointment]);
 
     const { totalPages, totalItems, itemsPerPage, paginate } = usePagination(filtered, 10);
     const paginatedItems = useMemo(() => paginate(page), [paginate, page]);
 
     // Reset page when filters change
-    useEffect(() => { setPage(1); }, [searchQuery, statusFilter]);
+    useEffect(() => { setPage(1); }, [searchQuery, statusFilter, sourceFilter, visitTypeFilter]);
 
     // Handlers
     const handleConfirm = async (id: string) => {
@@ -574,16 +662,6 @@ export default function DoctorAppointmentsPage() {
         setCancelReason('');
     };
 
-    if (error) {
-        return (
-            <div className="flex flex-col items-center justify-center h-96 gap-4">
-                <AlertCircle className="h-12 w-12 text-red-400" />
-                <p className="text-red-600">{error}</p>
-                <Button onClick={() => { clearError(); fetchAppointments(selectedStatus, undefined, 1); }} leftIcon={<RefreshCw className="h-4 w-4" />}>Retry</Button>
-            </div>
-        );
-    }
-
     return (
         <>
         <div className="space-y-6">
@@ -604,42 +682,80 @@ export default function DoctorAppointmentsPage() {
                 <div className="flex items-center gap-3">
                     <Button 
                         onClick={() => fetchAppointments(selectedStatus, undefined, 1)} 
-                        leftIcon={<RefreshCw className="h-4 w-4" />}
+                        leftIcon={isListLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                        disabled={isListLoading}
                         variant="outline"
                         aria-label="Refresh appointments list"
-                        className="shadow-sm hover:shadow transition-shadow bg-white dark:bg-gray-800"
+                        className="shadow-sm hover:shadow transition-shadow bg-white dark:bg-gray-800 disabled:opacity-60"
                     >
-                        Refresh List
+                        {isListLoading ? 'Refreshing...' : 'Refresh List'}
                     </Button>
                 </div>
             </div>
 
             {/* Search and Filters Section */}
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                <div className="relative w-full md:w-96 group">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-emerald-500 transition-colors">
-                        <Search className="h-4 w-4" />
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+                    <div className="relative w-full lg:w-full max-w-sm group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-emerald-500 transition-colors">
+                            <Search className="h-4 w-4" />
+                        </div>
+                        <Input
+                            type="text"
+                            placeholder="Search patient name..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10 w-full rounded-xl border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm focus:border-emerald-500 focus:ring-emerald-500/20"
+                            aria-label="Search patient name"
+                        />
+                        {searchQuery && (
+                            <button 
+                                onClick={() => setSearchQuery('')}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                aria-label="Clear search"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        )}
                     </div>
-                    <Input
-                        type="text"
-                        placeholder="Search patient name..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 w-full rounded-xl border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm focus:border-emerald-500 focus:ring-emerald-500/20"
-                        aria-label="Search patient name"
-                    />
-                    {searchQuery && (
-                        <button 
-                            onClick={() => setSearchQuery('')}
-                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                            aria-label="Clear search"
-                        >
-                            <X className="h-4 w-4" />
-                        </button>
-                    )}
+
+                    {/* Independent Dimension Dropdowns */}
+                    <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+                        {/* 1. Source Filter */}
+                        <div className="relative flex-1 sm:flex-none min-w-[140px]">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <Compass className="h-3.5 w-3.5" />
+                            </div>
+                            <select
+                                value={sourceFilter}
+                                onChange={(e) => setSourceFilter(e.target.value)}
+                                className="block w-full pl-9 pr-8 py-2 border border-gray-200 dark:border-gray-800 rounded-xl text-xs bg-white dark:bg-gray-800 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 dark:text-gray-200 transition-all shadow-sm outline-none cursor-pointer font-bold appearance-none"
+                            >
+                                {SOURCE_FILTER_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* 2. Visit Type Filter */}
+                        <div className="relative flex-1 sm:flex-none min-w-[160px]">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <Stethoscope className="h-3.5 w-3.5" />
+                            </div>
+                            <select
+                                value={visitTypeFilter}
+                                onChange={(e) => setVisitTypeFilter(e.target.value)}
+                                className="block w-full pl-9 pr-8 py-2 border border-gray-200 dark:border-gray-800 rounded-xl text-xs bg-white dark:bg-gray-800 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 dark:text-gray-200 transition-all shadow-sm outline-none cursor-pointer font-bold appearance-none"
+                            >
+                                {VISIT_TYPE_FILTER_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
+                <div className="w-full overflow-x-auto no-scrollbar pb-1">
                     <div className="flex items-center gap-2.5 min-w-max">
                         {[
                             { id: 'active', label: 'Active' },
@@ -672,8 +788,21 @@ export default function DoctorAppointmentsPage() {
 
             <DoctorPortalCard className="!p-0 overflow-hidden bg-white dark:bg-gray-900 border-none sm:border-solid">
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {isLoading && appointments.length === 0 ? (
+                    {isListLoading ? (
                         Array.from({ length: 4 }).map((_, i) => <AppointmentSkeleton key={i} />)
+                    ) : error ? (
+                        <div className="flex flex-col items-center justify-center p-12 text-center">
+                            <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Unable to load appointments</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mb-4">{error}</p>
+                            <Button 
+                                onClick={() => { clearError(); fetchAppointments(selectedStatus, undefined, 1); }} 
+                                leftIcon={<RefreshCw className="h-4 w-4" />}
+                                className="rounded-xl shadow-xs"
+                            >
+                                Retry
+                            </Button>
+                        </div>
                     ) : filtered.length === 0 ? (
                         <EmptyState statusFilter={statusFilter} searchQuery={searchQuery} />
                     ) : (
@@ -695,7 +824,7 @@ export default function DoctorAppointmentsPage() {
                         ))
                     )}
                 </div>
-                {!isLoading && filtered.length > 0 && (
+                {!isListLoading && !error && filtered.length > 0 && (
                     <Pagination
                         currentPage={page}
                         totalPages={totalPages}
@@ -1032,6 +1161,48 @@ export default function DoctorAppointmentsPage() {
                                         </div>
                                     )}
                                 </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+                                    <div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Practice Source</p>
+                                        {(auditTrailModal.source === 'direct_walk_in' || auditTrailModal.source === 'direct_phone' || auditTrailModal.source === 'direct' || auditTrailModal.type === 'home_visit') ? (
+                                            <span className="inline-block text-xs font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-2.5 py-1 rounded border border-amber-200 dark:border-amber-800/50">
+                                                Direct Practice (Outside Vaididea)
+                                            </span>
+                                        ) : (
+                                            <span className="inline-block text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded border border-emerald-200 dark:border-emerald-800/50">
+                                                Vaididea Platform
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Consultation Fee</p>
+                                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                                            ₹{auditTrailModal.fee ?? auditTrailModal.consultation_fee ?? 0}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Payment Status</p>
+                                        <span className="text-xs font-bold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded border border-gray-200 dark:border-gray-700 uppercase">
+                                            {auditTrailModal.payment_status || 'PAID'} {auditTrailModal.payment_reference ? `(${auditTrailModal.payment_reference})` : ''}
+                                        </span>
+                                    </div>
+                                </div>
+                                {(auditTrailModal.diagnosis || auditTrailModal.doctor_notes) && (
+                                    <div className="pt-3 border-t border-gray-100 dark:border-gray-800 space-y-2">
+                                        {auditTrailModal.diagnosis && (
+                                            <div>
+                                                <p className="text-xs text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider mb-1">Clinical Diagnosis</p>
+                                                <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">{auditTrailModal.diagnosis}</p>
+                                            </div>
+                                        )}
+                                        {auditTrailModal.doctor_notes && (
+                                            <div>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-1">Doctor's Clinical Notes</p>
+                                                <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed font-medium">{auditTrailModal.doctor_notes}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
 

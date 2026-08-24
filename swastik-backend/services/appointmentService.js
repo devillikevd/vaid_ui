@@ -442,6 +442,7 @@ const bookAppointment = async (patientId, appointmentData) => {
       .in('status', ['scheduled', 'confirmed', 'in_progress']);
       
     for (const a of (existingAppts || [])) {
+
       if (!a.time_slot) continue;
       const eTs = a.time_slot.length > 5 ? a.time_slot.slice(0, 5) : a.time_slot;
       const eParts = eTs.split(':');
@@ -458,17 +459,27 @@ const bookAppointment = async (patientId, appointmentData) => {
   // ------------------------------------------
 
   // Generate appointment number: VD-YYYY-MMDD-NNNN
-  const bookingDate = new Date(date);
-  const yyyy = bookingDate.getFullYear();
-  const mm = String(bookingDate.getMonth() + 1).padStart(2, '0');
-  const dd = String(bookingDate.getDate()).padStart(2, '0');
+  // Use string splitting to avoid local timezone shift
+  const [yyyy, mm, dd] = date.split('-');
 
-  // Count existing appointments on this date to generate sequence
-  const { count: existingCount } = await supabaseAdmin
+  // Find the highest sequence number for this date to prevent unique constraint 
+  // violations (23505) caused by deleted appointments or concurrency
+  const { data: latestAppt } = await supabaseAdmin
     .from('appointments')
-    .select('id', { count: 'exact', head: true })
-    .eq('appointment_date', date);
-  const seq = String((existingCount || 0) + 1).padStart(4, '0');
+    .select('appointment_number')
+    .ilike('appointment_number', `VD-${yyyy}-${mm}${dd}-%`)
+    .order('appointment_number', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let seqNum = 1;
+  if (latestAppt && latestAppt.appointment_number) {
+    const parts = latestAppt.appointment_number.split('-');
+    if (parts.length === 4) {
+      seqNum = parseInt(parts[3], 10) + 1;
+    }
+  }
+  const seq = String(seqNum).padStart(4, '0');
   const appointmentNumber = `VD-${yyyy}-${mm}${dd}-${seq}`;
 
   let finalTimeSlot = timeSlot;
@@ -927,8 +938,14 @@ const resendCompletionOtp = async (doctorUserId, appointmentId) => {
     throw new ApiError(400, 'OTP can only be resent for appointments in progress');
   }
 
-  if (!appointment.completion_otp) {
-    throw new ApiError(400, 'No completion OTP generated for this appointment');
+  let completionOtp = appointment.completion_otp;
+  if (!completionOtp) {
+    // OTP was never generated (e.g. started before the bug fix) — generate one now
+    completionOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    await supabaseAdmin
+      .from('appointments')
+      .update({ completion_otp: completionOtp, updated_at: new Date().toISOString() })
+      .eq('id', appointmentId);
   }
 
   const { data: patientUser } = await supabaseAdmin
@@ -940,9 +957,9 @@ const resendCompletionOtp = async (doctorUserId, appointmentId) => {
   if (patientUser?.user_id) {
     await notificationService.sendNotification(patientUser.user_id, {
       title: '🔐 Your Completion OTP',
-      message: `Your consultation completion OTP is ${appointment.completion_otp}. Please share this with your doctor.`,
+      message: `Your consultation completion OTP is ${completionOtp}. Please share this with your doctor.`,
       type: 'otp_resend',
-      data: { appointmentId: appointment.id, completion_otp: appointment.completion_otp },
+      data: { appointmentId: appointment.id, completion_otp: completionOtp },
     });
   }
 

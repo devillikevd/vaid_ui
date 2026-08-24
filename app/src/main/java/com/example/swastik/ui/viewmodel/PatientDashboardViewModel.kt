@@ -9,6 +9,7 @@ import com.example.swastik.data.remote.dto.UpdateProfileRequest
 import com.example.swastik.data.remote.dto.AddEmergencyContactRequest
 import com.example.swastik.data.remote.dto.AddFamilyMemberRequest
 import com.example.swastik.data.remote.dto.WearableSummaryRequest
+import com.example.swastik.data.remote.dto.ReferralConsentDto
 import com.example.swastik.data.repository.Result
 import com.example.swastik.data.repository.PatientRepository
 import com.example.swastik.data.repository.EmergencyRepository
@@ -115,6 +116,18 @@ class PatientDashboardViewModel @Inject constructor(
     val guardianEvents = guardianRepository.getAllEvents()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private val _pendingConsents = MutableStateFlow<List<ReferralConsentDto>>(emptyList())
+    val pendingConsents: StateFlow<List<ReferralConsentDto>> = _pendingConsents.asStateFlow()
+
+    private val _isConsentLoading = MutableStateFlow(false)
+    val isConsentLoading: StateFlow<Boolean> = _isConsentLoading.asStateFlow()
+
+    private val _consentActionMessage = MutableStateFlow<String?>(null)
+    val consentActionMessage: StateFlow<String?> = _consentActionMessage.asStateFlow()
+
+    private val _consentActionError = MutableStateFlow<String?>(null)
+    val consentActionError: StateFlow<String?> = _consentActionError.asStateFlow()
+
     private val _uiState = MutableStateFlow(PatientDashboardUiState())
     val uiState: StateFlow<PatientDashboardUiState> = _uiState.asStateFlow()
 
@@ -190,6 +203,7 @@ class PatientDashboardViewModel @Inject constructor(
             kotlinx.coroutines.delay(100)
             pushNotificationCoordinator.registerCurrentDeviceIfPossible()
             loadDashboard()
+            fetchPendingConsents()
         }
         fetchDashboardData()
         fetchTotalQuestions()
@@ -406,6 +420,7 @@ class PatientDashboardViewModel @Inject constructor(
                 }
                 is Result.Loading -> {}
             }
+            fetchPendingConsents()
         }
     }
 
@@ -1190,6 +1205,83 @@ class PatientDashboardViewModel @Inject constructor(
 
     suspend fun getGuardianAnalytics(): String {
         return guardianRepository.generateAnalyticsReportJson()
+    }
+
+    // ── Referral Consent Actions ───────────────────────────────────
+
+    fun fetchPendingConsents() {
+        viewModelScope.launch {
+            when (val result = patientRepository.getPendingReferralConsents()) {
+                is Result.Success -> {
+                    _pendingConsents.value = result.data
+                }
+                is Result.Error -> {
+                    Log.e("PatientDashboardVM", "Failed to fetch pending consents: ${result.message}")
+                }
+                else -> Unit
+            }
+        }
+    }
+
+    fun approveConsent(referralId: String, onResult: ((Boolean, String) -> Unit)? = null) {
+        if (_isConsentLoading.value) return
+        viewModelScope.launch {
+            _isConsentLoading.value = true
+            _consentActionError.value = null
+            when (val result = patientRepository.approveReferralConsent(referralId)) {
+                is Result.Success -> {
+                    _isConsentLoading.value = false
+                    _pendingConsents.value = _pendingConsents.value.filter { it.id != referralId }
+                    val msg = "Consent granted"
+                    _consentActionMessage.value = msg
+                    com.example.swastik.ui.components.SnackbarManager.showMessage("Consent granted: The referral can now be securely shared with the receiving provider.")
+                    onResult?.invoke(true, msg)
+                }
+                is Result.Error -> {
+                    _isConsentLoading.value = false
+                    val errorMsg = result.message ?: "Unable to process your decision. Please try again."
+                    _consentActionError.value = errorMsg
+                    com.example.swastik.ui.components.SnackbarManager.showError(errorMsg)
+                    onResult?.invoke(false, errorMsg)
+                }
+                else -> {
+                    _isConsentLoading.value = false
+                }
+            }
+        }
+    }
+
+    fun declineConsent(referralId: String, onResult: ((Boolean, String) -> Unit)? = null) {
+        if (_isConsentLoading.value) return
+        viewModelScope.launch {
+            _isConsentLoading.value = true
+            _consentActionError.value = null
+            when (val result = patientRepository.declineReferralConsent(referralId)) {
+                is Result.Success -> {
+                    _isConsentLoading.value = false
+                    _pendingConsents.value = _pendingConsents.value.filter { it.id != referralId }
+                    val msg = "Consent declined"
+                    _consentActionMessage.value = msg
+                    com.example.swastik.ui.components.SnackbarManager.showMessage("Consent declined")
+                    onResult?.invoke(true, msg)
+                }
+                is Result.Error -> {
+                    _isConsentLoading.value = false
+                    val errorMsg = result.message ?: "Unable to process your decision. Please try again."
+                    _consentActionError.value = errorMsg
+                    com.example.swastik.ui.components.SnackbarManager.showError(errorMsg)
+                    onResult?.invoke(false, errorMsg)
+                }
+                else -> {
+                    _isConsentLoading.value = false
+                }
+            }
+        }
+    }
+
+    fun clearConsentMessage() {
+        _consentActionMessage.value = null
+        _consentActionError.value = null
     }
 }
 

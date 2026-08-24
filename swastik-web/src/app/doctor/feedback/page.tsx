@@ -97,13 +97,22 @@ export default function DoctorFeedbackPage() {
     
     setIsSubmitting(true);
     try {
+      const finalContext = {
+          ...techContext,
+          timestamp: new Date().toISOString(),
+          feedbackType: type,
+          category,
+          module: searchParams?.get('page') || 'Feedback Center',
+          errorId: searchParams?.get('errorId') || undefined
+      };
+
       const res = await doctorApi.submitFeedback({
         type,
         category,
         title,
         description,
         rating,
-        ...techContext
+        context: finalContext
       });
       if (res.success) {
         toast.success('Feedback submitted successfully! Thank you.');
@@ -330,19 +339,50 @@ export default function DoctorFeedbackPage() {
           <div className="lg:col-span-4 space-y-6">
             
             {activeTab === 'give' && (
-              <div className="bg-blue-50 dark:bg-blue-900/10 rounded-2xl p-6 border border-blue-100 dark:border-blue-900/30">
-                <h3 className="font-semibold text-blue-800 dark:text-blue-400 mb-3 flex items-center gap-2">
-                  <AlertCircle /> Automatic Context
-                </h3>
-                <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
-                  To help us debug faster, we will securely attach your current environment details to this feedback:
+              <div className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm space-y-3">
+                <div className="flex items-center gap-2 text-gray-900 dark:text-white font-semibold">
+                  <AlertCircle className="w-4 h-4 text-emerald-500" />
+                  Automatic Context
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  We'll securely attach basic technical details to help our team investigate this feedback faster.
                 </p>
-                <ul className="space-y-2 text-xs text-blue-600/80 dark:text-blue-400/80">
-                  <li className="flex justify-between"><span>Browser:</span> <strong>{techContext.browser}</strong></li>
-                  <li className="flex justify-between"><span>OS:</span> <strong>{techContext.os}</strong></li>
-                  <li className="flex justify-between"><span>Device:</span> <strong>{techContext.device}</strong></li>
-                  <li className="flex justify-between"><span>Route:</span> <strong>{techContext.route}</strong></li>
-                </ul>
+                <div className="text-xs space-y-2 mt-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Browser</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{techContext.browser}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">OS</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{techContext.os}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Device</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{techContext.device}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Page</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{techContext.route}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">App Version</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{techContext.appVersion || 'Unknown'}</span>
+                  </div>
+                </div>
+                
+                <details className="mt-3 group">
+                  <summary className="text-[10px] text-gray-400 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors list-none flex items-center gap-1">
+                    View details <span className="group-open:rotate-180 transition-transform inline-block">▾</span>
+                  </summary>
+                  <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-[10px] text-gray-500 font-mono overflow-x-auto">
+                    {JSON.stringify({ context: techContext }, null, 2)}
+                  </div>
+                </details>
+                
+                <div className="pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center gap-1.5 text-[10px] text-gray-400">
+                  <CheckCircle className="w-3 h-3 text-emerald-500" />
+                  Attached automatically. No patient or clinical information is included in automatic context.
+                </div>
               </div>
             )}
 
@@ -391,6 +431,26 @@ export default function DoctorFeedbackPage() {
                             )}
                         </div>
                     </div>
+
+                    {(selectedFeedback.browser || selectedFeedback.os || selectedFeedback.device) && (
+                        <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+                            <details className="group">
+                                <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300 transition-colors list-none flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5 text-gray-400" />
+                                    Context attached <span className="group-open:rotate-180 transition-transform inline-block">▾</span>
+                                </summary>
+                                <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-[10px] text-gray-500 font-mono overflow-x-auto">
+                                    {JSON.stringify({
+                                        browser: selectedFeedback.browser,
+                                        os: selectedFeedback.os,
+                                        device: selectedFeedback.device,
+                                        route: selectedFeedback.route,
+                                        appVersion: selectedFeedback.appVersion
+                                    }, null, 2)}
+                                </div>
+                            </details>
+                        </div>
+                    )}
                 </div>
               </div>
             )}

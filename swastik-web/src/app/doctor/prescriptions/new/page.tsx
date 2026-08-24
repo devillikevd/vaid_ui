@@ -564,7 +564,7 @@ export default function NewPrescriptionPage() {
                                         type="checkbox"
                                         checked={item.beforeFood}
                                         onChange={(e) => updateItem(index, 'beforeFood', e.target.checked)}
-                                        className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                                        className="w-4 h-4 text-emerald-600 border-gray-300 dark:border-gray-700 rounded focus:ring-emerald-500"
                                     />
                                     <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Take before food</span>
                                 </label>
@@ -573,7 +573,7 @@ export default function NewPrescriptionPage() {
                                         type="checkbox"
                                         checked={item.isCritical}
                                         onChange={(e) => updateItem(index, 'isCritical', e.target.checked)}
-                                        className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                                        className="w-4 h-4 text-red-600 border-gray-300 dark:border-gray-700 rounded focus:ring-red-500"
                                     />
                                     <span className="text-xs font-medium text-red-600 dark:text-red-400">Critical medicine</span>
                                 </label>

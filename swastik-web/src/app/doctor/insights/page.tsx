@@ -110,7 +110,7 @@ export default function DoctorInsightsPage() {
     }
 
     return (
-        <div className="max-w-6xl mx-auto space-y-8 pb-24">
+        <div className="w-full min-w-0 max-w-6xl mx-auto space-y-8 pb-24">
             
             {/* Header & AI Summary */}
             <div className="flex flex-col md:flex-row justify-between gap-6 items-start">
@@ -191,7 +191,7 @@ export default function DoctorInsightsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
                 
                 {/* Left Column: Recommendations & Alerts */}
-                <div className="lg:col-span-2 space-y-6">
+                <div className="lg:col-span-2 space-y-6 min-w-0">
                     
                     <div className="flex items-center justify-between">
                         <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
@@ -221,7 +221,7 @@ export default function DoctorInsightsPage() {
                 </div>
 
                 {/* Right Column: Data-Driven Sections */}
-                <div className="space-y-6">
+                <div className="space-y-6 min-w-0">
                     
                     {/* What Changed / Trends */}
                     <DoctorPortalCard className="!p-6">
@@ -470,7 +470,7 @@ function InsightMetricCard({ title, value, icon: Icon, trend, loading, subtitle 
     };
 
     return (
-        <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+        <div className="bg-white dark:bg-[#0f1929] border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group min-w-0">
             <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-gray-50 to-transparent dark:from-gray-800/30 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
             
             <div className="flex justify-between items-start mb-4 relative z-10">

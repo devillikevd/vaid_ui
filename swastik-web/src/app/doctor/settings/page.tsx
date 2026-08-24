@@ -325,7 +325,7 @@ export default function DoctorSettingsPage() {
 
             <div className="flex flex-col lg:flex-row gap-6">
                 {/* Sidebar Tabs */}
-                <aside className="lg:w-64 shrink-0">
+                <aside className="lg:w-full max-w-sm shrink-0">
                     <DoctorPortalCard className="!p-0 overflow-hidden">
                         {TABS.map((tab, idx) => {
                             const Icon = tab.icon;

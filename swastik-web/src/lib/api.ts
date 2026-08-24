@@ -871,8 +871,8 @@ export const doctorApi = {
         }),
 
     disableSchedule: (id: string) =>
-        fetchWithAuth(`/doctors/me/schedules/${id}/disable`, {
-            method: 'PUT',
+        fetchWithAuth(`/doctors/me/schedules/${id}`, {
+            method: 'DELETE',
         }),
 
     getAppointments: (status?: string, date?: string, page: number = 1) => {
@@ -883,12 +883,14 @@ export const doctorApi = {
         return fetchWithAuth(`/appointments?${params}`);
     },
 
-    getPatients: (page: number = 1, search: string = '', limit: number = 20, filter: string = 'all', sort: string = 'recent') => {
+    getPatients: (page: number = 1, search: string = '', limit: number = 20, filter: string = 'all', sort: string = 'recent', source: string = 'all', visitType: string = 'all') => {
         const params = new URLSearchParams({
             page: page.toString(),
             limit: limit.toString(),
             filter,
-            sort
+            sort,
+            source,
+            visitType
         });
         if (search.trim()) params.set('search', search.trim());
         return fetchWithAuth(`/doctors/me/patients?${params}`);
@@ -1024,6 +1026,15 @@ export const doctorApi = {
 
     getInsights: () =>
         fetchWithAuth('/doctors/me/insights'),
+
+    searchPatientByPhone: (phone: string) =>
+        fetchWithAuth<{ found: boolean; patient: any }>(`/doctors/me/patients/search-by-phone?phone=${encodeURIComponent(phone)}`),
+
+    recordDirectVisit: (data: Record<string, unknown>) =>
+        fetchWithAuth<{ appointment: any; prescription: any; vitals?: any }>('/doctors/me/direct-visits', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
 };
 
 // ==================== HOSPITAL API ====================
@@ -2614,6 +2625,22 @@ const universalReferralsApi = {
             method: 'POST',
             body: JSON.stringify(data),
         }),
+
+    createDraft: (data: any) =>
+        fetchWithAuth('/referrals/draft', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    submitReferral: (id: string) =>
+        fetchWithAuth(`/referrals/${id}/send`, {
+            method: 'PATCH',
+        }),
+
+    checkConsent: (patientId: string, params: Record<string, string>) => {
+        const query = new URLSearchParams(params).toString();
+        return fetchWithAuth(`/referrals/patients/${patientId}/consent/check?${query}`);
+    },
 
     getReferralInbox: (params?: Record<string, string>) => {
         const query = params ? '?' + new URLSearchParams(params).toString() : '';

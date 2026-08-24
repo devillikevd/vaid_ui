@@ -405,7 +405,7 @@ export default function MyCareNetworksPage() {
                     ))}
                 </div>
 
-                <div className="relative w-full sm:w-72">
+                <div className="relative w-full sm:w-full max-w-sm">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-gray-400" />
                     <input
                         type="text"

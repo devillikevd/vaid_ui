@@ -228,7 +228,8 @@ export const useAdminStore = create<AdminState>((set, get) => ({
             const normalizedType = normalizeProviderTypeForApi(type);
             const response = await adminApi.getPendingApprovals(normalizedType, 1, filters);
             if (response.success) {
-                const rawData = response.data as any;
+                // BUG FIX: The backend returns `{ success: true, doctor: { data: [] } }`, not `{ success: true, data: { ... } }`
+                const rawData = response.data || response;
 
                 let providers: PendingProvider[] = [];
 
@@ -238,8 +239,9 @@ export const useAdminStore = create<AdminState>((set, get) => ({
                 } else if (rawData && typeof rawData === 'object') {
                     // "all" type returns { doctors: {data: [...]}, hospitals: {data: [...]}, ... }
                     // OR flat arrays: { doctors: [...], hospitals: [...] }
-                    // BUG-07 Fix: Handle both shapes
+                    // Handle both shapes
                     for (const [providerType, group] of Object.entries(rawData)) {
+                        if (providerType === 'success' || providerType === 'error') continue; // Skip metadata keys
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const items = Array.isArray(group) ? group : (group as any)?.data || [];
                         if (Array.isArray(items)) {

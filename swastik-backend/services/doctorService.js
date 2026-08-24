@@ -17,6 +17,13 @@ const MAX_PAST_SLOTS_SHOWN = 8;
  * Haversine distance between two lat/lng points in kilometers.
  * Used for nearby doctor search.
  */
+function dateOfBirthFromAge(age) {
+  if (!age || isNaN(Number(age))) return null;
+  const currentYear = new Date().getFullYear();
+  const birthYear = currentYear - Number(age);
+  return `${birthYear}-01-01`;
+}
+
 function haversineDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; // Earth's radius in km
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -263,27 +270,54 @@ class DoctorService {
 
     // Get stats
     const [
-      { data: patientRows },
+      appointmentPatientsResult,
+      consultationPatientsResult,
       { count: totalAppointments },
       { count: completedConsultations },
-      { data: reviews }
+      allReviewsResult,
+      recentReviewsResult
     ] = await Promise.all([
-      supabaseAdmin.from('appointments').select('patient_id').eq('doctor_id', doctor.id),
+      supabaseAdmin.from('appointments').select('patient_id').eq('doctor_id', doctor.id).not('patient_id', 'is', null),
+      supabaseAdmin.from('consultations').select('patient_id').eq('doctor_id', doctor.id).not('patient_id', 'is', null),
       supabaseAdmin.from('appointments').select('id', { count: 'exact', head: true }).eq('doctor_id', doctor.id),
       supabaseAdmin.from('consultations').select('id', { count: 'exact', head: true }).eq('doctor_id', doctor.id).eq('status', 'completed'),
-      supabaseAdmin.from('reviews').select('id, rating, comment, created_at, patient:patients(name)').eq('reviewable_type', 'doctor').eq('reviewable_id', doctor.id).order('created_at', { ascending: false }).limit(5),
+      supabaseAdmin.from('reviews').select('rating, is_verified').eq('reviewable_type', 'doctor').eq('reviewable_id', doctor.id).eq('is_visible', true).eq('is_approved', true),
+      supabaseAdmin.from('reviews').select('id, rating, comment, created_at, is_verified').eq('reviewable_type', 'doctor').eq('reviewable_id', doctor.id).eq('is_visible', true).eq('is_approved', true).order('created_at', { ascending: false }).limit(5),
     ]);
 
-    const uniquePatients = new Set((patientRows || []).map((r) => r.patient_id)).size;
+    const patientIdSet = new Set();
+    (appointmentPatientsResult.data || []).forEach(r => { if (r.patient_id) patientIdSet.add(r.patient_id); });
+    (consultationPatientsResult.data || []).forEach(r => { if (r.patient_id) patientIdSet.add(r.patient_id); });
+    const uniquePatients = patientIdSet.size;
+
+    const allRatings = allReviewsResult.data || [];
+    const totalReviews = allRatings.length;
+    let sumRating = 0;
+    let verifiedReviewsCount = 0;
+    allRatings.forEach(r => {
+      sumRating += (r.rating || 0);
+      if (r.is_verified) verifiedReviewsCount++;
+    });
+    const averageRating = totalReviews > 0 ? Math.round((sumRating / totalReviews) * 10) / 10 : 0;
 
     return {
       ...doctor,
+      rating: averageRating,
+      total_reviews: totalReviews,
+      verified_reviews: verifiedReviewsCount,
       stats: {
         totalPatients: uniquePatients,
         totalAppointments: totalAppointments || 0,
         completedConsultations: completedConsultations || 0,
+        averageRating,
+        totalReviews,
+        verifiedReviews: verifiedReviewsCount,
       },
-      recentReviews: reviews || [],
+      recentReviews: (recentReviewsResult.data || []).map(r => ({
+        ...r,
+        is_anonymous: true,
+        patient: { name: 'Anonymous Patient', full_name: 'Anonymous Patient' }
+      })),
     };
   }
 
@@ -531,9 +565,10 @@ class DoctorService {
       upcomingApptsResult,
       pendingApptsResult,
       recentConsultResult,
-      totalPatientsResult,
-      completedTodayResult,
       completedTodayApptsResult,
+      appointmentPatientsResult,
+      consultationPatientsResult,
+      reviewsResult,
     ] = await Promise.all([
       supabaseAdmin.from('appointments')
         .select('*, patient:patients(id, name, date_of_birth, gender, profile_image_url, blood_group, weight, height)')
@@ -548,7 +583,7 @@ class DoctorService {
         .or('patient_notes.neq.BLOCKED_BY_DOCTOR,patient_notes.is.null')
         .order('appointment_date', { ascending: true }).limit(10),
       supabaseAdmin.from('appointments')
-        .select('*', { count: 'exact' })
+        .select('*', { count: 'exact', head: true })
         .eq('doctor_id', doctor.id).eq('status', 'scheduled')
         .or('patient_notes.neq.BLOCKED_BY_DOCTOR,patient_notes.is.null')
         .gte('appointment_date', today),
@@ -557,16 +592,23 @@ class DoctorService {
         .eq('doctor_id', doctor.id)
         .order('created_at', { ascending: false }).limit(5),
       supabaseAdmin.from('appointments')
-        .select('*', { count: 'exact', head: true })
-        .eq('doctor_id', doctor.id).eq('appointment_date', today),
-      supabaseAdmin.from('appointments')
-        .select('*', { count: 'exact', head: true })
+        .select('id, fee, patient_id')
         .eq('doctor_id', doctor.id).eq('appointment_date', today)
         .eq('status', 'completed'),
       supabaseAdmin.from('appointments')
-        .select('id, fee')
-        .eq('doctor_id', doctor.id).eq('appointment_date', today)
-        .eq('status', 'completed'),
+        .select('patient_id')
+        .eq('doctor_id', doctor.id)
+        .not('patient_id', 'is', null),
+      supabaseAdmin.from('consultations')
+        .select('patient_id')
+        .eq('doctor_id', doctor.id)
+        .not('patient_id', 'is', null),
+      supabaseAdmin.from('reviews')
+        .select('rating, is_verified')
+        .eq('reviewable_type', 'doctor')
+        .eq('reviewable_id', doctor.id)
+        .eq('is_visible', true)
+        .eq('is_approved', true),
     ]);
 
     const normalizeAppointmentPatient = (appointment) => ({
@@ -582,9 +624,41 @@ class DoctorService {
     const upcomingAppointments = (upcomingApptsResult.data || []).map(normalizeAppointmentPatient);
     const pendingCount = pendingApptsResult.count || 0;
     const recentConsultations = recentConsultResult.data || [];
-    const totalPatientsToday = totalPatientsResult.count || 0;
-    const completedToday = completedTodayResult.count || 0;
     const completedTodayAppts = completedTodayApptsResult.data || [];
+    const completedToday = completedTodayAppts.length;
+
+    // Lifetime Unique Patients across appointments & consultations for THIS doctor
+    const lifetimePatientIdSet = new Set();
+    (appointmentPatientsResult.data || []).forEach(r => {
+      if (r.patient_id) lifetimePatientIdSet.add(r.patient_id);
+    });
+    (consultationPatientsResult.data || []).forEach(r => {
+      if (r.patient_id) lifetimePatientIdSet.add(r.patient_id);
+    });
+    const totalPatients = lifetimePatientIdSet.size;
+
+    // Unique Patients Today
+    const todayPatientIdSet = new Set();
+    (todayAppointments || []).forEach(a => {
+      if (a.patient_id) todayPatientIdSet.add(a.patient_id);
+    });
+    (completedTodayAppts || []).forEach(a => {
+      if (a.patient_id) todayPatientIdSet.add(a.patient_id);
+    });
+    const totalPatientsToday = todayPatientIdSet.size;
+
+    // Canonical Average Rating from reviews table
+    const allRatings = reviewsResult.data || [];
+    const totalReviews = allRatings.length;
+    let sumRating = 0;
+    let verifiedReviewsCount = 0;
+    allRatings.forEach(r => {
+      sumRating += (r.rating || 0);
+      if (r.is_verified) verifiedReviewsCount++;
+    });
+    const averageRating = totalReviews > 0
+      ? Math.round((sumRating / totalReviews) * 10) / 10
+      : 0;
 
     const totalEarningsToday = completedTodayAppts.reduce((sum, a) => sum + (a.fee || doctor.consultation_fee || 0), 0);
 
@@ -594,12 +668,17 @@ class DoctorService {
         name: doctor.name,
         specialization: doctor.specialization,
         isAvailable: doctor.is_available,
+        consultation_fee: doctor.consultation_fee,
+        rating: averageRating,
+        total_reviews: totalReviews,
+        verified_reviews: verifiedReviewsCount,
       },
       todayAppointments,
       upcomingAppointments,
       pendingCount,
       recentConsultations,
       stats: {
+        totalPatients,
         totalPatientsToday,
         completedToday,
         earningsToday: totalEarningsToday,
@@ -607,6 +686,9 @@ class DoctorService {
         completed: completedToday,
         pending: pendingCount,
         todaysEarnings: totalEarningsToday,
+        averageRating,
+        totalReviews,
+        verifiedReviews: verifiedReviewsCount,
       },
     };
 
@@ -1754,7 +1836,7 @@ class DoctorService {
   }
 
   // Get patients list (for doctor)
-  async getPatients(userId, page = 1, limit = 20, search = '', filter = 'all', sort = 'recent') {
+  async getPatients(userId, page = 1, limit = 20, search = '', filter = 'all', sort = 'recent', sourceFilter = 'all', visitTypeFilter = 'all') {
     const { data: doctor } = await supabaseAdmin
       .from('doctors')
       .select('id')
@@ -1779,10 +1861,15 @@ class DoctorService {
           patient_id,
           appointment_date,
           created_at,
+          type,
+          status,
+          payment_reference,
+          reason,
+          reason_for_visit,
           patient:patients(${patientSelect})
         `)
         .eq('doctor_id', doctor.id)
-        .order('appointment_date', { ascending: false, nullsFirst: false })
+        .order('appointment_date', { ascending: false })
         .order('created_at', { ascending: false }),
       supabaseAdmin
         .from('consultations')
@@ -1800,15 +1887,75 @@ class DoctorService {
     if (appointmentsResult.error) throw appointmentsResult.error;
     if (consultationsResult.error) throw consultationsResult.error;
 
+    const resolveCanonicalSource = (apt) => {
+      if (!apt) return 'vaididea';
+      const payRef = String(apt.payment_reference || '').toUpperCase();
+      const reason = String(apt.reason_for_visit || apt.reason || '').toLowerCase();
+      const rawSource = String(apt.source || '').toLowerCase();
+      if (rawSource.includes('direct') || rawSource === 'walk_in' || rawSource === 'offline') {
+        return 'direct';
+      }
+      if (payRef.startsWith('DIRECT_') || payRef === 'WAIVED' || payRef.includes('DIRECT_CASH') || payRef.includes('DIRECT_UPI') || payRef.includes('DIRECT_PHONE') || payRef.includes('DIRECT_WALK_IN')) {
+        return 'direct';
+      }
+      if (reason.includes('direct walk-in') || reason.includes('direct practice') || reason.includes('direct consultation') || reason.includes('direct phone')) {
+        return 'direct';
+      }
+      return 'vaididea';
+    };
+
+    const resolveCanonicalVisitType = (apt) => {
+      const rawType = String(apt?.type || apt?.visit_type || apt?.consultation_mode || '').toLowerCase();
+      const rawSource = String(apt?.source || '').toLowerCase();
+      const reason = String(apt?.reason_for_visit || apt?.reason || '').toLowerCase();
+      const payRef = String(apt?.payment_reference || '').toUpperCase();
+
+      if (rawType === 'video' || rawType === 'video_consultation' || rawType === 'online' || rawType === 'teleconsultation') {
+        return 'video_consultation';
+      }
+      if (rawType === 'home_visit' || rawType === 'home' || reason.includes('home visit')) {
+        return 'home_visit';
+      }
+      if (rawType === 'phone' || rawType === 'phone_consultation' || payRef.includes('DIRECT_PHONE') || reason.includes('direct phone') || rawSource === 'direct_phone') {
+        return 'phone_consultation';
+      }
+      if (rawType === 'walk_in' || rawType === 'walk_in_clinic' || payRef.includes('DIRECT_WALK_IN') || reason.includes('walk-in') || rawSource === 'direct_walk_in') {
+        return 'walk_in_clinic';
+      }
+      return 'in_person_clinic';
+    };
+
+    const getVisitTypeLabel = (vt) => {
+      switch (vt) {
+        case 'video_consultation': return 'Video Consultation';
+        case 'walk_in_clinic': return 'Walk-in Clinic';
+        case 'phone_consultation': return 'Phone Consultation';
+        case 'home_visit': return 'Home Visit';
+        case 'in_person_clinic':
+        default: return 'In-Person Clinic';
+      }
+    };
+
     const patientEvents = [
-      ...(appointmentsResult.data || []).map((appointment) => ({
-        patient: appointment.patient,
-        lastVisit: appointment.appointment_date || appointment.created_at || null,
-      })),
-      ...(consultationsResult.data || []).map((consultation) => ({
-        patient: consultation.patient,
-        lastVisit: consultation.started_at || consultation.ended_at || consultation.created_at || null,
-      })),
+      ...(appointmentsResult.data || []).map((appointment) => {
+        const src = resolveCanonicalSource(appointment);
+        const vt = resolveCanonicalVisitType(appointment);
+        return {
+          patient: appointment.patient,
+          date: appointment.appointment_date || appointment.created_at || null,
+          source: src,
+          visitType: vt,
+        };
+      }),
+      ...(consultationsResult.data || []).map((consultation) => {
+        const vt = resolveCanonicalVisitType(consultation);
+        return {
+          patient: consultation.patient,
+          date: consultation.started_at || consultation.ended_at || consultation.created_at || null,
+          source: 'vaididea',
+          visitType: vt,
+        };
+      }),
     ];
 
     const patientMap = new Map();
@@ -1816,9 +1963,10 @@ class DoctorService {
       if (!event.patient) return;
 
       const existing = patientMap.get(event.patient.id);
-      const lastVisit = event.lastVisit;
+      const visitDate = event.date;
 
       if (!existing) {
+        const isDirect = event.source === 'direct';
         patientMap.set(event.patient.id, {
           id: event.patient.id,
           name: event.patient.name,
@@ -1829,54 +1977,132 @@ class DoctorService {
           profileImageUrl: event.patient.profile_image_url,
           email: event.patient.user?.email || null,
           phone: event.patient.user?.phone || null,
-          lastVisit,
+          lastVisit: visitDate,
+          lastVisitType: event.visitType,
+          lastVisitTypeLabel: getVisitTypeLabel(event.visitType),
           totalVisits: 1,
+          source: isDirect ? 'direct' : 'vaididea',
+          sourceLabel: isDirect ? 'Direct Practice' : 'Vaididea',
+          sources: [event.source],
+          visitTypes: [event.visitType],
+          events: [{ source: event.source, visitType: event.visitType, date: visitDate }],
         });
         return;
       }
 
       existing.totalVisits += 1;
-      if (lastVisit && (!existing.lastVisit || new Date(lastVisit) > new Date(existing.lastVisit))) {
-        existing.lastVisit = lastVisit;
+      existing.events.push({ source: event.source, visitType: event.visitType, date: visitDate });
+
+      if (event.source && !existing.sources.includes(event.source)) {
+        existing.sources.push(event.source);
+      }
+      if (event.visitType && !existing.visitTypes.includes(event.visitType)) {
+        existing.visitTypes.push(event.visitType);
+      }
+
+      const hasDirect = existing.sources.includes('direct');
+      const hasVaididea = existing.sources.includes('vaididea');
+      if (hasDirect && hasVaididea) {
+        existing.source = 'mixed';
+        existing.sourceLabel = 'Direct + Vaididea';
+      } else if (hasDirect) {
+        existing.source = 'direct';
+        existing.sourceLabel = 'Direct Practice';
+      } else {
+        existing.source = 'vaididea';
+        existing.sourceLabel = 'Vaididea';
+      }
+
+      if (visitDate && (!existing.lastVisit || new Date(visitDate) > new Date(existing.lastVisit))) {
+        existing.lastVisit = visitDate;
+        existing.lastVisitType = event.visitType;
+        existing.lastVisitTypeLabel = getVisitTypeLabel(event.visitType);
       }
     });
 
     let patients = Array.from(patientMap.values());
-    const normalizedSearch = sanitizeSearch(search)?.toLowerCase();
+
+    // 1. Search Filter (Name, Email, Phone)
+    const normalizedSearch = String(search || '').trim().toLowerCase();
     if (normalizedSearch) {
-      patients = patients.filter((patient) =>
-        [patient.name, patient.email, patient.phone]
-          .filter(Boolean)
-          .some((value) => value.toLowerCase().includes(normalizedSearch))
-      );
+      const searchDigits = normalizedSearch.replace(/\D/g, '');
+      patients = patients.filter((patient) => {
+        const nameMatch = String(patient.name || '').toLowerCase().includes(normalizedSearch);
+        const emailMatch = String(patient.email || '').toLowerCase().includes(normalizedSearch);
+        const phoneRaw = String(patient.phone || '').toLowerCase();
+        const phoneMatch = phoneRaw.includes(normalizedSearch) || (searchDigits.length > 2 && phoneRaw.replace(/\D/g, '').includes(searchDigits));
+        return nameMatch || emailMatch || phoneMatch;
+      });
     }
 
-    if (filter === 'last_7_days') {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      patients = patients.filter(p => p.lastVisit && new Date(p.lastVisit) >= weekAgo);
-    } else if (filter === 'last_30_days') {
-      const monthAgo = new Date();
-      monthAgo.setDate(monthAgo.getDate() - 30);
-      patients = patients.filter(p => p.lastVisit && new Date(p.lastVisit) >= monthAgo);
-    }
+    // Normalizing Filter Keys
+    const normSourceFilter = String(sourceFilter || 'all').toLowerCase().trim();
+    const normVisitTypeFilter = String(visitTypeFilter || 'all').toLowerCase().trim();
+    const normTimeFilter = String(filter || 'all').toLowerCase().trim();
 
+    // 2. Source, Visit Type & Time Combined Filtering (Strict AND logic across patient history)
+    patients = patients.filter((patient) => {
+      // 2a. Source Dimension condition
+      let matchesSource = true;
+      if (normSourceFilter === 'vaididea') {
+        matchesSource = (patient.sources || []).includes('vaididea');
+      } else if (normSourceFilter === 'direct' || normSourceFilter === 'direct_practice') {
+        matchesSource = (patient.sources || []).includes('direct');
+      } else if (normSourceFilter === 'mixed' || normSourceFilter === 'direct_vaididea' || normSourceFilter === 'direct + vaididea') {
+        matchesSource = (patient.sources || []).includes('direct') && (patient.sources || []).includes('vaididea');
+      }
+
+      if (!matchesSource) return false;
+
+      // 2b. Visit Type Dimension condition
+      let matchesVisitType = true;
+      if (normVisitTypeFilter !== 'all') {
+        matchesVisitType = (patient.visitTypes || []).includes(normVisitTypeFilter);
+      }
+
+      if (!matchesVisitType) return false;
+
+      // 2c. Combined Source + Visit Type AND Condition on specific consultations
+      if ((normSourceFilter === 'vaididea' || normSourceFilter === 'direct' || normSourceFilter === 'direct_practice') && normVisitTypeFilter !== 'all') {
+        const targetSrc = normSourceFilter.startsWith('direct') ? 'direct' : 'vaididea';
+        const hasMatchingEvent = (patient.events || []).some(
+          e => e.source === targetSrc && e.visitType === normVisitTypeFilter
+        );
+        if (!hasMatchingEvent) return false;
+      }
+
+      // 2d. Time Filter condition
+      if (normTimeFilter === 'last_7_days') {
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const hasRecentVisit = (patient.events || []).some(e => e.date && new Date(e.date) >= weekAgo) || (patient.lastVisit && new Date(patient.lastVisit) >= weekAgo);
+        if (!hasRecentVisit) return false;
+      } else if (normTimeFilter === 'last_30_days') {
+        const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const hasRecentVisit = (patient.events || []).some(e => e.date && new Date(e.date) >= monthAgo) || (patient.lastVisit && new Date(patient.lastVisit) >= monthAgo);
+        if (!hasRecentVisit) return false;
+      }
+
+      return true;
+    });
+
+    // 3. Sorting
     if (sort === 'frequent') {
       patients.sort((a, b) => (b.totalVisits || 0) - (a.totalVisits || 0));
     } else if (sort === 'oldest') {
       patients.sort((a, b) => {
-        const left = a.lastVisit ? new Date(a.lastVisit).getTime() : 0;
-        const right = b.lastVisit ? new Date(b.lastVisit).getTime() : 0;
+        const left = a.lastVisit ? new Date(a.lastVisit).getTime() : Infinity;
+        const right = b.lastVisit ? new Date(b.lastVisit).getTime() : Infinity;
         return left - right;
       });
     } else {
-      // default: recent
+      // default: recent (highest/latest date first)
       patients.sort((a, b) => {
-        const left = b.lastVisit ? new Date(b.lastVisit).getTime() : 0;
-        const right = a.lastVisit ? new Date(a.lastVisit).getTime() : 0;
+        const left = b.lastVisit ? new Date(b.lastVisit).getTime() : -Infinity;
+        const right = a.lastVisit ? new Date(a.lastVisit).getTime() : -Infinity;
         return left - right;
       });
     }
+
     const paginatedPatients = patients.slice(offset, offset + limit);
 
     return paginatedResponse(paginatedPatients, patients.length, page, limit);
@@ -2366,6 +2592,7 @@ class DoctorService {
       { data: patient },
       { data: consultations },
       { data: appointments },
+      ownPrescriptionsResult,
       { data: sharedConsultations },
       { data: sharedPrescriptions },
       fullHistoryReportsResult,
@@ -2384,7 +2611,7 @@ class DoctorService {
         .from('consultations')
         .select(`
           *,
-          appointment:appointments(id, appointment_date, time_slot, type, reason, symptoms, patient_notes),
+          appointment:appointments(id, appointment_date, time_slot, type, reason, symptoms, patient_notes, fee, consultation_fee, payment_status, payment_reference, doctor_notes),
           prescriptions(*)
         `)
         .eq('doctor_id', doctor.id)
@@ -2392,10 +2619,19 @@ class DoctorService {
         .order('created_at', { ascending: false }),
       supabaseAdmin
         .from('appointments')
-        .select('id, appointment_date, time_slot, type, status, reason, symptoms, patient_notes, fee, notes, created_at')
+        .select('id, appointment_date, time_slot, type, status, reason, reason_for_visit, symptoms, patient_notes, fee, consultation_fee, payment_status, payment_reference, doctor_notes, notes, created_at')
         .eq('doctor_id', doctor.id)
         .eq('patient_id', patientId)
-        .order('appointment_date', { ascending: false, nullsFirst: false })
+        .order('appointment_date', { ascending: false })
+        .order('created_at', { ascending: false }),
+      supabaseAdmin
+        .from('prescriptions')
+        .select(`
+          *,
+          prescription_medicines(*)
+        `)
+        .eq('doctor_id', doctor.id)
+        .eq('patient_id', patientId)
         .order('created_at', { ascending: false }),
       grant
         ? supabaseAdmin
@@ -2458,6 +2694,97 @@ class DoctorService {
       ? (fullHistoryReportsResult?.data || [])
       : explicitlySharedReports;
 
+    const resolveCanonicalSource = (apt) => {
+      if (!apt) return 'vaididea';
+      const payRef = String(apt.payment_reference || '').toUpperCase();
+      const reason = String(apt.reason_for_visit || apt.reason || '').toLowerCase();
+      const rawSource = String(apt.source || '').toLowerCase();
+      if (rawSource.includes('direct') || rawSource === 'walk_in' || rawSource === 'offline') {
+        return 'direct';
+      }
+      if (payRef.startsWith('DIRECT_') || payRef === 'WAIVED' || payRef.includes('DIRECT_CASH') || payRef.includes('DIRECT_UPI') || payRef.includes('DIRECT_PHONE') || payRef.includes('DIRECT_WALK_IN')) {
+        return 'direct';
+      }
+      if (reason.includes('direct walk-in') || reason.includes('direct practice') || reason.includes('direct consultation') || reason.includes('direct phone')) {
+        return 'direct';
+      }
+      return 'vaididea';
+    };
+
+    const resolveCanonicalVisitType = (apt, fallbackType) => {
+      const rawType = String(apt?.type || fallbackType || '').toLowerCase();
+      const rawSource = String(apt?.source || '').toLowerCase();
+      const reason = String(apt?.reason_for_visit || apt?.reason || '').toLowerCase();
+      const payRef = String(apt?.payment_reference || '').toUpperCase();
+
+      if (rawType === 'video' || rawType === 'video_consultation' || rawType === 'online' || rawType === 'teleconsultation') {
+        return 'video_consultation';
+      }
+      if (rawType === 'home_visit' || rawType === 'home' || reason.includes('home visit')) {
+        return 'home_visit';
+      }
+      if (rawType === 'phone' || rawType === 'phone_consultation' || payRef.includes('DIRECT_PHONE') || reason.includes('direct phone') || rawSource === 'direct_phone') {
+        return 'phone_consultation';
+      }
+      if (rawType === 'walk_in' || rawType === 'walk_in_clinic' || payRef.includes('DIRECT_WALK_IN') || reason.includes('walk-in') || rawSource === 'direct_walk_in') {
+        return 'walk_in_clinic';
+      }
+      return 'in_person_clinic';
+    };
+
+    const getVisitTypeLabel = (vt) => {
+      switch (vt) {
+        case 'video_consultation': return 'Video Consultation';
+        case 'walk_in_clinic': return 'Walk-in Clinic';
+        case 'phone_consultation': return 'Phone Consultation';
+        case 'home_visit': return 'Home Visit';
+        case 'in_person_clinic':
+        default: return 'In-Person Clinic';
+      }
+    };
+
+    const hasDirectVisits = (appointments || []).some(a => resolveCanonicalSource(a) === 'direct');
+    const hasVaidideaVisits = (appointments || []).some(a => resolveCanonicalSource(a) === 'vaididea') || (consultations || []).length > 0;
+    let patientSource = 'vaididea';
+    let patientSourceLabel = 'Vaididea';
+    if (hasDirectVisits && hasVaidideaVisits) {
+      patientSource = 'mixed';
+      patientSourceLabel = 'Direct + Vaididea';
+    } else if (hasDirectVisits) {
+      patientSource = 'direct';
+      patientSourceLabel = 'Direct Practice';
+    }
+
+    // Attach dynamic source and visit type to appointments
+    const enrichedAppointments = (appointments || []).map(a => {
+      const src = resolveCanonicalSource(a);
+      const vt = resolveCanonicalVisitType(a);
+      return {
+        ...a,
+        source: src,
+        sourceLabel: src === 'direct' ? 'Direct Practice' : 'Vaididea',
+        visitType: vt,
+        visitTypeLabel: getVisitTypeLabel(vt),
+      };
+    });
+
+    const enrichedConsultations = (consultations || []).map(c => {
+      const vt = resolveCanonicalVisitType(c?.appointment, c?.type);
+      return {
+        ...c,
+        source: 'vaididea',
+        sourceLabel: 'Vaididea',
+        visitType: vt,
+        visitTypeLabel: getVisitTypeLabel(vt),
+      };
+    });
+
+    // Safely collect prescriptions from both prescriptions table and consultations
+    const ownPrescriptions = [
+      ...(ownPrescriptionsResult?.data || []),
+      ...(consultations || []).flatMap(c => c?.prescriptions || []),
+    ].filter((rx, index, self) => rx?.id && self.findIndex(r => r.id === rx.id) === index);
+
     const payload = {
       ...patient,
       age: calculateAge(patient?.date_of_birth),
@@ -2465,8 +2792,11 @@ class DoctorService {
       phone: patient?.user?.phone || null,
       totalVisits,
       lastVisit,
-      appointments: appointments || [],
-      consultations: consultations || [],
+      source: patientSource,
+      sourceLabel: patientSourceLabel,
+      appointments: enrichedAppointments,
+      consultations: enrichedConsultations,
+      prescriptions: ownPrescriptions,
       sharedConsultations: sharedConsultations || [],
       sharedPrescriptions: sharedPrescriptions || [],
       reports: visibleReports || [],
@@ -4043,12 +4373,625 @@ class DoctorService {
     return { message: 'Onboarding completed', practiceSetupType };
   }
 
+  /**
+   * Get doctor analytics with strict period filtering and type classification.
+   */
+  async getAnalytics(userId, period = '30d') {
+    const doctor = await this._resolveDoctor(userId);
+
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const [currYear, currMonth, currDay] = todayStr.split('-').map(Number);
+
+    let startDateStr = todayStr;
+    let endDateStr = todayStr;
+    let prevStartDateStr = todayStr;
+    let prevEndDateStr = todayStr;
+
+    const p = String(period || '30d').toLowerCase().trim();
+
+    if (p === 'today' || p === 'day' || p === '1d') {
+      startDateStr = todayStr;
+      endDateStr = todayStr;
+      
+      const dYesterday = new Date(Date.UTC(currYear, currMonth - 1, currDay - 1));
+      const yesterdayStr = dYesterday.toISOString().split('T')[0];
+      prevStartDateStr = yesterdayStr;
+      prevEndDateStr = yesterdayStr;
+    } else if (p === '7d' || p === '7days' || p === '7_days' || p === 'last_7_days' || p === 'week') {
+      const dStart = new Date(Date.UTC(currYear, currMonth - 1, currDay - 6));
+      startDateStr = dStart.toISOString().split('T')[0];
+      endDateStr = todayStr;
+
+      const dPrevEnd = new Date(Date.UTC(currYear, currMonth - 1, currDay - 7));
+      const dPrevStart = new Date(Date.UTC(currYear, currMonth - 1, currDay - 13));
+      prevStartDateStr = dPrevStart.toISOString().split('T')[0];
+      prevEndDateStr = dPrevEnd.toISOString().split('T')[0];
+    } else if (p === '90d' || p === '90days' || p === '3m' || p === '3months') {
+      const dStart = new Date(Date.UTC(currYear, currMonth - 1, currDay - 89));
+      startDateStr = dStart.toISOString().split('T')[0];
+      endDateStr = todayStr;
+
+      const dPrevEnd = new Date(Date.UTC(currYear, currMonth - 1, currDay - 90));
+      const dPrevStart = new Date(Date.UTC(currYear, currMonth - 1, currDay - 179));
+      prevStartDateStr = dPrevStart.toISOString().split('T')[0];
+      prevEndDateStr = dPrevEnd.toISOString().split('T')[0];
+    } else if (p === '1y' || p === 'year' || p === 'this_year' || p === 'thisyear' || p === '1year' || p === '365d') {
+      startDateStr = `${currYear}-01-01`;
+      endDateStr = todayStr;
+
+      prevStartDateStr = `${currYear - 1}-01-01`;
+      prevEndDateStr = `${currYear - 1}-${String(currMonth).padStart(2, '0')}-${String(currDay).padStart(2, '0')}`;
+    } else {
+      // default 30d
+      const dStart = new Date(Date.UTC(currYear, currMonth - 1, currDay - 29));
+      startDateStr = dStart.toISOString().split('T')[0];
+      endDateStr = todayStr;
+
+      const dPrevEnd = new Date(Date.UTC(currYear, currMonth - 1, currDay - 30));
+      const dPrevStart = new Date(Date.UTC(currYear, currMonth - 1, currDay - 59));
+      prevStartDateStr = dPrevStart.toISOString().split('T')[0];
+      prevEndDateStr = dPrevEnd.toISOString().split('T')[0];
+    }
+
+    // Parallel fetch for current and previous period appointments
+    const [currentApptsRes, prevApptsRes, slotDataRes] = await Promise.all([
+      supabaseAdmin
+        .from('appointments')
+        .select('id, appointment_date, status, type, fee, consultation_fee, patient_id, time_slot, payment_status, payment_reference, reason, reason_for_visit, patient_notes')
+        .eq('doctor_id', doctor.id)
+        .gte('appointment_date', startDateStr)
+        .lte('appointment_date', endDateStr)
+        .order('appointment_date', { ascending: true }),
+      supabaseAdmin
+        .from('appointments')
+        .select('id, appointment_date, status, type, fee, consultation_fee, patient_id, payment_status, payment_reference, reason, reason_for_visit, patient_notes')
+        .eq('doctor_id', doctor.id)
+        .gte('appointment_date', prevStartDateStr)
+        .lte('appointment_date', prevEndDateStr),
+      supabaseAdmin
+        .from('appointments')
+        .select('time_slot')
+        .eq('doctor_id', doctor.id)
+        .gte('appointment_date', startDateStr)
+        .lte('appointment_date', endDateStr),
+    ]);
+
+    const resolveCanonicalSource = (apt) => {
+      if (!apt) return 'vaididea';
+      const payRef = String(apt.payment_reference || '').toUpperCase();
+      const reason = String(apt.reason_for_visit || apt.reason || '').toLowerCase();
+      const rawSource = String(apt.source || '').toLowerCase();
+      if (rawSource.includes('direct') || rawSource === 'walk_in' || rawSource === 'offline') {
+        return 'direct';
+      }
+      if (payRef.startsWith('DIRECT_') || payRef === 'WAIVED' || payRef.includes('DIRECT_CASH') || payRef.includes('DIRECT_UPI') || payRef.includes('DIRECT_PHONE') || payRef.includes('DIRECT_WALK_IN')) {
+        return 'direct';
+      }
+      if (reason.includes('direct walk-in') || reason.includes('direct practice') || reason.includes('direct consultation') || reason.includes('direct phone')) {
+        return 'direct';
+      }
+      return 'vaididea';
+    };
+
+    const appts = (currentApptsRes.data || [])
+      .filter(a => a.patient_notes !== 'BLOCKED_BY_DOCTOR')
+      .map(a => ({
+        ...a,
+        source: resolveCanonicalSource(a) === 'direct' ? 'direct_walk_in' : 'vaididea_app',
+      }));
+
+    const prevAppts = (prevApptsRes.data || [])
+      .filter(a => a.patient_notes !== 'BLOCKED_BY_DOCTOR')
+      .map(a => ({
+        ...a,
+        source: resolveCanonicalSource(a) === 'direct' ? 'direct_walk_in' : 'vaididea_app',
+      }));
+
+    const isVideoType = (type) => {
+      if (!type) return false;
+      const t = String(type).trim().toLowerCase();
+      return t === 'video' || t === 'video_consultation' || t === 'online' || t === 'teleconsultation';
+    };
+
+    const isDirectSource = (source) => {
+      if (!source) return false;
+      const s = String(source).trim().toLowerCase();
+      return s === 'direct_walk_in' || s === 'direct_phone' || s === 'direct' || s === 'walk_in';
+    };
+
+    const isReferralSource = (source) => {
+      if (!source) return false;
+      const s = String(source).trim().toLowerCase();
+      return s === 'clinic_referral' || s === 'hospital_referral' || s === 'doctor_referral';
+    };
+
+    // Build daily appointment breakdown
+    const dailyMap = {};
+    appts.forEach(a => {
+      const d = a.appointment_date;
+      if (!dailyMap[d]) dailyMap[d] = { date: d, appointments: 0, revenue: 0, video: 0, inPerson: 0, cancelled: 0, completed: 0, direct: 0, vaididea: 0 };
+      dailyMap[d].appointments++;
+      const aptFee = Number(a.fee ?? a.consultation_fee) || Number(doctor.consultation_fee) || 0;
+      if (a.status === 'completed' || (isDirectSource(a.source) && a.payment_status === 'paid')) {
+        dailyMap[d].completed++;
+        dailyMap[d].revenue += aptFee;
+      }
+      if (a.status === 'cancelled') dailyMap[d].cancelled++;
+      if (isVideoType(a.type)) dailyMap[d].video++;
+      else dailyMap[d].inPerson++;
+
+      if (isDirectSource(a.source)) dailyMap[d].direct++;
+      else dailyMap[d].vaididea++;
+    });
+    const dailyData = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+
+    // Summary calculations
+    const totalAppointments = appts.length;
+    const completedAppts = appts.filter(a => a.status === 'completed' || (isDirectSource(a.source) && a.payment_status === 'paid')).length;
+    const cancelledAppts = appts.filter(a => a.status === 'cancelled').length;
+    const videoAppts = appts.filter(a => isVideoType(a.type)).length;
+    const inPersonAppts = totalAppointments - videoAppts;
+    
+    // Revenue calculations: Vaididea vs Direct
+    const vaidideaAppts = appts.filter(a => !isDirectSource(a.source));
+    const directAppts = appts.filter(a => isDirectSource(a.source));
+
+    const vaidideaRevenue = vaidideaAppts
+      .filter(a => a.status === 'completed')
+      .reduce((sum, a) => sum + (Number(a.fee ?? a.consultation_fee) || Number(doctor.consultation_fee) || 0), 0);
+
+    const directRevenue = directAppts
+      .filter(a => a.status === 'completed' || a.payment_status === 'paid')
+      .reduce((sum, a) => sum + (Number(a.fee ?? a.consultation_fee) || 0), 0);
+
+    const totalRevenue = vaidideaRevenue + directRevenue;
+    const sanitizedTotalRevenue = Number.isFinite(totalRevenue) && totalRevenue >= 0 ? totalRevenue : 0;
+    
+    const cancellationRate = totalAppointments > 0 
+      ? Math.min(100, Math.max(0, Math.round((cancelledAppts / totalAppointments) * 100)))
+      : 0;
+    const completionRate = totalAppointments > 0 
+      ? Math.min(100, Math.max(0, Math.round((completedAppts / totalAppointments) * 100)))
+      : 0;
+    const avgRevenue = completedAppts > 0 ? Math.round(sanitizedTotalRevenue / completedAppts) : 0;
+
+    // Distinct patient calculations
+    const distinctTotalPatients = new Set(appts.map(a => a.patient_id).filter(Boolean)).size;
+    const distinctVaidideaPatients = new Set(vaidideaAppts.map(a => a.patient_id).filter(Boolean)).size;
+    const distinctDirectPatients = new Set(directAppts.map(a => a.patient_id).filter(Boolean)).size;
+
+    // Vaididea Impact specific counts
+    const vaidideaOnlineConsults = vaidideaAppts.filter(a => isVideoType(a.type)).length;
+    const vaidideaInPersonVisits = vaidideaAppts.length - vaidideaOnlineConsults;
+    const vaidideaNetworkReferrals = appts.filter(a => isReferralSource(a.source)).length;
+
+    // Pending payments
+    const pendingPaymentAppts = appts.filter(a => a.payment_status === 'pending' && a.status !== 'cancelled');
+    const pendingPaymentsRevenue = pendingPaymentAppts.reduce((sum, a) => sum + (Number(a.fee ?? a.consultation_fee) || Number(doctor.consultation_fee) || 0), 0);
+    const pendingPaymentsCount = pendingPaymentAppts.length;
+
+    // Previous period stats
+    const prevTotalAppointments = prevAppts.length;
+    const prevCompletedAppts = prevAppts.filter(a => a.status === 'completed' || (isDirectSource(a.source) && a.payment_status === 'paid')).length;
+    const prevCancelledAppts = prevAppts.filter(a => a.status === 'cancelled').length;
+    const prevTotalRevenue = prevAppts
+      .filter(a => a.status === 'completed' || (isDirectSource(a.source) && a.payment_status === 'paid'))
+      .reduce((sum, a) => sum + (Number(a.fee ?? a.consultation_fee) || Number(doctor.consultation_fee) || 0), 0);
+    const prevCancellationRate = prevTotalAppointments > 0 
+      ? Math.min(100, Math.max(0, Math.round((prevCancelledAppts / prevTotalAppointments) * 100)))
+      : 0;
+    const prevCompletionRate = prevTotalAppointments > 0 
+      ? Math.min(100, Math.max(0, Math.round((prevCompletedAppts / prevTotalAppointments) * 100)))
+      : 0;
+
+    // Peak hours
+    const hourMap = {};
+    (slotDataRes.data || []).forEach(a => {
+      if (!a.time_slot) return;
+      const hour = parseInt(a.time_slot.split(':')[0], 10);
+      if (!isNaN(hour)) {
+        hourMap[hour] = (hourMap[hour] || 0) + 1;
+      }
+    });
+    const peakHours = Object.entries(hourMap)
+      .map(([hour, count]) => ({ hour: parseInt(hour), label: `${hour}:00`, count }))
+      .sort((a, b) => a.hour - b.hour);
+
+    // Granular source counts
+    const directWalkInCount = directAppts.filter(a => a.source === 'direct_walk_in' || a.type === 'walk_in').length;
+    const directApptCount = directAppts.filter(a => a.source === 'direct_phone' || a.type === 'direct_appointment' || a.type === 'phone').length;
+    const homeVisitCount = appts.filter(a => a.type === 'home_visit').length;
+    const otherDirectCount = Math.max(0, directAppts.length - directWalkInCount - directApptCount - homeVisitCount);
+
+    return {
+      period,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      summary: {
+        totalAppointments,
+        completedAppointments: completedAppts,
+        cancelledAppointments: cancelledAppts,
+        totalRevenue: sanitizedTotalRevenue,
+        avgRevenuePerConsultation: avgRevenue,
+        cancellationRate,
+        completionRate,
+        videoConsultations: videoAppts,
+        inPersonConsultations: inPersonAppts,
+        uniquePatients: distinctTotalPatients,
+        // Revenue separation
+        vaidideaRevenue,
+        directRevenue,
+      },
+      // 1. YOUR VAIDIDEA IMPACT (Vaididea ecosystem activity only)
+      vaidideaImpact: {
+        vaidideaPatients: distinctVaidideaPatients,
+        onlineConsults: vaidideaOnlineConsults,
+        inPersonVisits: vaidideaInPersonVisits,
+        networkReferrals: vaidideaNetworkReferrals,
+        vaidideaRevenue,
+      },
+      // 2. OVERALL PRACTICE (Vaididea + Direct combined)
+      overallPractice: {
+        totalPatients: distinctTotalPatients,
+        totalConsultations: totalAppointments,
+        directPatients: distinctDirectPatients,
+        directConsultations: directAppts.length,
+        vaidideaPatients: distinctVaidideaPatients,
+        vaidideaConsultations: vaidideaAppts.length,
+        directRevenue,
+        vaidideaRevenue,
+        totalRevenue: sanitizedTotalRevenue,
+        completedConsultations: completedAppts,
+        cancelledConsultations: cancelledAppts,
+        pendingPaymentsRevenue,
+        pendingPaymentsCount,
+        sources: {
+          vaidideaOnline: vaidideaOnlineConsults,
+          vaidideaInPerson: vaidideaInPersonVisits,
+          directWalkIn: directWalkInCount,
+          directAppointment: directApptCount,
+          homeVisit: homeVisitCount,
+          otherDirect: otherDirectCount,
+        },
+      },
+      previousSummary: {
+        totalAppointments: prevTotalAppointments,
+        totalRevenue: prevTotalRevenue,
+        cancellationRate: prevCancellationRate,
+        completionRate: prevCompletionRate,
+      },
+      charts: {
+        daily: dailyData,
+        consultationType: [
+          { name: 'Video', value: videoAppts, color: '#10b981' },
+          { name: 'In-Person', value: inPersonAppts, color: '#3b82f6' },
+        ],
+        sourceBreakdown: [
+          { name: 'Vaididea Online', value: vaidideaOnlineConsults, color: '#10b981' },
+          { name: 'Vaididea In-Person', value: vaidideaInPersonVisits, color: '#06b6d4' },
+          { name: 'Direct Walk-in', value: directWalkInCount, color: '#6366f1' },
+          { name: 'Direct Appointment / Phone', value: directApptCount, color: '#8b5cf6' },
+          ...(homeVisitCount > 0 ? [{ name: 'Home Visit', value: homeVisitCount, color: '#ec4899' }] : []),
+          ...(otherDirectCount > 0 ? [{ name: 'Other Direct', value: otherDirectCount, color: '#f59e0b' }] : []),
+        ],
+        peakHours,
+      },
+    };
+  }
+
+  // Search existing patient by phone for direct visit attachment
+  async searchPatientByPhone(userId, phone) {
+    await this._resolveDoctor(userId);
+    if (!phone) {
+      throw new ApiError(400, 'Mobile phone number is required');
+    }
+
+    const cleanPhone = String(phone).replace(/\D/g, '').slice(-10);
+    if (cleanPhone.length < 10) {
+      return { found: false, patient: null };
+    }
+
+    // Lookup users by phone
+    const { data: users, error: userErr } = await supabaseAdmin
+      .from('users')
+      .select('id, name, phone, email')
+      .or(`phone.eq.${cleanPhone},phone.eq.+91${cleanPhone},phone.ilike.%${cleanPhone}`)
+      .limit(5);
+
+    if (userErr) throw userErr;
+
+    if (users && users.length > 0) {
+      const userIds = users.map(u => u.id);
+      const { data: patients, error: patErr } = await supabaseAdmin
+        .from('patients')
+        .select('id, user_id, name, gender, date_of_birth, blood_group, address, allergies, chronic_conditions, medical_history, current_medications')
+        .in('user_id', userIds)
+        .limit(1);
+
+      if (patErr) throw patErr;
+
+      if (patients && patients.length > 0) {
+        const p = patients[0];
+        const u = users.find(user => user.id === p.user_id) || {};
+        return {
+          found: true,
+          patient: {
+            id: p.id,
+            userId: p.user_id,
+            name: p.name || u.name,
+            phone: u.phone || phone,
+            email: u.email || null,
+            gender: p.gender || null,
+            dateOfBirth: p.date_of_birth || null,
+            age: calculateAge(p.date_of_birth),
+            bloodGroup: p.blood_group || null,
+            address: p.address || null,
+            allergies: p.allergies || [],
+            chronicConditions: p.chronic_conditions || [],
+          }
+        };
+      }
+    }
+
+    return { found: false, patient: null };
+  }
+
+  // Record a direct visit / walk-in consultation
+  async recordDirectVisit(userId, data = {}) {
+    const doctor = await this._resolveDoctor(userId);
+
+    const {
+      patientId,
+      patientName,
+      phone,
+      dateOfBirth,
+      age,
+      gender,
+      reasonForVisit,
+      reason,
+      visitType = 'walk_in', // walk_in | direct_appointment | home_visit
+      fee,
+      paymentStatus = 'paid', // paid | pending | waived
+      paymentReference,
+      paymentMethod,
+      notes,
+      diagnosis,
+      symptoms,
+      appointmentDate,
+      timeSlot,
+      prescription,
+      vitals,
+    } = data;
+
+    let targetPatientId = patientId && String(patientId).trim() ? String(patientId).trim() : null;
+
+    if (!targetPatientId) {
+      if (!patientName || !phone) {
+        throw new ApiError(400, 'Patient name and mobile phone number are required for direct visits');
+      }
+
+      const cleanPhone = String(phone).replace(/\D/g, '').slice(-10);
+
+      // Check if patient already exists by phone to prevent duplicates
+      const searchRes = await this.searchPatientByPhone(userId, cleanPhone || phone);
+      if (searchRes.found && searchRes.patient?.id) {
+        targetPatientId = searchRes.patient.id;
+      } else {
+        const resolvedDob = dateOfBirth || (age ? dateOfBirthFromAge(Number(age)) : null);
+        const resolvedGender = ['male', 'female', 'other'].includes(String(gender || '').trim().toLowerCase())
+          ? String(gender).trim().toLowerCase()
+          : null;
+
+        // Check if user already exists with this phone
+        const { data: existingUsers } = await supabaseAdmin
+          .from('users')
+          .select('id, name')
+          .or(`phone.eq.${cleanPhone},phone.eq.+91${cleanPhone},phone.ilike.%${cleanPhone}`)
+          .limit(1);
+
+        let targetUserId = existingUsers?.[0]?.id;
+
+        if (!targetUserId) {
+          // Create guest user record
+          const { data: newUser, error: userErr } = await supabaseAdmin
+            .from('users')
+            .insert({
+              name: patientName.trim(),
+              phone: cleanPhone ? `+91${cleanPhone}` : phone,
+              role: 'patient',
+              is_verified: false,
+              is_active: true,
+            })
+            .select('id')
+            .single();
+
+          if (userErr) {
+            console.error('Failed to create guest user in recordDirectVisit:', userErr);
+            // If phone conflict, lookup existing user
+            const { data: fallbackUsers } = await supabaseAdmin
+              .from('users')
+              .select('id')
+              .or(`phone.eq.${cleanPhone},phone.eq.+91${cleanPhone},phone.ilike.%${cleanPhone}`)
+              .limit(1);
+
+            targetUserId = fallbackUsers?.[0]?.id;
+          } else {
+            targetUserId = newUser?.id;
+          }
+        }
+
+        if (targetUserId) {
+          // Check if patient record exists for targetUserId
+          const { data: existingPatient } = await supabaseAdmin
+            .from('patients')
+            .select('id')
+            .eq('user_id', targetUserId)
+            .maybeSingle();
+
+          if (existingPatient) {
+            targetPatientId = existingPatient.id;
+          } else {
+            const { data: newPatient, error: patErr } = await supabaseAdmin
+              .from('patients')
+              .insert({
+                user_id: targetUserId,
+                name: patientName.trim(),
+                gender: resolvedGender,
+                date_of_birth: resolvedDob,
+              })
+              .select('id')
+              .single();
+
+            if (patErr) {
+              console.error('Failed to create patient record in recordDirectVisit:', patErr);
+              throw new ApiError(500, patErr.message || 'Failed to create patient record');
+            }
+            targetPatientId = newPatient?.id;
+          }
+        }
+      }
+    }
+
+    if (!targetPatientId) {
+      throw new ApiError(400, 'Unable to create or identify patient record');
+    }
+
+    // Map visitType to appointments type and source
+    let mappedType = 'clinic';
+    let mappedSource = 'direct_walk_in';
+
+    const normalizedVisitType = String(visitType || 'walk_in').toLowerCase();
+    if (normalizedVisitType === 'home_visit') {
+      mappedType = 'home_visit';
+      mappedSource = 'direct_walk_in';
+    } else if (normalizedVisitType === 'direct_appointment' || normalizedVisitType === 'phone') {
+      mappedType = 'clinic';
+      mappedSource = 'direct_phone';
+    } else if (normalizedVisitType === 'video') {
+      mappedType = 'video';
+      mappedSource = 'direct_phone';
+    } else {
+      mappedType = 'clinic';
+      mappedSource = 'direct_walk_in';
+    }
+
+    // Fee and Payment Status
+    const isWaived = paymentStatus === 'waived';
+    const parsedFee = isWaived ? 0 : (fee !== undefined && fee !== null && !isNaN(Number(fee)) ? Number(fee) : (Number(doctor.consultation_fee) || 0));
+    const finalPaymentStatus = isWaived ? 'paid' : (['paid', 'pending', 'refunded', 'failed'].includes(String(paymentStatus || '').toLowerCase()) ? String(paymentStatus).toLowerCase() : 'paid');
+
+    const kolkataDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const year = kolkataDate.getFullYear();
+    const month = String(kolkataDate.getMonth() + 1).padStart(2, '0');
+    const day = String(kolkataDate.getDate()).padStart(2, '0');
+    const hours = String(kolkataDate.getHours()).padStart(2, '0');
+    const minutes = String(kolkataDate.getMinutes()).padStart(2, '0');
+    const seconds = String(kolkataDate.getSeconds()).padStart(2, '0');
+
+    const apptDate = appointmentDate && typeof appointmentDate === 'string' && appointmentDate.trim() ? appointmentDate.trim() : `${year}-${month}-${day}`;
+    const apptTime = timeSlot && typeof timeSlot === 'string' && timeSlot.trim() ? timeSlot.trim() : `${hours}:${minutes}:${seconds}`;
+
+    const aptNumber = `DIR-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+
+    const { data: rawAppointment, error: apptError } = await supabaseAdmin
+      .from('appointments')
+      .insert({
+        appointment_number: aptNumber,
+        patient_id: targetPatientId,
+        doctor_id: doctor.id,
+        appointment_date: apptDate,
+        time_slot: apptTime,
+        type: mappedType,
+        status: 'completed',
+        consultation_fee: parsedFee,
+        fee: parsedFee,
+        payment_status: finalPaymentStatus,
+        payment_reference: isWaived ? 'WAIVED' : (paymentReference || (paymentMethod ? `DIRECT_${String(paymentMethod).toUpperCase()}` : 'DIRECT_CASH')),
+        reason_for_visit: reasonForVisit || reason || 'Direct Walk-in Consultation',
+        reason: reasonForVisit || reason || 'Direct Walk-in Consultation',
+        doctor_notes: notes || '',
+        symptoms: Array.isArray(symptoms) ? symptoms : (diagnosis ? [diagnosis] : []),
+      })
+      .select('id, appointment_number, patient_id, doctor_id, appointment_date, time_slot, type, status, fee, consultation_fee, payment_status, payment_reference, reason_for_visit, reason, doctor_notes, symptoms, created_at, patient:patients(id, name, gender, date_of_birth, user:users(phone, email))')
+      .single();
+
+    if (apptError) {
+      console.error('Failed to insert direct appointment in recordDirectVisit:', apptError);
+      throw new ApiError(500, apptError.message || 'Failed to record direct appointment');
+    }
+
+    const appointment = rawAppointment ? { ...rawAppointment, source: mappedSource } : null;
+
+    // Record optional prescription if provided
+    let createdPrescription = null;
+    if (prescription && (prescription.medicines?.length > 0 || prescription.diagnosis || prescription.instructions)) {
+      const rxNumber = `RX-DIR-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+      const { data: rx, error: rxErr } = await supabaseAdmin
+        .from('prescriptions')
+        .insert({
+          prescription_number: rxNumber,
+          patient_id: targetPatientId,
+          doctor_id: doctor.id,
+          diagnosis: prescription.diagnosis || diagnosis || '',
+          instructions: prescription.instructions || '',
+          medicines: Array.isArray(prescription.medicines) ? prescription.medicines : [],
+          notes: prescription.notes || notes || '',
+          status: 'active',
+        })
+        .select()
+        .single();
+
+      if (!rxErr) createdPrescription = rx;
+    }
+
+    // Record optional vitals if provided
+    let createdVitals = null;
+    if (vitals && Object.keys(vitals).length > 0) {
+      const { data: vit, error: vitErr } = await supabaseAdmin
+        .from('patient_vitals')
+        .insert({
+          patient_id: targetPatientId,
+          recorded_by: userId,
+          heart_rate: vitals.heartRate || vitals.heart_rate || null,
+          blood_pressure_systolic: vitals.bloodPressureSystolic || vitals.blood_pressure_systolic || null,
+          blood_pressure_diastolic: vitals.bloodPressureDiastolic || vitals.blood_pressure_diastolic || null,
+          temperature: vitals.temperature || null,
+          oxygen_level: vitals.oxygenLevel || vitals.oxygen_level || null,
+          respiratory_rate: vitals.respiratoryRate || vitals.respiratory_rate || null,
+          weight: vitals.weight || null,
+          blood_sugar: vitals.bloodSugar || vitals.blood_sugar || null,
+          notes: vitals.notes || null,
+        })
+        .select()
+        .single();
+
+      if (!vitErr) createdVitals = vit;
+    }
+
+    try {
+      await Promise.allSettled([
+        cacheDel(`doctor:dashboard:${userId}`),
+        cacheDel(`doctor:analytics:${userId}:today`),
+        cacheDel(`doctor:analytics:${userId}:7d`),
+        cacheDel(`doctor:analytics:${userId}:30d`),
+        cacheDel(`doctor:analytics:${userId}:90d`),
+        cacheDel(`doctor:analytics:${userId}:1y`),
+      ]);
+    } catch (_) { /* non-fatal */ }
+
+    return {
+      appointment,
+      prescription: createdPrescription,
+      vitals: createdVitals,
+    };
+  }
+
   // ── Helper ────────────────────────────────────────────────────
 
   async _resolveDoctor(userId) {
     const { data: doctor, error } = await supabaseAdmin
       .from('doctors')
-      .select('id, name, specialization, user_id, hospital_id')
+      .select('id, name, specialization, user_id, hospital_id, consultation_fee')
       .eq('user_id', userId)
       .single();
 

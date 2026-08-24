@@ -93,9 +93,9 @@ describe('UniversalReferralService Security Validations', () => {
         eq: jest.fn().mockReturnThis(),
         not: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn()
-          .mockResolvedValueOnce({ data: { id: 'patient-123' } }) // patient exists
-          .mockResolvedValueOnce({ data: { id: 'appt-1' } }) // appt exists
+        in: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'patient-123' } }), // patient exists
+        then: jest.fn().mockImplementation((cb) => cb({ data: [{ doctor_id: 'doc-1', clinic_id: 'clinic-1', status: 'completed' }] })) // clinic appt exists
       };
       supabaseAdmin.from.mockReturnValue(builder);
 
@@ -109,9 +109,9 @@ describe('UniversalReferralService Security Validations', () => {
         eq: jest.fn().mockReturnThis(),
         not: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn()
-          .mockResolvedValueOnce({ data: { id: 'patient-123' } }) // patient exists
-          .mockResolvedValueOnce({ data: null }) // appt not found
+        in: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'patient-123' } }),
+        then: jest.fn().mockImplementation((cb) => cb({ data: [] })) // no clinic appts
       };
       supabaseAdmin.from.mockReturnValue(builder);
 
@@ -261,6 +261,14 @@ describe('UniversalReferralService Security Validations', () => {
 
   describe('P7.6 — getPatientDocumentsForReferral Authorization', () => {
 
+    let validateAccessSpy;
+    beforeEach(() => {
+      validateAccessSpy = jest.spyOn(universalReferralService, 'validatePatientAccess').mockResolvedValue(true);
+    });
+    afterEach(() => {
+      validateAccessSpy.mockRestore();
+    });
+
     // Helpers for multi-step mocks needed by getPatientDocumentsForReferral:
     // 1. validateProviderAccess  → clinic owner check (from 'clinics')
     // 2. validatePatientAccess   → patient exists (from 'patients'), then appointment (from 'appointments')
@@ -316,6 +324,10 @@ describe('UniversalReferralService Security Validations', () => {
           not: jest.fn().mockReturnThis(),
           limit: jest.fn().mockReturnThis(),
           order: jest.fn().mockReturnThis(),
+          in: jest.fn().mockReturnThis(),
+          then: jest.fn().mockImplementation((cb) => {
+            return cb({ data: [{ doctor_id: 'doc-1', clinic_id: 'cli-1', status: 'completed' }] });
+          }),
           maybeSingle: jest.fn().mockImplementation(() => {
             const r = responses[callCount] || { data: null };
             callCount++;
@@ -395,8 +407,8 @@ describe('UniversalReferralService Security Validations', () => {
       //           THEN report lookup → wrong patient_id, THEN compensating delete
       const responses = [
         { data: { id: 'cli-1' } },              // validateProviderAccess
-        { data: { id: 'pat-1' } },              // validatePatientAccess patient
-        { data: { id: 'appt-1' } },             // validatePatientAccess appt
+        // validatePatientAccess is mocked via spy
+
         { data: { id: 'hosp-1', name: 'Hosp' } }, // validateReceiver
         { data: { is_active: true, is_approved: true, approval_status: 'approved' } }, // validateReceiverActive
         { data: { id: 'cli-1', name: 'Clinic A' } }, // senderSnapshot
@@ -521,26 +533,18 @@ describe('UniversalReferralService Security Validations', () => {
       ).rejects.toThrow('Invalid sender_type');
     });
 
-    // Test 8: Unauthorized report sharing (sender has no relationship with patient) = BLOCK
+    // Test 8: Unauthorized report sharing (sender has no patient relationship) = BLOCK
     test('T8: Sender has no patient relationship — BLOCK', async () => {
-      let callCount = 0;
-      const responses = [
-        { data: { id: 'cli-1' } },   // validateProviderAccess passes
-        { data: { id: 'pat-1' } },   // patient exists
-        { data: null },               // no appointment → no relationship
-      ];
+      const error = new Error('Unauthorized. No active relationship or explicit consent found with this patient.');
+      error.statusCode = 403;
+      validateAccessSpy.mockRejectedValueOnce(error);
+
       supabaseAdmin.from.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        not: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockImplementation(() => {
-          const r = responses[callCount] || { data: null };
-          callCount++;
-          return Promise.resolve(r);
-        }),
+        maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'cli-1' } }) // pass provider access
       });
+
       // consentService will be called as fallback for non-clinic types
       // For clinic it won't reach consent — it throws immediately after no appt
       await expect(
@@ -548,7 +552,9 @@ describe('UniversalReferralService Security Validations', () => {
           { id: 'user-1', role: ROLES.CLINIC_OWNER },
           { patientId: 'pat-1', senderType: 'clinic', senderId: 'cli-1' }
         )
-      ).rejects.toThrow('Unauthorized');
+      ).rejects.toThrow('Unauthorized. No active relationship or explicit consent found with this patient.');
+      
+      expect(validateAccessSpy).toHaveBeenCalledWith('clinic', 'cli-1', 'pat-1');
     });
 
     // Test 9: Unauthorized prescription sharing (report not found) = BLOCK
@@ -964,6 +970,86 @@ describe('UniversalReferralService Security Validations', () => {
       // Handled by S7, but specifically ensuring that an invalid type doesn't bypass checks
       // handled by S6.
       expect(true).toBe(true);
+    });
+  });
+
+  describe('P7.10 — Universal Referral Consent', () => {
+    test('C1: Valid explicit receiver-specific consent -> PASS', async () => {
+      jest.spyOn(consentService, 'verifyConsent').mockResolvedValue(true);
+      jest.spyOn(universalReferralService, 'validateProviderAccess').mockResolvedValue(true);
+      jest.spyOn(universalReferralService, 'validatePatientAccess').mockResolvedValue(true);
+      const result = await universalReferralService.checkReferralConsent(
+        { id: 'user-1', role: 'clinic_owner' },
+        { patient_id: 'pat-1', sender_type: 'clinic', sender_id: 'cli-1', receiver_type: 'pharmacy', receiver_id: 'pharm-1' }
+      );
+      expect(result.hasConsent).toBe(true);
+    });
+
+    test('C2: No consent -> BLOCK (createReferral)', async () => {
+      jest.spyOn(consentService, 'verifyConsent').mockResolvedValue(false);
+      jest.spyOn(universalReferralService, 'validateProviderAccess').mockResolvedValue(true);
+      jest.spyOn(universalReferralService, 'validatePatientAccess').mockResolvedValue(true);
+      await expect(universalReferralService.createReferral({ id: 'user-1', role: 'clinic_owner' }, {
+        patient_id: 'pat-1', sender_type: 'clinic', sender_id: 'cli-1', receiver_type: 'pharmacy', receiver_id: 'pharm-1', reason: 'Test'
+      })).rejects.toThrow(/Missing explicit patient consent/);
+    });
+
+    test('C3: Consent for provider A but referral to provider B -> BLOCK', async () => {
+      jest.spyOn(universalReferralService, 'validateProviderAccess').mockResolvedValue(true);
+      jest.spyOn(universalReferralService, 'validatePatientAccess').mockResolvedValue(true);
+      jest.spyOn(consentService, 'verifyConsent').mockImplementation(async (patient, type, id) => {
+        return id === 'pharm-A'; // Only pharm-A has consent
+      });
+      await expect(universalReferralService.createReferral({ id: 'user-1', role: 'clinic_owner' }, {
+        patient_id: 'pat-1', sender_type: 'clinic', sender_id: 'cli-1', receiver_type: 'pharmacy', receiver_id: 'pharm-B', reason: 'Test'
+      })).rejects.toThrow(/Missing explicit patient consent/);
+    });
+  });
+
+  describe('P7.9 — Universal Referral Final Submission (createReferral)', () => {
+    test('Successful submission with all valid conditions', async () => {
+      jest.spyOn(universalReferralService, 'validateProviderAccess').mockResolvedValue(true);
+      jest.spyOn(universalReferralService, 'validatePatientAccess').mockResolvedValue(true);
+      jest.spyOn(consentService, 'verifyConsent').mockResolvedValue(true);
+      jest.spyOn(universalReferralService, 'validateReceiver').mockResolvedValue(true);
+      jest.spyOn(universalReferralService, 'validateReceiverActive').mockResolvedValue(true);
+      jest.spyOn(universalReferralService, 'getProviderSnapshot').mockResolvedValue('Mock Snapshot');
+      
+      const insertMock = jest.fn().mockReturnValue({ select: jest.fn().mockReturnValue({ single: jest.fn().mockResolvedValue({ data: { id: 'referral-123' }, error: null }) }) });
+      supabaseAdmin.from.mockImplementation((table) => {
+        if (table === 'universal_referrals') {
+          return { insert: insertMock };
+        }
+        if (table === 'reports') {
+          return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'report-1', patient_id: 'pat-1' } }) };
+        }
+        if (table === 'referral_attachments') {
+          return { insert: jest.fn().mockResolvedValue({ error: null }) };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), maybeSingle: jest.fn().mockResolvedValue({ data: null }) };
+      });
+
+      const payload = {
+        patient_id: 'pat-1',
+        sender_type: 'clinic',
+        sender_id: 'clinic-1',
+        receiver_type: 'pharmacy',
+        receiver_id: 'pharm-1',
+        reason: 'Test Reason',
+        urgency: 'routine',
+        attachments: [{ report_id: 'report-1', document_type: 'report', file_name: 'test.pdf' }]
+      };
+      
+      const user = { id: 'user-1', name: 'Test Doctor' };
+      const referral = await universalReferralService.createReferral(user, payload);
+      
+      expect(referral.id).toBe('referral-123');
+      expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({
+        patient_id: 'pat-1',
+        sender_type: 'clinic',
+        sender_snapshot_name: 'Mock Snapshot',
+        receiver_snapshot_name: 'Mock Snapshot',
+      }));
     });
   });
 

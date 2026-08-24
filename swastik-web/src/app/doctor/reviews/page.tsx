@@ -9,7 +9,7 @@ import { DashboardSkeleton } from '@/components/ui/Skeleton';
 
 export default function DoctorReviewsPage() {
     const { user } = useAuthStore();
-    const { reviews, loadingReviews, error, fetchReviews } = useDoctorStore();
+    const { reviews, reviewMetrics, loadingReviews, error, fetchReviews } = useDoctorStore();
 
     const loadReviews = useCallback(async (page: number = 1) => {
         await fetchReviews(page);
@@ -29,14 +29,17 @@ export default function DoctorReviewsPage() {
     }
 
     return (
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="max-w-6xl mx-auto space-y-6 pb-20 min-w-0">
             <ReviewManager 
                 reviews={reviews as Review[]}
+                metrics={reviewMetrics}
                 loadingReviews={loadingReviews}
                 error={error}
                 fetchReviews={loadReviews}
                 themeColor="emerald"
                 entityName="Doctor"
+                compactHeader={true}
+                compactCards={true}
                 onRespond={handleRespond}
             />
         </div>

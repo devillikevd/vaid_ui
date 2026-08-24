@@ -7,6 +7,10 @@ export interface DoctorDashboardStats {
     totalPatientsToday: number;
     completedToday: number;
     earningsToday: number;
+    totalPatients?: number;
+    averageRating?: number;
+    totalReviews?: number;
+    verifiedReviews?: number;
     /** Legacy aliases for UI compatibility */
     todaysAppointments?: number;
     completed?: number;
@@ -23,17 +27,24 @@ export interface Appointment {
     appointment_date?: string;
     time_slot?: string;
     timeSlot?: string;
-    type: 'In-Person' | 'Video' | 'video' | 'clinic';
+    type: string;
+    source?: string;
     status: string;
     reason?: string;
+    reason_for_visit?: string;
     symptoms?: string[];
     patient_notes?: string;
+    doctor_notes?: string;
+    diagnosis?: string;
+    fee?: number;
+    consultation_fee?: number;
+    payment_status?: string;
+    payment_reference?: string;
+    notes?: string;
     consultation_id?: string;
     consultation_status?: string | null;
     consultation_room_id?: string | null;
     has_prescription?: boolean;
-    fee?: number;
-    notes?: string;
     severity_current?: number;
     severity_worst?: number;
     onset_type?: string;
@@ -76,6 +87,12 @@ export interface DoctorPatient {
     profileImageUrl?: string;
     lastVisit?: string;
     totalVisits?: number;
+    source?: 'direct' | 'vaididea' | 'mixed' | string;
+    sourceLabel?: string;
+    sources?: string[];
+    lastVisitType?: string;
+    lastVisitTypeLabel?: string;
+    visitTypes?: string[];
 }
 
 export interface TimeSlot {
@@ -166,6 +183,7 @@ export interface DoctorReview {
     title?: string;
     comment?: string;
     is_anonymous: boolean;
+    is_verified?: boolean;
     created_at: string;
     consultation_id?: string;
     patient?: {
@@ -203,6 +221,16 @@ export interface DoctorProfile {
     bank_penny_verified?: boolean;
     clinic_license_url?: string;
     compliance_documents?: Record<string, any>;
+    rating?: number;
+    total_reviews?: number;
+    stats?: {
+        totalPatients?: number;
+        totalAppointments?: number;
+        completedConsultations?: number;
+        averageRating?: number;
+        totalReviews?: number;
+        verifiedReviews?: number;
+    };
     user?: {
         email: string;
         phone: string;
@@ -230,7 +258,20 @@ export interface DoctorLeave {
     updated_at?: string;
 }
 
-interface DoctorState {
+export interface ReviewMetrics {
+    totalReviews: number;
+    averageRating: number;
+    verifiedReviews: number;
+    distribution: {
+        1: number;
+        2: number;
+        3: number;
+        4: number;
+        5: number;
+    };
+}
+
+export interface DoctorState {
     stats: DoctorDashboardStats | null;
     doctorProfile: DoctorProfile | null;
     todaysAppointments: Appointment[];
@@ -244,6 +285,7 @@ interface DoctorState {
     prescriptions: Prescription[];
     vitals: PatientVitals[];
     reviews: DoctorReview[];
+    reviewMetrics: ReviewMetrics | null;
     leaves: DoctorLeave[];
     organizations: DoctorOrganization[];
     organizationsError: boolean;
@@ -273,7 +315,7 @@ interface DoctorState {
     fetchDoctorProfile: () => Promise<void>;
     fetchAppointments: (status?: string, date?: string, page?: number) => Promise<void>;
     fetchConsultations: () => Promise<void>;
-    fetchPatients: (page?: number, search?: string, limit?: number, filter?: string, sort?: string) => Promise<void>;
+    fetchPatients: (page?: number, search?: string, limit?: number, filter?: string, sort?: string, source?: string, visitType?: string) => Promise<void>;
     fetchSchedule: () => Promise<void>;
     fetchOrganizations: () => Promise<void>;
     createSchedule: (data: Record<string, unknown>) => Promise<{ success: boolean; conflict?: ScheduleConflict[]; message?: string }>;
@@ -342,10 +384,17 @@ function mapAppointment(raw: any): Appointment {
         appointment_date: raw.appointment_date || raw.date || '',
         timeSlot: rawTime,
         type: raw.type || 'clinic',
+        source: raw.source || (raw.type === 'home_visit' ? 'direct_walk_in' : undefined),
         status: raw.status || 'scheduled',
+        fee: raw.fee ?? raw.consultation_fee ?? undefined,
+        consultation_fee: raw.consultation_fee ?? raw.fee ?? undefined,
+        payment_status: raw.payment_status || undefined,
+        payment_reference: raw.payment_reference || undefined,
+        doctor_notes: raw.doctor_notes || undefined,
+        diagnosis: raw.diagnosis || undefined,
         patient: raw.patient || undefined,
         symptoms: raw.symptoms || undefined,
-        reason: raw.symptoms || raw.reason || undefined,
+        reason: raw.reason || raw.reason_for_visit || (Array.isArray(raw.symptoms) ? raw.symptoms.join(', ') : raw.symptoms) || undefined,
     };
 }
 
@@ -380,6 +429,9 @@ function mapDoctorPatient(raw: any): DoctorPatient {
         profileImageUrl: raw.profileImageUrl || raw.profile_image_url,
         lastVisit: raw.lastVisit || raw.last_visit || '',
         totalVisits: raw.totalVisits || raw.total_visits || 0,
+        source: raw.source || 'vaididea',
+        sourceLabel: raw.sourceLabel || (raw.source === 'direct' ? 'Direct Practice' : 'Vaididea Platform'),
+        sources: raw.sources || [],
     };
 }
 
@@ -431,6 +483,7 @@ const doctorInitialState = {
     prescriptions: [] as Prescription[],
     vitals: [] as PatientVitals[],
     reviews: [] as DoctorReview[],
+    reviewMetrics: null as ReviewMetrics | null,
     leaves: [] as DoctorLeave[],
     organizations: [] as DoctorOrganization[],
     organizationsError: false,
@@ -452,7 +505,7 @@ const doctorInitialState = {
     reviewsPagination: { ...defaultPagination },
 };
 
-let appointmentsInFlightKey: string | null = null;
+let latestAppointmentRequestId = 0;
 
 export const useDoctorStore = create<DoctorState>((set, get) => ({
     ...doctorInitialState,
@@ -572,16 +625,17 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
     },
 
     fetchAppointments: async (status?: string, date?: string, page: number = 1) => {
-        const requestKey = `${status || 'all'}:${date || 'all'}:${page}`;
-        if (get().loadingAppointments && appointmentsInFlightKey === requestKey) return;
-        appointmentsInFlightKey = requestKey;
-        set({ loadingAppointments: true, error: null });
+        const requestId = ++latestAppointmentRequestId;
+        set({ loadingAppointments: true, isLoading: true, error: null });
         try {
             const response = await doctorApi.getAppointments(status, date, page);
+            if (requestId !== latestAppointmentRequestId) return; // Stale response discarded
+
             if (!response.success) {
                 set((state) => ({
-                    error: state.appointments.length > 0 ? null : (response.error || 'Failed to load appointments'),
+                    error: state.appointments.length > 0 ? null : (response.error || 'Unable to load appointments'),
                     loadingAppointments: false,
+                    isLoading: false,
                 }));
                 return;
             }
@@ -601,12 +655,17 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
                     hasMore: (pagination.page || page) < (pagination.totalPages || 1),
                 } : { page, totalPages: 1, total: mapped.length, hasMore: false },
                 loadingAppointments: false,
+                isLoading: false,
+                error: null,
             });
         } catch (error) {
+            if (requestId !== latestAppointmentRequestId) return;
             console.error('Error fetching appointments:', error);
-            set({ error: 'Failed to load appointments.', loadingAppointments: false });
+            set({ error: 'Unable to load appointments. Please check your connection and try again.', loadingAppointments: false, isLoading: false });
         } finally {
-            if (appointmentsInFlightKey === requestKey) appointmentsInFlightKey = null;
+            if (requestId === latestAppointmentRequestId) {
+                set({ loadingAppointments: false, isLoading: false });
+            }
         }
     },
 
@@ -631,10 +690,10 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         }
     },
 
-    fetchPatients: async (page: number = 1, search: string = '', limit: number = 20, filter: string = 'all', sort: string = 'recent') => {
+    fetchPatients: async (page: number = 1, search: string = '', limit: number = 20, filter: string = 'all', sort: string = 'recent', source: string = 'all', visitType: string = 'all') => {
         set({ loadingPatients: true, error: null });
         try {
-            const response = await doctorApi.getPatients(page, search, limit, filter, sort);
+            const response = await doctorApi.getPatients(page, search, limit, filter, sort, source, visitType);
             if (!response.success) {
                 set({ error: response.error || 'Failed to load patients', loadingPatients: false });
                 return;
@@ -821,9 +880,11 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
             }
             const rawData = response.data;
             const reviews = (Array.isArray(rawData) ? rawData : (rawData as any)?.reviews || (rawData as any)?.data || []) as DoctorReview[];
+            const metrics = (response as any).metrics as ReviewMetrics | undefined;
             const pagination = (response as any).pagination as Record<string, number> | undefined;
             set({
                 reviews: page === 1 ? reviews : [...get().reviews, ...reviews],
+                reviewMetrics: page === 1 && metrics ? metrics : (metrics || get().reviewMetrics),
                 reviewsPagination: pagination ? {
                     page: pagination.page || page,
                     totalPages: pagination.totalPages || 1,

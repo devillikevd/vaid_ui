@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { FileText, Search, Calendar, Loader2, Plus, RefreshCw, Download, Inbox, SearchX, Pill, Clock } from 'lucide-react';
+import { FileText, Search, Calendar, Loader2, Plus, RefreshCw, Download, Inbox, SearchX, Pill, Clock, Compass, Stethoscope } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 import { Button } from '@/components/ui/Button';
@@ -10,6 +10,14 @@ import { usePrescriptionUpdates } from '@/hooks/useSocket';
 import Link from 'next/link';
 import { Pagination, usePagination } from '@/components/ui/Pagination';
 import { downloadCSV } from '@/utils/export';
+import {
+    SOURCE_FILTER_OPTIONS,
+    VISIT_TYPE_FILTER_OPTIONS,
+    getSourceDisplay,
+    getVisitTypeDisplay,
+    resolveCanonicalSource,
+    resolveCanonicalVisitType
+} from '@/lib/clinicalDimensions';
 
 // --- Sub-components for better UX and Performance ---
 
@@ -85,6 +93,12 @@ const PrescriptionCard = React.memo(({ rx, searchQuery }: { rx: any; searchQuery
     const rxDate = rx.date ? new Date(rx.date) : rx.created_at ? new Date(rx.created_at) : null;
     const followUpDate = rx.followUpDate ? new Date(rx.followUpDate) : null;
     
+    // Resolve Canonical Source and Visit Type
+    const source = rx.source || resolveCanonicalSource(rx);
+    const visitType = rx.visitType || resolveCanonicalVisitType(rx);
+    const sourceDisplay = getSourceDisplay(source);
+    const visitTypeDisplay = getVisitTypeDisplay(visitType);
+
     // Status color mapping
     const getStatusStyle = (status: string) => {
         const s = (status || '').toLowerCase();
@@ -116,11 +130,22 @@ const PrescriptionCard = React.memo(({ rx, searchQuery }: { rx: any; searchQuery
                         </div>
                     </div>
                     
-                    <div className="flex flex-col gap-1 w-full">
-                        <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-col gap-1.5 w-full">
+                        <div className="flex flex-wrap items-center gap-2.5">
                             <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
                                 <HighlightedText text={rx.patientName || 'Unknown Patient'} highlight={searchQuery} />
                             </h3>
+
+                            {/* Source Badge */}
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold ${sourceDisplay.badgeClass}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${sourceDisplay.dotClass}`}></span>
+                                {sourceDisplay.label}
+                            </span>
+
+                            {/* Visit Type Badge */}
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold ${visitTypeDisplay.badgeClass}`}>
+                                {visitTypeDisplay.label}
+                            </span>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-1 text-sm font-medium text-gray-600 dark:text-gray-300">
@@ -194,6 +219,8 @@ export default function DoctorPrescriptionsPage() {
     const { prescriptions, loadingPrescriptions, error, fetchPrescriptions, clearError } = useDoctorStore();
     const [page, setPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
+    const [sourceFilter, setSourceFilter] = useState('all');
+    const [visitTypeFilter, setVisitTypeFilter] = useState('all');
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const loadData = useCallback(async () => { 
@@ -215,9 +242,19 @@ export default function DoctorPrescriptionsPage() {
             const matchesMedicine = (p.medications || []).some((m: any) => 
                 (m.medicineName || m.name || '').toLowerCase().includes(query)
             );
-            return matchesPatient || matchesDiagnosis || matchesMedicine;
+            const matchesText = !query || matchesPatient || matchesDiagnosis || matchesMedicine;
+
+            // Source Dimension Filter
+            const canonicalSrc = p.source || resolveCanonicalSource(p);
+            const matchesSource = sourceFilter === 'all' || canonicalSrc === sourceFilter;
+
+            // Visit Type Dimension Filter
+            const canonicalVisitType = p.visitType || resolveCanonicalVisitType(p);
+            const matchesVisitType = visitTypeFilter === 'all' || canonicalVisitType === visitTypeFilter;
+
+            return matchesText && matchesSource && matchesVisitType;
         });
-    }, [prescriptions, searchQuery]);
+    }, [prescriptions, searchQuery, sourceFilter, visitTypeFilter]);
 
     const { totalPages, totalItems, itemsPerPage, paginate } = usePagination(filtered, 10);
     const paginatedItems = useMemo(() => paginate(page), [paginate, page]);
@@ -225,6 +262,8 @@ export default function DoctorPrescriptionsPage() {
     const handleExport = () => {
         downloadCSV(filtered, [
             { key: 'patientName', label: 'Patient' },
+            { key: 'source', label: 'Source' },
+            { key: 'visitType', label: 'Visit Type' },
             { key: 'diagnosis', label: 'Diagnosis' },
             { key: 'date', label: 'Date' },
             { key: 'status', label: 'Status' },
@@ -232,11 +271,11 @@ export default function DoctorPrescriptionsPage() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">Prescriptions</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1.5 font-medium">Manage and review your patient prescriptions</p>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1.5 font-medium">Manage and review your patient prescriptions across all practice sources</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <Button 
@@ -264,23 +303,64 @@ export default function DoctorPrescriptionsPage() {
                 </div>
             </div>
 
-            <DoctorPortalCard className="!p-0 overflow-hidden bg-white dark:bg-gray-900 flex flex-col">
-                <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
-                    <div className="relative max-w-md group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-emerald-500 transition-colors">
-                            <Search className="h-4 w-4" />
-                        </div>
-                        <Input 
+            {/* Filter Controls Bar */}
+            <DoctorPortalCard variant="compact">
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+                    {/* Search */}
+                    <div className="relative w-full lg:w-[320px]">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
                             type="text"
                             placeholder="Search by patient, diagnosis, or medicine..." 
                             value={searchQuery} 
                             onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} 
-                            className="pl-10 w-full rounded-xl border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm focus:border-emerald-500 focus:ring-emerald-500/20"
+                            className="pl-10 h-10 w-full rounded-xl border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 shadow-sm text-sm"
                             aria-label="Search prescriptions"
                         />
                     </div>
-                </div>
 
+                    {/* Independent Dimension Filters */}
+                    <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+                        {/* 1. Source Filter */}
+                        <div className="relative flex-1 sm:flex-none min-w-[150px]">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <Compass className="h-3.5 w-3.5" />
+                            </div>
+                            <select
+                                value={sourceFilter}
+                                onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
+                                className="block w-full pl-9 pr-8 py-2 border border-gray-200 dark:border-gray-800 rounded-xl text-xs bg-gray-50 dark:bg-gray-950 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 dark:text-gray-200 transition-all shadow-sm outline-none cursor-pointer font-bold appearance-none"
+                            >
+                                {SOURCE_FILTER_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* 2. Visit Type Filter */}
+                        <div className="relative flex-1 sm:flex-none min-w-[160px]">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                <Stethoscope className="h-3.5 w-3.5" />
+                            </div>
+                            <select
+                                value={visitTypeFilter}
+                                onChange={(e) => { setVisitTypeFilter(e.target.value); setPage(1); }}
+                                className="block w-full pl-9 pr-8 py-2 border border-gray-200 dark:border-gray-800 rounded-xl text-xs bg-gray-50 dark:bg-gray-950 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 dark:text-gray-200 transition-all shadow-sm outline-none cursor-pointer font-bold appearance-none"
+                            >
+                                {VISIT_TYPE_FILTER_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-xs text-gray-600 dark:text-gray-300 font-bold uppercase tracking-wider border border-gray-200 dark:border-gray-700 shadow-sm ml-auto">
+                            {filtered.length} Prescriptions
+                        </span>
+                    </div>
+                </div>
+            </DoctorPortalCard>
+
+            <DoctorPortalCard className="!p-0 overflow-hidden bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm">
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
                     {loadingPrescriptions && prescriptions.length === 0 ? (
                         Array.from({ length: 4 }).map((_, i) => <PrescriptionSkeleton key={i} />)

@@ -202,7 +202,7 @@ export default function DoctorProfilePage() {
                                         <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">{rev.title}</h4>
                                         <p className="text-gray-600 dark:text-gray-400 text-sm">{rev.comment}</p>
                                         <div className="mt-3 text-xs text-gray-400 dark:text-gray-500 font-medium">
-                                            By {rev.is_anonymous ? 'Anonymous' : rev.patient?.name || 'Patient'}
+                                            By Anonymous Patient
                                         </div>
                                     </div>
                                 ))}

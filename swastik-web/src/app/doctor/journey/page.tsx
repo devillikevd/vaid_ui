@@ -406,7 +406,7 @@ export default function DoctorJourneyPage() {
                 {/* 5. NEXT MILESTONE */}
                 <section>
                     <DoctorPortalCard className="!p-8 md:!p-12 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-center rounded-2xl shadow-lg border-0 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white opacity-10 blur-3xl"></div>
+                        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-full max-w-sm h-64 rounded-full bg-white dark:bg-[#0f1929] opacity-10 blur-3xl"></div>
                         <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 rounded-full bg-black opacity-10 blur-2xl"></div>
                         
                         <div className="relative z-10">
@@ -415,7 +415,7 @@ export default function DoctorJourneyPage() {
                             <p className="text-lg text-emerald-100 mb-8 max-w-2xl mx-auto">
                                 Small consultations become meaningful impact over time. You are making a real difference in healthcare every single day.
                             </p>
-                            <Button variant="secondary" className="bg-white text-emerald-700 hover:bg-emerald-50 rounded-full px-8 py-6 text-lg shadow-lg" onClick={() => router.push('/doctor')}>
+                            <Button variant="secondary" className="bg-white dark:bg-[#0f1929] text-emerald-700 hover:bg-emerald-50 rounded-full px-8 py-6 text-lg shadow-lg" onClick={() => router.push('/doctor')}>
                                 Continue to Dashboard
                             </Button>
                         </div>

@@ -200,7 +200,7 @@ class AppEventEmitter extends EventEmitter {
     this.notifyUser(patient_id, 'appointment:confirmed', appointment);
     // Also push as notification so layout handlers catch it
     this.notifyUser(doctor_id, 'notification:new', {
-      type: 'appointment',
+      type: 'appointment_booked',
       title: 'New Appointment',
       message: `New appointment booked${appointment.patient?.name ? ` by ${appointment.patient.name}` : ''}`,
       timestamp: new Date().toISOString(),

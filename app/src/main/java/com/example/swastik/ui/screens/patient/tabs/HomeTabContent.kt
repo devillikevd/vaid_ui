@@ -94,7 +94,9 @@ fun HomeTabContent(
     onNavigateToAISettings: () -> Unit = {},
     onNavigateToDietTracker: () -> Unit = {},
     onNavigateToWellnessHub: () -> Unit = {},
-    onNavigateToHealthConnectDashboard: () -> Unit = {}
+    onNavigateToHealthConnectDashboard: () -> Unit = {},
+    pendingConsents: List<com.example.swastik.data.remote.dto.ReferralConsentDto> = emptyList(),
+    onConsentClick: (com.example.swastik.data.remote.dto.ReferralConsentDto) -> Unit = {}
 ) {
     val homeBgColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
         MaterialTheme.colorScheme.background
@@ -225,6 +227,13 @@ fun HomeTabContent(
         item {
             Spacer(modifier = Modifier.height(12.dp))
             
+            if (pendingConsents.isNotEmpty()) {
+                ConsentRequestsSection(
+                    pendingConsents = pendingConsents,
+                    onRequestClick = onConsentClick
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             
             // 2. Consultations, Health ID, and Actions Group
             Column(

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
     Activity,
     AlertCircle,
@@ -18,12 +19,28 @@ import {
     Ruler,
     Scale,
     User,
-    Download
+    Download,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    Filter,
+    RotateCcw,
+    Search,
+    Compass,
+    Stethoscope
 } from 'lucide-react';
 import { doctorApi } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PatientMedicalHistory } from '@/components/doctor/PatientMedicalHistory';
+import { 
+    getSourceDisplay, 
+    getVisitTypeDisplay, 
+    resolveCanonicalSource, 
+    resolveCanonicalVisitType,
+    SOURCE_FILTER_OPTIONS,
+    VISIT_TYPE_FILTER_OPTIONS
+} from '@/lib/clinicalDimensions';
 
 // --- Interfaces (Kept identical) ---
 
@@ -32,11 +49,21 @@ interface AppointmentRecord {
     appointment_date?: string;
     time_slot?: string;
     type?: string;
+    source?: string;
+    sourceLabel?: string;
+    visitType?: string;
+    visitTypeLabel?: string;
     status?: string;
     reason?: string;
+    reason_for_visit?: string;
     symptoms?: string[];
     patient_notes?: string;
+    doctor_notes?: string;
+    diagnosis?: string;
     fee?: number;
+    consultation_fee?: number;
+    payment_status?: string;
+    payment_reference?: string;
     notes?: string;
     severity_current?: number;
     severity_worst?: number;
@@ -165,6 +192,25 @@ interface RecordAccessMeta {
     reportVisibility?: 'all' | 'shared_only' | 'none' | string;
 }
 
+interface PrescriptionItem {
+    id: string;
+    appointment_id?: string;
+    consultation_id?: string;
+    diagnosis?: string;
+    notes?: string;
+    status?: string;
+    created_at?: string;
+    prescription_medicines?: Array<{
+        id?: string;
+        name?: string;
+        medicine_name?: string;
+        dosage?: string;
+        frequency?: string;
+        duration?: string;
+        instructions?: string;
+    }>;
+}
+
 interface PatientRecord {
     id: string;
     name: string;
@@ -180,8 +226,11 @@ interface PatientRecord {
     phone?: string;
     totalVisits?: number;
     lastVisit?: string;
+    source?: string;
+    sourceLabel?: string;
     appointments?: AppointmentRecord[];
     consultations?: ConsultationRecord[];
+    prescriptions?: PrescriptionItem[];
     sharedConsultations?: SharedConsultationRecord[];
     sharedPrescriptions?: SharedPrescriptionRecord[];
     reports?: ReportRecord[];
@@ -278,6 +327,61 @@ export default function DoctorPatientRecordPage() {
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'timeline' | 'vault' | 'reports'>('overview');
 
+    // History Filter States
+    const [historyPeriodFilter, setHistoryPeriodFilter] = useState<string>('all');
+    const [customFromDate, setCustomFromDate] = useState<string>('');
+    const [customToDate, setCustomToDate] = useState<string>('');
+    const [appliedCustomRange, setAppliedCustomRange] = useState<{ from: string; to: string } | null>(null);
+    const [historySourceFilter, setHistorySourceFilter] = useState<string>('all');
+    const [historyVisitTypeFilter, setHistoryVisitTypeFilter] = useState<string>('all');
+    const [historyStatusFilter, setHistoryStatusFilter] = useState<string>('all');
+    const [historySearch, setHistorySearch] = useState<string>('');
+    const [historyPage, setHistoryPage] = useState<number>(1);
+    const historyPageSize = 10;
+
+    const isDateInRange = useCallback((
+        dateStr: string | undefined, 
+        period: string, 
+        customFrom?: string, 
+        customTo?: string
+    ): boolean => {
+        if (!dateStr) return false;
+        if (period === 'all') return true;
+
+        const eventDateStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0];
+        const now = new Date();
+        const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+        if (period === 'today') {
+            return eventDateStr === todayStr;
+        }
+        if (period === 'yesterday') {
+            const y = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const yStr = y.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+            return eventDateStr === yStr;
+        }
+        if (period === 'last_7_days') {
+            const d7 = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
+            const d7Str = d7.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+            return eventDateStr >= d7Str && eventDateStr <= todayStr;
+        }
+        if (period === 'last_30_days') {
+            const d30 = new Date(Date.now() - 29 * 24 * 60 * 60 * 1000);
+            const d30Str = d30.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+            return eventDateStr >= d30Str && eventDateStr <= todayStr;
+        }
+        if (period === 'this_year') {
+            const startOfYear = `${todayStr.split('-')[0]}-01-01`;
+            return eventDateStr >= startOfYear && eventDateStr <= todayStr;
+        }
+        if (period === 'custom') {
+            if (customFrom && eventDateStr < customFrom) return false;
+            if (customTo && eventDateStr > customTo) return false;
+            return true;
+        }
+        return true;
+    }, []);
+
     const loadRecord = useCallback(async (refresh = false) => {
         if (!patientId) return;
 
@@ -323,6 +427,101 @@ export default function DoctorPatientRecordPage() {
     const reports = useMemo(() => record?.reports || [], [record]);
     const recordAccess = record?.recordAccess;
     const patientLabel = record?.name || 'Patient';
+
+    const filteredEncounters = useMemo(() => {
+        const items = record?.appointments || [];
+        return items.filter(app => {
+            // 1. Source filter
+            const src = app.source || resolveCanonicalSource(app);
+            if (historySourceFilter !== 'all' && src !== historySourceFilter) {
+                return false;
+            }
+
+            // 2. Visit type filter
+            const vt = app.visitType || resolveCanonicalVisitType(app);
+            if (historyVisitTypeFilter !== 'all' && vt !== historyVisitTypeFilter) {
+                return false;
+            }
+
+            // 3. Status filter
+            const status = String(app.status || 'scheduled').toLowerCase();
+            if (historyStatusFilter !== 'all' && status !== historyStatusFilter) {
+                return false;
+            }
+
+            // 4. Date period filter
+            const appDate = app.appointment_date || app.created_at;
+            if (!isDateInRange(appDate, historyPeriodFilter, appliedCustomRange?.from, appliedCustomRange?.to)) {
+                return false;
+            }
+
+            // 5. History Search
+            if (historySearch.trim()) {
+                const term = historySearch.trim().toLowerCase();
+                const reason = String(app.reason || app.reason_for_visit || app.patient_notes || '').toLowerCase();
+                const diagnosis = String(app.diagnosis || '').toLowerCase();
+                const doctorNotes = String(app.doctor_notes || app.notes || '').toLowerCase();
+                const srcLabel = String(app.sourceLabel || (src === 'direct' ? 'Direct Practice' : 'Vaididea')).toLowerCase();
+                const vtLabel = String(app.visitTypeLabel || vt).toLowerCase();
+                const dateStr = String(appDate || '').toLowerCase();
+
+                // Also check matching prescription
+                const matchingRx = (record?.prescriptions || []).find((p: any) => 
+                    p.appointment_id === app.id || p.consultation_id === app.id
+                );
+                const rxMeds = (matchingRx?.prescription_medicines || []).map((m: any) => String(m.name || m.medicine_name || '')).join(' ').toLowerCase();
+                const rxDiagnosis = String(matchingRx?.diagnosis || '').toLowerCase();
+
+                const matches = reason.includes(term) ||
+                    diagnosis.includes(term) ||
+                    doctorNotes.includes(term) ||
+                    srcLabel.includes(term) ||
+                    vtLabel.includes(term) ||
+                    dateStr.includes(term) ||
+                    rxMeds.includes(term) ||
+                    rxDiagnosis.includes(term);
+
+                if (!matches) return false;
+            }
+
+            return true;
+        });
+    }, [
+        record, 
+        historySourceFilter, 
+        historyVisitTypeFilter, 
+        historyStatusFilter, 
+        historyPeriodFilter, 
+        appliedCustomRange, 
+        historySearch,
+        isDateInRange
+    ]);
+
+    const isAnyFilterActive = 
+        historyPeriodFilter !== 'all' || 
+        historySourceFilter !== 'all' || 
+        historyVisitTypeFilter !== 'all' || 
+        historyStatusFilter !== 'all' || 
+        historySearch.trim() !== '' || 
+        appliedCustomRange !== null;
+
+    const handleClearFilters = () => {
+        setHistoryPeriodFilter('all');
+        setHistorySourceFilter('all');
+        setHistoryVisitTypeFilter('all');
+        setHistoryStatusFilter('all');
+        setHistorySearch('');
+        setCustomFromDate('');
+        setCustomToDate('');
+        setAppliedCustomRange(null);
+        setHistoryPage(1);
+    };
+
+    const totalPages = Math.ceil(filteredEncounters.length / historyPageSize) || 1;
+    const paginatedEncounters = useMemo(() => {
+        const start = (historyPage - 1) * historyPageSize;
+        return filteredEncounters.slice(start, start + historyPageSize);
+    }, [filteredEncounters, historyPage, historyPageSize]);
 
     if (isLoading) {
         return <div className="p-4 sm:p-6"><DetailsSkeleton /></div>;
@@ -384,6 +583,15 @@ export default function DoctorPatientRecordPage() {
                         <div className="space-y-3">
                             <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">{patientLabel}</h1>
                             <div className="flex flex-wrap items-center gap-2.5">
+                                {(() => {
+                                    const srcDisplay = getSourceDisplay(record.source);
+                                    return (
+                                        <span className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold tracking-wider ${srcDisplay.badgeClass}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${srcDisplay.dotClass}`}></span>
+                                            {srcDisplay.label.toUpperCase()}
+                                        </span>
+                                    );
+                                })()}
                                 {[
                                     record.age ? `${record.age} YRS` : null, 
                                     record.gender ? (record.gender.length > 1 ? record.gender : record.gender === 'M' ? 'MALE' : record.gender === 'F' ? 'FEMALE' : record.gender).toUpperCase() : null, 
@@ -557,9 +765,9 @@ export default function DoctorPatientRecordPage() {
                 )}
 
                 {activeTab === 'timeline' && (
-                    <div className="grid gap-8 lg:grid-cols-2">
-                        {/* Consultations */}
-                        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl shadow-sm overflow-hidden flex flex-col">
+                    <div className="grid gap-8 grid-cols-1 lg:grid-cols-2 min-w-0 w-full">
+                        {/* Left Column: Consultations */}
+                        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl shadow-sm overflow-hidden flex flex-col min-w-0 w-full">
                             <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 flex items-center justify-between">
                                 <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100">
                                     <FileText className="w-5 h-5 text-emerald-600"/> Consultations
@@ -568,17 +776,17 @@ export default function DoctorPatientRecordPage() {
                                     {consultations.length} total
                                 </span>
                             </div>
-                            <div className="p-6">
+                            <div className="p-6 min-w-0">
                                 {consultations.length === 0 ? (
                                     <div className="text-center py-10">
                                         <p className="text-gray-500 font-medium">No consultation history.</p>
                                     </div>
                                 ) : (
-                                    <div className="relative border-l-2 border-emerald-100 dark:border-emerald-900/30 ml-4 space-y-6 pb-2">
+                                    <div className="relative border-l-2 border-emerald-100 dark:border-emerald-900/30 ml-4 space-y-6 pb-2 min-w-0">
                                         {consultations.map((consultation) => (
-                                            <div key={consultation.id} className="relative pl-6 group">
+                                            <div key={consultation.id} className="relative pl-6 group min-w-0">
                                                 <div className="absolute w-3.5 h-3.5 bg-emerald-500 rounded-full -left-[9px] top-1.5 ring-4 ring-white dark:ring-gray-900 transition-transform" />
-                                                <div className="bg-gray-50/50 dark:bg-gray-800/20 border border-gray-100 dark:border-gray-800 rounded-2xl p-5 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                                                <div className="bg-gray-50/50 dark:bg-gray-800/20 border border-gray-100 dark:border-gray-800 rounded-2xl p-5 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors min-w-0">
                                                     <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                                                         <p className="font-bold text-gray-900 dark:text-gray-100">{formatDate(consultation.created_at, true)}</p>
                                                         <span className={`rounded-full px-3 py-1 text-[10px] font-bold tracking-wider uppercase border shadow-sm ${statusClasses(consultation.status)}`}>
@@ -586,9 +794,9 @@ export default function DoctorPatientRecordPage() {
                                                         </span>
                                                     </div>
                                                     {((consultation as any).appointment?.reason || (consultation as any).appointment?.symptoms || (consultation as any).appointment?.patient_notes) && (
-                                                        <div className="mb-3 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                                                        <div className="mb-3 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/30 min-w-0">
                                                             <span className="block text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest mb-1">Reason for Consultation</span>
-                                                            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                                                            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 break-words">
                                                                 {(consultation as any).appointment?.reason || (consultation as any).appointment?.patient_notes}
                                                             </p>
                                                             {(consultation as any).appointment?.symptoms && (consultation as any).appointment?.symptoms.length > 0 && (
@@ -615,9 +823,9 @@ export default function DoctorPatientRecordPage() {
                                                             )}
                                                         </div>
                                                     )}
-                                                    <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+                                                    <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm min-w-0">
                                                         <span className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Diagnosis / Notes</span>
-                                                        <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed font-medium">
+                                                        <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed font-medium break-words">
                                                             {consultation.diagnosis || consultation.notes || <span className="text-gray-400 italic font-normal">No details recorded.</span>}
                                                         </p>
                                                     </div>
@@ -635,71 +843,333 @@ export default function DoctorPatientRecordPage() {
                             </div>
                         </div>
                         
-                        {/* Appointments */}
-                        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl shadow-sm overflow-hidden flex flex-col">
-                            <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 flex items-center justify-between">
-                                <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100">
-                                    <Calendar className="w-5 h-5 text-blue-600"/> Appointments
-                                </h2>
-                                <span className="rounded-full bg-blue-100 dark:bg-blue-900/30 px-3 py-1 text-xs font-bold text-blue-800 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50">
-                                    {recentAppointments.length} total
-                                </span>
-                            </div>
-                            <div className="p-6">
-                                {recentAppointments.length === 0 ? (
-                                    <div className="text-center py-10">
-                                        <p className="text-gray-500 font-medium">No appointments found.</p>
+                        {/* Right Column: History Filter Bar + Practice Visits */}
+                        <div className="min-w-0 w-full space-y-6 flex flex-col">
+                            {/* History Filter Bar */}
+                            <div className="w-full min-w-0 max-w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl shadow-sm p-4 sm:p-5 space-y-3.5 box-border">
+                                {/* Search History (Full width of filter card) */}
+                                <div className="relative w-full min-w-0">
+                                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                                        <Search className="h-4 w-4 shrink-0" />
                                     </div>
-                                ) : (
-                                    <div className="grid gap-4">
-                                        {recentAppointments.map(app => (
-                                            <div key={app.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 hover:bg-white dark:hover:bg-gray-800/80 transition-colors hover:shadow-sm">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-gray-900 shadow-sm border border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400">
-                                                        <Calendar className="h-5 w-5" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-bold text-gray-900 dark:text-gray-100 text-base">{formatDate(app.appointment_date || app.created_at)}</p>
-                                                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                                                            <span className="text-sm font-semibold text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md">{app.time_slot}</span>
-                                                            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium bg-gray-100/80 dark:bg-gray-800/60 px-2.5 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
-                                                                Reason: {app.reason || app.patient_notes || 'General Visit'}
-                                                            </span>
-                                                            {Array.isArray(app.symptoms) && app.symptoms.length > 0 && (
-                                                                <div className="flex items-center gap-1">
-                                                                    {app.symptoms.map((s: string) => (
-                                                                        <span key={s} className="text-xs bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 px-1.5 py-0.5 rounded border border-red-100 dark:border-red-900/40">
-                                                                            {s}
+                                    <input
+                                        type="text"
+                                        placeholder="Search history (complaint, diagnosis, notes, rx)..."
+                                        value={historySearch}
+                                        onChange={(e) => {
+                                            setHistorySearch(e.target.value);
+                                            setHistoryPage(1);
+                                        }}
+                                        className="block w-full min-w-0 max-w-full h-10 pl-9 pr-3 rounded-xl bg-gray-50 dark:bg-gray-950/60 border border-gray-200 dark:border-gray-800 text-xs font-medium text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all shadow-sm truncate"
+                                    />
+                                </div>
+
+                                {/* 4 Filter Dropdowns in a 2-Column Grid (2x2 on sm+) */}
+                                <div className="grid w-full min-w-0 grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    {/* 1. Period Filter */}
+                                    <div className="relative w-full min-w-0">
+                                        <select
+                                            value={historyPeriodFilter}
+                                            onChange={(e) => {
+                                                setHistoryPeriodFilter(e.target.value);
+                                                setHistoryPage(1);
+                                            }}
+                                            className="block w-full min-w-0 max-w-full h-9.5 pl-3 pr-8 rounded-xl bg-gray-50 dark:bg-gray-950/60 border border-gray-200 dark:border-gray-800 text-xs font-bold text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all shadow-sm cursor-pointer appearance-none truncate"
+                                        >
+                                            <option value="all">All Time</option>
+                                            <option value="today">Today</option>
+                                            <option value="yesterday">Yesterday</option>
+                                            <option value="last_7_days">Last 7 Days</option>
+                                            <option value="last_30_days">Last 30 Days</option>
+                                            <option value="this_year">This Year</option>
+                                            <option value="custom">Custom Range</option>
+                                        </select>
+                                        <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-gray-400">
+                                            <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                                        </div>
+                                    </div>
+
+                                    {/* 2. Source Filter */}
+                                    <div className="relative w-full min-w-0">
+                                        <select
+                                            value={historySourceFilter}
+                                            onChange={(e) => {
+                                                setHistorySourceFilter(e.target.value);
+                                                setHistoryPage(1);
+                                            }}
+                                            className="block w-full min-w-0 max-w-full h-9.5 pl-3 pr-8 rounded-xl bg-gray-50 dark:bg-gray-950/60 border border-gray-200 dark:border-gray-800 text-xs font-bold text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all shadow-sm cursor-pointer appearance-none truncate"
+                                        >
+                                            <option value="all">All Sources</option>
+                                            <option value="vaididea">Vaididea</option>
+                                            <option value="direct">Direct Practice</option>
+                                        </select>
+                                        <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-gray-400">
+                                            <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                                        </div>
+                                    </div>
+
+                                    {/* 3. Visit Type Filter */}
+                                    <div className="relative w-full min-w-0">
+                                        <select
+                                            value={historyVisitTypeFilter}
+                                            onChange={(e) => {
+                                                setHistoryVisitTypeFilter(e.target.value);
+                                                setHistoryPage(1);
+                                            }}
+                                            className="block w-full min-w-0 max-w-full h-9.5 pl-3 pr-8 rounded-xl bg-gray-50 dark:bg-gray-950/60 border border-gray-200 dark:border-gray-800 text-xs font-bold text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all shadow-sm cursor-pointer appearance-none truncate"
+                                        >
+                                            <option value="all">All Visit Types</option>
+                                            <option value="video_consultation">Video Consultation</option>
+                                            <option value="in_person_clinic">In-Person Clinic</option>
+                                            <option value="walk_in_clinic">Walk-in Clinic</option>
+                                            <option value="phone_consultation">Phone Consultation</option>
+                                            <option value="home_visit">Home Visit</option>
+                                        </select>
+                                        <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-gray-400">
+                                            <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                                        </div>
+                                    </div>
+
+                                    {/* 4. Status Filter */}
+                                    <div className="relative w-full min-w-0">
+                                        <select
+                                            value={historyStatusFilter}
+                                            onChange={(e) => {
+                                                setHistoryStatusFilter(e.target.value);
+                                                setHistoryPage(1);
+                                            }}
+                                            className="block w-full min-w-0 max-w-full h-9.5 pl-3 pr-8 rounded-xl bg-gray-50 dark:bg-gray-950/60 border border-gray-200 dark:border-gray-800 text-xs font-bold text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all shadow-sm cursor-pointer appearance-none truncate"
+                                        >
+                                            <option value="all">All Status</option>
+                                            <option value="completed">Completed</option>
+                                            <option value="cancelled">Cancelled</option>
+                                            <option value="scheduled">Scheduled</option>
+                                            <option value="confirmed">Confirmed</option>
+                                            <option value="in_progress">In Progress</option>
+                                        </select>
+                                        <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-gray-400">
+                                            <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Custom Date Range Picker Bar (if custom selected) */}
+                                {historyPeriodFilter === 'custom' && (
+                                    <div className="flex flex-wrap items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs w-full min-w-0">
+                                        <span className="font-bold text-slate-700 dark:text-slate-300 shrink-0">Custom Range:</span>
+                                        <div className="flex items-center gap-1.5 flex-1 min-w-[110px]">
+                                            <span className="text-slate-500 font-medium text-[11px]">From:</span>
+                                            <input 
+                                                type="date"
+                                                value={customFromDate}
+                                                onChange={(e) => setCustomFromDate(e.target.value)}
+                                                className="h-8 px-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-medium text-slate-800 dark:text-slate-200 text-xs w-full min-w-0"
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-1.5 flex-1 min-w-[110px]">
+                                            <span className="text-slate-500 font-medium text-[11px]">To:</span>
+                                            <input 
+                                                type="date"
+                                                value={customToDate}
+                                                onChange={(e) => setCustomToDate(e.target.value)}
+                                                className="h-8 px-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-medium text-slate-800 dark:text-slate-200 text-xs w-full min-w-0"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setAppliedCustomRange({ from: customFromDate, to: customToDate });
+                                                setHistoryPage(1);
+                                            }}
+                                            className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm shrink-0"
+                                        >
+                                            Apply
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Match Count & Clear Filters Row */}
+                                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800/80 text-xs w-full min-w-0">
+                                    <span className="text-gray-500 font-semibold text-xs truncate">
+                                        Showing <strong className="text-gray-900 dark:text-gray-100">{filteredEncounters.length}</strong> of <strong className="text-gray-900 dark:text-gray-100">{recentAppointments.length}</strong> visits
+                                    </span>
+                                    {isAnyFilterActive && (
+                                        <button
+                                            type="button"
+                                            onClick={handleClearFilters}
+                                            className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline shrink-0 ml-2"
+                                        >
+                                            <RotateCcw className="h-3 w-3 shrink-0" /> Clear
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Consultations & Practice Visits Card */}
+                            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl shadow-sm overflow-hidden flex flex-col w-full min-w-0">
+                                <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 flex items-center justify-between">
+                                    <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100">
+                                        <Calendar className="w-5 h-5 text-blue-600"/> Consultations & Practice Visits
+                                    </h2>
+                                    <span className="rounded-full bg-blue-100 dark:bg-blue-900/30 px-3 py-1 text-xs font-bold text-blue-800 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50">
+                                        {filteredEncounters.length} {filteredEncounters.length === 1 ? 'visit' : 'visits'}
+                                    </span>
+                                </div>
+                                <div className="p-6 min-w-0">
+                                    {paginatedEncounters.length === 0 ? (
+                                        <div className="text-center py-12">
+                                            <Calendar className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                                            <p className="text-gray-700 dark:text-gray-300 font-bold text-base">No visits found matching active filters.</p>
+                                            <p className="text-gray-400 text-xs mt-1">Try selecting a broader date range or clearing filters.</p>
+                                            {isAnyFilterActive && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleClearFilters}
+                                                    className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-xs font-bold hover:bg-gray-200 transition"
+                                                >
+                                                    <RotateCcw className="h-3.5 w-3.5" /> Reset All Filters
+                                                </button>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="grid gap-4 min-w-0">
+                                            {paginatedEncounters.map(app => {
+                                                const isDirect = app.source === 'direct_walk_in' || app.source === 'direct_phone' || app.source === 'direct' || app.type === 'home_visit' || (app as any).source === 'walk_in';
+                                                const feeVal = app.fee ?? (app as any).consultation_fee ?? 0;
+                                                const payStatus = (app as any).payment_status || 'paid';
+                                                const matchingRx = (record?.prescriptions || []).find((p: any) => p.appointment_id === app.id || p.consultation_id === app.id || (isDirect && p.created_at && app.created_at && Math.abs(new Date(p.created_at).getTime() - new Date(app.created_at).getTime()) < 60000));
+
+                                                return (
+                                                    <div key={app.id} className="flex flex-col p-5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 hover:bg-white dark:hover:bg-gray-800/80 transition-colors hover:shadow-sm gap-4 min-w-0">
+                                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
+                                                            <div className="flex items-center gap-3 min-w-0">
+                                                                <div className="h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-gray-900 shadow-sm border border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 flex">
+                                                                    <Calendar className="h-5 w-5" />
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                                                        <p className="font-bold text-gray-900 dark:text-gray-100 text-base">{formatDate(app.appointment_date || app.created_at)}</p>
+                                                                        {(() => {
+                                                                            const src = app.source || resolveCanonicalSource(app);
+                                                                            const vt = app.visitType || resolveCanonicalVisitType(app);
+                                                                            const srcDisplay = getSourceDisplay(src);
+                                                                            const vtDisplay = getVisitTypeDisplay(vt);
+                                                                            return (
+                                                                                <>
+                                                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${srcDisplay.badgeClass}`}>
+                                                                                        <span className={`w-1 h-1 rounded-full ${srcDisplay.dotClass}`}></span>
+                                                                                        {srcDisplay.label}
+                                                                                    </span>
+                                                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${vtDisplay.badgeClass}`}>
+                                                                                        {vtDisplay.label}
+                                                                                    </span>
+                                                                                </>
+                                                                            );
+                                                                        })()}
+                                                                        {feeVal > 0 && (
+                                                                            <span className="text-xs font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
+                                                                            ₹{feeVal} · {payStatus.toUpperCase()}
                                                                         </span>
-                                                                    ))}
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-xs text-gray-500 font-medium mt-0.5">
+                                                                    Time: {app.time_slot || '—'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                                                            <span className={`rounded-full px-3 py-1 text-[10px] font-bold tracking-wider uppercase border shadow-sm ${statusClasses(app.status)}`}>
+                                                                {formatStatus(app.status)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {(app.reason || (app as any).reason_for_visit || app.patient_notes || (app as any).doctor_notes || (app as any).diagnosis || matchingRx?.diagnosis) && (
+                                                        <div className="bg-white dark:bg-gray-900/60 p-3 rounded-xl border border-gray-100 dark:border-gray-800 text-xs space-y-2 min-w-0">
+                                                            {(app.reason || (app as any).reason_for_visit || app.patient_notes) && (
+                                                                <div>
+                                                                    <span className="font-bold text-gray-500 uppercase text-[10px] tracking-wider block mb-0.5">Reason / Complaint</span>
+                                                                    <p className="text-gray-800 dark:text-gray-200 font-medium break-words">{app.reason || (app as any).reason_for_visit || app.patient_notes}</p>
                                                                 </div>
                                                             )}
-                                                            {(app as any).severity_current !== undefined && (
-                                                                <span className={`text-sm font-medium px-2.5 py-0.5 rounded-md border ${(app as any).severity_current <= 3 ? 'bg-emerald-100/80 text-emerald-700 border-emerald-200/50' : (app as any).severity_current <= 6 ? 'bg-amber-100/80 text-amber-700 border-amber-200/50' : 'bg-red-100/80 text-red-700 border-red-200/50'}`}>
-                                                                    Severity: {(app as any).severity_current}/10
+                                                            {((app as any).diagnosis || matchingRx?.diagnosis) && (
+                                                                <div>
+                                                                    <span className="font-bold text-emerald-700 dark:text-emerald-400 uppercase text-[10px] tracking-wider block mb-0.5">Diagnosis</span>
+                                                                    <p className="text-gray-800 dark:text-gray-200 font-medium break-words">{(app as any).diagnosis || matchingRx?.diagnosis}</p>
+                                                                </div>
+                                                            )}
+                                                            {(app.doctor_notes || (app as any).notes) && (
+                                                                <div>
+                                                                    <span className="font-bold text-gray-500 uppercase text-[10px] tracking-wider block mb-0.5">Doctor's Clinical Notes</span>
+                                                                    <p className="text-gray-800 dark:text-gray-200 leading-relaxed font-medium break-words">{app.doctor_notes || (app as any).notes}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 dark:border-gray-800 min-w-0">
+                                                        <div className="min-w-0">
+                                                            {matchingRx?.prescription_medicines && matchingRx.prescription_medicines.length > 0 && (
+                                                                <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1 truncate">
+                                                                    <Pill className="h-3 w-3 shrink-0" /> {matchingRx.prescription_medicines.length} items prescribed
                                                                 </span>
                                                             )}
-                                                            {(app as any).voice_note_url && (
-                                                                <div className="flex items-center gap-2 p-1 rounded-md bg-emerald-100/50 dark:bg-emerald-900/30 border border-emerald-200/50 dark:border-emerald-800/50">
-                                                                    <audio src={(app as any).voice_note_url} controls className="h-6 w-[140px]" />
-                                                                </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            {matchingRx ? (
+                                                                <Link
+                                                                    href={`/doctor/prescriptions/${matchingRx.id}`}
+                                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 hover:bg-blue-100 border border-blue-200 dark:border-blue-800 text-xs font-bold transition shadow-sm"
+                                                                >
+                                                                    <Pill className="w-3.5 h-3.5" /> View Prescription
+                                                                </Link>
+                                                            ) : (
+                                                                <Link
+                                                                    href={`/doctor/prescriptions/new?appointmentId=${app.id}`}
+                                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800 text-xs font-bold transition shadow-sm"
+                                                                >
+                                                                    <FileText className="w-3.5 h-3.5" /> Create Prescription
+                                                                </Link>
                                                             )}
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="mt-4 sm:mt-0 flex items-center justify-end">
-                                                    <span className={`rounded-full px-3 py-1 text-[10px] font-bold tracking-wider uppercase border shadow-sm ${statusClasses(app.status)}`}>
-                                                        {formatStatus(app.status)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Pagination Controls */}
+                                {totalPages > 1 && (
+                                    <div className="flex items-center justify-between pt-6 mt-4 border-t border-gray-100 dark:border-gray-800 min-w-0">
+                                        <p className="text-xs font-medium text-gray-500">
+                                            Page {historyPage} of {totalPages}
+                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                                                disabled={historyPage === 1}
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-800 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                                            >
+                                                <ChevronLeft className="h-3.5 w-3.5" /> Previous
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setHistoryPage(p => Math.min(totalPages, p + 1))}
+                                                disabled={historyPage === totalPages}
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-800 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                                            >
+                                                Next <ChevronRight className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
+            )}
 
                 {activeTab === 'vault' && (
                     <div className="space-y-8">

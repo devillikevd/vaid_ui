@@ -52,6 +52,7 @@ const diseasesRoutes = require('./routes/diseases');
 const wellnessRoutes = require('./routes/wellness');
 const discountRoutes = require('./routes/discounts');
 const patientConsentRoutes = require('./routes/patient/consents');
+const patientReferralRoutes = require('./routes/patient/referrals');
 
 const { startOutbreakCron } = require('./services/outbreakService');
 
@@ -537,6 +538,7 @@ app.use('/api/diseases', diseasesRoutes);
 app.use('/api/wellness', wellnessRoutes);
 app.use('/api/discounts', discountRoutes);
 app.use('/api/patients/consents', patientConsentRoutes);
+app.use('/api/patient/referrals', patientReferralRoutes);
 app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api/emergency-network', require('./routes/emergencyNetwork'));
 

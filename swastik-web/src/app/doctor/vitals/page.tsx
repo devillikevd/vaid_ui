@@ -89,7 +89,7 @@ const VitalsSkeleton = () => (
         <div className="flex justify-between items-center">
             <div>
                 <div className="h-8 w-48 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
-                <div className="h-4 w-72 bg-gray-100 dark:bg-gray-800/50 rounded-lg mt-2"></div>
+                <div className="h-4 w-full max-w-sm bg-gray-100 dark:bg-gray-800/50 rounded-lg mt-2"></div>
             </div>
             <div className="h-10 w-36 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
         </div>

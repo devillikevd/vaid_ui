@@ -270,6 +270,9 @@ fun PatientDashboardScreen(
     val reminders by viewModel.reminders.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
+    val pendingConsents by viewModel.pendingConsents.collectAsState()
+    val isConsentLoading by viewModel.isConsentLoading.collectAsState()
+    var selectedConsentRequest by remember { mutableStateOf<com.example.swastik.data.remote.dto.ReferralConsentDto?>(null) }
 
     val unreadCount = notifications.count { !it.isRead }
 
@@ -663,7 +666,9 @@ fun PatientDashboardScreen(
                             onFindDoctorSpecialityClick = onFindDoctorSpecialityClick,
                             onNavigateToCommunityQA = onNavigateToCommunityQA,
                             onDoctorClick = onDoctorClick,
-                            onNavigateToAllRecommendedDoctors = onNavigateToAllRecommendedDoctors
+                            onNavigateToAllRecommendedDoctors = onNavigateToAllRecommendedDoctors,
+                            pendingConsents = pendingConsents,
+                            onConsentClick = { selectedConsentRequest = it }
                         )
                         }
                         1 -> RemindersTabContent(
@@ -937,6 +942,29 @@ fun PatientDashboardScreen(
                                 Manifest.permission.ACCESS_COARSE_LOCATION
                             )
                         )
+                    }
+                }
+            )
+        }
+
+        // Referral Consent Bottom Sheet
+        if (selectedConsentRequest != null) {
+            ReferralConsentBottomSheet(
+                consent = selectedConsentRequest,
+                isLoading = isConsentLoading,
+                onDismiss = { selectedConsentRequest = null },
+                onApprove = { id ->
+                    viewModel.approveConsent(id) { success, _ ->
+                        if (success) {
+                            selectedConsentRequest = null
+                        }
+                    }
+                },
+                onDecline = { id ->
+                    viewModel.declineConsent(id) { success, _ ->
+                        if (success) {
+                            selectedConsentRequest = null
+                        }
                     }
                 }
             )

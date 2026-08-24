@@ -508,12 +508,16 @@ export function BaseDashboardLayout({
     );
 
     // Calculate dynamic stats for doctor dropdown
-    const averageRating = doctorStore.reviews.length > 0
-        ? (doctorStore.reviews.reduce((acc, r) => acc + r.rating, 0) / doctorStore.reviews.length).toFixed(1)
-        : '5.0';
-    const totalPatients = doctorStore.patientsPagination.total > 0 ? doctorStore.patientsPagination.total : 0;
+    const rawRating = doctorStore.doctorProfile?.rating ?? doctorStore.stats?.averageRating ?? 0;
+    const averageRating = rawRating > 0 ? rawRating.toFixed(1) : '5.0';
+    
+    const totalPatients = doctorStore.doctorProfile?.stats?.totalPatients ?? doctorStore.stats?.totalPatients ?? doctorStore.patientsPagination?.total ?? 0;
     const formattedPatients = totalPatients >= 1000 ? `${(totalPatients / 1000).toFixed(1)}k` : totalPatients.toString();
-    const todaysCount = doctorStore.stats?.todaysAppointments ?? doctorStore.stats?.totalPatientsToday ?? doctorStore.todaysAppointments?.length ?? 0;
+    
+    // The backend provides 'todaysAppointments' in the stats object (which is the length of today's appointments).
+    const todaysCount = doctorStore.stats?.todaysAppointments ?? doctorStore.todaysAppointments?.length ?? 0;
+    
+    // The backend provides 'experience_years' in the profile.
     const yearsExp = doctorStore.doctorProfile?.experience_years ?? 0;
 
     const normalizedApprovalStatus = user?.approval_status === 'under_review' ? 'review' : user?.approval_status;
@@ -523,7 +527,16 @@ export function BaseDashboardLayout({
 
     useEffect(() => {
         setIsMounted(true);
-    }, []);
+        if (user?.role === 'doctor') {
+            if (!doctorStore.stats && !doctorStore.loadingDashboard) {
+                doctorStore.fetchDashboardData();
+            }
+            if (!doctorStore.doctorProfile && !doctorStore.isLoading) {
+                doctorStore.fetchDoctorProfile();
+            }
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.role]);
 
 
 
@@ -613,7 +626,7 @@ export function BaseDashboardLayout({
                 ref={sidebarRef}
                 className={cn(
                     'fixed top-0 left-0 z-50 h-full transition-all duration-300 lg:translate-x-0 flex flex-col border-r',
-                    desktopCollapsed ? 'w-64 lg:w-20' : 'w-64',
+                    desktopCollapsed ? 'w-full max-w-sm lg:w-20' : 'w-full max-w-sm lg:w-64',
                     colors.sidebar,
                     colors.border,
                     sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -639,14 +652,14 @@ export function BaseDashboardLayout({
                     <div className="flex shrink-0 items-center gap-1">
                         <button
                             onClick={() => setDesktopCollapsed(!desktopCollapsed)}
-                            className="hidden lg:flex p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                            className="hidden lg:flex p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white dark:bg-[#0f1929]/5 transition-colors"
                             title={desktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                         >
                             {desktopCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                         </button>
                         <button
                             onClick={closeSidebar}
-                            className="lg:hidden p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                            className="lg:hidden p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white dark:bg-[#0f1929]/5 transition-colors"
                             aria-label="Close sidebar"
                         >
                             <X className="h-4 w-4" />
@@ -903,8 +916,8 @@ export function BaseDashboardLayout({
                                         role="presentation"
                                     />
                                     <div className={cn(
-                                        "absolute right-0 mt-2 w-[95vw] bg-white/95 dark:bg-[#0B1020]/95 backdrop-blur-xl rounded-[18px] border border-gray-200 dark:border-gray-800 shadow-2xl z-50 overflow-hidden ring-1 ring-black/5 dark:ring-white/5 flex flex-col max-h-[85vh]",
-                                        config.theme?.dataTheme === 'diagnostic-center' ? 'sm:w-[320px]' : 'sm:w-[500px]'
+                                        "absolute right-0 mt-2 w-[calc(100vw-32px)] sm:w-[420px] max-w-[420px] bg-white/95 dark:bg-[#0B1020]/95 backdrop-blur-xl rounded-[18px] border border-gray-200 dark:border-gray-800 shadow-2xl z-50 overflow-hidden ring-1 ring-black/5 dark:ring-white/5 flex flex-col max-h-[85vh]",
+                                        config.theme?.dataTheme === 'diagnostic-center' ? 'sm:w-[320px]' : ''
                                     )}>
                                         {user?.role === 'doctor' ? (
                                             <>
@@ -949,7 +962,7 @@ export function BaseDashboardLayout({
                                                         </div>
 
                                                         {/* Quick Stats */}
-                                                        <div className="grid grid-cols-4 gap-3 mt-6">
+                                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
                                                             <div className="bg-gray-50 dark:bg-[#131A2B] rounded-xl p-3 border border-gray-200 dark:border-gray-800/50 flex flex-col items-center justify-center transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 h-[150px]">
                                                                 <Calendar className="w-4 h-4 text-emerald-500 shrink-0" />
                                                                 <span className="text-[36px] font-bold text-gray-900 dark:text-white leading-none mt-2">{todaysCount}</span>
@@ -1075,15 +1088,20 @@ export function BaseDashboardLayout({
                                                             </div>
                                                             <div className="flex justify-between items-center text-xs">
                                                                 <span className="text-gray-400 font-medium">Medical Reg No</span>
-                                                                <span className="text-gray-700 dark:text-gray-300 font-bold">MED-2026-892</span>
+                                                                <span className="text-gray-700 dark:text-gray-300 font-bold">{user?.role === 'doctor' ? (doctorStore.doctorProfile?.registration_number || 'Not provided') : 'N/A'}</span>
                                                             </div>
                                                             <div className="flex justify-between items-center text-xs">
-                                                                <span className="text-gray-400 font-medium">Membership Plan</span>
-                                                                <span className="text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-500/20">Enterprise</span>
+                                                                <span className="text-gray-400 font-medium">Account Status</span>
+                                                                <span className={cn(
+                                                                    "font-bold px-2 py-0.5 rounded-md border",
+                                                                    user?.is_verified ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20" : "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"
+                                                                )}>
+                                                                    {user?.is_verified ? 'Verified' : 'Pending'}
+                                                                </span>
                                                             </div>
                                                             <div className="flex justify-between items-center text-xs">
-                                                                <span className="text-gray-400 font-medium">Last Login</span>
-                                                                <span className="text-gray-700 dark:text-gray-300 font-bold">Just now</span>
+                                                                <span className="text-gray-400 font-medium">Member Since</span>
+                                                                <span className="text-gray-700 dark:text-gray-300 font-bold">{user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Recently'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
