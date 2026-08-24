@@ -232,9 +232,20 @@ const getDiagnosticCenterByOwner = async (userId) => {
   if (error || !data) {
     throw new ApiError(404, 'Diagnostic center not found for this user');
   }
+
+  const { data: reels } = await supabaseAdmin
+    .from('diagnostic_reels')
+    .select('*')
+    .eq('diagnostic_center_id', data.id)
+    .order('created_at', { ascending: false });
+
+  const [recordWithPhone] = await enrichMissingPhonesFromOwners([data]);
+  const center = recordWithPhone || data;
+
   return {
-    ...data,
-    profile_image_url: data.profile_image_url || data.image_url || null,
+    ...center,
+    profile_image_url: center.profile_image_url || center.image_url || null,
+    reels: reels || [],
   };
 };
 

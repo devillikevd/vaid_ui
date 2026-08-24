@@ -715,7 +715,7 @@
     <string name="keep_request">विनंती तशीच ठेवा</string>
     <string name="live_gps_active">लाइव्ह जीपीएस सक्रिय</string>
     <string name="digital_health_card">डिजिटल हेल्थ कार्ड</string>
-    <string name="valid_through_1225">12/25 पर्यंत वैध</string>
+    <string name="valid_through_1225">तातडीचा प्रवेश QR • २४ तास वैध</string>
     <string name="share_this_id_for_manual">मॅन्युअल एंट्रीसाठी हा आयडी शेअर करा</string>
     <string name="revoke_access">प्रवेश रद्द करा</string>
     <string name="generate_qr_code">क्यूआर कोड जनरेट करा</string>

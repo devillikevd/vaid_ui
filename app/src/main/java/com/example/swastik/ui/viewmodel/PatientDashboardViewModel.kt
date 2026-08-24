@@ -844,6 +844,7 @@ class PatientDashboardViewModel @Inject constructor(
                         isLoading = false,
                         hasActiveCard = result.data.hasActiveCard,
                         url = result.data.url,
+                        token = result.data.url?.substringAfterLast("/"),
                         expiresAt = result.data.expiresAt,
                         hasCheckedStatus = true
                     )

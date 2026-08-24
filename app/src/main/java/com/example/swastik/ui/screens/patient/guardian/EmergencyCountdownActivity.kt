@@ -12,36 +12,40 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.WindowManager
-import androidx.lifecycle.lifecycleScope
-import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
-import javax.inject.Inject
-import com.example.swastik.data.remote.dto.EmergencyRequest
-import com.example.swastik.data.repository.GuardianRepository
-import com.example.swastik.data.repository.EmergencyRepository
-import com.example.swastik.data.repository.Result
-import com.example.swastik.utils.LocationHelper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
-import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.lifecycleScope
 import com.example.swastik.R
+import com.example.swastik.data.repository.EmergencyRepository
+import com.example.swastik.data.repository.GuardianRepository
+import com.example.swastik.data.repository.Result
+import com.example.swastik.utils.LocationHelper
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class EmergencyCountdownActivity : ComponentActivity() {
@@ -57,11 +61,15 @@ class EmergencyCountdownActivity : ComponentActivity() {
 
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
-    private var sosRequestInFlight = false
     private var isTestMode = false
 
     companion object {
         private const val CRASH_ALERT_NOTIFICATION_ID = 1003
+        // Fix 9: Process-level SOS deduplication — prevents duplicate broadcasts
+        // even if multiple Activity instances are created from notification + startActivity
+        private val sosDispatchLock = AtomicBoolean(false)
+        private var lastSosDispatchMs = 0L
+        private const val SOS_DEDUP_COOLDOWN_MS = 60_000L // 60 seconds
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,28 +98,21 @@ class EmergencyCountdownActivity : ComponentActivity() {
         val emergencyType = intent.getStringExtra("EMERGENCY_TYPE") ?: "Emergency Detected"
         isTestMode = intent.getBooleanExtra("is_test", false)
 
-        if (!isCrashEmergency(emergencyType) && !isTestMode) {
-            lifecycleScope.launch {
-                guardianRepository.logEvent(
-                    eventType = "NON_CRASH_SOS_BLOCKED",
-                    locationContext = emergencyType
-                )
-            }
-            finish()
-            return
-        }
+        // Both crash and fall use the configured grace period (default 30s) so user has sufficient time to cancel
+        val effectiveGracePeriod = gracePeriod
 
         startAlarmAndVibration()
 
         setContent {
             MaterialTheme {
                 EmergencyCountdownScreen(
-                    gracePeriodSeconds = gracePeriod,
+                    gracePeriodSeconds = effectiveGracePeriod,
                     emergencyType = emergencyType,
                     onCancel = { 
                         lifecycleScope.launch {
                             guardianRepository.logEvent(
-                                if (isCrashEmergency(emergencyType)) "CRASH_SOS_CANCELLED" else "SOS_TEST_CANCELLED"
+                                eventType = "EMERGENCY_CANCELLED_BY_USER",
+                                locationContext = "$emergencyType cancelled by user tap within grace period. No alerts dispatched."
                             )
                         }
                         finishAndStopAlarm() 
@@ -125,14 +126,17 @@ class EmergencyCountdownActivity : ComponentActivity() {
     }
 
     private fun triggerAutoSos(emergencyType: String) {
-        if (sosRequestInFlight) return
-        sosRequestInFlight = true
+        // Fix 9: Process-level dedup — AtomicBoolean CAS ensures only one dispatch
+        val now = System.currentTimeMillis()
+        if (now - lastSosDispatchMs < SOS_DEDUP_COOLDOWN_MS) return
+        if (!sosDispatchLock.compareAndSet(false, true)) return
+        lastSosDispatchMs = now
         stopAlarm()
 
-        if (isTestMode || !isCrashEmergency(emergencyType)) {
+        if (isTestMode) {
             lifecycleScope.launch {
                 guardianRepository.logEvent(
-                    eventType = if (isTestMode) "SOS_TEST_COMPLETED" else "NON_CRASH_SOS_BLOCKED",
+                    eventType = "SOS_TEST_COMPLETED",
                     locationContext = emergencyType
                 )
             }
@@ -152,57 +156,81 @@ class EmergencyCountdownActivity : ComponentActivity() {
             val longitude = freshLocation?.longitude
                 ?: intent.takeIf { it.hasExtra("LONGITUDE") }?.getDoubleExtra("LONGITUDE", 0.0)
 
-            if (latitude == null || longitude == null || latitude == 0.0 && longitude == 0.0) {
-                guardianRepository.logEvent(
-                    eventType = "SOS_FAILED_LOCATION",
-                    locationContext = emergencyType
-                )
-                finish()
-                return@launch
-            }
-
-            val apiEmergencyType = "accident"
             val speedKmh = intent.getFloatExtra("SPEED_KMH", 0f)
-            val notes = "Vaididea Guardian auto-SOS: $emergencyType. " +
-                "Grace period expired without user cancellation. Speed=${"%.1f".format(speedKmh)} km/h."
+            val isCrash = isCrashEmergency(emergencyType)
+            val incidentCode = if (isCrash) "CRASH_DETECTED" else "FALL_DETECTED"
+
+            val notes = "Vaididea Guardian Emergency: $emergencyType. " +
+                "User did not cancel within grace period. Speed=${"%.1f".format(speedKmh)} km/h. " +
+                "Community First Responder Alert dispatched for immediate on-scene CPR/first-aid."
 
             guardianRepository.logEvent(
-                eventType = "SOS_TRIGGERED",
+                eventType = if (isCrash) "CRASH_COMMUNITY_ALERTED" else "FALL_COMMUNITY_ALERTED",
                 latitude = latitude,
                 longitude = longitude,
                 locationContext = emergencyType,
                 sensorDataSnippet = notes
             )
 
-            val request = EmergencyRequest(
-                latitude = latitude,
-                longitude = longitude,
-                address = null,
-                emergencyType = apiEmergencyType,
-                notes = notes
-            )
-
-            when (val result = emergencyRepository.requestEmergency(request)) {
-                is Result.Success -> {
+            // 1. Alert nearby Community First Responders (Heroes)
+            if (latitude != null && longitude != null && (latitude != 0.0 || longitude != 0.0)) {
+                try {
+                    emergencyRepository.broadcastEmergency(
+                        com.example.swastik.data.model.EmergencyBroadcastRequest(
+                            latitude = latitude,
+                            longitude = longitude,
+                            incidentType = incidentCode,
+                            addressText = "Emergency incident site (GPS: ${"%.4f".format(latitude)}, ${"%.4f".format(longitude)})",
+                            radiusMeters = if (isCrash) 2500 else 1500
+                        )
+                    )
                     guardianRepository.logEvent(
-                        eventType = "SOS_DISPATCHED",
+                        eventType = "COMMUNITY_HEROES_BROADCAST_SUCCESS",
                         latitude = latitude,
                         longitude = longitude,
-                        locationContext = result.data.resolvedStatus(),
-                        sensorDataSnippet = result.data.resolvedRequestId()
+                        locationContext = "Radius: ${if (isCrash) 2500 else 1500}m"
                     )
-                }
-                is Result.Error -> {
+                } catch (e: Exception) {
                     guardianRepository.logEvent(
-                        eventType = "SOS_FAILED_NETWORK",
+                        eventType = "COMMUNITY_HEROES_BROADCAST_FAILED",
                         latitude = latitude,
                         longitude = longitude,
-                        locationContext = result.message
+                        locationContext = e.message
                     )
                 }
-                is Result.Loading -> Unit
             }
 
+            // 2. Notify Designated Emergency Contacts with live coordinates
+            try {
+                val contactRequest = com.example.swastik.data.remote.dto.EmergencyContactAlertRequest(
+                    alertType = if (isCrash) "crash_detected" else "fall_detected",
+                    latitude = latitude,
+                    longitude = longitude,
+                    notes = notes,
+                    sourceId = "guardian-${System.currentTimeMillis()}"
+                )
+                when (val result = emergencyRepository.notifyEmergencyContacts(contactRequest)) {
+                    is Result.Success -> guardianRepository.logEvent(
+                        eventType = "EMERGENCY_CONTACTS_NOTIFIED",
+                        latitude = latitude,
+                        longitude = longitude,
+                        locationContext = "notified=${result.data.notifiedUserCount}, matched=${result.data.matchedUserCount}"
+                    )
+                    is Result.Error -> guardianRepository.logEvent(
+                        eventType = "EMERGENCY_CONTACTS_NOTIFY_FAILED",
+                        locationContext = result.message
+                    )
+                    is Result.Loading -> Unit
+                }
+            } catch (e: Exception) {
+                guardianRepository.logEvent(
+                    eventType = "EMERGENCY_CONTACTS_NOTIFY_EXCEPTION",
+                    locationContext = e.message
+                )
+            }
+
+            // Release the dispatch lock after completion
+            sosDispatchLock.set(false)
             finish()
         }
     }
@@ -343,13 +371,93 @@ fun EmergencyCountdownScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            Text(
-                text = stringResource(R.string.auto_calling_ambulance, emergencyType),
-                color = Color.White,
-                fontSize = 20.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                fontWeight = FontWeight.Medium
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "🚨 $emergencyType",
+                    color = Color(0xFFFF6B6B),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Alerting nearby Community First Responders in ${timeLeft}s...",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // ==================== IN-COUNTDOWN CPR & FIRST-AID METRONOME GUIDE ====================
+            var showCprGuide by remember { mutableStateOf(false) }
+            val cprTransition = rememberInfiniteTransition(label = "CPR_Pulse")
+            val cprPulseScale by cprTransition.animateFloat(
+                initialValue = 0.9f,
+                targetValue = 1.25f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(545, easing = LinearEasing), // 110 BPM standard CPR rate (~545ms per beat)
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "CprScale"
             )
+
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color.Black.copy(alpha = 0.45f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.4f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showCprGuide = !showCprGuide }
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .scale(cprPulseScale),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("❤️", fontSize = 16.sp)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Hands-Only CPR Metronome (110 BPM)",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFFFCA5A5)
+                                )
+                                Text(
+                                    text = if (showCprGuide) "Tap to collapse emergency instructions" else "Tap for step-by-step first-aid guide",
+                                    fontSize = 10.sp,
+                                    color = Color.White.copy(alpha = 0.75f)
+                                )
+                            }
+                        }
+                        Text(if (showCprGuide) "▲" else "▼", color = Color.White, fontSize = 12.sp)
+                    }
+
+                    if (showCprGuide) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "1. Check responsiveness & pulse.\n2. If unconscious, place hands on the center of chest.\n3. Push hard & fast (2 inches deep) matching the pulsating ❤️ beat (100–120 BPM).\n4. Continue until Hero Responder arrives on scene.",
+                            fontSize = 11.sp,
+                            color = Color(0xFFF1F5F9),
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+            }
             
             Spacer(modifier = Modifier.weight(1f))
             
@@ -378,7 +486,7 @@ fun EmergencyCountdownScreen(
                 }
             }
             
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(36.dp))
         }
     }
 }

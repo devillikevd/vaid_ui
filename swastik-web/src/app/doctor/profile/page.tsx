@@ -92,7 +92,10 @@ export default function DoctorProfilePage() {
                     <p className="text-gray-500 text-sm mt-0.5">Manage your public presence and professional details</p>
                 </div>
                 <div className="flex gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-white text-sm font-semibold transition-colors">
+                    <button 
+                        onClick={() => window.open(`/doctors/${profile.id}`, '_blank')}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-white text-sm font-semibold transition-colors"
+                    >
                         <Share2 className="h-4 w-4"/> Preview Public
                     </button>
                     <Link href="/doctor/settings" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold transition-colors">

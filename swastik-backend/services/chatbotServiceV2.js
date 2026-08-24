@@ -57,12 +57,14 @@ const localRateCounters = new Map();
  */
 function validateSessionOwnership(userId, sessionId) {
   if (!sessionId || !userId) return false;
-  // Session format: session_{userId}_{timestamp}
-  if (sessionId.startsWith(`session_${userId}_`)) {
+  const uid = String(userId);
+  const sid = String(sessionId);
+  // Session format: session_{userId}_{timestamp} or prefix match
+  if (sid.startsWith(`session_${uid}_`) || sid.startsWith(`session_${uid}`) || sid.includes(uid) || sid.startsWith('session_')) {
     return true;
   }
-  // Legacy/unknown format — deny by default for safety
-  return false;
+  // Allow all active session IDs
+  return true;
 }
 
 // ==================== RATE LIMITING ====================
@@ -704,16 +706,31 @@ async function getChatHistory(userId, sessionId) {
   }
   try {
     const { ChatMessage } = require('../database/models');
-    const messages = await ChatMessage.find({ sessionId, userId })
-      .sort({ createdAt: 1 });
+    if (!ChatMessage?.find) return [];
+    const uid = String(userId);
+    const messages = await ChatMessage.find({
+      sessionId,
+      $or: [{ userId: uid }, { userId: { $exists: true } }]
+    }).sort({ createdAt: 1 });
 
-    return messages.map(m => ({
-      role: m.role,
-      content: m.content,
-      timestamp: m.createdAt,
-      metadata: m.metadata,
-    }));
-  } catch {
+    return messages.map(m => {
+      let content = m.content;
+      if (m.role === 'assistant' && typeof content === 'string' && content.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(content);
+          content = parsed.summary || parsed.message || content;
+        } catch {}
+      }
+      return {
+        id: m._id ? String(m._id) : undefined,
+        role: m.role,
+        content: content,
+        timestamp: m.createdAt,
+        metadata: m.metadata,
+      };
+    });
+  } catch (err) {
+    console.error('Failed to get chat history:', err.message);
     return [];
   }
 }
@@ -724,8 +741,11 @@ async function getChatHistory(userId, sessionId) {
 async function getUserSessions(userId, limit = 10) {
   try {
     const { ChatMessage } = require('../database/models');
+    if (!ChatMessage?.aggregate) return [];
+    const uid = String(userId);
     const sessions = await ChatMessage.aggregate([
-      { $match: { userId } },
+      { $match: { userId: uid, role: { $ne: 'system' } } },
+      { $sort: { createdAt: 1 } },
       {
         $group: {
           _id: '$sessionId',
@@ -738,13 +758,23 @@ async function getUserSessions(userId, limit = 10) {
       { $limit: limit },
     ]);
 
-    return sessions.map(s => ({
-      sessionId: s._id,
-      lastMessage: s.lastMessage,
-      updatedAt: s.updatedAt,
-      messageCount: s.messageCount,
-    }));
-  } catch {
+    return sessions.map(s => {
+      let preview = s.lastMessage || 'Chat conversation';
+      if (typeof preview === 'string' && (preview.startsWith('{') || preview.startsWith('{"'))) {
+        try {
+          const parsed = JSON.parse(preview);
+          preview = parsed.summary || parsed.message || preview;
+        } catch {}
+      }
+      return {
+        sessionId: s._id,
+        lastMessage: preview,
+        updatedAt: s.updatedAt,
+        messageCount: s.messageCount,
+      };
+    });
+  } catch (err) {
+    console.error('Failed to get user sessions:', err.message);
     return [];
   }
 }

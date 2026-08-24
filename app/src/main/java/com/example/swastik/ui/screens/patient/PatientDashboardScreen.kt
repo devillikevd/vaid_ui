@@ -116,6 +116,7 @@ fun PatientDashboardScreen(
     var showAddressesDialog by remember { mutableStateOf(false) }  // add/edit bottom sheet
     var showAddressListDialog by remember { mutableStateOf(false) } // list of addresses
     var addressToEdit by remember { mutableStateOf<SavedAddress?>(null) }
+    var activeStatusSheetAppointment by remember { mutableStateOf<com.example.swastik.data.model.Appointment?>(null) }
     val context = LocalContext.current
     val fusedLocationClient = remember {
         com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context)
@@ -359,11 +360,11 @@ fun PatientDashboardScreen(
                                     .fillMaxWidth()
                                     .padding(2.dp)
                                     .clickable {
-                                        // If multiple upcoming consultations, expand list; else navigate directly
+                                        // If multiple upcoming consultations, expand list; else open status bottom sheet
                                         if (upcomingAppointments.count { s -> s.status.lowercase().let { it == "scheduled" || it == "confirmed" || it == "in_progress" } } > 1) {
                                             showAllConsultations = !showAllConsultations
                                         } else {
-                                            onNavigateToActiveBooking(activeBooking.id)
+                                            activeStatusSheetAppointment = activeBooking
                                         }
                                     },
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
@@ -539,7 +540,7 @@ fun PatientDashboardScreen(
                                                     .padding(vertical = 4.dp)
                                                     .clickable {
                                                         showAllConsultations = false
-                                                        onNavigateToActiveBooking(appt.id)
+                                                        activeStatusSheetAppointment = appt
                                                     },
                                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
                                                 color = Color(0xFFF0FDF4),
@@ -943,6 +944,33 @@ fun PatientDashboardScreen(
                             )
                         )
                     }
+                }
+            )
+        }
+
+        if (activeStatusSheetAppointment != null) {
+            com.example.swastik.ui.screens.patient.booking.ConsultationStatusBottomSheet(
+                appointment = activeStatusSheetAppointment!!,
+                onDismiss = { activeStatusSheetAppointment = null },
+                onJoinConsultation = { apptId, docName ->
+                    activeStatusSheetAppointment = null
+                    onJoinVideoConsultation(apptId, docName)
+                },
+                onNavigateToDoctorProfile = { docId ->
+                    activeStatusSheetAppointment = null
+                    onDoctorClick(docId)
+                },
+                onReschedule = { docId ->
+                    activeStatusSheetAppointment = null
+                    onDoctorClick(docId)
+                },
+                onCancelClick = { appt ->
+                    activeStatusSheetAppointment = null
+                    onNavigateToActiveBooking(appt.id)
+                },
+                onPrescriptionClick = { _ ->
+                    activeStatusSheetAppointment = null
+                    onNavigateToPrescriptions()
                 }
             )
         }

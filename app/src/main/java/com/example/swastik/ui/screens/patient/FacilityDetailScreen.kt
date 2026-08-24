@@ -198,7 +198,17 @@ fun FacilityDetailScreen(
             }
 
             var selectedTabIndex by remember { mutableIntStateOf(0) }
+            var selectedReelForPlay by remember { mutableStateOf<HospitalReel?>(null) }
             val coroutineScope = rememberCoroutineScope()
+
+            selectedReelForPlay?.let { reel ->
+                com.example.swastik.ui.components.FacilityReelPlayerDialog(
+                    videoUrl = reel.videoUrl,
+                    title = reel.title ?: "${facility.name} Tour",
+                    subtitle = facility.name,
+                    onDismiss = { selectedReelForPlay = null }
+                )
+            }
 
             Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
                 LazyColumn(
@@ -612,57 +622,10 @@ fun FacilityDetailScreen(
                                 // ═══════════════════════════════════
                                 //  TIMINGS SECTION
                                 // ═══════════════════════════════════
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Outlined.AccessTime,
-                                        contentDescription = null,
-                                        tint = subtitleColor,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Text(
-                                        text = "Timings",
-                                        fontSize = 14.sp,
-                                        color = subtitleColor,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.padding(start = 26.dp)
-                                ) {
-                                    val isOpen = facility.isOpen
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = if (isOpen) Color(0xFFD1FAE5) else Color(0xFFFEE2E2)
-                                    ) {
-                                        Text(
-                                            text = if (isOpen) "Open" else "Closed",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isOpen) Color(0xFF059669) else Color(0xFFDC2626),
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                        )
-                                    }
-                                    val timingsText = when {
-                                        facility.is24Hours || facility.openTime == "24 hrs" -> "Open 24 Hours"
-                                        facility.openTime != null && facility.closeTime != null ->
-                                            "${facility.openTime} - ${facility.closeTime}"
-                                        facility.openingHours != null -> facility.openingHours
-                                        else -> "Timings available on call"
-                                    }
-                                    timingsText?.let {
-                                        Text(
-                                            text = it,
-                                            fontSize = 13.sp,
-                                            color = subtitleColor
-                                        )
-                                    }
-                                }
+                                com.example.swastik.util.FacilityWeeklyScheduleSection(
+                                    facility = facility,
+                                    isDark = isDark
+                                )
 
                                 // ── Emergency SOS quick badge ──
                                 if (
@@ -892,7 +855,8 @@ fun FacilityDetailScreen(
                             videosTabContent(
                                 reels = facility.reels,
                                 isDark = isDark,
-                                context = context
+                                context = context,
+                                onReelClick = { reel -> selectedReelForPlay = reel }
                             )
                         }
                         currentTab.startsWith("Inventory") -> {
@@ -1828,7 +1792,8 @@ private fun LazyListScope.photosTabContent(
 private fun LazyListScope.videosTabContent(
     reels: List<HospitalReel>,
     isDark: Boolean,
-    context: android.content.Context
+    context: android.content.Context,
+    onReelClick: (HospitalReel) -> Unit = {}
 ) {
     val offsetY = (-24).dp
     val titleColor = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
@@ -1838,7 +1803,7 @@ private fun LazyListScope.videosTabContent(
             EmptyStateView(
                 icon = Icons.Outlined.VideoLibrary,
                 title = "No Videos Available",
-                subtitle = "Hospital tour videos will appear here",
+                subtitle = "Facility tour videos will appear here",
                 isDark = isDark,
                 modifier = Modifier.offset(y = offsetY)
             )
@@ -1872,11 +1837,7 @@ private fun LazyListScope.videosTabContent(
                     .fillMaxWidth()
                     .clickable {
                         if (reel.videoUrl.isNotEmpty()) {
-                            try {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_VIEW, Uri.parse(reel.videoUrl))
-                                )
-                            } catch (_: Exception) {}
+                            onReelClick(reel)
                         }
                     }
                     .padding(10.dp),
@@ -1889,10 +1850,11 @@ private fun LazyListScope.videosTabContent(
                         .size(90.dp, 70.dp)
                         .clip(RoundedCornerShape(10.dp))
                 ) {
-                    if (reel.thumbnailUrl != null) {
+                    val resolvedThumb = com.example.swastik.util.MediaUrlResolver.resolve(reel.thumbnailUrl ?: reel.videoUrl)
+                    if (resolvedThumb != null) {
                         AsyncImage(
                             model = ImageRequest.Builder(context)
-                                .data(reel.thumbnailUrl)
+                                .data(resolvedThumb)
                                 .crossfade(true)
                                 .build(),
                             contentDescription = reel.title,

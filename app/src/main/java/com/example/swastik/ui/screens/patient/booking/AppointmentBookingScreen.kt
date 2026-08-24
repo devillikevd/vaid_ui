@@ -2148,14 +2148,51 @@ private fun BookingConfirmedStep(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // View My Appointments (primary action)
-        Button(
+        var showLiveStatusSheet by remember { mutableStateOf(false) }
+
+        if (showLiveStatusSheet && appointment != null) {
+            ConsultationStatusBottomSheet(
+                appointment = appointment,
+                onDismiss = { showLiveStatusSheet = false },
+                onJoinConsultation = { _, _ ->
+                    showLiveStatusSheet = false
+                    onViewAppointments()
+                },
+                onNavigateToDoctorProfile = { _ ->
+                    showLiveStatusSheet = false
+                },
+                onReschedule = { _ ->
+                    showLiveStatusSheet = false
+                },
+                onCancelClick = { _ ->
+                    showLiveStatusSheet = false
+                    onViewAppointments()
+                }
+            )
+        }
+
+        // View Live Status Sheet (Hero Action)
+        if (appointment != null) {
+            Button(
+                onClick = { showLiveStatusSheet = true },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+            ) {
+                Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("View Live Consultation Status", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
+        }
+
+        // View My Appointments (secondary action)
+        OutlinedButton(
             onClick = onViewAppointments,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
             shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+            border = BorderStroke(1.dp, SwastikPrimary)
         ) {
-            Text(stringResource(R.string.view_my_appointments), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Text(stringResource(R.string.view_my_appointments), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = SwastikPrimary)
         }
 
         // Add to Calendar
@@ -2256,6 +2293,7 @@ fun getPredefinedOptions(specialization: String): Pair<List<String>, List<String
         cleanSpec.contains("gyneco") || cleanSpec.contains("obste") -> listOf("Irregular Periods", "Pregnancy Checkup", "PCOD/PCOS", "Vaginal Infection", "Pelvic Pain")
         cleanSpec.contains("ortho") || cleanSpec.contains("bone") -> listOf("Joint Pain", "Back Pain", "Knee Pain", "Fracture/Injury", "Muscle Spasm", "Arthritis")
         cleanSpec.contains("neuro") -> listOf("Headache / Migraine", "Dizziness", "Numbness / Tingling", "Seizures", "Memory Issues")
+        cleanSpec.contains("sexol") || cleanSpec.contains("sexual") || cleanSpec.contains("intimacy") || cleanSpec.contains("androlog") -> listOf("Erectile Dysfunction", "Premature Ejaculation", "Low Libido / Drive", "Performance Anxiety", "Painful Intercourse", "Pre-Marital Checkup", "Hormonal & Testosterone Check")
         cleanSpec.contains("psychi") || cleanSpec.contains("psychol") -> listOf("Anxiety", "Depression", "Sleep Issues", "Stress", "Panic Attacks")
         cleanSpec.contains("dent") -> listOf("Toothache", "Bleeding Gums", "Cavity", "Scaling/Cleaning", "Root Canal")
         cleanSpec.contains("ophthalmo") || cleanSpec.contains("eye") -> listOf("Blurry Vision", "Eye Pain", "Redness / Itching", "Watering Eyes", "Cataract")
@@ -2286,7 +2324,8 @@ fun getPredefinedOptions(specialization: String): Pair<List<String>, List<String
         cleanSpec.contains("ortho") -> listOf("Swelling", "Stiffness", "Inability to Move", "Redness")
         cleanSpec.contains("ent") -> listOf("Discharge", "Ringing in Ear", "Nasal Congestion", "Loss of Smell/Taste")
         cleanSpec.contains("gastro") -> listOf("Nausea", "Vomiting", "Bloating", "Loss of Appetite", "Blood in Stool")
-        cleanSpec.contains("psychi") -> listOf("Restlessness", "Low Mood", "Racing Thoughts", "Fatigue")
+        cleanSpec.contains("sexol") || cleanSpec.contains("sexual") || cleanSpec.contains("intimacy") || cleanSpec.contains("androlog") -> listOf("Lack of Stamina", "Performance Anxiety", "Pain / Discomfort", "Erectile Weakness", "Low Energy")
+        cleanSpec.contains("psychi") || cleanSpec.contains("psychol") -> listOf("Restlessness", "Low Mood", "Racing Thoughts", "Fatigue")
         cleanSpec.contains("diet") || cleanSpec.contains("nutrition") -> listOf("Lethargy", "Hair Fall", "Weight Issues", "Indigestion")
         cleanSpec.contains("allergy") -> listOf("Sneezing", "Itching", "Hives", "Swelling", "Red Eyes")
         else -> listOf("Fever", "Headache", "Cough", "Weakness", "Nausea", "Pain")

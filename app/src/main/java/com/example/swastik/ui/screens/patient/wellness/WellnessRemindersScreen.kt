@@ -29,10 +29,11 @@ private val WellnessGreen = Color(0xFF2E7D32)
 private val WellnessGreenLight = Color(0xFFE8F5E9)
 
 private val reminderTypes = listOf(
-    "medicine" to "Medication",
-    "water" to "Water",
+    "hydration" to "Water",
     "workout" to "Workout",
     "sleep" to "Sleep",
+    "meal" to "Meal",
+    "medicine" to "Medication",
     "other" to "Other"
 )
 
@@ -480,17 +481,25 @@ private fun ReminderCard(
 
 private fun reminderVisual(type: String): Pair<androidx.compose.ui.graphics.vector.ImageVector, Color> = when (type.lowercase()) {
     "medicine", "medication" -> Icons.Filled.Medication to Color(0xFFC62828)
-    "water" -> Icons.Filled.WaterDrop to Color(0xFF0288D1)
+    "water", "hydration" -> Icons.Filled.WaterDrop to Color(0xFF0288D1)
     "workout" -> Icons.Filled.FitnessCenter to WellnessGreen
     "sleep" -> Icons.Filled.Bedtime to Color(0xFF5C6BC0)
+    "meal" -> Icons.Filled.Restaurant to Color(0xFFE65100)
     "appointment" -> Icons.Filled.Event to Color(0xFF8E24AA)
     "test" -> Icons.Filled.Science to Color(0xFF00897B)
     else -> Icons.Filled.Notifications to Color(0xFFF57F17)
 }
 
-private fun typeLabel(type: String): String =
-    reminderTypes.firstOrNull { it.first == type }?.second
-        ?: type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+private fun typeLabel(type: String): String = when (type.lowercase()) {
+    "hydration", "water" -> "Water"
+    "medicine", "medication" -> "Medication"
+    "workout" -> "Workout"
+    "sleep" -> "Sleep"
+    "meal" -> "Meal"
+    "appointment" -> "Appointment"
+    "test" -> "Test"
+    else -> type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+}
 
 private fun currentTimeString(): String =
     LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a"))

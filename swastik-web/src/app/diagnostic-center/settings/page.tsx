@@ -128,7 +128,7 @@ export default function DiagnosticSettingsPage() {
             return;
         }
         if (profile.latitude == null || profile.longitude == null) {
-            setSaveStatus({ type: 'error', message: 'Location is required so patients can find your pharmacy on map.' });
+            setSaveStatus({ type: 'error', message: 'Location is required so patients can find your diagnostic center on map.' });
             setIsSaving(false);
             return;
         }
@@ -162,7 +162,7 @@ export default function DiagnosticSettingsPage() {
                 const refreshedUser = await refreshAuthenticatedUser();
                 setSaveStatus({
                     type: 'success',
-                    message: getResubmissionSuccessMessage(previousApprovalStatus, refreshedUser?.approval_status, 'Pharmacy profile updated!'),
+                    message: getResubmissionSuccessMessage(previousApprovalStatus, refreshedUser?.approval_status, 'Diagnostic center profile updated!'),
                 });
             } else {
                 setSaveStatus({ type: 'error', message: res.error || 'Failed to update profile' });

@@ -74,9 +74,9 @@ export default function ResultsPage() {
     };
 
     // Stats summary
-    const totalPending = resultsSummary.resultStatus.pending || 0;
-    const totalProcessing = resultsSummary.resultStatus.processing || 0;
-    const totalCompleted = resultsSummary.resultStatus.completed || 0;
+    const totalPending = resultsSummary?.resultStatus?.pending || 0;
+    const totalProcessing = resultsSummary?.resultStatus?.processing || 0;
+    const totalCompleted = resultsSummary?.resultStatus?.completed || 0;
 
     return (
         <div className="space-y-6">

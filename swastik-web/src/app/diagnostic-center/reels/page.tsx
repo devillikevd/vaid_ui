@@ -71,7 +71,7 @@ export default function DiagnosticReelsPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pharmacy Reels</h1>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Diagnostic Center Reels</h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">Upload short 15-30 second video reels to showcase your diagnostic center&apos;s infrastructure, services, and patient care.</p>
             </div>
 
@@ -86,13 +86,13 @@ export default function DiagnosticReelsPage() {
                             onUploadComplete={(url) => setUploadingUrl(url)}
                         />
                         {uploadingUrl && (
-                            <div className="space-y-4 mt-4 p-4 border border-orange-100 bg-orange-50/30 rounded-xl dark:border-orange-900/30 dark:bg-orange-900/10">
+                            <div className="space-y-4 mt-4 p-4 border border-purple-100 bg-purple-50/30 rounded-xl dark:border-purple-900/30 dark:bg-purple-900/10">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reel Caption / Title</label>
                                     <Input 
                                         value={newTitle} 
                                         onChange={(e) => setNewTitle(e.target.value)} 
-                                        placeholder="e.g., Wide range of generic and branded medicines" 
+                                        placeholder="e.g., Automated pathology analyzers and hygienic sample collection" 
                                         className="bg-white dark:bg-gray-800"
                                     />
                                 </div>

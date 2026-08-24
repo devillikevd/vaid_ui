@@ -1266,12 +1266,12 @@ const getClinicDoctorProfile = async (clinicId, userId, doctorId) => {
     supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true })
       .eq('clinic_id', clinicId).eq('doctor_id', doctorId).eq('status', 'completed'),
     
-    supabaseAdmin.from('appointments').select('id, appointment_date, start_time, end_time, status, consultation_mode, patient:patients(id, user_id, users(name))')
-      .eq('clinic_id', clinicId).eq('doctor_id', doctorId).eq('appointment_date', today).not('status', 'in', '(cancelled)').order('start_time').limit(10),
-    supabaseAdmin.from('appointments').select('id, appointment_date, start_time, end_time, status, consultation_mode, patient:patients(id, user_id, users(name))')
-      .eq('clinic_id', clinicId).eq('doctor_id', doctorId).gte('appointment_date', today).not('status', 'in', '(cancelled,completed)').order('appointment_date').order('start_time').limit(10),
-    supabaseAdmin.from('appointments').select('id, appointment_date, start_time, end_time, status, consultation_mode, patient:patients(id, user_id, users(name))')
-      .eq('clinic_id', clinicId).eq('doctor_id', doctorId).eq('status', 'completed').order('appointment_date', { ascending: false }).order('start_time', { ascending: false }).limit(10)
+    supabaseAdmin.from('appointments').select('id, appointment_date, time_slot, status, type, fee, patient:patients(id, name, user_id)')
+      .eq('clinic_id', clinicId).eq('doctor_id', doctorId).eq('appointment_date', today).not('status', 'in', '(cancelled)').order('time_slot').limit(10),
+    supabaseAdmin.from('appointments').select('id, appointment_date, time_slot, status, type, fee, patient:patients(id, name, user_id)')
+      .eq('clinic_id', clinicId).eq('doctor_id', doctorId).gte('appointment_date', today).not('status', 'in', '(cancelled,completed)').order('appointment_date').order('time_slot').limit(10),
+    supabaseAdmin.from('appointments').select('id, appointment_date, time_slot, status, type, fee, patient:patients(id, name, user_id)')
+      .eq('clinic_id', clinicId).eq('doctor_id', doctorId).eq('status', 'completed').order('appointment_date', { ascending: false }).order('time_slot', { ascending: false }).limit(10)
   ]);
 
   // 5. Leave / Availability

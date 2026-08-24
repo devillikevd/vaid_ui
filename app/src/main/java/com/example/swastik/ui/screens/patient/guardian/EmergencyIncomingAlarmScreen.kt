@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -160,7 +161,7 @@ fun EmergencyIncomingAlarmScreen(
                         }
                     }
 
-                    Divider(color = Color.White.copy(alpha = 0.1f))
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
 
                     // Location address
                     Row(verticalAlignment = Alignment.Top) {
@@ -210,6 +211,8 @@ fun EmergencyIncomingAlarmScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+
                 Button(
                     onClick = {
                         viewModel.acceptBroadcast(broadcastId, onAccepted)
@@ -223,7 +226,7 @@ fun EmergencyIncomingAlarmScreen(
                     ),
                     enabled = !uiState.isLoading
                 ) {
-                    Icon(Icons.Default.DirectionsRun, contentDescription = null, tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.DirectionsRun, contentDescription = null, tint = Color.White)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         "I AM RESPONDING & GOING 🏃",
@@ -233,18 +236,54 @@ fun EmergencyIncomingAlarmScreen(
                     )
                 }
 
+                // Turn-by-Turn Google Maps Navigation Button
+                Button(
+                    onClick = {
+                        val lat = broadcast?.latitude ?: 12.9716
+                        val lng = broadcast?.longitude ?: 77.5946
+                        val uri = android.net.Uri.parse("google.navigation:q=$lat,$lng")
+                        val mapIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri).apply {
+                            setPackage("com.google.android.apps.maps")
+                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        try {
+                            context.startActivity(mapIntent)
+                        } catch (_: Exception) {
+                            // Fallback to browser or generic geo map intent
+                            val fallbackIntent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("geo:$lat,$lng?q=$lat,$lng(Emergency+Victim)")
+                            ).apply {
+                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            try { context.startActivity(fallbackIntent) } catch (_: Exception) {}
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1E40AF)
+                    )
+                ) {
+                    Icon(Icons.Default.Navigation, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Turn-by-Turn GPS Navigation 🗺️", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+
                 OutlinedButton(
                     onClick = onDeclined,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .height(44.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color.White.copy(alpha = 0.7f)
                     ),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
                 ) {
-                    Text("Cannot Respond (Pass to Next Responder)", fontSize = 13.sp)
+                    Text("Cannot Respond (Pass to Next Responder)", fontSize = 12.sp)
                 }
             }
 

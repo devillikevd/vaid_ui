@@ -1,9 +1,16 @@
 package com.example.swastik.ui.screens.patient.wellness
 
+import android.content.Context
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -43,6 +52,67 @@ private val WellnessGreen = Color(0xFF047857)
 private val WellnessGreenLight = Color(0xFFE8F8EF)
 private val SafetyRed = Color(0xFFDC2626)
 private val SafetyAmber = Color(0xFFD97706)
+
+class WorkoutAudioHapticHelper(context: Context) {
+    private val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+        vibratorManager?.defaultVibrator
+    } else {
+        @Suppress("DEPRECATION")
+        context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    }
+
+    private var toneGenerator: ToneGenerator? = try {
+        ToneGenerator(AudioManager.STREAM_MUSIC, 75)
+    } catch (_: Exception) {
+        null
+    }
+
+    fun playCountdownTick(seconds: Int) {
+        try {
+            toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(50)
+            }
+        } catch (_: Exception) {}
+    }
+
+    fun playGoAlert() {
+        try {
+            toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP2, 300)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val wave = longArrayOf(0, 150, 80, 200)
+                val amps = intArrayOf(0, 255, 0, 255)
+                vibrator?.vibrate(VibrationEffect.createWaveform(wave, amps, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(300)
+            }
+        } catch (_: Exception) {}
+    }
+
+    fun playSetComplete() {
+        try {
+            toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, 250)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(VibrationEffect.createOneShot(120, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(120)
+            }
+        } catch (_: Exception) {}
+    }
+
+    fun release() {
+        try {
+            toneGenerator?.release()
+            toneGenerator = null
+        } catch (_: Exception) {}
+    }
+}
 
 // Exercise UI model for the player with live CDN GIF animations and coaching form tips
 data class PlayerExercise(
@@ -78,7 +148,7 @@ fun WorkoutPlayerScreen(
             .build()
     }
 
-    val exercises = remember {
+    val defaultFallbackExercises = remember {
         listOf(
             PlayerExercise(
                 id = "ex_jj",
@@ -115,6 +185,10 @@ fun WorkoutPlayerScreen(
         )
     }
 
+    val exercises = remember(uiState.exercises) {
+        uiState.exercises.ifEmpty { defaultFallbackExercises }
+    }
+
     var currentExerciseIndex by remember { mutableIntStateOf(0) }
     var isResting by remember { mutableStateOf(false) }
     var restTimeRemaining by remember { mutableIntStateOf(30) }
@@ -145,7 +219,7 @@ fun WorkoutPlayerScreen(
     )
 
     LaunchedEffect(planId) {
-        viewModel.loadDummySession(planId)
+        viewModel.loadSession(planId)
     }
 
     // Dynamic Live Heart Rate Simulation & Overexertion Guardrail Check
@@ -181,11 +255,22 @@ fun WorkoutPlayerScreen(
         }
     }
 
+    val audioHapticHelper = remember(context) { WorkoutAudioHapticHelper(context) }
+    DisposableEffect(Unit) {
+        onDispose {
+            audioHapticHelper.release()
+        }
+    }
+
     LaunchedEffect(isResting, restTimeRemaining) {
         if (isResting && restTimeRemaining > 0) {
+            if (restTimeRemaining in 1..3) {
+                audioHapticHelper.playCountdownTick(restTimeRemaining)
+            }
             delay(1000)
             restTimeRemaining--
         } else if (isResting && restTimeRemaining == 0) {
+            audioHapticHelper.playGoAlert()
             isResting = false
             currentExerciseIndex++
             if (currentExerciseIndex >= exercises.size) {
@@ -196,9 +281,13 @@ fun WorkoutPlayerScreen(
     
     LaunchedEffect(isTimerRunning, exerciseTimer) {
         if (isTimerRunning && exerciseTimer > 0) {
+            if (exerciseTimer in 1..3) {
+                audioHapticHelper.playCountdownTick(exerciseTimer)
+            }
             delay(1000)
             exerciseTimer--
             if (exerciseTimer == 0) {
+                audioHapticHelper.playSetComplete()
                 isTimerRunning = false
                 handleExerciseComplete(
                     isLast = currentExerciseIndex == exercises.size - 1,
@@ -889,30 +978,230 @@ private fun LogWorkoutDialog(
     )
 }
 
+private enum class WorkoutConfettiShape { RECTANGLE, CIRCLE }
+
+private data class WorkoutConfettiParticle(
+    var xNorm: Float,
+    var yNorm: Float,
+    val size: Float,
+    val color: Color,
+    val speedY: Float,
+    val speedX: Float,
+    var rotation: Float,
+    val rotSpeed: Float,
+    val shape: WorkoutConfettiShape
+)
+
+@Composable
+fun ConfettiCelebrationView(
+    modifier: Modifier = Modifier,
+    particleCount: Int = 65
+) {
+    val particles = remember {
+        val colors = listOf(
+            Color(0xFF34D399), // Mint Green
+            Color(0xFFFBBF24), // Amber Gold
+            Color(0xFF38BDF8), // Sky Cyan
+            Color(0xFFA78BFA), // Lavender Purple
+            Color(0xFFF472B6), // Soft Pink
+            Color(0xFF60A5FA), // Royal Blue
+            Color(0xFFFB7185)  // Coral Red
+        )
+        List(particleCount) {
+            WorkoutConfettiParticle(
+                xNorm = (0..1000).random() / 1000f,
+                yNorm = -(0..600).random() / 1000f,
+                size = (10..22).random().toFloat(),
+                color = colors.random(),
+                speedY = (4..12).random().toFloat(),
+                speedX = (-3..3).random().toFloat(),
+                rotation = (0..360).random().toFloat(),
+                rotSpeed = (-8..8).random().toFloat(),
+                shape = if ((0..1).random() == 0) WorkoutConfettiShape.RECTANGLE else WorkoutConfettiShape.CIRCLE
+            )
+        }
+    }
+
+    var tick by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            withFrameNanos {
+                tick += 0.016f
+                particles.forEach { p ->
+                    p.yNorm += p.speedY * 0.0016f
+                    p.xNorm += p.speedX * 0.0008f
+                    p.rotation += p.rotSpeed
+                    if (p.yNorm > 1.2f) {
+                        p.yNorm = -0.1f
+                        p.xNorm = (0..1000).random() / 1000f
+                    }
+                }
+            }
+        }
+    }
+
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val w = size.width
+        val h = size.height
+        particles.forEach { p ->
+            val px = p.xNorm * w
+            val py = p.yNorm * h
+            if (py in -50f..h + 50f && px in -50f..w + 50f) {
+                drawContext.canvas.save()
+                drawContext.canvas.translate(px, py)
+                drawContext.canvas.rotate(p.rotation)
+                when (p.shape) {
+                    WorkoutConfettiShape.RECTANGLE -> {
+                        drawRect(
+                            color = p.color,
+                            topLeft = Offset(-p.size / 2, -p.size / 4),
+                            size = Size(p.size, p.size / 2)
+                        )
+                    }
+                    WorkoutConfettiShape.CIRCLE -> {
+                        drawCircle(
+                            color = p.color,
+                            radius = p.size / 3,
+                            center = Offset.Zero
+                        )
+                    }
+                }
+                drawContext.canvas.restore()
+            }
+        }
+    }
+}
+
 @Composable
 private fun WorkoutCompletionScreen(onBackClick: () -> Unit) {
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(WellnessGreen)
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0xFF047857),
+                        Color(0xFF065F46),
+                        Color(0xFF064E3B)
+                    )
+                )
+            )
     ) {
-        Icon(Icons.Filled.CheckCircleOutline, contentDescription = null, tint = Color.White, modifier = Modifier.size(90.dp))
-        Spacer(Modifier.height(20.dp))
-        Text("Great Job! 🎉", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-        Spacer(Modifier.height(8.dp))
-        Text("Your workout has been logged successfully and your streak is updated.", color = Color.White.copy(alpha = 0.9f), textAlign = TextAlign.Center, fontSize = 14.sp)
-        
-        Spacer(Modifier.height(40.dp))
-        Button(
-            onClick = onBackClick,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = WellnessGreen),
-            modifier = Modifier.fillMaxWidth().height(54.dp),
-            shape = RoundedCornerShape(16.dp)
+        // 🎊 Live Particle Confetti Burst
+        ConfettiCelebrationView()
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Text("Back to Wellness Hub ➔", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+            Surface(
+                shape = CircleShape,
+                color = Color.White.copy(alpha = 0.18f),
+                border = BorderStroke(2.dp, Color.White.copy(alpha = 0.35f)),
+                modifier = Modifier.size(100.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.EmojiEvents,
+                        contentDescription = null,
+                        tint = Color(0xFFFBBF24),
+                        modifier = Modifier.size(54.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Text(
+                "Workout Completed! 🎉",
+                fontSize = 26.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Session logged to Vaididea Health Cloud. Your streak is glowing!",
+                color = Color.White.copy(alpha = 0.85f),
+                textAlign = TextAlign.Center,
+                fontSize = 13.sp
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            // Milestone Badges Boost Card
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.14f)),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("🔥", fontSize = 22.sp)
+                        Column {
+                            Text(
+                                "+1 Day Streak Maintained",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            Text(
+                                "Consistency is key to metabolic health",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("⚡", fontSize = 22.sp)
+                        Column {
+                            Text(
+                                "+150 Vaididea Wellness XP",
+                                color = Color(0xFFFBBF24),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            Text(
+                                "Progress towards your next Trophy Milestone",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(32.dp))
+
+            Button(
+                onClick = onBackClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color(0xFF047857)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+                shape = RoundedCornerShape(16.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+            ) {
+                Text("Back to Wellness Hub ➔", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+            }
         }
     }
 }

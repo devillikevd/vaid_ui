@@ -452,20 +452,6 @@ router.patch('/owner/bookings/:bookingId/result', requireRole(ROLES.DIAGNOSTIC_C
         req.user.id
     );
 
-    // Notify patient that result is ready
-    if (updated?.patient_id) {
-        const eventEmitter = require('../services/eventEmitter');
-        const { data: patientRow } = await require('../config/supabase').supabaseAdmin
-            .from('patients').select('user_id').eq('id', updated.patient_id).single();
-        if (patientRow) {
-            eventEmitter.emitDiagnosticResultUploaded({
-                ...updated,
-                patient_id: patientRow.user_id,
-                message: 'Your test result is ready',
-            });
-        }
-    }
-
     res.json({ success: true, data: updated });
 }));
 

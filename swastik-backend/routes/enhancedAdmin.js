@@ -77,18 +77,24 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
  */
 router.get('/feedback', asyncHandler(async (req, res) => {
     const { DoctorFeedback } = require('../database/models');
-    const { status, type, category, userRole, search, page = 1, limit = 20 } = req.query;
+    const { status, type, category, userRole, rating, search, page = 1, limit = 20 } = req.query;
     
     const query = {};
-    if (status) query.status = status;
-    if (type) query.type = type;
-    if (category) query.category = category;
-    if (userRole) query.userRole = userRole;
-    if (search) {
+    if (status && status !== 'all') query.status = status;
+    if (type && type !== 'all') query.type = type;
+    if (category && category !== 'all') query.category = category;
+    if (userRole && userRole !== 'all') query.userRole = userRole;
+    if (rating && !isNaN(parseInt(rating))) query.rating = parseInt(rating);
+    
+    if (search && search.trim()) {
+        const term = search.trim();
         query.$or = [
-            { title: { $regex: search, $options: 'i' } },
-            { description: { $regex: search, $options: 'i' } },
-            { userName: { $regex: search, $options: 'i' } }
+            { title: { $regex: term, $options: 'i' } },
+            { description: { $regex: term, $options: 'i' } },
+            { userName: { $regex: term, $options: 'i' } },
+            { userEmail: { $regex: term, $options: 'i' } },
+            { patientPhone: { $regex: term, $options: 'i' } },
+            { category: { $regex: term, $options: 'i' } }
         ];
     }
 
@@ -100,13 +106,24 @@ router.get('/feedback', asyncHandler(async (req, res) => {
         
     const total = await DoctorFeedback.countDocuments(query);
     
+    // Rating aggregation
+    const ratingAggregation = await DoctorFeedback.aggregate([
+        { $match: { rating: { $exists: true, $ne: null } } },
+        { $group: { _id: null, avgRating: { $avg: '$rating' }, totalRated: { $sum: 1 } } }
+    ]);
+    const avgRating = ratingAggregation.length > 0 ? parseFloat(ratingAggregation[0].avgRating.toFixed(1)) : 5.0;
+
     // Admin feedback dashboard summary stats
     const summary = {
         total: await DoctorFeedback.countDocuments(),
         new: await DoctorFeedback.countDocuments({ status: 'Submitted' }),
         underReview: await DoctorFeedback.countDocuments({ status: 'Under Review' }),
         inProgress: await DoctorFeedback.countDocuments({ status: 'In Progress' }),
-        resolved: await DoctorFeedback.countDocuments({ status: 'Resolved' })
+        resolved: await DoctorFeedback.countDocuments({ status: { $in: ['Resolved', 'Closed'] } }),
+        patientCount: await DoctorFeedback.countDocuments({ userRole: 'patient' }),
+        doctorCount: await DoctorFeedback.countDocuments({ userRole: 'doctor' }),
+        facilityCount: await DoctorFeedback.countDocuments({ userRole: { $nin: ['patient', 'doctor'] } }),
+        averageRating: avgRating
     };
 
     res.json({
@@ -486,7 +503,7 @@ router.put('/providers/:type/:id/verification', [
     const { verification_checklist, admin_notes, approval_status } = req.body;
     
     // We only support doctors in this V1 checklist engine
-    const supabaseAdmin = require('../config/supabase-admin');
+    const { supabaseAdmin } = require('../config/supabase');
     const updatePayload = { updated_at: new Date().toISOString() };
     
     if (verification_checklist !== undefined) updatePayload.verification_checklist = verification_checklist;

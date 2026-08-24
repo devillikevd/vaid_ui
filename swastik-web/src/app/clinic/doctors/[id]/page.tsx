@@ -125,15 +125,15 @@ export default function ClinicDoctorProfilePage({ params }: { params: Promise<{ 
                     <div key={appt.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
                         <div className="flex flex-col">
                             <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                                {formatText(appt.start_time) || new Date(appt.appointment_date).toLocaleDateString()}
+                                {formatText(appt.time_slot || appt.start_time) || new Date(appt.appointment_date).toLocaleDateString()}
                             </span>
                             <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                                {appt.patient?.users?.name ? formatText(appt.patient.users.name) : 'Patient'}
+                                {appt.patient?.name ? formatText(appt.patient.name) : (appt.patient?.users?.name ? formatText(appt.patient.users.name) : 'Patient')}
                             </span>
                         </div>
                         <div className="flex flex-col items-end">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${appt.consultation_mode === 'video' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
-                                {appt.consultation_mode === 'video' ? 'Video' : 'In-Person'}
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${appt.consultation_mode === 'video' || appt.type === 'video' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
+                                {appt.consultation_mode === 'video' || appt.type === 'video' ? 'Video' : 'In-Person'}
                             </span>
                             <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mt-1 uppercase">{formatText(appt.status)}</span>
                         </div>

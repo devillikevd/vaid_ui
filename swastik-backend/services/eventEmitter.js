@@ -751,6 +751,15 @@ class AppEventEmitter extends EventEmitter {
     });
   }
 
+  emitCatalogRequestCancelled(requestData) {
+    const payload = {
+      ...requestData,
+      timestamp: new Date().toISOString(),
+    };
+    this.emitDistributed('catalog:request:cancelled', payload);
+    this.notifyAll('catalog:request:cancelled', payload);
+  }
+
   // ── Consultation lifecycle events (Part 8-12) ──────────────────
   // Every lifecycle transition fans out to both participants so multi-tab
   // and cross-platform clients stay in sync without polling.

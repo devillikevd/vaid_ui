@@ -769,7 +769,7 @@
     <string name="keep_request">అభ్యర్థనను ఉంచండి</string>
     <string name="live_gps_active">లైవ్ GPS యాక్టివ్</string>
     <string name="digital_health_card">డిజిటల్ హెల్త్ కార్డ్</string>
-    <string name="valid_through_1225">12/25 వరకు చెల్లుతుంది</string>
+    <string name="valid_through_1225">అత్యవసర యాక్సెస్ QR • 24 గంటలు చెల్లుతుంది</string>
     <string name="share_this_id_for_manual">మాన్యువల్ ఎంట్రీ కోసం ఈ IDని షేర్ చేయండి</string>
     <string name="revoke_access">యాక్సెస్‌ను ఉపసంహరించుకోండి</string>
     <string name="generate_qr_code">QR కోడ్‌ను రూపొందించండి</string>

@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, FileText, Pill, FileImage, Download, Printer, Clock, ClipboardList, Activity, Stethoscope, Building2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { useDoctorStore } from '@/stores/doctorStore';
+import { doctorApi } from '@/lib/api';
 import { RoutePharmacyModal } from '@/components/clinic/RoutePharmacyModal';
 import { RouteDiagnosticModal } from '@/components/clinic/RouteDiagnosticModal';
 import { RouteHospitalModal } from '@/components/clinic/RouteHospitalModal';
@@ -51,22 +52,35 @@ export default function PrescriptionDetailsPage() {
     const { id } = params as { id: string };
     
     const { prescriptions, fetchPrescriptions } = useDoctorStore();
+    const [fetchedPrescription, setFetchedPrescription] = useState<any | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [showRouteModal, setShowRouteModal] = useState(false);
     const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
     const [showHospitalModal, setShowHospitalModal] = useState(false);
 
-    const prescription = prescriptions.find(p => p.id === id);
+    const storePrescription = prescriptions.find(p => p.id === id);
+    const prescription = storePrescription || fetchedPrescription;
 
     useEffect(() => {
         const load = async () => {
-            if (!prescription && prescriptions.length === 0) {
-                await fetchPrescriptions();
+            if (!storePrescription) {
+                try {
+                    const res = await doctorApi.getPrescriptionById(id);
+                    if (res.success && res.data) {
+                        setFetchedPrescription(res.data);
+                    } else if (prescriptions.length === 0) {
+                        await fetchPrescriptions();
+                    }
+                } catch {
+                    if (prescriptions.length === 0) {
+                        await fetchPrescriptions();
+                    }
+                }
             }
             setIsLoading(false);
         };
         load();
-    }, [prescription, prescriptions.length, fetchPrescriptions]);
+    }, [id, storePrescription, prescriptions.length, fetchPrescriptions]);
 
     if (isLoading) {
         return <div className="p-4 sm:p-6"><DetailsSkeleton /></div>;

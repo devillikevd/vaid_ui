@@ -1093,17 +1093,28 @@ router.get('/me/prescriptions',
     const prescriptions = (data || []).map(rx => ({
       id: rx.id,
       patientName: rx.patients?.name || 'Unknown',
+      patientId: rx.patient_id,
       patientPhone: '',
       date: rx.created_at,
+      created_at: rx.created_at,
       diagnosis: rx.diagnosis,
       notes: rx.notes,
+      dietaryAdvice: rx.dietary_advice,
+      lifestyleAdvice: rx.lifestyle_advice,
       followUpDate: rx.follow_up_date,
+      fileUrl: rx.file_url,
+      pdfUrl: rx.pdf_url,
+      prescriptionNumber: rx.prescription_number,
       medications: (rx.prescription_medicines || []).map(m => ({
+        medicineName: m.medicine_name,
         name: m.medicine_name,
         dosage: m.dosage,
         frequency: m.frequency,
         duration: m.duration,
         instructions: m.instructions,
+        quantity: m.quantity,
+        beforeFood: m.before_food,
+        isCritical: m.is_critical,
       })),
       consultationId: rx.consultation_id,
       appointmentId: rx.consultations?.appointment_id || null,
@@ -1114,6 +1125,82 @@ router.get('/me/prescriptions',
       success: true,
       data: prescriptions,
       pagination: { page: parseInt(page), limit: parseInt(limit), total: count || 0, totalPages: Math.ceil((count || 0) / parseInt(limit)) },
+    });
+  })
+);
+
+// Get single prescription by ID (doctor only)
+router.get('/me/prescriptions/:id',
+  authenticate,
+  authorize('doctor'),
+  [
+    param('id').isUUID().withMessage('Invalid prescription ID'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../../config/supabase');
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: 'Doctor profile not found' });
+    }
+
+    const { data: rx, error } = await supabaseAdmin
+      .from('prescriptions')
+      .select(`
+        *,
+        prescription_medicines (*),
+        patients!prescriptions_patient_id_fkey (id, name, gender, date_of_birth, blood_group, profile_image_url),
+        consultations!prescriptions_consultation_id_fkey (id, appointment_id, status, started_at, ended_at, type)
+      `)
+      .eq('id', req.params.id)
+      .eq('doctor_id', doctor.id)
+      .single();
+
+    if (error || !rx) {
+      return res.status(404).json({ success: false, message: 'Prescription not found' });
+    }
+
+    const formattedRx = {
+      id: rx.id,
+      patientName: rx.patients?.name || 'Unknown',
+      patientId: rx.patient_id,
+      patient: rx.patients,
+      patientPhone: '',
+      date: rx.created_at,
+      created_at: rx.created_at,
+      diagnosis: rx.diagnosis,
+      notes: rx.notes,
+      dietaryAdvice: rx.dietary_advice,
+      lifestyleAdvice: rx.lifestyle_advice,
+      followUpDate: rx.follow_up_date,
+      fileUrl: rx.file_url,
+      pdfUrl: rx.pdf_url,
+      prescriptionNumber: rx.prescription_number,
+      medications: (rx.prescription_medicines || []).map(m => ({
+        medicineName: m.medicine_name,
+        name: m.medicine_name,
+        dosage: m.dosage,
+        frequency: m.frequency,
+        duration: m.duration,
+        instructions: m.instructions,
+        quantity: m.quantity,
+        beforeFood: m.before_food,
+        isCritical: m.is_critical,
+      })),
+      consultationId: rx.consultation_id,
+      appointmentId: rx.consultations?.appointment_id || null,
+      consultation: rx.consultations,
+      status: rx.status || 'active',
+    };
+
+    res.json({
+      success: true,
+      data: formattedRx,
     });
   })
 );

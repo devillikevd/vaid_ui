@@ -750,66 +750,125 @@ fun DiagnosticBookingFlow(
                         }
                         2 -> {
                             Column(
-                                modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(androidx.compose.foundation.rememberScrollState()),
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                Text(stringResource(R.string.collection_type), fontWeight = FontWeight.Medium, fontSize = 16.sp)
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Sample Collection Preference", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
                                     FilterChip(
                                         selected = collectionType == "walk_in",
                                         onClick = { collectionType = "walk_in" },
-                                        label = { Text(stringResource(R.string.walk_in)) }
+                                        label = { Text("🏥 Lab Center Visit", fontWeight = if (collectionType == "walk_in") FontWeight.Bold else FontWeight.Normal) },
+                                        modifier = Modifier.weight(1f),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = DiagnosticAccent.copy(alpha = 0.15f),
+                                            selectedLabelColor = DiagnosticAccent
+                                        )
                                     )
                                     FilterChip(
                                         selected = collectionType == "home_collection",
                                         onClick = { collectionType = "home_collection" },
-                                        label = { Text(stringResource(R.string.home_collection)) }
+                                        label = { Text("🏠 Home Sample Pickup", fontWeight = if (collectionType == "home_collection") FontWeight.Bold else FontWeight.Normal) },
+                                        modifier = Modifier.weight(1f),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = DiagnosticAccent.copy(alpha = 0.15f),
+                                            selectedLabelColor = DiagnosticAccent
+                                        )
                                     )
                                 }
                                 
                                 if (collectionType == "home_collection") {
-                                    OutlinedTextField(
-                                        value = patientPhone,
-                                        onValueChange = { patientPhone = it },
-                                        label = { Text(stringResource(R.string.phone_number) + " *") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
-                                        singleLine = true,
-                                        isError = patientPhone.isBlank()
+                                    com.example.swastik.ui.screens.patient.components.HomeAddressEditor(
+                                        initialAddress = collectionAddress,
+                                        onAddressSaved = { address ->
+                                            collectionAddress = address
+                                        }
                                     )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    
-                                    if (collectionAddress.isBlank()) {
-                                        com.example.swastik.ui.screens.patient.components.HomeAddressEditor(
-                                            initialAddress = "",
-                                            onAddressSaved = { address ->
-                                                collectionAddress = address
-                                            }
-                                        )
-                                    } else {
-                                        androidx.compose.material3.Card(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                                            colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                                            elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 2.dp)
+
+                                    // Contact Phone Number Card
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            verticalArrangement = Arrangement.spacedBy(10.dp)
                                         ) {
                                             Row(
-                                                modifier = Modifier.padding(16.dp),
-                                                verticalAlignment = Alignment.CenterVertically
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                                             ) {
-                                                Icon(Icons.Default.LocationOn, tint = DiagnosticAccent, contentDescription = null)
-                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Icon(
+                                                    Icons.Default.Phone,
+                                                    contentDescription = null,
+                                                    tint = DiagnosticAccent,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
                                                 Text(
-                                                    text = collectionAddress,
-                                                    modifier = Modifier.weight(1f),
+                                                    text = "Contact Phone for Phlebotomist / Technician",
+                                                    fontWeight = FontWeight.Bold,
                                                     fontSize = 14.sp
                                                 )
-                                                TextButton(
-                                                    onClick = { collectionAddress = "" },
-                                                    modifier = Modifier.padding(start = 8.dp)
-                                                ) {
-                                                    Text(stringResource(R.string.change_address), color = DiagnosticAccent, fontWeight = FontWeight.Bold)
+                                            }
+
+                                            OutlinedTextField(
+                                                value = patientPhone,
+                                                onValueChange = { patientPhone = it },
+                                                placeholder = { Text("Enter 10-digit mobile number", fontSize = 13.sp) },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
+                                                ),
+                                                shape = RoundedCornerShape(10.dp),
+                                                singleLine = true,
+                                                isError = patientPhone.isBlank(),
+                                                prefix = {
+                                                    Text("+91 ", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                                                 }
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    // Walk-in Instructions
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = CardDefaults.cardColors(containerColor = DiagnosticAccent.copy(alpha = 0.08f)),
+                                        border = BorderStroke(1.dp, DiagnosticAccent.copy(alpha = 0.3f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.LocationCity,
+                                                contentDescription = null,
+                                                tint = DiagnosticAccent,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Column {
+                                                Text(
+                                                    text = "Visit Lab Center in Person",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = "Show your digital booking token at reception desk upon arrival for priority queue.",
+                                                    fontSize = 12.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
                                             }
                                         }
                                     }

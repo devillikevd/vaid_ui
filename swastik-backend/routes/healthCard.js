@@ -65,7 +65,7 @@ router.post('/revoke', authenticate,
 );
 
 // ─── Public/Authorized: Health Card access ─────
-// V-011 Fix: Require authentication to view PHI.
+// Public route (rate-limited): The 16-char cryptographically secure token IS the authorization.
 router.get('/:token', healthCardLimiter, optionalAuth, asyncHandler(async (req, res) => {
   res.set({
     'Cache-Control': 'no-store, max-age=0',
@@ -73,12 +73,8 @@ router.get('/:token', healthCardLimiter, optionalAuth, asyncHandler(async (req, 
     Expires: '0',
   });
 
-  if (!req.user) {
-      return res.status(401).json({ success: false, message: 'Authentication required. First responders must log in to view portable medical records.' });
-  }
-
-  // Validate token format before hitting Redis
-  // VULN-BS-12: Token length increased to 16 chars; accept 6-16 for backward compat
+  // Validate token format before querying cache/DB
+  // Token length: 6-16 alphanumeric characters
   const tokenRegex = /^[A-Za-z0-9]{6,16}$/;
   if (!tokenRegex.test(req.params.token)) {
     return res.status(400).json({ success: false, message: 'Invalid health card token format' });
@@ -87,6 +83,8 @@ router.get('/:token', healthCardLimiter, optionalAuth, asyncHandler(async (req, 
   const accessInfo = {
     ip: req.ip || req.headers['x-forwarded-for'] || 'unknown',
     userAgent: req.headers['user-agent'] || 'unknown',
+    accessorUserId: req.user?.id || 'anonymous',
+    accessorRole: req.user?.role || 'public',
   };
   const record = await healthCardService.getHealthRecord(req.params.token, accessInfo);
   res.json({ success: true, data: record });

@@ -1394,7 +1394,8 @@ data class WellnessWorkoutPlanDto(
     @SerializedName("duration_weeks") val durationWeeks: Int? = null,
     @SerializedName("days_per_week") val daysPerWeek: Int? = null,
     val equipment: List<String>? = null,
-    @SerializedName("cover_image_url") val coverImageUrl: String? = null
+    @SerializedName("cover_image_url") val coverImageUrl: String? = null,
+    val sessions: List<WorkoutSessionDto>? = null
 )
 
 data class ExerciseLibraryDto(

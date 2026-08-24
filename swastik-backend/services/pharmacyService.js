@@ -416,7 +416,7 @@ const registerPharmacy = async (userId, data) => {
 const getPharmacyByOwner = async (userId) => {
   const { data, error } = await supabaseAdmin
     .from('pharmacies')
-    .select('*')
+    .select('*, reels:pharmacy_reels(*)')
     .eq('owner_id', userId)
     .single();
 
@@ -1942,6 +1942,7 @@ const createOrder = async (patientUserId, orderData) => {
     pharmacy_id: orderData.pharmacyId,
     clinic_id: orderData.clinicId || null,
     hospital_id: orderData.hospitalId || null,
+    items: enrichedItems,
     subtotal: totalAmount,
     delivery_fee: orderData.deliveryFee || 0,
     total_amount: finalTotalAmount + (orderData.deliveryFee || 0),

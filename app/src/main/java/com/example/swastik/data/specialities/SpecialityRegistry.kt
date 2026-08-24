@@ -69,6 +69,10 @@ object SpecialityRegistry {
             combined.contains("sports") || combined.contains("athlete") || combined.contains("athletic") || combined.contains("ligament") -> {
                 sportsMedicineData
             }
+            // Sexology & Intimacy / Reproductive Wellness
+            combined.contains("sexolog") || combined.contains("sexual") || combined.contains("intimacy") || combined.contains("erectile") || combined.contains("ejaculation") || combined.contains("androlog") || combined.contains("sexology") -> {
+                sexologistData
+            }
             // Mental Health & Clinical Psychology / Counseling
             combined.contains("mental health") || combined.contains("psycholog") || combined.contains("counsel") || combined.contains("therapy") || combined.contains("therapist") -> {
                 mentalHealthData
@@ -124,10 +128,6 @@ object SpecialityRegistry {
             // Dentistry & Oral Health
             combined.contains("dentist") || combined.contains("dental") || combined.contains("teeth") || combined.contains("tooth") || combined.contains("orthodont") -> {
                 dentistData
-            }
-            // Sexology & Intimacy
-            combined.contains("sexolog") || combined.contains("sexual") || combined.contains("intimacy") || combined.contains("erectile") || combined.contains("ejaculation") -> {
-                sexologistData
             }
             // Urology & Urinary System
             combined.contains("urolog") || combined.contains("urinary") || combined.contains("bladder") || combined.contains("prostate") -> {

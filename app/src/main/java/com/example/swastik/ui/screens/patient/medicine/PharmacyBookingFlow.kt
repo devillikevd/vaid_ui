@@ -139,27 +139,69 @@ fun PharmacyBookingFlow(
                 }
 
                 // Bottom Bar Action
-                BottomAppBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentPadding = PaddingValues(16.dp)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 8.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 ) {
-                    Button(
-                        onClick = {
-                            if (currentStep == 4) onConfirmOrder(deliveryAddress, patientPhone, selectedItems, localIsPrescriptionBased, capturedBitmap)
-                            else if (currentStep == 1 && selectedItems.isNotEmpty()) currentStep++
-                            else if (currentStep == 2) currentStep++
-                            else if (currentStep == 3 && deliveryAddress.isNotBlank() && patientPhone.isNotBlank()) currentStep++
-                        },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
-                        enabled = when (currentStep) {
-                            1 -> selectedItems.isNotEmpty()
-                            2 -> selectedItems.isNotEmpty()
-                            3 -> deliveryAddress.isNotBlank() && patientPhone.isNotBlank()
-                            else -> true
-                        }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(if (currentStep == 4) "Place Order" else "Continue", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        if (currentStep == 3 && deliveryAddress.isNotBlank()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = SwastikPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Deliver to: ${deliveryAddress.take(45)}${if (deliveryAddress.length > 45) "..." else ""}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = SwastikPrimary,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                if (currentStep == 4) onConfirmOrder(deliveryAddress, patientPhone, selectedItems, localIsPrescriptionBased, capturedBitmap)
+                                else if (currentStep == 1 && selectedItems.isNotEmpty()) currentStep++
+                                else if (currentStep == 2) currentStep++
+                                else if (currentStep == 3 && deliveryAddress.isNotBlank() && patientPhone.isNotBlank()) currentStep++
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                            shape = RoundedCornerShape(14.dp),
+                            enabled = when (currentStep) {
+                                1 -> selectedItems.isNotEmpty()
+                                2 -> selectedItems.isNotEmpty()
+                                3 -> deliveryAddress.isNotBlank() && patientPhone.isNotBlank()
+                                else -> true
+                            }
+                        ) {
+                            Text(
+                                text = when (currentStep) {
+                                    3 -> "Proceed to Order Summary →"
+                                    4 -> "Place Order"
+                                    else -> "Continue"
+                                },
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
                     }
                 }
             }
@@ -489,54 +531,74 @@ fun Step2Cart(selected: List<Pair<PharmacyInventoryItemDto, Int>>, onRemove: (Ph
 }
 
 @Composable
-fun Step3Location(address: String, phone: String, onAddressChange: (String) -> Unit, onPhoneChange: (String) -> Unit) {
-    Column(modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-        Text(stringResource(R.string.delivery_details), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        if (address.isBlank()) {
-            com.example.swastik.ui.screens.patient.components.HomeAddressEditor(
-                initialAddress = "",
-                onAddressSaved = onAddressChange
-            )
-        } else {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+fun Step3Location(
+    address: String,
+    phone: String,
+    onAddressChange: (String) -> Unit,
+    onPhoneChange: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Address Selector
+        com.example.swastik.ui.screens.patient.components.HomeAddressEditor(
+            initialAddress = address,
+            onAddressSaved = onAddressChange
+        )
+
+        // Contact Phone Number Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.LocationOn, tint = SwastikPrimary, contentDescription = null)
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Icon(
+                        Icons.Default.Phone,
+                        contentDescription = null,
+                        tint = SwastikPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
                     Text(
-                        text = address,
-                        modifier = Modifier.weight(1f),
+                        text = "Contact Phone for Delivery Updates",
+                        fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
-                    TextButton(
-                        onClick = { onAddressChange("") },
-                        modifier = Modifier.padding(start = 8.dp)
-                    ) {
-                        Text(stringResource(R.string.change_address), color = SwastikPrimary, fontWeight = FontWeight.Bold)
-                    }
                 }
+
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = onPhoneChange,
+                    placeholder = { Text("Enter 10-digit mobile number", fontSize = 13.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    singleLine = true,
+                    isError = phone.isBlank(),
+                    prefix = {
+                        Text("+91 ", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                )
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(
-            value = phone,
-            onValueChange = onPhoneChange,
-            label = { Text(stringResource(R.string.phone_number_1)) },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
-            singleLine = true,
-            isError = phone.isBlank()
-        )
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 

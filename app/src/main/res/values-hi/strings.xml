@@ -715,7 +715,7 @@
     <string name="keep_request">अनुरोध बनाए रखें</string>
     <string name="live_gps_active">लाइव GPS सक्रिय</string>
     <string name="digital_health_card">डिजिटल हेल्थ कार्ड</string>
-    <string name="valid_through_1225">12/25 तक मान्य</string>
+    <string name="valid_through_1225">आपातकालीन एक्सेस QR • 24 घंटे मान्य</string>
     <string name="share_this_id_for_manual">मैन्युअल प्रविष्टि के लिए यह आईडी साझा करें</string>
     <string name="revoke_access">पहुंच रद्द करें</string>
     <string name="generate_qr_code">QR कोड जनरेट करें</string>

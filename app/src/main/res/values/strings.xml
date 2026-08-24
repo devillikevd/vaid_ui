@@ -771,7 +771,7 @@
     <string name="keep_request">Keep Request</string>
     <string name="live_gps_active">Live GPS Active</string>
     <string name="digital_health_card">Digital Health Card</string>
-    <string name="valid_through_1225">Valid through 12/25</string>
+    <string name="valid_through_1225">Emergency Access QR • Valid 24 Hours</string>
     <string name="share_this_id_for_manual">Share this ID for manual entry</string>
     <string name="revoke_access">Revoke Access</string>
     <string name="generate_qr_code">Generate QR Code</string>

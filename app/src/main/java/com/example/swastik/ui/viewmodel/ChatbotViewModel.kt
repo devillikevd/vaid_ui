@@ -338,6 +338,12 @@ class ChatbotViewModel @Inject constructor(
                 isSending = false,
                 lastAiMessageToSpeak = if (_uiState.value.ttsEnabled) aiMessage.id else null
             )
+
+            val currentSession = chatbotRepository.getCurrentSessionId()
+            if (!currentSession.isNullOrBlank()) {
+                chatbotRepository.recordMessageInLocalSession(currentSession, content, aiMessage.content)
+                loadSessionList()
+            }
         }
 
         return true

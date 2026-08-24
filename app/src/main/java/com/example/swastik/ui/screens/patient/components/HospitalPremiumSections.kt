@@ -16,7 +16,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,8 +38,16 @@ import com.example.swastik.ui.components.SectionCard
 fun HospitalReelsSection(reels: List<HospitalReel>, isDark: Boolean) {
     if (reels.isEmpty()) return
     
-    val context = LocalContext.current
+    var activeReel by remember { mutableStateOf<HospitalReel?>(null) }
     val textColor = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
+
+    activeReel?.let { reel ->
+        com.example.swastik.ui.components.FacilityReelPlayerDialog(
+            videoUrl = reel.videoUrl,
+            title = reel.title ?: "Hospital Tour",
+            onDismiss = { activeReel = null }
+        )
+    }
 
     SectionCard(title = "Hospital Reels & Tours", isDark = isDark) {
         LazyRow(
@@ -54,13 +62,12 @@ fun HospitalReelsSection(reels: List<HospitalReel>, isDark: Boolean) {
                         .clip(RoundedCornerShape(12.dp))
                         .clickable {
                             if (reel.videoUrl.isNotEmpty()) {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(reel.videoUrl))
-                                try { context.startActivity(intent) } catch (e: Exception) { }
+                                activeReel = reel
                             }
                         }
                 ) {
                     AsyncImage(
-                        model = reel.thumbnailUrl ?: reel.videoUrl,
+                        model = com.example.swastik.util.MediaUrlResolver.resolve(reel.thumbnailUrl ?: reel.videoUrl),
                         contentDescription = reel.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -95,7 +102,7 @@ fun HospitalReelsSection(reels: List<HospitalReel>, isDark: Boolean) {
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "2 mins ago",
+                            text = "Virtual Tour",
                             color = Color.LightGray,
                             fontSize = 11.sp
                         )

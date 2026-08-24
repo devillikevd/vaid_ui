@@ -610,6 +610,11 @@ interface ApiService {
         @Query("level") level: String? = null
     ): Response<PaginatedResponse<WellnessWorkoutPlanDto>>
 
+    @GET("wellness/plans/{id}")
+    suspend fun getWellnessWorkoutPlan(
+        @Path("id") id: String
+    ): Response<ApiResponse<WellnessWorkoutPlanDto>>
+
     @GET("wellness/exercises")
     suspend fun getExerciseLibrary(
         @Query("page") page: Int = 1,

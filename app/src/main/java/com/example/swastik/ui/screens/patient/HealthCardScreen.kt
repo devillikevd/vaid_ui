@@ -214,10 +214,27 @@ fun HealthCardScreen(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     lineHeight = 26.sp
                                 )
+                                val validityText = if (hcState.hasActiveCard && !hcState.expiresAt.isNullOrEmpty()) {
+                                    try {
+                                        val instant = java.time.Instant.parse(hcState.expiresAt)
+                                        val zone = java.time.ZoneId.systemDefault()
+                                        val localDateTime = instant.atZone(zone).toLocalDateTime()
+                                        val formatter = java.time.format.DateTimeFormatter.ofPattern("d MMM, hh:mm a")
+                                        "Valid until " + localDateTime.format(formatter)
+                                    } catch (e: Exception) {
+                                        "Valid for 24 hours"
+                                    }
+                                } else if (hcState.hasActiveCard) {
+                                    "Valid for 24 hours"
+                                } else {
+                                    "Emergency Access QR • Valid 24 Hours"
+                                }
+
                                 Text(
-                                    stringResource(R.string.valid_through_1225),
+                                    text = validityText,
                                     fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    fontWeight = if (hcState.hasActiveCard) FontWeight.Medium else FontWeight.Normal,
+                                    color = if (hcState.hasActiveCard) SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
 

@@ -120,8 +120,8 @@ fun CommunityQADetailsScreen(
                         AnswerCard(
                             answer = answer,
                             isQuestionOwner = isQuestionOwner,
-                            hasUpvoted = viewModel.hasUpvoted(answer.id),
-                            onUpvote = { viewModel.upvoteAnswer(answer.id) },
+                            hasUpvoted = viewModel.hasUpvoted(answer.id, answer.isUpvoted),
+                            onUpvote = { viewModel.upvoteAnswer(answer.id, answer.isUpvoted) },
                             onDelete = { viewModel.deleteAnswer(answer.id, q.id) },
                             onReport = { reportTarget = "answer" to answer.id }
                         )

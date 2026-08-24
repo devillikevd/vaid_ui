@@ -80,6 +80,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -93,6 +94,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -173,6 +175,16 @@ fun WellnessHubScreen(
         if (!isRefreshing && pullToRefreshState.isRefreshing) {
             delay(250)
             pullToRefreshState.endRefresh()
+        }
+    }
+
+    val context = LocalContext.current
+    var isWearableSyncing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isWearableSyncing) {
+        if (isWearableSyncing) {
+            delay(1200)
+            isWearableSyncing = false
         }
     }
 
@@ -266,7 +278,17 @@ fun WellnessHubScreen(
                                 steps = state.stepsToday,
                                 activeCalories = state.activeCaloriesToday,
                                 streak = state.streakDays,
-                                workoutsCompletedToday = state.workoutsCompletedToday
+                                workoutsCompletedToday = state.workoutsCompletedToday,
+                                isSyncing = isWearableSyncing,
+                                onSyncWearables = {
+                                    isWearableSyncing = true
+                                    viewModel.refreshHub()
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Wearables & Health Connect synced with Vaididea cloud! ⚡",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             )
                         }
 
@@ -471,7 +493,9 @@ private fun WellnessHero(
     steps: Int,
     activeCalories: Int,
     streak: Int,
-    workoutsCompletedToday: Int
+    workoutsCompletedToday: Int,
+    isSyncing: Boolean = false,
+    onSyncWearables: () -> Unit = {}
 ) {
     Card(
         shape = RoundedCornerShape(24.dp),
@@ -493,7 +517,7 @@ private fun WellnessHero(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
@@ -514,35 +538,78 @@ private fun WellnessHero(
                         Text(
                             text = patientName?.takeIf { it.isNotBlank() } ?: "Vaididea Athlete",
                             color = Color.White,
-                            fontSize = 22.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.ExtraBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
 
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color.White.copy(alpha = 0.12f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        // ⚡ Health Connect 1-Tap Quick Sync Action
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.White.copy(alpha = 0.16f),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f)),
+                            modifier = Modifier.clickable { onSyncWearables() }
                         ) {
-                            Icon(
-                                Icons.Filled.LocalFireDepartment,
-                                contentDescription = null,
-                                tint = if (streak > 0) WellnessTheme.YogaAmber else Color.White.copy(alpha = 0.7f),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = if (streak > 0) "$streak Day Streak" else "Start Streak",
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                if (isSyncing) {
+                                    CircularProgressIndicator(
+                                        color = WellnessTheme.TealMint,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.Refresh,
+                                        contentDescription = "Sync Wearables",
+                                        tint = WellnessTheme.TealMint,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                }
+                                Text(
+                                    text = if (isSyncing) "Syncing..." else "Sync ⚡",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Streak Badge
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.White.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.LocalFireDepartment,
+                                    contentDescription = null,
+                                    tint = if (streak > 0) WellnessTheme.YogaAmber else Color.White.copy(alpha = 0.7f),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Text(
+                                    text = if (streak > 0) "$streak d" else "Streak",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -1031,7 +1098,7 @@ private fun ReelThumb(reel: WellnessReelDto, onClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            val imageUrl = reel.thumbnailUrl ?: reel.videoUrl
+            val imageUrl = com.example.swastik.util.MediaUrlResolver.resolve(reel.thumbnailUrl ?: reel.videoUrl)
             if (imageUrl != null) {
                 AsyncImage(
                     model = imageUrl,

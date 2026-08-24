@@ -481,13 +481,17 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     navController.navigateSafe(Screen.VideoConsultation.createRoute(appointmentId, doctorName)) 
                 },
                 onNavigateToPharmacy = { pharmacyId, pharmacyName ->
-                    navController.navigateSafe(
-                        Screen.HospitalFinder.createRoute(
-                            type = FacilityType.MEDICAL_STORE,
-                            focusFacilityId = pharmacyId,
-                            focusFacilityName = pharmacyName
+                    if (!pharmacyId.isNullOrBlank()) {
+                        navController.navigateSafe(Screen.PharmacyDetail.createRoute(pharmacyId))
+                    } else {
+                        navController.navigateSafe(
+                            Screen.HospitalFinder.createRoute(
+                                type = FacilityType.MEDICAL_STORE,
+                                focusFacilityId = pharmacyId,
+                                focusFacilityName = pharmacyName
+                            )
                         )
-                    )
+                    }
                 },
                 onNavigateToReports = { navController.navigateSafe(Screen.Reports.route) },
                 onNavigateToPrescriptions = { navController.navigateSafe(Screen.Prescriptions.createRoute()) },
@@ -1149,13 +1153,17 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                         navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
                     },
                     onPharmacyClick = { pharmacyId, pharmacyName ->
-                        navController.navigateSafe(
-                            Screen.HospitalFinder.createRoute(
-                                type = FacilityType.MEDICAL_STORE,
-                                focusFacilityId = pharmacyId,
-                                focusFacilityName = pharmacyName
+                        if (!pharmacyId.isNullOrBlank()) {
+                            navController.navigateSafe(Screen.PharmacyDetail.createRoute(pharmacyId))
+                        } else {
+                            navController.navigateSafe(
+                                Screen.HospitalFinder.createRoute(
+                                    type = FacilityType.MEDICAL_STORE,
+                                    focusFacilityId = pharmacyId,
+                                    focusFacilityName = pharmacyName
+                                )
                             )
-                        )
+                        }
                     },
                     onNavigateToHome = { navController.popBackStack() },
                     onNavigateToRecords = { navController.navigateSafe(Screen.Reports.route) },
@@ -1497,7 +1505,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 com.example.swastik.ui.screens.patient.wellness.WellnessSupplementsScreen(
                     onNavigateBack = { navController.popBackStack() },
-                    viewModel = wellnessViewModel
+                    viewModel = wellnessViewModel,
+                    onNavigateToCart = { navController.navigateSafe(Screen.MedicineCart.createRoute("global")) }
                 )
             }
         }
@@ -1805,6 +1814,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onBackClick = { navController.popBackStack() },
                     onNavigateToCart = {
                         navController.navigateSafe(Screen.MedicineCart.createRoute("GLOBAL"))
+                    },
+                    onNavigateToPharmacyDetail = { pharmacyId ->
+                        navController.navigateSafe(Screen.PharmacyDetail.createRoute(pharmacyId))
                     },
                     initialTab = tab
                 )

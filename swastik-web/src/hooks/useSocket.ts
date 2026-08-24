@@ -604,10 +604,12 @@ export function useCatalogRequestUpdates(onNewRequest?: (request: CatalogRequest
 
         addGlobalEventListener('catalog:request:new', handleNewRequest);
         addGlobalEventListener('catalog:request:accepted', handleRequestUpdate);
+        addGlobalEventListener('catalog:request:cancelled', handleRequestUpdate);
 
         return () => {
             removeGlobalEventListener('catalog:request:new', handleNewRequest);
             removeGlobalEventListener('catalog:request:accepted', handleRequestUpdate);
+            removeGlobalEventListener('catalog:request:cancelled', handleRequestUpdate);
         };
     }, [isConnected, onNewRequest, onUpdate]);
 

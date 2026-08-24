@@ -179,12 +179,12 @@ class CommunityViewModel @Inject constructor(
     private val _localUpvoteUpdates = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val localUpvoteUpdates: StateFlow<Map<String, Boolean>> = _localUpvoteUpdates.asStateFlow()
 
-    fun hasUpvoted(id: String): Boolean {
-        return tokenManager.hasUpvoted(id)
+    fun hasUpvoted(id: String, defaultStatus: Boolean? = null): Boolean {
+        return _localUpvoteUpdates.value[id] ?: defaultStatus ?: tokenManager.hasUpvoted(id)
     }
 
-    fun upvoteQuestion(questionId: String) {
-        val currentStatus = _localUpvoteUpdates.value[questionId] ?: hasUpvoted(questionId)
+    fun upvoteQuestion(questionId: String, currentIsUpvoted: Boolean? = null) {
+        val currentStatus = _localUpvoteUpdates.value[questionId] ?: currentIsUpvoted ?: hasUpvoted(questionId)
         val targetStatus = !currentStatus
         
         // Optimistic UI update for feed
@@ -192,33 +192,52 @@ class CommunityViewModel @Inject constructor(
         
         viewModelScope.launch {
             val action = if (targetStatus) "upvote" else "remove"
-            repository.upvoteQuestion(questionId, action)
-            if (targetStatus) {
-                tokenManager.addUpvoted(questionId)
+            val result = repository.upvoteQuestion(questionId, action)
+            if (result is com.example.swastik.data.repository.Result.Success) {
+                if (targetStatus) {
+                    tokenManager.addUpvoted(questionId)
+                } else {
+                    tokenManager.removeUpvoted(questionId)
+                }
             } else {
-                tokenManager.removeUpvoted(questionId)
+                // Revert on failure
+                _localUpvoteUpdates.value = _localUpvoteUpdates.value + (questionId to currentStatus)
             }
             if (_selectedQuestion.value?.id == questionId) {
-                _selectedQuestion.value = _selectedQuestion.value?.let { it.copy(upvotes = it.upvotes + (if (targetStatus) 1 else -1)) }
+                _selectedQuestion.value = _selectedQuestion.value?.let { 
+                    it.copy(
+                        upvotes = maxOf(0, it.upvotes + (if (targetStatus) 1 else -1)),
+                        isUpvoted = targetStatus
+                    ) 
+                }
             }
         }
     }
 
-    fun upvoteAnswer(answerId: String) {
-        val currentStatus = hasUpvoted(answerId)
+    fun upvoteAnswer(answerId: String, currentIsUpvoted: Boolean? = null) {
+        val currentStatus = _localUpvoteUpdates.value[answerId] ?: currentIsUpvoted ?: hasUpvoted(answerId)
         val targetStatus = !currentStatus
         
+        _localUpvoteUpdates.value = _localUpvoteUpdates.value + (answerId to targetStatus)
+
         viewModelScope.launch {
             val action = if (targetStatus) "upvote" else "remove"
-            repository.upvoteAnswer(answerId, action)
-            if (targetStatus) {
-                tokenManager.addUpvoted(answerId)
+            val result = repository.upvoteAnswer(answerId, action)
+            if (result is com.example.swastik.data.repository.Result.Success) {
+                if (targetStatus) {
+                    tokenManager.addUpvoted(answerId)
+                } else {
+                    tokenManager.removeUpvoted(answerId)
+                }
             } else {
-                tokenManager.removeUpvoted(answerId)
+                _localUpvoteUpdates.value = _localUpvoteUpdates.value + (answerId to currentStatus)
             }
             _selectedQuestion.value = _selectedQuestion.value?.let { q ->
                 val newAnswers = q.answers?.map { a ->
-                    if (a.id == answerId) a.copy(upvotes = a.upvotes + (if (targetStatus) 1 else -1)) else a
+                    if (a.id == answerId) a.copy(
+                        upvotes = maxOf(0, a.upvotes + (if (targetStatus) 1 else -1)),
+                        isUpvoted = targetStatus
+                    ) else a
                 }
                 q.copy(answers = newAnswers)
             }

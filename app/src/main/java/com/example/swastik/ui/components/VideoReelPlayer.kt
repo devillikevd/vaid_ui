@@ -14,13 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,6 +30,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.example.swastik.util.MediaUrlResolver
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -43,23 +38,28 @@ fun VideoReelPlayer(
     videoUrl: String,
     modifier: Modifier = Modifier,
     playWhenReady: Boolean = false,
+    isMuted: Boolean = false,
+    resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
     onVideoClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    
+    val resolvedUrl = remember(videoUrl) { MediaUrlResolver.resolve(videoUrl) ?: videoUrl }
+
     var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
     var isPlaying by remember { mutableStateOf(playWhenReady) }
     var isBuffering by remember { mutableStateOf(true) }
 
-    LaunchedEffect(videoUrl) {
+    LaunchedEffect(resolvedUrl) {
+        if (resolvedUrl.isBlank()) return@LaunchedEffect
         val player = ExoPlayer.Builder(context).build().apply {
-            val mediaItem = MediaItem.fromUri(Uri.parse(videoUrl))
+            val mediaItem = MediaItem.fromUri(Uri.parse(resolvedUrl))
             setMediaItem(mediaItem)
             repeatMode = Player.REPEAT_MODE_ONE
             this.playWhenReady = playWhenReady
+            this.volume = if (isMuted) 0f else 1f
             prepare()
-            
+
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     isBuffering = playbackState == Player.STATE_BUFFERING
@@ -70,6 +70,14 @@ fun VideoReelPlayer(
             })
         }
         exoPlayer = player
+    }
+
+    LaunchedEffect(playWhenReady) {
+        exoPlayer?.playWhenReady = playWhenReady
+    }
+
+    LaunchedEffect(isMuted) {
+        exoPlayer?.volume = if (isMuted) 0f else 1f
     }
 
     DisposableEffect(lifecycleOwner) {
@@ -85,7 +93,7 @@ fun VideoReelPlayer(
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        
+
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             exoPlayer?.release()
@@ -114,7 +122,7 @@ fun VideoReelPlayer(
                     PlayerView(ctx).apply {
                         this.player = player
                         useController = false
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        this.resizeMode = resizeMode
                         layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
@@ -141,7 +149,7 @@ fun VideoReelPlayer(
                     imageVector = Icons.Default.PlayArrow,
                     contentDescription = "Play",
                     tint = Color.White,
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(54.dp)
                 )
             }
         }

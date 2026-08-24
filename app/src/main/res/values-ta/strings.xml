@@ -715,7 +715,7 @@
     <string name="keep_request">கோரிக்கையை வைத்திருக்கவும்</string>
     <string name="live_gps_active">நேரலை ஜிபிஎஸ் செயலில் உள்ளது</string>
     <string name="digital_health_card">டிஜிட்டல் ஹெல்த் கார்டு</string>
-    <string name="valid_through_1225">12/25 வரை செல்லுபடியாகும்</string>
+    <string name="valid_through_1225">அவசர அணுகல் QR • 24 மணிநேரம் செல்லுபடியாகும்</string>
     <string name="share_this_id_for_manual">கையேடு உள்ளீட்டிற்காக இந்த ஐடியைப் பகிரவும்</string>
     <string name="revoke_access">அணுகலை ரத்து செய்யவும்</string>
     <string name="generate_qr_code">QR குறியீட்டை உருவாக்கவும்</string>

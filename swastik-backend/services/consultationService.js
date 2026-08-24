@@ -386,6 +386,24 @@ const startConsultation = async (doctorUserId, appointmentId) => {
     console.warn('[ConsultationService] Lifecycle init skipped:', lifecycleErr.message);
   }
 
+  // Retrieve or generate completion OTP for the appointment
+  let completionOtp = null;
+  const { data: aptRecord } = await supabaseAdmin
+    .from('appointments')
+    .select('completion_otp')
+    .eq('id', appointmentId)
+    .single();
+
+  if (aptRecord?.completion_otp) {
+    completionOtp = aptRecord.completion_otp;
+  } else {
+    completionOtp = crypto.randomInt(100000, 999999).toString();
+    await supabaseAdmin
+      .from('appointments')
+      .update({ completion_otp: completionOtp, updated_at: new Date().toISOString() })
+      .eq('id', appointmentId);
+  }
+
   // Send push notification with OTP to patient
   const { data: patient } = await supabaseAdmin
     .from('patients')
@@ -744,9 +762,9 @@ const leaveConsultation = async (patientUserId, consultationId) => {
 };
 
 const deriveReminderTimes = (frequency = '') => {
-  const f = String(frequency || '').toLowerCase();
+  const f = String(frequency || '').trim().toLowerCase();
 
-  // Try explicit times first: 08:00, 8:30 pm, etc.
+  // Try explicit times first: 08:00, 8:30 pm, 08:00 AM, etc.
   const explicit = [];
   const explicitRegex = /(\d{1,2}:\d{2}(?:\s*(?:am|pm))?)/gi;
   for (const match of f.matchAll(explicitRegex)) {
@@ -754,19 +772,43 @@ const deriveReminderTimes = (frequency = '') => {
   }
   if (explicit.length > 0) return explicit;
 
+  // Indian & standard clinical dosage patterns (e.g. 1-0-1, 1-1-1, 1-0-0, 0-0-1, 1-1-0, 0-1-1)
+  if (/^1\s*[-–—]\s*0\s*[-–—]\s*1$/.test(f)) return ['08:00', '21:00'];
+  if (/^1\s*[-–—]\s*1\s*[-–—]\s*1$/.test(f)) return ['08:00', '14:00', '21:00'];
+  if (/^1\s*[-–—]\s*0\s*[-–—]\s*0$/.test(f)) return ['08:00'];
+  if (/^0\s*[-–—]\s*0\s*[-–—]\s*1$/.test(f)) return ['21:00'];
+  if (/^0\s*[-–—]\s*1\s*[-–—]\s*0$/.test(f)) return ['14:00'];
+  if (/^1\s*[-–—]\s*1\s*[-–—]\s*0$/.test(f)) return ['08:00', '14:00'];
+  if (/^0\s*[-–—]\s*1\s*[-–—]\s*1$/.test(f)) return ['14:00', '21:00'];
+  if (/^1\s*[-–—]\s*0\s*[-–—]\s*0\s*[-–—]\s*1$/.test(f)) return ['08:00', '22:00'];
+  if (/^1\s*[-–—]\s*1\s*[-–—]\s*1\s*[-–—]\s*1$/.test(f)) return ['08:00', '12:00', '16:00', '21:00'];
+
+  // Latin clinical acronyms & frequencies
+  if (/\b(qid|q\.i\.d)\b/i.test(f) || f.includes('4 times') || f.includes('four times')) {
+    return ['08:00', '12:00', '16:00', '21:00'];
+  }
+  if (/\b(tds|t\.d\.s|tid|t\.i\.d)\b/i.test(f) || f.includes('thrice') || f.includes('3 times') || f.includes('three times')) {
+    return ['08:00', '14:00', '20:00'];
+  }
+  if (/\b(bd|b\.d|bid|b\.i\.d)\b/i.test(f) || f.includes('twice') || f.includes('2 times') || f.includes('two times')) {
+    return ['09:00', '21:00'];
+  }
+  if (/\b(od|o\.d|oid|o\.i\.d)\b/i.test(f) || f.includes('once') || f.includes('1 time') || f.includes('daily')) {
+    if (f.includes('night') || f.includes('bedtime') || /\bhs\b/i.test(f)) return ['21:00'];
+    return ['09:00'];
+  }
+  if (/\b(hs|h\.s)\b/i.test(f) || f.includes('night') || f.includes('bedtime')) {
+    return ['22:00'];
+  }
+
+  // Word-based slot matching
   const slots = [];
   if (f.includes('morning')) slots.push('08:00');
-  if (f.includes('afternoon')) slots.push('14:00');
+  if (f.includes('afternoon') || f.includes('noon')) slots.push('14:00');
   if (f.includes('evening')) slots.push('19:00');
   if (f.includes('night') || f.includes('bedtime')) slots.push('22:00');
   if (slots.length > 0) return slots;
 
-  if (f.includes('thrice') || f.includes('three times') || f.includes('3 times')) {
-    return ['08:00', '14:00', '20:00'];
-  }
-  if (f.includes('twice') || f.includes('two times') || f.includes('2 times')) {
-    return ['09:00', '21:00'];
-  }
   return ['09:00'];
 };
 
@@ -941,20 +983,52 @@ const generateAndUploadPrescriptionPdfWithRetry = async ({
   return null;
 };
 
+const computeCourseUntilNote = (durationStr) => {
+  if (!durationStr || typeof durationStr !== 'string') return '';
+  const d = durationStr.trim().toLowerCase();
+  let days = 0;
+  const daysMatch = d.match(/(\d+)\s*(?:day|days|d)\b/);
+  if (daysMatch) days = parseInt(daysMatch[1], 10);
+  const weeksMatch = d.match(/(\d+)\s*(?:week|weeks|w)\b/);
+  if (weeksMatch) days = parseInt(weeksMatch[1], 10) * 7;
+  const monthsMatch = d.match(/(\d+)\s*(?:month|months|m)\b/);
+  if (monthsMatch) days = parseInt(monthsMatch[1], 10) * 30;
+
+  if (days > 0) {
+    const end = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const pad2 = (n) => String(n).padStart(2, '0');
+    return `until ${months[end.getMonth()]} ${pad2(end.getDate())}, ${end.getFullYear()}`;
+  }
+  return '';
+};
+
 const createMedicineRemindersFromPrescription = async (patientId, prescriptionId, items = []) => {
   if (!patientId || !Array.isArray(items) || items.length === 0) return;
 
   const reminders = [];
   for (const item of items) {
     const times = deriveReminderTimes(item.frequency);
+    const medName = item.medicineName || item.medicine_name || 'Medicine';
+    const title = `${medName}${item.dosage ? ` (${item.dosage})` : ''}`;
+    const foodTag = item.beforeFood ? 'Before Food' : 'After Food';
+    const untilStr = computeCourseUntilNote(item.duration);
+    
+    const noteParts = [
+      item.instructions || '',
+      foodTag,
+      untilStr ? `(${untilStr})` : '',
+      `Prescription ${prescriptionId}`,
+    ].filter(Boolean);
+
     for (const time of times) {
       reminders.push({
         patient_id: patientId,
-        title: `${item.medicineName}${item.dosage ? ` (${item.dosage})` : ''}`,
+        title,
         type: 'medicine',
         time,
         days: [],
-        notes: item.instructions || `Prescription ${prescriptionId}`,
+        notes: noteParts.join(' • '),
         is_active: true,
       });
     }
