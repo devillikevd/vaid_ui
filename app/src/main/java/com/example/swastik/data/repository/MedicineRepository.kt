@@ -9,6 +9,7 @@ import com.example.swastik.data.local.db.MedicineDao
 import com.example.swastik.data.local.db.CachedMedicine
 import okhttp3.ResponseBody
 import org.json.JSONObject
+import com.example.swastik.util.toResolvedMediaUrl
 import javax.inject.Inject
 import javax.inject.Singleton
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -486,7 +487,7 @@ class MedicineRepository @Inject constructor(
         category = therapeuticCategory ?: dosageForm ?: category.name,
         description = description,
         requiresPrescription = requiresPrescription,
-        imageUrl = imageUrl,
+        imageUrl = imageUrl.toResolvedMediaUrl(),
         campaignPrice = campaignPrice?.toDouble(),
         campaignDiscountPct = campaignDiscountPct?.toDouble(),
         campaignId = campaignId,
@@ -508,7 +509,7 @@ class MedicineRepository @Inject constructor(
         stockCount = 0,
         nearbyPharmacy = null,
         pharmacyDistance = null,
-        imageUrl = imageUrl,
+        imageUrl = imageUrl.toResolvedMediaUrl(),
         campaignPrice = campaignPrice?.toFloat(),
         campaignDiscountPct = campaignDiscountPct?.toFloat(),
         campaignId = campaignId,

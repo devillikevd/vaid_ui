@@ -53,11 +53,11 @@ export function Step1Basic({ data, updateData, nextStep, errors }: any) {
         setIsSending(true);
         setErrorMsg('');
         try {
-            const res = await authApi.sendRegistrationOtp(data.email, data.name);
+            const res = await authApi.sendRegistrationOtp(data.email, data.name, 'doctor');
             if (res.success) {
                 setResendTimer(60);
             } else {
-                setErrorMsg(res.error || 'Failed to resend OTP');
+                setErrorMsg(res.message || res.error || 'Failed to resend OTP');
             }
         } catch (err) {
             setErrorMsg('Network error while resending OTP');
@@ -109,12 +109,12 @@ export function Step1Basic({ data, updateData, nextStep, errors }: any) {
                         return;
                     }
 
-                    const res = await authApi.sendRegistrationOtp(data.email, data.name);
+                    const res = await authApi.sendRegistrationOtp(data.email, data.name, 'doctor');
                     if (res.success) {
                         updateData({ otpSent: true });
                         setResendTimer(60);
                     } else {
-                        setErrorMsg(res.error || 'Failed to send OTP');
+                        setErrorMsg(res.message || res.error || 'Failed to send OTP');
                     }
                 } catch (err) {
                     setErrorMsg('Network error while processing request');

@@ -193,6 +193,8 @@ const doctorFeedbackSchema = new mongoose.Schema({
     title: { type: String, required: true },
     description: { type: String, required: true },
     rating: Number,
+    patientPhone: String,
+    allowContact: { type: Boolean, default: true },
     pageName: String,
     route: String,
     attachments: [String],

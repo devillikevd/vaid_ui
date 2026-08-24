@@ -564,10 +564,10 @@ export default function DoctorAppointmentsPage() {
 
     const handleStartConsultation = async (id: string) => {
         setActionLoading(id);
-        const url = await startConsultation(id);
+        const consultationId = await startConsultation(id);
         setActionLoading(null);
-        if (url) {
-            window.location.href = url;
+        if (consultationId) {
+            router.push(`/consultation/${consultationId}`);
         } else {
             fetchAppointments(selectedStatus, undefined, 1);
         }

@@ -232,7 +232,7 @@ export default function ScanPatientQRPage() {
                                 </div>
                                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Manual Link ID</h3>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    Enter the 6-character Link ID or paste the full health card URL shared by the patient.
+                                    Enter the Link ID or paste the full health card URL shared by the patient.
                                 </p>
                             </div>
                             
@@ -242,8 +242,8 @@ export default function ScanPatientQRPage() {
                                         type="text" 
                                         value={manualToken} 
                                         onChange={e => setManualToken(e.target.value.toUpperCase())}
-                                        placeholder="e.g. A2B9X1"
-                                        className="w-full py-4 text-xl font-mono tracking-widest uppercase border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all placeholder:normal-case placeholder:tracking-normal placeholder:font-sans placeholder:text-base text-center"
+                                        placeholder="e.g. 45DLQXDDYHLQKH8R"
+                                        className="w-full py-4 text-lg font-mono tracking-wider uppercase border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all placeholder:normal-case placeholder:tracking-normal placeholder:font-sans placeholder:text-base text-center"
                                         onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
                                     />
                                 </div>

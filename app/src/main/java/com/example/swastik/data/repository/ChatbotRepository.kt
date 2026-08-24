@@ -17,6 +17,8 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import com.example.swastik.utils.ImageCompressor
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -29,15 +31,89 @@ class ChatbotRepository @Inject constructor(
 ) {
     private val preferences = context.getSharedPreferences(CHATBOT_PREFS, Context.MODE_PRIVATE)
     private var currentSessionId: String? = preferences.getString(KEY_CURRENT_SESSION_ID, null)
+    private val gson = Gson()
 
     companion object {
         private const val CHATBOT_PREFS = "swastik_chatbot_prefs"
         private const val KEY_CURRENT_SESSION_ID = "current_session_id"
+        private const val KEY_CACHED_SESSIONS = "cached_sessions"
+        private const val KEY_SESSION_MESSAGES_PREFIX = "session_msgs_"
     }
 
     private fun persistCurrentSession(sessionId: String?) {
         currentSessionId = sessionId
         preferences.edit().putString(KEY_CURRENT_SESSION_ID, sessionId).apply()
+    }
+
+    fun getLocalSessions(): List<ChatSession> {
+        val json = preferences.getString(KEY_CACHED_SESSIONS, null) ?: return emptyList()
+        return try {
+            val type = object : TypeToken<List<ChatSession>>() {}.type
+            gson.fromJson<List<ChatSession>>(json, type) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveLocalSessions(sessions: List<ChatSession>) {
+        val json = gson.toJson(sessions)
+        preferences.edit().putString(KEY_CACHED_SESSIONS, json).apply()
+    }
+
+    fun getLocalSessionMessages(sessionId: String): List<ChatMessage> {
+        val json = preferences.getString(KEY_SESSION_MESSAGES_PREFIX + sessionId, null) ?: return emptyList()
+        return try {
+            val type = object : TypeToken<List<ChatMessage>>() {}.type
+            gson.fromJson<List<ChatMessage>>(json, type) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveLocalSessionMessages(sessionId: String, messages: List<ChatMessage>) {
+        val json = gson.toJson(messages)
+        preferences.edit().putString(KEY_SESSION_MESSAGES_PREFIX + sessionId, json).apply()
+    }
+
+    fun recordMessageInLocalSession(sessionId: String, userContent: String, assistantSummary: String? = null) {
+        val currentMessages = getLocalSessionMessages(sessionId).toMutableList()
+        val userMsg = ChatMessage(
+            id = "user_${System.currentTimeMillis()}",
+            role = "user",
+            content = userContent,
+            timestamp = System.currentTimeMillis().toString(),
+            audioUrl = null
+        )
+        currentMessages.add(userMsg)
+
+        if (!assistantSummary.isNullOrBlank()) {
+            val aiMsg = ChatMessage(
+                id = "ai_${System.currentTimeMillis()}",
+                role = "assistant",
+                content = assistantSummary,
+                timestamp = System.currentTimeMillis().toString(),
+                audioUrl = null
+            )
+            currentMessages.add(aiMsg)
+        }
+        saveLocalSessionMessages(sessionId, currentMessages)
+
+        // Update session list
+        val currentSessions = getLocalSessions().toMutableList()
+        val existingIndex = currentSessions.indexOfFirst { it.sessionId == sessionId }
+        val preview = assistantSummary ?: userContent
+        val updatedSession = ChatSession(
+            sessionId = sessionId,
+            lastMessage = preview,
+            updatedAt = System.currentTimeMillis().toString(),
+            messageCount = currentMessages.size
+        )
+        if (existingIndex >= 0) {
+            currentSessions[existingIndex] = updatedSession
+        } else {
+            currentSessions.add(0, updatedSession)
+        }
+        saveLocalSessions(currentSessions)
     }
 
     suspend fun startSession(): Result<ChatSession> {
@@ -46,12 +122,30 @@ class ChatbotRepository @Inject constructor(
             if (response.isSuccessful && response.body()?.success == true) {
                 val session = response.body()?.data ?: return Result.Error("Data was null")
                 persistCurrentSession(session.sessionId)
+
+                val currentSessions = getLocalSessions().toMutableList()
+                if (currentSessions.none { it.sessionId == session.sessionId }) {
+                    currentSessions.add(0, session)
+                    saveLocalSessions(currentSessions)
+                }
                 Result.Success(session)
             } else {
-                Result.Error("Failed to start session")
+                val localId = "session_local_${System.currentTimeMillis()}"
+                val localSession = ChatSession(sessionId = localId, message = "Chat session started", messageCount = 0)
+                persistCurrentSession(localId)
+                val currentSessions = getLocalSessions().toMutableList()
+                currentSessions.add(0, localSession)
+                saveLocalSessions(currentSessions)
+                Result.Success(localSession)
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            val localId = "session_local_${System.currentTimeMillis()}"
+            val localSession = ChatSession(sessionId = localId, message = "Chat session started", messageCount = 0)
+            persistCurrentSession(localId)
+            val currentSessions = getLocalSessions().toMutableList()
+            currentSessions.add(0, localSession)
+            saveLocalSessions(currentSessions)
+            Result.Success(localSession)
         }
     }
 
@@ -72,9 +166,9 @@ class ChatbotRepository @Inject constructor(
             }
         }
 
+        val sessionId = currentSessionId ?: return Result.Error("No active session")
+
         return try {
-            val sessionId = currentSessionId
-                ?: return Result.Error("No active session")
             val request = ChatMessageRequest(
                 sessionId = sessionId,
                 message = message,
@@ -84,11 +178,15 @@ class ChatbotRepository @Inject constructor(
             val response = apiService.sendChatMessage(request)
             
             if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(response.body()?.data ?: return Result.Error("Data was null"))
+                val data = response.body()?.data ?: return Result.Error("Data was null")
+                recordMessageInLocalSession(sessionId, message, data.response.summary)
+                Result.Success(data)
             } else {
+                recordMessageInLocalSession(sessionId, message, null)
                 Result.Error(response.body()?.message ?: "Failed to send message")
             }
         } catch (e: Exception) {
+            recordMessageInLocalSession(sessionId, message, null)
             Result.Error(e.message ?: "Network error")
         }
     }
@@ -140,8 +238,13 @@ class ChatbotRepository @Inject constructor(
             val response = apiService.analyzeImage(imagePart, sessionIdBody, descriptionBody)
 
             if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(response.body()?.data ?: return Result.Error("Data was null"))
+                val data = response.body()?.data ?: return Result.Error("Data was null")
+                val promptText = if (description.isNotBlank()) "Photo: $description" else "Photo shared"
+                recordMessageInLocalSession(sessionId, promptText, data.response.summary)
+                Result.Success(data)
             } else {
+                val promptText = if (description.isNotBlank()) "Photo: $description" else "Photo shared"
+                recordMessageInLocalSession(sessionId, promptText, null)
                 Result.Error(response.body()?.message ?: "Failed to analyze image")
             }
         } catch (e: Exception) {
@@ -241,15 +344,30 @@ class ChatbotRepository @Inject constructor(
      * GET /api/chatbot/session/:sessionId
      */
     suspend fun getChatHistory(sessionId: String): Result<List<ChatMessage>> {
+        val localMessages = getLocalSessionMessages(sessionId)
         return try {
             val response = apiService.getChatHistory(sessionId)
             if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(response.body()?.data ?: emptyList())
+                val serverMessages = response.body()?.data ?: emptyList()
+                if (serverMessages.isNotEmpty()) {
+                    saveLocalSessionMessages(sessionId, serverMessages)
+                    Result.Success(serverMessages)
+                } else if (localMessages.isNotEmpty()) {
+                    Result.Success(localMessages)
+                } else {
+                    Result.Success(emptyList())
+                }
+            } else if (localMessages.isNotEmpty()) {
+                Result.Success(localMessages)
             } else {
                 Result.Error(response.body()?.message ?: "Failed to load chat history")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            if (localMessages.isNotEmpty()) {
+                Result.Success(localMessages)
+            } else {
+                Result.Error(e.message ?: "Network error")
+            }
         }
     }
 
@@ -258,15 +376,27 @@ class ChatbotRepository @Inject constructor(
      * GET /api/chatbot/sessions
      */
     suspend fun getChatSessions(): Result<List<ChatSession>> {
+        val localSessions = getLocalSessions()
         return try {
             val response = apiService.getChatSessions()
             if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(response.body()?.data ?: emptyList())
+                val serverSessions = response.body()?.data ?: emptyList()
+                val merged = (serverSessions + localSessions)
+                    .distinctBy { it.sessionId }
+                    .sortedByDescending { it.updatedAt ?: "" }
+                saveLocalSessions(merged)
+                Result.Success(merged)
+            } else if (localSessions.isNotEmpty()) {
+                Result.Success(localSessions)
             } else {
-                Result.Error(response.body()?.message ?: "Failed to load sessions")
+                Result.Success(emptyList())
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            if (localSessions.isNotEmpty()) {
+                Result.Success(localSessions)
+            } else {
+                Result.Success(emptyList())
+            }
         }
     }
 

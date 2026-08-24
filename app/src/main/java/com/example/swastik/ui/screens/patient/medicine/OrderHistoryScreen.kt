@@ -48,6 +48,7 @@ fun OrderHistoryScreen(
     onBackClick: () -> Unit,
     onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit = { _, _, _, _, _ -> },
     onNavigateToCart: () -> Unit = {},
+    onNavigateToPharmacyDetail: (String) -> Unit = {},
     viewModel: MedicineViewModel = hiltViewModel(),
     trackingVm: OrderTrackingViewModel = hiltViewModel(),
     initialTab: Int = 0
@@ -60,7 +61,6 @@ fun OrderHistoryScreen(
     val activeOrder = historyState.orders.firstOrNull { it.status in listOf("dispatched", "out_for_delivery") && !it.trackingToken.isNullOrEmpty() }
     var showHistoryOnly by remember { mutableStateOf(false) }
     var selectedTabIndex by remember { mutableStateOf(initialTab) }
-    var selectedPharmacyForDetails by remember { mutableStateOf<com.example.swastik.data.remote.dto.PharmacyDto?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadOrderHistory()
@@ -317,126 +317,11 @@ fun OrderHistoryScreen(
                         viewModel.cancelCatalogRequest(requestId)
                     },
                     onPharmacyClick = { pharmacy ->
-                        selectedPharmacyForDetails = pharmacy
+                        if (!pharmacy.id.isNullOrBlank()) {
+                            onNavigateToPharmacyDetail(pharmacy.id)
+                        }
                     }
                 )
-            }
-        }
-    }
-
-    if (selectedPharmacyForDetails != null) {
-        val context = LocalContext.current
-        androidx.compose.material3.ModalBottomSheet(
-            onDismissRequest = { selectedPharmacyForDetails = null },
-            sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surface
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Pharmacy Avatar/Icon
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.LocalPharmacy,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-                
-                Spacer(Modifier.height(16.dp))
-                
-                Text(
-                    text = selectedPharmacyForDetails?.name ?: "Pharmacy",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 24.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                
-                Spacer(Modifier.height(8.dp))
-                
-                if (selectedPharmacyForDetails?.rating != null) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Star, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFFFFC107), modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(String.format("%.1f", selectedPharmacyForDetails?.rating), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        if (selectedPharmacyForDetails?.totalReviews != null) {
-                            Spacer(Modifier.width(4.dp))
-                            Text("(${selectedPharmacyForDetails?.totalReviews} reviews)", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-                
-                if (!selectedPharmacyForDetails?.address.isNullOrBlank()) {
-                    Spacer(Modifier.height(12.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.LocationOn, null, tint = SwastikPrimary)
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                text = selectedPharmacyForDetails?.address ?: "",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(Modifier.height(24.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(Modifier.height(24.dp))
-                
-                if (!selectedPharmacyForDetails?.phone.isNullOrBlank()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${selectedPharmacyForDetails?.phone}"))
-                                context.startActivity(intent)
-                            },
-                            modifier = Modifier.weight(1f).height(56.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Icon(Icons.Default.Phone, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Call Now", fontWeight = FontWeight.Bold)
-                        }
-                        
-                        OutlinedButton(
-                            onClick = {
-                                val url = "https://api.whatsapp.com/send?phone=+91${selectedPharmacyForDetails?.phone}"
-                                val intent = Intent(Intent.ACTION_VIEW).apply {
-                                    data = Uri.parse(url)
-                                }
-                                context.startActivity(intent)
-                            },
-                            modifier = Modifier.weight(1f).height(56.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            border = androidx.compose.foundation.BorderStroke(2.dp, androidx.compose.ui.graphics.Color(0xFF25D366)),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = androidx.compose.ui.graphics.Color(0xFF25D366))
-                        ) {
-                            Icon(Icons.Default.Chat, contentDescription = "WhatsApp", modifier = Modifier.size(24.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("WhatsApp", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-                Spacer(Modifier.height(24.dp))
             }
         }
     }

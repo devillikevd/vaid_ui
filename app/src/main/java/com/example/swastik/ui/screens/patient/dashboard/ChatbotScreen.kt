@@ -101,51 +101,6 @@ fun ChatbotScreen(
     var showHistorySheet by remember { mutableStateOf(false) }
     var selectedTipCategory by remember { mutableStateOf("general") }
     val listState = rememberLazyListState()
-    // ==================== TTS ENGINE ====================
-    var ttsReady by remember { mutableStateOf(false) }
-    var isSpeaking by remember { mutableStateOf(false) }
-    val tts = remember {
-        var engine: TextToSpeech? = null
-        engine = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                ttsReady = true
-            }
-        }
-        engine
-    }
-
-    // Update TTS language when selected language changes
-    LaunchedEffect(selectedLanguage, ttsReady) {
-        if (ttsReady && tts != null) {
-            val locale = when (selectedLanguage) {
-                ChatLanguage.HINDI -> Locale("hi", "IN")
-                ChatLanguage.ENGLISH -> Locale("en", "IN")
-            }
-            tts.setLanguage(locale)
-        }
-    }
-
-    // Auto-speak AI responses when ttsEnabled
-    LaunchedEffect(uiState.lastAiMessageToSpeak, uiState.ttsEnabled) {
-        val msgId = uiState.lastAiMessageToSpeak
-        if (msgId != null && uiState.ttsEnabled && ttsReady && tts != null) {
-            val msg = messages.find { it.id == msgId }
-            if (msg != null && !msg.isUser) {
-                tts.stop()
-                tts.speak(msg.content, TextToSpeech.QUEUE_FLUSH, null, msgId)
-                isSpeaking = true
-            }
-            viewModel.clearSpeakFlag()
-        }
-    }
-
-    // Cleanup TTS on dispose
-    DisposableEffect(Unit) {
-        onDispose {
-            tts?.stop()
-            tts?.shutdown()
-        }
-    }
 
     // ==================== VOICE INPUT STATE ====================
     var isListening by remember { mutableStateOf(false) }
@@ -404,7 +359,7 @@ fun ChatbotScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(modifier = Modifier.size(6.dp).background(Color(0xFF4CAF50), CircleShape))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(if (selectedLanguage == ChatLanguage.HINDI) "एआई • वॉइस • विजन" else stringResource(R.string.text_ai_u2022_voice_u2022_vision), fontSize = 10.sp, color = Color(0xFF4CAF50))
+                                Text(if (selectedLanguage == ChatLanguage.HINDI) "एआई • विजन सहायक" else "AI • Vision Assistant", fontSize = 10.sp, color = Color(0xFF4CAF50))
                             }
                         }
                     }
@@ -429,15 +384,6 @@ fun ChatbotScreen(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
-                    // TTS toggle
-                IconButton(onClick = { viewModel.toggleTts() }, modifier = Modifier.size(36.dp)) {
-                        Icon(
-                            imageVector = if (uiState.ttsEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.Filled.VolumeOff,
-                            contentDescription = "Toggle voice",
-                            tint = if (uiState.ttsEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
                     // Clear chat
                     IconButton(onClick = { viewModel.clearChat() }, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.Outlined.DeleteSweep, contentDescription = "Clear", modifier = Modifier.size(20.dp))
@@ -447,7 +393,12 @@ fun ChatbotScreen(
             )
         },
         bottomBar = {
-            Column {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .imePadding()
+            ) {
                 // Voice listening indicator
                 AnimatedVisibility(
                     visible = isListening,
@@ -482,9 +433,6 @@ fun ChatbotScreen(
                             isListening = false
                             voicePartialResult = ""
                         } else {
-                            // Stop any TTS first
-                            tts?.stop()
-                            isSpeaking = false
                             val hasPermission = ContextCompat.checkSelfPermission(
                                 context, Manifest.permission.RECORD_AUDIO
                             ) == PackageManager.PERMISSION_GRANTED
@@ -579,19 +527,7 @@ fun ChatbotScreen(
                         )
                     }
                     items(messages, key = { it.id }) { message ->
-                        ChatBubble(
-                            message = message,
-                            onSpeakClick = { msgId ->
-                                if (ttsReady && tts != null) {
-                                    val msg = messages.find { it.id == msgId }
-                                    if (msg != null) {
-                                        tts.stop()
-                                        tts.speak(msg.content, TextToSpeech.QUEUE_FLUSH, null, msgId)
-                                        isSpeaking = true
-                                    }
-                                }
-                            }
-                        )
+                        ChatBubble(message = message)
                     }
                     if (messages.isEmpty()) {
                         item {
@@ -975,8 +911,9 @@ private fun SpecialistChip(specialist: String) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = {}) {
+private fun ChatBubble(message: ChatUiMessage) {
     val alignment = if (message.isUser) Alignment.CenterEnd else Alignment.CenterStart
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = alignment) {
@@ -1044,10 +981,23 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
                         if (message.recommendedSpecialist != null && message.recommendedSpecialist != "General Physician") { SpecialistChip(specialist = message.recommendedSpecialist) }
                         if (!message.possibleConditions.isNullOrEmpty()) {
                             Spacer(modifier = Modifier.height(6.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                message.possibleConditions.take(3).forEach { condition ->
-                                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                                        Text(text = condition, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                message.possibleConditions.take(4).forEach { condition ->
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
+                                    ) {
+                                        Text(
+                                            text = condition,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
                                     }
                                 }
                             }
@@ -1094,28 +1044,6 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
                                     Text("⏰", fontSize = 14.sp)
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text("Set Reminder", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF854D0E)) // Yellow 800
-                                }
-                            }
-                        }
-
-                        // Speaker button on AI messages
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                                modifier = Modifier.size(28.dp).clickable { onSpeakClick(message.id) }
-                            ) {
-                                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.VolumeUp,
-                                        contentDescription = "Read aloud",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
                                 }
                             }
                         }
@@ -1338,47 +1266,132 @@ private fun ChatHistorySheet(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 24.dp),
+                        .padding(vertical = 32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(color = SwastikPrimary)
                 }
             } else if (sessions.isEmpty()) {
-                Text(stringResource(R.string.no_previous_chat_sessions_yet), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.Forum,
+                            contentDescription = null,
+                            tint = SwastikPrimary,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Text(
+                            stringResource(R.string.no_previous_chat_sessions_yet),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Button(
+                            onClick = onNewChat,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            Icon(Icons.Outlined.AddComment, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(stringResource(R.string.new_chat))
+                        }
+                    }
+                }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 12.dp)
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     items(sessions, key = { it.sessionId }) { session ->
-                        val preview = session.lastMessage ?: session.message ?: "Resume this chat"
+                        val isCurrent = session.sessionId == activeSessionId
+                        val preview = session.lastMessage ?: session.message ?: "Chat conversation"
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onSessionSelected(session) },
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = if (session.sessionId == activeSessionId) {
+                                containerColor = if (isCurrent) {
                                     SwastikPrimary.copy(alpha = 0.08f)
                                 } else {
                                     MaterialTheme.colorScheme.surface
                                 }
-                            )
+                            ),
+                            border = if (isCurrent) androidx.compose.foundation.BorderStroke(1.5.dp, SwastikPrimary.copy(alpha = 0.4f)) else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                         ) {
-                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    text = if (session.sessionId == activeSessionId) "Current chat" else "Previous chat",
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.sp
-                                )
-                                Text(preview, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, lineHeight = 18.sp)
-                                Text(
-                                    "${session.messageCount ?: 0} messages",
-                                    color = SwastikPrimary,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isCurrent) SwastikPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        if (isCurrent) Icons.Outlined.Forum else Icons.Outlined.History,
+                                        contentDescription = null,
+                                        tint = if (isCurrent) SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = if (isCurrent) "Active Chat" else "Past Consultation",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = if (isCurrent) SwastikPrimary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        if (isCurrent) {
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = SwastikPrimary.copy(alpha = 0.15f)
+                                            ) {
+                                                Text(
+                                                    "Current",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = SwastikPrimary,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Text(
+                                        text = preview,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 13.sp,
+                                        lineHeight = 18.sp,
+                                        maxLines = 2,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    )
+                                    if ((session.messageCount ?: 0) > 0) {
+                                        Text(
+                                            "${session.messageCount} messages",
+                                            color = SwastikPrimary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

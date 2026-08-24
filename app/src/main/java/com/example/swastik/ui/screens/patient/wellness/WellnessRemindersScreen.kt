@@ -29,14 +29,17 @@ private val WellnessGreen = Color(0xFF2E7D32)
 private val WellnessGreenLight = Color(0xFFE8F5E9)
 
 private val reminderTypes = listOf(
-    "medication" to "Medication",
-    "water" to "Water",
+    "hydration" to "Water",
     "workout" to "Workout",
     "sleep" to "Sleep",
+    "meal" to "Meal",
+    "medicine" to "Medication",
     "other" to "Other"
 )
 
 private val dayOptions = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+private val quickTimeOptions = listOf("08:00 AM", "01:00 PM", "05:00 PM", "08:00 PM", "10:00 PM")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -298,6 +301,22 @@ private fun AddReminderForm(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                quickTimeOptions.forEach { t ->
+                    SuggestionChip(
+                        onClick = { onTimeChange(t) },
+                        label = { Text(t, fontSize = 11.sp) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = if (time.equals(t, ignoreCase = true)) WellnessGreenLight else Color(0xFFF1F5F9),
+                            labelColor = if (time.equals(t, ignoreCase = true)) WellnessGreen else Color.DarkGray
+                        )
+                    )
+                }
+            }
+
             Text("Repeat on", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -460,17 +479,27 @@ private fun ReminderCard(
     }
 }
 
-private fun reminderVisual(type: String): Pair<androidx.compose.ui.graphics.vector.ImageVector, Color> = when (type) {
-    "medication" -> Icons.Filled.Medication to Color(0xFFC62828)
-    "water" -> Icons.Filled.WaterDrop to Color(0xFF0288D1)
+private fun reminderVisual(type: String): Pair<androidx.compose.ui.graphics.vector.ImageVector, Color> = when (type.lowercase()) {
+    "medicine", "medication" -> Icons.Filled.Medication to Color(0xFFC62828)
+    "water", "hydration" -> Icons.Filled.WaterDrop to Color(0xFF0288D1)
     "workout" -> Icons.Filled.FitnessCenter to WellnessGreen
     "sleep" -> Icons.Filled.Bedtime to Color(0xFF5C6BC0)
+    "meal" -> Icons.Filled.Restaurant to Color(0xFFE65100)
+    "appointment" -> Icons.Filled.Event to Color(0xFF8E24AA)
+    "test" -> Icons.Filled.Science to Color(0xFF00897B)
     else -> Icons.Filled.Notifications to Color(0xFFF57F17)
 }
 
-private fun typeLabel(type: String): String =
-    reminderTypes.firstOrNull { it.first == type }?.second
-        ?: type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+private fun typeLabel(type: String): String = when (type.lowercase()) {
+    "hydration", "water" -> "Water"
+    "medicine", "medication" -> "Medication"
+    "workout" -> "Workout"
+    "sleep" -> "Sleep"
+    "meal" -> "Meal"
+    "appointment" -> "Appointment"
+    "test" -> "Test"
+    else -> type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+}
 
 private fun currentTimeString(): String =
     LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a"))

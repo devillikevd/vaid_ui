@@ -168,7 +168,7 @@ class AICoachService {
     if (ai) {
       try {
         const systemInstruction = `
-          You are the Swastik AI Wellness Coach. Your coaching persona is ${personaStyle}
+          You are the Vaididea AI Wellness Coach. Your coaching persona is ${personaStyle}
           Context: ${patientContext}
           
           Guidelines:
@@ -286,7 +286,7 @@ class AICoachService {
     } else if (msg.includes('sleep') || msg.includes('tired') || msg.includes('stress')) {
       return `Rest is where the body rebuilds, ${name}! 😴 Try cutting screens 30 mins before bed, keep your room cool, and practice 3 minutes of 4-7-8 deep diaphragmatic breathing to lower cortisol.`;
     }
-    return `Hello ${name}! 🌟 I am your Swastik AI Wellness Coach. Ask me anything about tailoring your daily workout, healthy meal plans, improving sleep, or boosting your recovery readiness!`;
+    return `Hello ${name}! 🌟 I am your Vaididea AI Wellness Coach. Ask me anything about tailoring your daily workout, healthy meal plans, improving sleep, or boosting your recovery readiness!`;
   }
 }
 

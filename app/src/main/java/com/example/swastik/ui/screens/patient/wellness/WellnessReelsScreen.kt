@@ -1,14 +1,27 @@
 package com.example.swastik.ui.screens.patient.wellness
 
+import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,7 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -25,13 +40,18 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.swastik.data.remote.dto.WellnessReelDto
+import com.example.swastik.ui.components.VideoReelPlayer
 import com.example.swastik.ui.viewmodel.WellnessReelsViewModel
+import com.example.swastik.util.toResolvedMediaUrl
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.Locale
 
-private val WellnessGreen = Color(0xFF2E7D32)
-private val WellnessGreenLight = Color(0xFFE8F5E9)
+private val ReelsTealPrimary = Color(0xFF0D9488)
+private val ReelsTealMint = Color(0xFF14B8A6)
+private val Categories = listOf("All", "Fitness", "Yoga", "Nutrition", "HIIT", "Strength", "Mobility")
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun WellnessReelsScreen(
     onBackClick: () -> Unit,
@@ -39,73 +59,182 @@ fun WellnessReelsScreen(
     viewModel: WellnessReelsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    var selectedCategory by remember { mutableStateOf("All") }
+    var isMuted by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Trainer Reels", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Black,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
-                )
-            )
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            when {
-                uiState.isLoading -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = WellnessGreen)
-                    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        when {
+            uiState.isLoading && uiState.reels.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = ReelsTealMint)
                 }
-                uiState.error != null -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Filled.ErrorOutline, contentDescription = null, tint = Color.Red, modifier = Modifier.size(48.dp))
-                            Spacer(Modifier.height(8.dp))
-                            Text(uiState.error ?: "Something went wrong", color = Color.Gray)
-                            Spacer(Modifier.height(12.dp))
-                            TextButton(onClick = { viewModel.load() }) {
-                                Text("Retry", color = WellnessGreen)
-                            }
-                        }
-                    }
-                }
-                uiState.reels.isEmpty() -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Filled.PlayCircleOutline, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(64.dp))
-                            Spacer(Modifier.height(12.dp))
-                            Text("No reels yet", fontWeight = FontWeight.SemiBold, fontSize = 18.sp, color = Color.Gray)
-                            Text("Check back later for new trainer content", fontSize = 14.sp, color = Color.LightGray)
-                        }
-                    }
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+            }
+            uiState.error != null && uiState.reels.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(24.dp)
                     ) {
-                        items(uiState.reels, key = { it.id }) { reel ->
-                            ReelCard(
-                                reel = reel,
-                                isLiked = reel.id in uiState.likedIds,
-                                viewModel = viewModel,
-                                onNavigateToCoach = onNavigateToCoach
-                            )
+                        Icon(
+                            Icons.Filled.ErrorOutline,
+                            contentDescription = null,
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(54.dp)
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            uiState.error ?: "Unable to load trainer reels",
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = { viewModel.load(if (selectedCategory == "All") null else selectedCategory.lowercase()) },
+                            colors = ButtonDefaults.buttonColors(containerColor = ReelsTealPrimary)
+                        ) {
+                            Text("Retry")
                         }
-                        item { Spacer(Modifier.height(16.dp)) }
+                    }
+                }
+            }
+            uiState.reels.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.PlayCircleOutline,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.size(72.dp)
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Text("No Reels Available", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
+                        Spacer(Modifier.height(6.dp))
+                        Text("Check back soon for new workouts and tips", fontSize = 14.sp, color = Color.White.copy(alpha = 0.7f))
+                    }
+                }
+            }
+            else -> {
+                val pagerState = rememberPagerState(pageCount = { uiState.reels.size })
+
+                VerticalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { pageIndex ->
+                    val reel = uiState.reels[pageIndex]
+                    val isCurrentPage = pagerState.currentPage == pageIndex
+
+                    SingleReelPage(
+                        reel = reel,
+                        isPlaying = isCurrentPage,
+                        isMuted = isMuted,
+                        isLiked = reel.id in uiState.likedIds,
+                        onToggleMute = { isMuted = !isMuted },
+                        onLikeClick = { viewModel.like(reel.id) },
+                        onShareClick = {
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(
+                                    Intent.EXTRA_TEXT,
+                                    "Check out this wellness reel on Vaididea: ${reel.title}\n${reel.videoUrl.toResolvedMediaUrl() ?: ""}"
+                                )
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Share Reel"))
+                        },
+                        onNavigateToCoach = onNavigateToCoach,
+                        onViewRecorded = { viewModel.recordView(reel.id) }
+                    )
+                }
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // Top Floating Bar: Back Button, Title, and Category Pills
+        // ═══════════════════════════════════════════════════════════
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Black.copy(alpha = 0.8f),
+                            Color.Transparent
+                        )
+                    )
+                )
+                .padding(vertical = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White
+                    )
+                }
+
+                Text(
+                    text = "Vaididea Reels",
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 18.sp
+                )
+
+                Spacer(Modifier.weight(1f))
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = ReelsTealPrimary.copy(alpha = 0.85f)
+                ) {
+                    Text(
+                        "HD ⚡",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            // Category Filter Strip
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(Categories) { category ->
+                    val isSelected = selectedCategory == category
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isSelected) ReelsTealPrimary else Color.White.copy(alpha = 0.18f),
+                        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                        modifier = Modifier.clickable {
+                            selectedCategory = category
+                            viewModel.load(if (category == "All") null else category.lowercase())
+                        }
+                    ) {
+                        Text(
+                            text = category,
+                            color = Color.White,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
                     }
                 }
             }
@@ -114,179 +243,330 @@ fun WellnessReelsScreen(
 }
 
 @Composable
-private fun ReelCard(
+private fun SingleReelPage(
     reel: WellnessReelDto,
+    isPlaying: Boolean,
+    isMuted: Boolean,
     isLiked: Boolean,
-    viewModel: WellnessReelsViewModel,
-    onNavigateToCoach: (String) -> Unit
+    onToggleMute: () -> Unit,
+    onLikeClick: () -> Unit,
+    onShareClick: () -> Unit,
+    onNavigateToCoach: (String) -> Unit,
+    onViewRecorded: () -> Unit
 ) {
-    LaunchedEffect(reel.id) {
-        viewModel.recordView(reel.id)
+    val coroutineScope = rememberCoroutineScope()
+    val resolvedVideoUrl = remember(reel.videoUrl) { reel.videoUrl.toResolvedMediaUrl() }
+    val resolvedThumbnailUrl = remember(reel.thumbnailUrl) { reel.thumbnailUrl.toResolvedMediaUrl() }
+
+    var showHeartAnimation by remember { mutableStateOf(false) }
+    var isExpandedDescription by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            onViewRecorded()
+        }
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp),
-        shape = RoundedCornerShape(16.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onDoubleTap = {
+                        if (!isLiked) {
+                            onLikeClick()
+                        }
+                        showHeartAnimation = true
+                        coroutineScope.launch {
+                            delay(800)
+                            showHeartAnimation = false
+                        }
+                    }
+                )
+            }
     ) {
-        Column {
+        // 1️⃣ Background Video Player or High-Res Fallback
+        if (!resolvedVideoUrl.isNullOrBlank()) {
+            VideoReelPlayer(
+                videoUrl = resolvedVideoUrl,
+                playWhenReady = isPlaying,
+                isMuted = isMuted,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (!resolvedThumbnailUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = resolvedThumbnailUrl,
+                contentDescription = reel.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-            ) {
-                if (!reel.thumbnailUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = reel.thumbnailUrl,
-                        contentDescription = reel.title,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xFF0F172A),
+                                Color(0xFF1E293B)
+                            )
+                        )
                     )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Brush.linearGradient(listOf(Color(0xFF388E3C), Color(0xFF1B5E20)))),
-                        contentAlignment = Alignment.Center
-                    ) {
+            )
+        }
+
+        // Gradient Dark Overlays
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0.0f to Color.Transparent,
+                        0.45f to Color.Transparent,
+                        0.75f to Color.Black.copy(alpha = 0.5f),
+                        1.0f to Color.Black.copy(alpha = 0.9f)
+                    )
+                )
+        )
+
+        // 2️⃣ Double-Tap Heart Burst Animation
+        AnimatedVisibility(
+            visible = showHeartAnimation,
+            enter = scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
+            exit = scaleOut() + fadeOut(),
+            modifier = Modifier.align(Alignment.Center)
+        ) {
+            Icon(
+                Icons.Filled.Favorite,
+                contentDescription = null,
+                tint = Color(0xFFEF4444),
+                modifier = Modifier.size(100.dp)
+            )
+        }
+
+        // 3️⃣ Right Floating Actions Column (Like, Share, Mute, Views)
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 14.dp, bottom = 90.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            // Like Action
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable { onLikeClick() }
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.45f),
+                    modifier = Modifier.size(46.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            Icons.Filled.PlayCircleOutline,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier.size(56.dp)
+                            if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = "Like",
+                            tint = if (isLiked) Color(0xFFEF4444) else Color.White,
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                 }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = formatCount(reel.likesCount),
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
-                if (!reel.category.isNullOrBlank()) {
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(10.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Black.copy(alpha = 0.6f)
-                    ) {
-                        Text(
-                            reel.category,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                reel.durationSeconds?.let { seconds ->
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(10.dp),
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color.Black.copy(alpha = 0.6f)
-                    ) {
-                        Text(
-                            formatDuration(seconds),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                            color = Color.White,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+            // Sound Toggle (Mute/Unmute)
+            Surface(
+                shape = CircleShape,
+                color = Color.Black.copy(alpha = 0.45f),
+                modifier = Modifier
+                    .size(46.dp)
+                    .clickable { onToggleMute() }
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                        contentDescription = "Mute Toggle",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
 
-            Column(modifier = Modifier.padding(16.dp)) {
-                if (!reel.title.isNullOrBlank()) {
-                    Text(reel.title, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.height(4.dp))
+            // Share Action
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable { onShareClick() }
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.45f),
+                    modifier = Modifier.size(46.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Filled.Share,
+                            contentDescription = "Share",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Share",
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
 
-                if (!reel.description.isNullOrBlank()) {
-                    Text(
-                        reel.description,
-                        fontSize = 14.sp,
-                        color = Color(0xFF424242),
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(Modifier.height(12.dp))
-                }
+            // Views Counter
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    Icons.Filled.Visibility,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.8f),
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = formatCount(reel.viewsCount),
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 11.sp
+                )
+            }
+        }
 
-                reel.coach?.let { coach ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable(enabled = !coach.id.isNullOrBlank()) {
-                                coach.id?.let(onNavigateToCoach)
-                            }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(WellnessGreenLight)) {
-                            if (!coach.profileImageUrl.isNullOrBlank()) {
-                                AsyncImage(
-                                    model = coach.profileImageUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Icon(
-                                    Icons.Filled.Person,
-                                    contentDescription = null,
-                                    modifier = Modifier.align(Alignment.Center).size(22.dp),
-                                    tint = WellnessGreen
-                                )
-                            }
+        // 4️⃣ Bottom Meta Information (Coach, Title, Description, Category)
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth(0.82f)
+                .padding(start = 16.dp, bottom = 28.dp)
+        ) {
+            // Coach Tag
+            reel.coach?.let { coach ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .clickable(enabled = !coach.id.isNullOrBlank()) {
+                            coach.id?.let(onNavigateToCoach)
                         }
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text(coach.name ?: "Wellness Coach", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (!coach.headline.isNullOrBlank()) {
-                                Text(coach.headline, fontSize = 12.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                        if (!coach.id.isNullOrBlank()) {
-                            Spacer(Modifier.weight(1f))
-                            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(20.dp))
+                        .padding(horizontal = 8.dp, vertical = 5.dp)
+                ) {
+                    val resolvedCoachPhoto = coach.profileImageUrl.toResolvedMediaUrl()
+                    if (!resolvedCoachPhoto.isNullOrBlank()) {
+                        AsyncImage(
+                            model = resolvedCoachPhoto,
+                            contentDescription = coach.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(ReelsTealPrimary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = (coach.name?.take(1) ?: "C").uppercase(),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
                         }
                     }
-                    Spacer(Modifier.height(10.dp))
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Text(
+                        text = coach.name ?: "Vaididea Coach",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+
+                    Spacer(Modifier.width(6.dp))
+
+                    Text(
+                        text = "Follow +",
+                        color = ReelsTealMint,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 11.sp
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+
+            // Title
+            if (!reel.title.isNullOrBlank()) {
+                Text(
+                    text = reel.title,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(4.dp))
+            }
+
+            // Expandable Description
+            if (!reel.description.isNullOrBlank()) {
+                Text(
+                    text = reel.description,
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 13.sp,
+                    maxLines = if (isExpandedDescription) 6 else 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.clickable { isExpandedDescription = !isExpandedDescription }
+                )
+                Spacer(Modifier.height(6.dp))
+            }
+
+            // Category & Duration Pills
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (!reel.category.isNullOrBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color.White.copy(alpha = 0.2f)
+                    ) {
+                        Text(
+                            text = "#${reel.category}",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
 
-                HorizontalDivider(color = Color(0xFFF0F0F0))
-                Spacer(Modifier.height(8.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Visibility, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(formatCount(reel.viewsCount), fontSize = 13.sp, color = Color.Gray)
-
-                    Spacer(Modifier.weight(1f))
-
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { viewModel.like(reel.id) }
-                            .padding(horizontal = 6.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                reel.durationSeconds?.let { sec ->
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color.White.copy(alpha = 0.2f)
                     ) {
-                        Icon(
-                            if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            contentDescription = if (isLiked) "Unlike" else "Like",
-                            tint = if (isLiked) Color(0xFFE53935) else Color.Gray,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
                         Text(
-                            formatCount(reel.likesCount),
-                            fontSize = 13.sp,
-                            color = if (isLiked) Color(0xFFE53935) else Color.Gray,
-                            fontWeight = FontWeight.SemiBold
+                            text = formatDuration(sec),
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
                 }

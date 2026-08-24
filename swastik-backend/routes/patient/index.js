@@ -526,7 +526,17 @@ router.get('/reminders/adherence',
 router.post('/reminders',
   [
     body('title').notEmpty().withMessage('Title is required'),
-    body('type').isIn(['medicine', 'appointment', 'test']).withMessage('Invalid reminder type'),
+    body('type')
+      .customSanitizer(val => {
+        if (!val) return 'medicine';
+        const s = String(val).toLowerCase().trim();
+        if (s === 'medication') return 'medicine';
+        if (s === 'water') return 'hydration';
+        if (s === 'custom') return 'other';
+        return s;
+      })
+      .isIn(['medicine', 'appointment', 'test', 'workout', 'hydration', 'meal', 'sleep', 'wellness_session', 'other'])
+      .withMessage('Invalid reminder type'),
     body('time').notEmpty().withMessage('Time is required'),
   ],
   validate,
@@ -1514,6 +1524,70 @@ router.patch('/diagnostic-bookings/:id/cancel',
     });
 
     res.json({ success: true, data: normalizePatientDiagnosticBooking(data) });
+  })
+);
+
+/**
+ * @route POST /api/patients/feedback
+ * @desc Submit feedback from patient app with rating, category, text, contact permission, screenshot
+ */
+router.post(
+  '/feedback',
+  authenticate,
+  uploadProfileImage.single('screenshot'),
+  asyncHandler(async (req, res) => {
+    const { DoctorFeedback } = require('../../database/models');
+    const { rating, overallRating, category, feedbackText, allowContact } = req.body;
+    const numRating = Math.max(1, Math.min(5, parseInt(rating || overallRating, 10) || 5));
+    const cat = category || 'General Feedback';
+    const text = (feedbackText && feedbackText.trim()) || (req.body.description && req.body.description.trim()) || `${cat} submission (${numRating}★)`;
+    const isContactAllowed = allowContact === 'true' || allowContact === true;
+
+    // Fetch patient record for complete verified profile info
+    const { data: patient } = await supabaseAdmin
+      .from('patients')
+      .select('id, name, phone, email, user_id')
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    let screenshotUrl = null;
+    if (req.file) {
+      try {
+        const { uploadProfileImage: uploadToMinio } = require('../../config/minio');
+        const uploadResult = await uploadToMinio(req.file, req.user.id);
+        screenshotUrl = uploadResult?.url || null;
+      } catch (uploadErr) {
+        console.warn('[PatientFeedback] Screenshot upload to MinIO skipped:', uploadErr.message);
+      }
+    }
+
+    const feedbackDoc = new DoctorFeedback({
+      userId: req.user.id,
+      userRole: 'patient',
+      userName: patient?.name || req.user.name || 'Patient',
+      userEmail: patient?.email || req.user.email || 'N/A',
+      patientPhone: patient?.phone || null,
+      type: cat.toLowerCase().includes('bug') ? 'bug' : (cat.toLowerCase().includes('feature') ? 'feature' : (cat.toLowerCase().includes('ui') ? 'ux' : 'suggestion')),
+      category: cat,
+      title: text.length > 60 ? `${text.slice(0, 57)}...` : text,
+      description: text,
+      rating: numRating,
+      allowContact: isContactAllowed,
+      attachments: screenshotUrl ? [screenshotUrl] : [],
+      device: 'Android App',
+      os: 'Android',
+      appVersion: '1.0.0',
+      status: 'Submitted',
+      priority: numRating <= 2 ? 'High' : (numRating === 3 ? 'Medium' : 'Low'),
+    });
+
+    await feedbackDoc.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Feedback submitted successfully',
+      data: feedbackDoc,
+    });
   })
 );
 

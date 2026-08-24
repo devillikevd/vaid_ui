@@ -151,8 +151,8 @@ const emptyItem: PrescriptionItem = {
 export default function NewPrescriptionPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const consultationId = searchParams.get('consultation') || '';
-    const appointmentId = searchParams.get('appointmentId') || '';
+    const consultationId = searchParams.get('consultation') || searchParams.get('consultationId') || '';
+    const appointmentId = searchParams.get('appointmentId') || searchParams.get('appointment') || '';
 
     const [items, setItems] = useState<PrescriptionItem[]>([{ ...emptyItem }]);
     const [diagnosis, setDiagnosis] = useState('');

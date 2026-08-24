@@ -777,16 +777,16 @@ const getHubSummary = async (userId) => {
     fitnessProfile: profileResult.status === 'fulfilled' ? profileResult.value.data || null : null,
     wearableToday: latest?.summary_date === today ? latest : null,
     wearableTrend: wearables,
-    todayStats: latest?.summary_date === today
+    today_stats: latest?.summary_date === today
       ? {
           steps: latest.steps || 0,
-          activeCalories: latest.active_calories || 0,
-          activeMinutes: latest.active_minutes || 0,
+          active_calories: latest.active_calories || 0,
+          active_minutes: latest.active_minutes || 0,
         }
       : null,
-    activeWorkoutPlan: activePlanResult.status === 'fulfilled' ? activePlanResult.value.data || null : null,
-    workoutsCompletedToday: workoutCountResult.status === 'fulfilled' ? workoutCountResult.value.count || 0 : 0,
-    upcomingSessions: sessionResult.status === 'fulfilled' ? sessionResult.value.data || [] : [],
+    active_workout_plan: activePlanResult.status === 'fulfilled' ? activePlanResult.value.data || null : null,
+    workouts_completed_today: workoutCountResult.status === 'fulfilled' ? workoutCountResult.value.count || 0 : 0,
+    upcoming_sessions: sessionResult.status === 'fulfilled' ? sessionResult.value.data || [] : [],
     badges: badgeResult.status === 'fulfilled' ? badgeResult.value.data || [] : [],
     reels,
   };
@@ -2018,10 +2018,7 @@ const listChallenges = async (filters = {}, userId = null) => {
   if (filters.groupId) query = query.eq('group_id', filters.groupId);
   if (filters.type) query = query.eq('challenge_type', filters.type);
   const { data, error } = await query.order('created_at', { ascending: false }).limit(50);
-  if (error) {
-    // Graceful fallback
-  }
-
+  
   let myEntries = new Map();
   if (userId) {
     try {
@@ -2038,7 +2035,7 @@ const listChallenges = async (filters = {}, userId = null) => {
     steps: { coach: 'Coach Vikram Malhotra', medcoins: 100, xp: 250, unit: 'Steps' },
     yoga: { coach: 'Priya Sharma (Yoga Guru)', medcoins: 250, xp: 350, unit: 'Sessions' },
     cardio: { coach: 'Coach Aryan Deshmukh', medcoins: 75, xp: 200, unit: 'Mins' },
-    hydration: { coach: 'Dr. Ananya Roy (Nutrition)', medcoins: 50, xp: 150, unit: 'Days' },
+    hydration: { coach: 'Dr. Ananya Roy (Nutrition)', medcoins: 50, xp: 150, unit: 'ml Water' },
   };
 
   const rawChallenges = [...customChallengesStore, ...(data || [])];
@@ -2051,11 +2048,11 @@ const listChallenges = async (filters = {}, userId = null) => {
   });
 
   return uniqueChallenges.map((ch, idx) => {
-    const attr = coachAttribution[ch.challenge_type] || { coach: 'Swastik Wellness Team', medcoins: 100, xp: 200, unit: 'Units' };
+    const attr = coachAttribution[ch.challenge_type] || { coach: 'Vaididea Wellness Team', medcoins: 100, xp: 200, unit: 'Units' };
     const myEntry = myEntries.get(ch.id);
-    const progressVal = myEntry ? Number(myEntry.progress_value || 0) : (idx === 0 ? 42000 : idx === 1 ? 14 : 60);
     const targetVal = Number(ch.target_value) || 100;
-    const progressPct = Math.min(100, Math.round((progressVal / targetVal) * 100));
+    const progressVal = myEntry ? Number(myEntry.progress_value || 0) : 0;
+    const progressPct = targetVal > 0 ? Math.min(100, Math.round((progressVal / targetVal) * 100)) : 0;
 
     return {
       ...ch,
@@ -2725,7 +2722,10 @@ const getWellnessReports = async (userId, filters = {}) => {
       workouts_change_pct: calcDelta(workouts.length, priorWCount),
       steps_change_pct: calcDelta(totalSteps, priorSteps),
       calories_change_pct: calcDelta(totalActiveCalories, priorCalories),
-      sleep_change_pct: +((avgSleepHours ? 4.5 : 0)).toFixed(1),
+      sleep_change_pct: calcDelta(
+        totalSleepMinutes,
+        (priorWearables.data || []).reduce((s, i) => s + Number(i.sleep_minutes || 0), 0)
+      ),
     };
   } catch (err) {
     console.warn(`[wellness] period delta calculation failed: ${err.message}`);
@@ -2749,7 +2749,7 @@ const getWellnessReports = async (userId, filters = {}) => {
     const dayWorkoutBurn = dayWorkouts.reduce((sum, w) => sum + Number(w.calories_burned || 0), 0);
     const daySteps = wear ? Number(wear.steps || 0) : 0;
     const dayActiveCal = wear ? Number(wear.active_calories || 0) : dayWorkoutBurn;
-    const daySleep = wear && wear.sleep_minutes ? +(wear.sleep_minutes / 60).toFixed(1) : (avgSleepHours || 7.2);
+    const daySleep = wear && wear.sleep_minutes ? +(wear.sleep_minutes / 60).toFixed(1) : null;
     const dayHr = wear && wear.heart_rate_avg ? Number(wear.heart_rate_avg) : (avgHeartRate || 68);
 
     dailyTrends.push({

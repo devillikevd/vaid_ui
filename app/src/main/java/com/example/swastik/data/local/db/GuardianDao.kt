@@ -23,4 +23,30 @@ interface GuardianDao {
 
     @Query("DELETE FROM guardian_events")
     suspend fun clearAllEvents()
+
+    // V2: Gait session persistence for trending
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertGaitSession(session: GaitSessionEntity): Long
+
+    @Query("SELECT * FROM gait_sessions WHERE timestamp >= :sinceTimestamp ORDER BY timestamp DESC")
+    suspend fun getGaitSessionsSince(sinceTimestamp: Long): List<GaitSessionEntity>
+
+    @Query("SELECT * FROM gait_sessions ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getRecentGaitSessions(limit: Int = 50): List<GaitSessionEntity>
+
+    @Query("SELECT AVG(cadenceSpm) FROM gait_sessions WHERE timestamp >= :sinceTimestamp")
+    suspend fun getAverageCadenceSince(sinceTimestamp: Long): Float?
+
+    @Query("SELECT AVG(symmetryPercent) FROM gait_sessions WHERE timestamp >= :sinceTimestamp")
+    suspend fun getAverageSymmetrySince(sinceTimestamp: Long): Float?
+
+    @Query("SELECT AVG(walkingSpeedKmh) FROM gait_sessions WHERE timestamp >= :sinceTimestamp AND walkingSpeedKmh IS NOT NULL")
+    suspend fun getAverageWalkingSpeedSince(sinceTimestamp: Long): Float?
+
+    @Query("SELECT AVG(strideLengthMeters) FROM gait_sessions WHERE timestamp >= :sinceTimestamp AND strideLengthMeters IS NOT NULL")
+    suspend fun getAverageStrideLengthSince(sinceTimestamp: Long): Float?
+
+    @Query("SELECT COUNT(*) FROM gait_sessions WHERE isAnomalous = 1 AND timestamp >= :sinceTimestamp")
+    suspend fun countAnomalousSessionsSince(sinceTimestamp: Long): Int
 }
+

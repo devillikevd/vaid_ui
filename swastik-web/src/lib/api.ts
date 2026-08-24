@@ -359,11 +359,11 @@ export const authApi = {
         return response.json();
     },
 
-    sendRegistrationOtp: async (email: string, name?: string) => {
+    sendRegistrationOtp: async (email: string, name?: string, role?: string) => {
         const response = await fetch(`${API_BASE_URL}/auth/send-registration-otp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, name }),
+            body: JSON.stringify({ email, name, role }),
         });
         return response.json();
     },
@@ -480,6 +480,8 @@ export const adminApi = {
         if (filters?.status) params.set('status', String(filters.status));
         if (filters?.type) params.set('type', String(filters.type));
         if (filters?.category) params.set('category', String(filters.category));
+        if (filters?.userRole) params.set('userRole', String(filters.userRole));
+        if (filters?.rating) params.set('rating', String(filters.rating));
         if (filters?.search) params.set('search', String(filters.search));
         return fetchWithAuth(`/admin/feedback?${params}`);
     },
@@ -913,6 +915,9 @@ export const doctorApi = {
 
     getPrescriptions: (page: number = 1) =>
         fetchWithAuth(`/doctors/me/prescriptions?page=${page}`),
+
+    getPrescriptionById: (id: string) =>
+        fetchWithAuth(`/doctors/me/prescriptions/${id}`),
 
     updateAvailability: (isAvailable: boolean) =>
         fetchWithAuth('/doctors/me/availability', {

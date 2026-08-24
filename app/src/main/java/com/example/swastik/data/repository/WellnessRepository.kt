@@ -2,6 +2,7 @@ package com.example.swastik.data.repository
 
 import com.example.swastik.data.remote.ApiService
 import com.example.swastik.data.remote.dto.*
+import com.example.swastik.util.toResolvedMediaUrl
 import com.google.gson.JsonObject
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,6 +24,17 @@ class WellnessRepository @Inject constructor(
             Result.Success(response.body()?.data ?: emptyList())
         } else {
             Result.Error("Failed to load workout plans")
+        }
+    } catch (e: Exception) {
+        Result.Error(e.message ?: "Network error", e)
+    }
+
+    suspend fun getWorkoutPlan(planId: String): Result<WellnessWorkoutPlanDto> = try {
+        val response = apiService.getWellnessWorkoutPlan(planId)
+        if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
+            Result.Success(response.body()!!.data!!)
+        } else {
+            Result.Error("Failed to load workout plan")
         }
     } catch (e: Exception) {
         Result.Error(e.message ?: "Network error", e)
@@ -521,7 +533,17 @@ class WellnessRepository @Inject constructor(
     suspend fun getWellnessReels(category: String? = null): Result<List<WellnessReelDto>> = try {
         val response = apiService.getWellnessReels(page = 1, limit = 50, category = category)
         if (response.isSuccessful && response.body()?.success == true) {
-            Result.Success(response.body()?.data ?: emptyList())
+            val rawList = response.body()?.data ?: emptyList()
+            val resolvedList = rawList.map { reel ->
+                reel.copy(
+                    videoUrl = reel.videoUrl.toResolvedMediaUrl(),
+                    thumbnailUrl = reel.thumbnailUrl.toResolvedMediaUrl(),
+                    coach = reel.coach?.copy(
+                        profileImageUrl = reel.coach.profileImageUrl.toResolvedMediaUrl()
+                    )
+                )
+            }
+            Result.Success(resolvedList)
         } else {
             Result.Error("Failed to load reels")
         }

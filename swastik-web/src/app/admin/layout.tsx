@@ -17,6 +17,8 @@ import {
     Flame,
     MessageSquare,
     Star,
+    FlaskConical,
+    ShieldAlert,
 } from 'lucide-react';
 import { BaseDashboardLayout, type DashboardConfig } from '@/components/shared/DashboardLayout';
 import { useAuthStore } from '@/stores/authStore';
@@ -39,9 +41,10 @@ const ADMIN_CONFIG: DashboardConfig = {
         { name: 'Pending Approvals', href: '/admin/approvals', icon: ClipboardCheck },
         { name: 'All Providers', href: '/admin/providers', icon: Users },
         { name: 'Medicine Catalog', href: '/admin/medicines', icon: Package },
-        { name: 'Unmapped Inventory', href: '/admin/unmapped-inventory', icon: Package },
+        { name: 'Master Tests Catalog', href: '/admin/tests', icon: FlaskConical },
         { name: 'Campaigns', href: '/admin/campaigns', icon: BadgePercent },
         { name: 'Wellness & Community', href: '/admin/wellness', icon: Flame },
+        { name: 'Community Reports', href: '/admin/community-reports', icon: ShieldAlert },
         { name: 'Emergencies', href: '/admin/emergencies', icon: AlertTriangle },
         { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
         { name: 'Outbreak Monitor', href: '/admin/outbreaks', icon: Radar },

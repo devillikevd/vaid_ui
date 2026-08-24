@@ -140,8 +140,8 @@ async function seedCommunityAndChallenges() {
     {
       title: '7-Day Hydration & Cellular Detox',
       challenge_type: 'hydration',
-      metric: 'steps',
-      target_value: 50000,
+      metric: 'hydration_ml',
+      target_value: 21000,
       starts_at: now.toISOString(),
       ends_at: nextWeek.toISOString(),
       is_active: true,

@@ -709,22 +709,35 @@ const cancelCatalogRequest = async (patientUserId, requestId) => {
   if (!patient) throw new ApiError(404, 'Patient profile not found');
 
   // Verify request belongs to patient and is still pending
-  const { data: requestToCancel } = await supabaseAdmin
+  const { data: requestToCancel, error: fetchError } = await supabaseAdmin
     .from('catalog_requests')
     .select('*')
     .eq('id', requestId)
     .eq('patient_id', patient.id)
     .single();
 
-  if (!requestToCancel) {
+  if (fetchError || !requestToCancel) {
     throw new ApiError(404, 'Request not found');
   }
 
-  if (requestToCancel.status !== 'pending') {
-    throw new ApiError(400, `Sorry, a pharmacy has already accepted your request and it cannot be cancelled.`);
+  // Idempotent success if already cancelled
+  if (requestToCancel.status === 'cancelled') {
+    return requestToCancel;
   }
 
-  const { data: request, error } = await supabaseAdmin
+  if (requestToCancel.status === 'accepted') {
+    throw new ApiError(400, 'Sorry, a pharmacy has already accepted your request and it cannot be cancelled.');
+  }
+
+  if (requestToCancel.status === 'expired') {
+    throw new ApiError(400, 'This request has already expired.');
+  }
+
+  if (requestToCancel.status !== 'pending') {
+    throw new ApiError(400, `Request cannot be cancelled in status: ${requestToCancel.status}`);
+  }
+
+  const { data: request, error: updateError } = await supabaseAdmin
     .from('catalog_requests')
     .update({ status: 'cancelled' })
     .eq('id', requestId)
@@ -732,9 +745,16 @@ const cancelCatalogRequest = async (patientUserId, requestId) => {
     .select()
     .single();
 
-  if (error || !request) {
+  if (updateError) {
+    throw new ApiError(500, `Database error cancelling request: ${updateError.message || 'Failed to update status'}`);
+  }
+
+  if (!request) {
     throw new ApiError(400, 'Failed to cancel request. It may have just been accepted by a pharmacy.');
   }
+
+  // Realtime notification to listening pharmacies to drop/update this cancelled broadcast
+  eventEmitter.emitCatalogRequestCancelled(request);
 
   return request;
 };

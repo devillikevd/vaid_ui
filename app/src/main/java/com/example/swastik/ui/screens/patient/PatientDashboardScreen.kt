@@ -107,13 +107,16 @@ fun PatientDashboardScreen(
     onDoctorClick: (String) -> Unit = {},
     onNavigateToAllRecommendedDoctors: () -> Unit = {},
     onNavigateToActiveBooking: (String) -> Unit = {},
-    onJoinVideoConsultation: (String, String) -> Unit = { _, _ -> }
+    onJoinVideoConsultation: (String, String) -> Unit = { _, _ -> },
+    onNavigateToGuardianDashboard: () -> Unit = {},
+    onNavigateToVolunteerRegistration: () -> Unit = {}
 ) {
     val selectedTab by viewModel.selectedTab.collectAsState()
     var showNotificationPanel by remember { mutableStateOf(false) }
     var showAddressesDialog by remember { mutableStateOf(false) }  // add/edit bottom sheet
     var showAddressListDialog by remember { mutableStateOf(false) } // list of addresses
     var addressToEdit by remember { mutableStateOf<SavedAddress?>(null) }
+    var activeStatusSheetAppointment by remember { mutableStateOf<com.example.swastik.data.model.Appointment?>(null) }
     val context = LocalContext.current
     val fusedLocationClient = remember {
         com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context)
@@ -270,9 +273,6 @@ fun PatientDashboardScreen(
     val reminders by viewModel.reminders.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
-    val pendingConsents by viewModel.pendingConsents.collectAsState()
-    val isConsentLoading by viewModel.isConsentLoading.collectAsState()
-    var selectedConsentRequest by remember { mutableStateOf<com.example.swastik.data.remote.dto.ReferralConsentDto?>(null) }
 
     val unreadCount = notifications.count { !it.isRead }
 
@@ -360,11 +360,11 @@ fun PatientDashboardScreen(
                                     .fillMaxWidth()
                                     .padding(2.dp)
                                     .clickable {
-                                        // If multiple upcoming consultations, expand list; else navigate directly
+                                        // If multiple upcoming consultations, expand list; else open status bottom sheet
                                         if (upcomingAppointments.count { s -> s.status.lowercase().let { it == "scheduled" || it == "confirmed" || it == "in_progress" } } > 1) {
                                             showAllConsultations = !showAllConsultations
                                         } else {
-                                            onNavigateToActiveBooking(activeBooking.id)
+                                            activeStatusSheetAppointment = activeBooking
                                         }
                                     },
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
@@ -540,7 +540,7 @@ fun PatientDashboardScreen(
                                                     .padding(vertical = 4.dp)
                                                     .clickable {
                                                         showAllConsultations = false
-                                                        onNavigateToActiveBooking(appt.id)
+                                                        activeStatusSheetAppointment = appt
                                                     },
                                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
                                                 color = Color(0xFFF0FDF4),
@@ -666,9 +666,7 @@ fun PatientDashboardScreen(
                             onFindDoctorSpecialityClick = onFindDoctorSpecialityClick,
                             onNavigateToCommunityQA = onNavigateToCommunityQA,
                             onDoctorClick = onDoctorClick,
-                            onNavigateToAllRecommendedDoctors = onNavigateToAllRecommendedDoctors,
-                            pendingConsents = pendingConsents,
-                            onConsentClick = { selectedConsentRequest = it }
+                            onNavigateToAllRecommendedDoctors = onNavigateToAllRecommendedDoctors
                         )
                         }
                         1 -> RemindersTabContent(
@@ -714,6 +712,7 @@ fun PatientDashboardScreen(
                             onNavigateToAppointments = onNavigateToAppointments,
                             onNavigateToOrderHistory = onNavigateToOrderHistory,
                             onNavigateToBookingHistory = onNavigateToBookingHistory,
+                            onNavigateToWellnessSessions = onNavigateToWellnessSessions,
                             onNavigateToFavoriteDoctors = onNavigateToFavoriteDoctors,
                             onNavigateToFavoriteMedicines = onNavigateToFavoriteMedicines,
                             onNavigateToFavoriteFacilities = onNavigateToFavoriteFacilities
@@ -726,9 +725,11 @@ fun PatientDashboardScreen(
                                 unreadNotificationsCount = unreadCount,
                                 onNotificationClick = { showNotificationPanel = true },
                                 onLogout = onLogout,
-                        onAddressesClick = {
-                            showAddressListDialog = true
-                        },
+                                onAddressesClick = {
+                                    showAddressListDialog = true
+                                },
+                                onNavigateToGuardianDashboard = onNavigateToGuardianDashboard,
+                                onNavigateToVolunteerRegistration = onNavigateToVolunteerRegistration,
                                 viewModel = viewModel
                             )
                         }
@@ -947,25 +948,29 @@ fun PatientDashboardScreen(
             )
         }
 
-        // Referral Consent Bottom Sheet
-        if (selectedConsentRequest != null) {
-            ReferralConsentBottomSheet(
-                consent = selectedConsentRequest,
-                isLoading = isConsentLoading,
-                onDismiss = { selectedConsentRequest = null },
-                onApprove = { id ->
-                    viewModel.approveConsent(id) { success, _ ->
-                        if (success) {
-                            selectedConsentRequest = null
-                        }
-                    }
+        if (activeStatusSheetAppointment != null) {
+            com.example.swastik.ui.screens.patient.booking.ConsultationStatusBottomSheet(
+                appointment = activeStatusSheetAppointment!!,
+                onDismiss = { activeStatusSheetAppointment = null },
+                onJoinConsultation = { apptId, docName ->
+                    activeStatusSheetAppointment = null
+                    onJoinVideoConsultation(apptId, docName)
                 },
-                onDecline = { id ->
-                    viewModel.declineConsent(id) { success, _ ->
-                        if (success) {
-                            selectedConsentRequest = null
-                        }
-                    }
+                onNavigateToDoctorProfile = { docId ->
+                    activeStatusSheetAppointment = null
+                    onDoctorClick(docId)
+                },
+                onReschedule = { docId ->
+                    activeStatusSheetAppointment = null
+                    onDoctorClick(docId)
+                },
+                onCancelClick = { appt ->
+                    activeStatusSheetAppointment = null
+                    onNavigateToActiveBooking(appt.id)
+                },
+                onPrescriptionClick = { _ ->
+                    activeStatusSheetAppointment = null
+                    onNavigateToPrescriptions()
                 }
             )
         }

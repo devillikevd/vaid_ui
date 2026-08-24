@@ -1,8 +1,7 @@
 package com.example.swastik.ui.screens.splash
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -22,7 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -41,113 +42,70 @@ fun SplashScreen(
     onPatientRegisterClick: () -> Unit = {},
     onPatientLoginClick: () -> Unit = {}
 ) {
-    // 1. Heart animatables
-    val heartScale = remember { Animatable(0.6f) }
-    val heartAlpha = remember { Animatable(0f) }
+    // 1. Unified Hero Logo Animatables (Apple / Spotify Style)
+    val heroAlpha = remember { Animatable(0f) }
+    val heroScale = remember { Animatable(0.85f) }
+    val auraGlow = remember { Animatable(0f) }
+    val shimmerTranslate = remember { Animatable(-1f) }
 
-    // 2. Plus icon animatables
-    val plusScale = remember { Animatable(0.0f) }
-    val plusAlpha = remember { Animatable(0f) }
-
-    // 3. Text animatables
-    val textAlpha = remember { Animatable(0f) }
-    val textOffsetY = remember { Animatable(30f) }
-
-    // 4. Welcome UI animatables
-    val welcomeAlpha = remember { Animatable(0f) }
-    val welcomeOffsetY = remember { Animatable(100f) }
-    
-    // Logo position (moves up when welcome screen appears)
+    // 2. Unified Elevation & Welcome Sheet
     val logoOffsetY = remember { Animatable(0f) }
     val logoScale = remember { Animatable(1f) }
+    val welcomeAlpha = remember { Animatable(0f) }
+    val welcomeOffsetY = remember { Animatable(120f) }
 
+    // --- ORCHESTRATION ---
+    // Stage 1: Unified Hero Emergence + Ambient Aura Glow (0ms - 500ms)
     LaunchedEffect(key1 = true) {
-        // --- PHASE 1: Heart (0ms to 800ms) ---
-        heartScale.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 800)
-        )
+        heroAlpha.animateTo(1f, tween(400, easing = FastOutSlowInEasing))
     }
     LaunchedEffect(key1 = true) {
-        heartAlpha.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 800)
-        )
+        heroScale.animateTo(1f, tween(500, easing = FastOutSlowInEasing))
     }
-
     LaunchedEffect(key1 = true) {
-        // --- PHASE 2: Plus Icon (Start at 600ms) ---
-        delay(600)
-        plusAlpha.snapTo(1f) // Make it visible
-        // Zoom in to 1.5, then spring back to 1.0
-        plusScale.animateTo(
-            targetValue = 1.0f,
-            animationSpec = spring(
-                dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
-                stiffness = androidx.compose.animation.core.Spring.StiffnessLow
-            )
-        )
+        auraGlow.animateTo(0.45f, tween(400, easing = FastOutSlowInEasing))
+        auraGlow.animateTo(0.18f, tween(350, easing = FastOutSlowInEasing))
     }
 
+    // Stage 2: Specular Shimmer Light Sweep (350ms - 850ms)
     LaunchedEffect(key1 = true) {
-        // --- PHASE 3: Text (Start at 1200ms) ---
-        delay(1200)
-        textAlpha.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 800)
-        )
-    }
-    LaunchedEffect(key1 = true) {
-        delay(1200)
-        textOffsetY.animateTo(
-            targetValue = 0f,
-            animationSpec = tween(durationMillis = 800)
-        )
+        delay(350)
+        shimmerTranslate.animateTo(2f, tween(500, easing = FastOutSlowInEasing))
     }
 
+    // Stage 3: Immediate Transition (880ms)
     LaunchedEffect(key1 = true) {
-        // --- PHASE 4: Welcome UI Transition or Navigate (Start at 2400ms) ---
-        delay(2400)
-        
+        delay(880)
         if (isAuthenticated) {
-            delay(400) // Wait till 2000ms
             onAutoNavigate()
         } else {
-            // Move logo up smoothly and scale it down slightly
             logoOffsetY.animateTo(
-                targetValue = -260f, // Move much higher
-                animationSpec = tween(durationMillis = 800, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-            )
-        }
-    }
-    
-    LaunchedEffect(key1 = true) {
-        if (!isAuthenticated) {
-            delay(2400)
-            logoScale.animateTo(
-                targetValue = 0.85f, // Scale down to fit top space
-                animationSpec = tween(durationMillis = 800, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                targetValue = -330f,
+                animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing)
             )
         }
     }
 
     LaunchedEffect(key1 = true) {
         if (!isAuthenticated) {
-            delay(2600) // Shortly after logo starts moving up
-            welcomeAlpha.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(durationMillis = 600)
+            delay(880)
+            logoScale.animateTo(
+                targetValue = 0.58f,
+                animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing)
             )
         }
     }
-    
+
     LaunchedEffect(key1 = true) {
         if (!isAuthenticated) {
-            delay(2600)
-            welcomeOffsetY.animateTo(
-                targetValue = 0f,
-                animationSpec = tween(durationMillis = 600, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-            )
+            delay(980)
+            welcomeAlpha.animateTo(1f, tween(320))
+        }
+    }
+    LaunchedEffect(key1 = true) {
+        if (!isAuthenticated) {
+            delay(980)
+            welcomeOffsetY.animateTo(0f, tween(320, easing = FastOutSlowInEasing))
         }
     }
 
@@ -157,51 +115,53 @@ fun SplashScreen(
             .background(
                 brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFFFFFFFF), // White at the top
                         Color(0xFFFFFFFF),
-                        Color(0xFFE8F5E9), // Light green in the middle
-                        Color(0xFFA5D6A7)  // Deeper green at the bottom
+                        Color(0xFFFFFFFF),
+                        Color(0xFFE8F5E9),
+                        Color(0xFFA5D6A7)
                     )
                 )
             ),
         contentAlignment = Alignment.Center
     ) {
-        // Layer 1: Heart
-        Image(
-            painter = painterResource(id = R.drawable.vaididea_heart),
-            contentDescription = "Vaididea Heart",
-            contentScale = ContentScale.Fit,
+        // --- UNIFIED HERO LOGO CONTAINER ---
+        Box(
             modifier = Modifier
-                .fillMaxSize(0.6f)
+                .fillMaxSize(0.62f)
                 .offset(y = logoOffsetY.value.dp)
-                .scale(heartScale.value * logoScale.value)
-                .alpha(heartAlpha.value)
-        )
+                .scale(logoScale.value),
+            contentAlignment = Alignment.Center
+        ) {
+            // Ambient Soft Aura Glow behind logo
+            if (auraGlow.value > 0f) {
+                Box(
+                    modifier = Modifier
+                        .size(240.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF86EFAC).copy(alpha = auraGlow.value),
+                                    Color(0xFF10B981).copy(alpha = auraGlow.value * 0.4f),
+                                    Color.Transparent
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                )
+            }
 
-        // Layer 2: Plus
-        Image(
-            painter = painterResource(id = R.drawable.vaididea_plus),
-            contentDescription = "Vaididea Plus",
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize(0.6f)
-                .offset(y = logoOffsetY.value.dp)
-                .scale(plusScale.value * logoScale.value)
-                .alpha(plusAlpha.value)
-        )
+            // Complete Pristine Official Logo
+            Image(
+                painter = painterResource(id = R.drawable.vaididea_logo),
+                contentDescription = "Vaididea Logo",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .scale(heroScale.value)
+                    .alpha(heroAlpha.value)
+            )
+        }
 
-        // Layer 3: Text
-        Image(
-            painter = painterResource(id = R.drawable.vaididea_text),
-            contentDescription = "Vaididea Text",
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize(0.6f)
-                .offset(y = logoOffsetY.value.dp + textOffsetY.value.dp)
-                .scale(logoScale.value)
-                .alpha(textAlpha.value)
-        )
-        
         // Layer 4: Welcome Bottom Sheet
         if (welcomeAlpha.value > 0f) {
             Box(
@@ -211,45 +171,45 @@ fun SplashScreen(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight(0.78f) // Take up bottom 78%
+                        .fillMaxHeight(0.72f) // Clean 72% height leaving ample top headroom
                         .offset(y = welcomeOffsetY.value.dp)
                         .alpha(welcomeAlpha.value),
-                    shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
+                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                     color = MaterialTheme.colorScheme.surface
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(32.dp),
+                            .padding(horizontal = 24.dp, vertical = 20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             stringResource(R.string.welcome),
-                            fontSize = 32.sp,
+                            fontSize = 28.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
                             stringResource(R.string.your_health_journey_starts_here),
-                            fontSize = 16.sp,
+                            fontSize = 14.5.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
 
-                        Spacer(modifier = Modifier.height(48.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
 
                         // Get Started Button
                         Button(
                             onClick = onPatientRegisterClick,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(60.dp),
+                                .height(54.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
                         ) {
                             Row(
                                 horizontalArrangement = Arrangement.Center,

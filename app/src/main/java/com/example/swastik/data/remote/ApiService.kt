@@ -19,6 +19,12 @@ interface ApiService {
     
     @POST("auth/login")
     suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
+
+    @POST("auth/send-registration-otp")
+    suspend fun sendRegistrationOtp(@Body request: SendRegistrationOtpRequest): Response<ApiResponse<Unit>>
+
+    @POST("auth/verify-registration-otp")
+    suspend fun verifyRegistrationOtp(@Body request: VerifyRegistrationOtpRequest): Response<ApiResponse<Unit>>
     
     @POST("auth/register")
     suspend fun register(@Body request: RegisterRequest): Response<AuthResponse>
@@ -613,6 +619,11 @@ interface ApiService {
         @Query("goal") goal: String? = null,
         @Query("level") level: String? = null
     ): Response<PaginatedResponse<WellnessWorkoutPlanDto>>
+
+    @GET("wellness/plans/{id}")
+    suspend fun getWellnessWorkoutPlan(
+        @Path("id") id: String
+    ): Response<ApiResponse<WellnessWorkoutPlanDto>>
 
     @GET("wellness/exercises")
     suspend fun getExerciseLibrary(

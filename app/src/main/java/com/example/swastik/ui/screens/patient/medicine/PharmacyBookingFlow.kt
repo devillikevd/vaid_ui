@@ -139,27 +139,69 @@ fun PharmacyBookingFlow(
                 }
 
                 // Bottom Bar Action
-                BottomAppBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentPadding = PaddingValues(16.dp)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 8.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 ) {
-                    Button(
-                        onClick = {
-                            if (currentStep == 4) onConfirmOrder(deliveryAddress, patientPhone, selectedItems, localIsPrescriptionBased, capturedBitmap)
-                            else if (currentStep == 1 && selectedItems.isNotEmpty()) currentStep++
-                            else if (currentStep == 2) currentStep++
-                            else if (currentStep == 3 && deliveryAddress.isNotBlank() && patientPhone.isNotBlank()) currentStep++
-                        },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
-                        enabled = when (currentStep) {
-                            1 -> selectedItems.isNotEmpty()
-                            2 -> selectedItems.isNotEmpty()
-                            3 -> deliveryAddress.isNotBlank() && patientPhone.isNotBlank()
-                            else -> true
-                        }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(if (currentStep == 4) "Place Order" else "Continue", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        if (currentStep == 3 && deliveryAddress.isNotBlank()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = SwastikPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Deliver to: ${deliveryAddress.take(45)}${if (deliveryAddress.length > 45) "..." else ""}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = SwastikPrimary,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                if (currentStep == 4) onConfirmOrder(deliveryAddress, patientPhone, selectedItems, localIsPrescriptionBased, capturedBitmap)
+                                else if (currentStep == 1 && selectedItems.isNotEmpty()) currentStep++
+                                else if (currentStep == 2) currentStep++
+                                else if (currentStep == 3 && deliveryAddress.isNotBlank() && patientPhone.isNotBlank()) currentStep++
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                            shape = RoundedCornerShape(14.dp),
+                            enabled = when (currentStep) {
+                                1 -> selectedItems.isNotEmpty()
+                                2 -> selectedItems.isNotEmpty()
+                                3 -> deliveryAddress.isNotBlank() && patientPhone.isNotBlank()
+                                else -> true
+                            }
+                        ) {
+                            Text(
+                                text = when (currentStep) {
+                                    3 -> "Proceed to Order Summary →"
+                                    4 -> "Place Order"
+                                    else -> "Continue"
+                                },
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
                     }
                 }
             }
@@ -212,69 +254,10 @@ fun Step1Medicines(
     patientDashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel? = null
 ) {
     var query by remember { mutableStateOf("") }
-    var isUploading by remember { mutableStateOf(false) }
-    var uploadSuccess by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-    var selectedUri by remember { mutableStateOf<Uri?>(null) }
-    val context = androidx.compose.ui.platform.LocalContext.current
-    
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            selectedUri = it
-            isUploading = true
-            coroutineScope.launch {
-                try {
-                    val bitmap = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                        android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(context.contentResolver, it))
-                    } else {
-                        android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, it)
-                    }
-                    onPrescriptionUpload(bitmap)
-                    uploadSuccess = true
-                } catch (e: Exception) { e.printStackTrace() }
-                isUploading = false
-            }
-        }
-    }
-    
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap ->
-        if (bitmap != null) {
-            isUploading = true
-            coroutineScope.launch {
-                onPrescriptionUpload(bitmap)
-                uploadSuccess = true
-                isUploading = false
-            }
-        }
-    }
-
-    var showCameraPermissionRationale by remember { mutableStateOf(false) }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        if (isGranted) {
-            try { cameraLauncher.launch(null) } catch (e: Exception) { e.printStackTrace() }
-        } else {
-            showCameraPermissionRationale = true
-        }
-    }
 
     var showRecordsSheet by remember { mutableStateOf(false) }
     
-    if (showCameraPermissionRationale) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showCameraPermissionRationale = false },
-            title = { Text(stringResource(R.string.permission_required)) },
-            text = { Text(stringResource(R.string.camera_permission_is_required_to)) },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = { showCameraPermissionRationale = false }) {
-                    Text(stringResource(R.string.ok_1))
-                }
-            }
-        )
-    }
+
 
     if (showRecordsSheet) {
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showRecordsSheet = false }) {
@@ -291,13 +274,7 @@ fun Step1Medicines(
                         Card(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
                                 showRecordsSheet = false
-                                // Simulate selection
-                                isUploading = true
-                                coroutineScope.launch {
-                                    kotlinx.coroutines.delay(1500)
-                                    isUploading = false
-                                    uploadSuccess = true
-                                }
+                                onPrescriptionUpload(null)
                             },
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
@@ -494,51 +471,18 @@ fun Step1Medicines(
         HorizontalDivider()
         Spacer(modifier = Modifier.height(16.dp))
         
+        // Order via existing prescription from app records
         Text(stringResource(R.string.or_order_via_prescription), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
         Spacer(modifier = Modifier.height(8.dp))
         
-        if (isUploading) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = SwastikPrimary)
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(stringResource(R.string.uploading_1), color = SwastikPrimary)
-            }
-        } else if (uploadSuccess) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.uploaded_successfully), color = Color(0xFF4CAF50), fontWeight = FontWeight.SemiBold)
-            }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = { galleryLauncher.launch(arrayOf("image/*", "application/pdf")) },
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.gallery), fontSize = 11.sp)
-                }
-                OutlinedButton(
-                    onClick = { permissionLauncher.launch(android.Manifest.permission.CAMERA) },
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.camera), fontSize = 11.sp)
-                }
-                OutlinedButton(
-                    onClick = { showRecordsSheet = true },
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.records), fontSize = 11.sp)
-                }
-            }
+        OutlinedButton(
+            onClick = { showRecordsSheet = true },
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(stringResource(R.string.records), fontSize = 11.sp)
         }
     }
 }
@@ -587,54 +531,74 @@ fun Step2Cart(selected: List<Pair<PharmacyInventoryItemDto, Int>>, onRemove: (Ph
 }
 
 @Composable
-fun Step3Location(address: String, phone: String, onAddressChange: (String) -> Unit, onPhoneChange: (String) -> Unit) {
-    Column(modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-        Text(stringResource(R.string.delivery_details), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        if (address.isBlank()) {
-            com.example.swastik.ui.screens.patient.components.HomeAddressEditor(
-                initialAddress = "",
-                onAddressSaved = onAddressChange
-            )
-        } else {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+fun Step3Location(
+    address: String,
+    phone: String,
+    onAddressChange: (String) -> Unit,
+    onPhoneChange: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Address Selector
+        com.example.swastik.ui.screens.patient.components.HomeAddressEditor(
+            initialAddress = address,
+            onAddressSaved = onAddressChange
+        )
+
+        // Contact Phone Number Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.LocationOn, tint = SwastikPrimary, contentDescription = null)
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Icon(
+                        Icons.Default.Phone,
+                        contentDescription = null,
+                        tint = SwastikPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
                     Text(
-                        text = address,
-                        modifier = Modifier.weight(1f),
+                        text = "Contact Phone for Delivery Updates",
+                        fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
-                    TextButton(
-                        onClick = { onAddressChange("") },
-                        modifier = Modifier.padding(start = 8.dp)
-                    ) {
-                        Text(stringResource(R.string.change_address), color = SwastikPrimary, fontWeight = FontWeight.Bold)
-                    }
                 }
+
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = onPhoneChange,
+                    placeholder = { Text("Enter 10-digit mobile number", fontSize = 13.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    singleLine = true,
+                    isError = phone.isBlank(),
+                    prefix = {
+                        Text("+91 ", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                )
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(
-            value = phone,
-            onValueChange = onPhoneChange,
-            label = { Text(stringResource(R.string.phone_number_1)) },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
-            singleLine = true,
-            isError = phone.isBlank()
-        )
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 

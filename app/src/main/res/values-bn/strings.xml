@@ -778,7 +778,7 @@
     <string name="keep_request">অনুরোধ বজায় রাখুন</string>
     <string name="live_gps_active">লাইভ জিপিএস সক্রিয়</string>
     <string name="digital_health_card">ডিজিটাল হেলথ কার্ড</string>
-    <string name="valid_through_1225">১২/২৫ পর্যন্ত বৈধ</string>
+    <string name="valid_through_1225">জরুরি অ্যাক্সেস QR • ২৪ ঘণ্টা বৈধ</string>
     <string name="share_this_id_for_manual">ম্যানুয়াল এন্ট্রির জন্য এই আইডি শেয়ার করুন</string>
     <string name="revoke_access">অ্যাক্সেস প্রত্যাহার করুন</string>
     <string name="generate_qr_code">কিউআর কোড তৈরি করুন</string>

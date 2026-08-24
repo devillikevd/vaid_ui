@@ -963,8 +963,6 @@ private fun DoctorSelectionStep(
                             if (currentConsultationType == "video") {
                                 doc.videoConsultationFee != null || doc.consultationTypes?.contains("video") == true
                             } else {
-                                // Default to assuming they support in_person if video isn't the sole requirement, 
-                                // or check explicit types if present.
                                 doc.consultationTypes?.contains("in_person") != false
                             }
                         }
@@ -973,12 +971,37 @@ private fun DoctorSelectionStep(
                     }
                     
                     when (currentSortBy) {
-                        "rating_desc" -> typeFiltered.sortedByDescending { it.averageRating ?: 0f }
-                        "consultations_desc" -> typeFiltered.sortedByDescending { it.totalReviews }
-                        "experience_desc" -> typeFiltered.sortedByDescending { it.experienceYears ?: 0 }
-                        "fee_asc" -> typeFiltered.sortedBy { it.consultationFee }
-                        "fee_desc" -> typeFiltered.sortedByDescending { it.consultationFee }
-                        "distance_asc" -> typeFiltered // Distance sorting not available locally without location
+                        "rating_desc" -> typeFiltered.sortedWith(
+                            compareByDescending<Doctor> { it.averageRating ?: 0f }
+                                .thenByDescending { it.totalReviews ?: 0 }
+                        )
+                        "consultations_desc" -> typeFiltered.sortedWith(
+                            compareByDescending<Doctor> { it.totalConsultations ?: it.totalReviews ?: 0 }
+                                .thenByDescending { it.averageRating ?: 0f }
+                        )
+                        "experience_desc" -> typeFiltered.sortedWith(
+                            compareByDescending<Doctor> { it.experienceYears ?: 0 }
+                                .thenByDescending { it.averageRating ?: 0f }
+                        )
+                        "fee_asc" -> typeFiltered.sortedWith(
+                            compareBy { doc ->
+                                when {
+                                    currentConsultationType == "video" && doc.videoConsultationFee != null -> doc.videoConsultationFee
+                                    currentConsultationType == "in_person" && doc.consultationFee != null -> doc.consultationFee
+                                    else -> listOfNotNull(doc.consultationFee, doc.videoConsultationFee).minOrNull() ?: 999999
+                                }
+                            }
+                        )
+                        "fee_desc" -> typeFiltered.sortedWith(
+                            compareByDescending { doc ->
+                                when {
+                                    currentConsultationType == "video" && doc.videoConsultationFee != null -> doc.videoConsultationFee
+                                    currentConsultationType == "in_person" && doc.consultationFee != null -> doc.consultationFee
+                                    else -> listOfNotNull(doc.consultationFee, doc.videoConsultationFee).maxOrNull() ?: -1
+                                }
+                            }
+                        )
+                        "distance_asc" -> typeFiltered.sortedBy { it.distanceKm ?: 999999f }
                         else -> typeFiltered
                     }
                 }
@@ -1095,6 +1118,36 @@ private fun DoctorBookingCard(doctor: Doctor, onSelect: () -> Unit, onViewProfil
                     Text(doctor.specialization, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(doctor.experienceYears?.takeIf { it > 0 }?.let { "$it+ Yrs Exp" } ?: "Experience not listed", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    
+                    val locationText = buildString {
+                        if (doctor.distanceKm != null && doctor.distanceKm > 0) {
+                            append(String.format(Locale.US, "📍 %.1f km away", doctor.distanceKm))
+                            if (!doctor.hospital?.name.isNullOrBlank()) {
+                                append(" • ")
+                                append(doctor.hospital?.name)
+                            }
+                        } else if (!doctor.hospital?.name.isNullOrBlank()) {
+                            append("📍 ")
+                            append(doctor.hospital?.name)
+                        }
+                    }
+                    if (locationText.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = SwastikPrimaryLight.copy(alpha = 0.6f)
+                        ) {
+                            Text(
+                                text = locationText,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = SwastikPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
                 Surface(color = Color(0xFFFFF8E1), shape = RoundedCornerShape(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
@@ -1111,7 +1164,14 @@ private fun DoctorBookingCard(doctor: Doctor, onSelect: () -> Unit, onViewProfil
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(stringResource(R.string.consultation_fee), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(doctor.consultationFee?.let { "₹$it" } ?: "Fee not listed", color = SwastikPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            val feeText = when {
+                                doctor.consultationFee != null && doctor.consultationFee > 0 -> "₹${doctor.consultationFee}"
+                                doctor.videoConsultationFee != null && doctor.videoConsultationFee > 0 -> "₹${doctor.videoConsultationFee}"
+                                doctor.consultationFee == 0 || doctor.videoConsultationFee == 0 -> "Free"
+                                else -> "Fee not listed"
+                            }
+                            val feeColor = if (feeText == "Free") Color(0xFF16A34A) else SwastikPrimary
+                            Text(feeText, color = feeColor, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         if (!compact) {
                             Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2088,14 +2148,51 @@ private fun BookingConfirmedStep(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // View My Appointments (primary action)
-        Button(
+        var showLiveStatusSheet by remember { mutableStateOf(false) }
+
+        if (showLiveStatusSheet && appointment != null) {
+            ConsultationStatusBottomSheet(
+                appointment = appointment,
+                onDismiss = { showLiveStatusSheet = false },
+                onJoinConsultation = { _, _ ->
+                    showLiveStatusSheet = false
+                    onViewAppointments()
+                },
+                onNavigateToDoctorProfile = { _ ->
+                    showLiveStatusSheet = false
+                },
+                onReschedule = { _ ->
+                    showLiveStatusSheet = false
+                },
+                onCancelClick = { _ ->
+                    showLiveStatusSheet = false
+                    onViewAppointments()
+                }
+            )
+        }
+
+        // View Live Status Sheet (Hero Action)
+        if (appointment != null) {
+            Button(
+                onClick = { showLiveStatusSheet = true },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+            ) {
+                Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("View Live Consultation Status", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
+        }
+
+        // View My Appointments (secondary action)
+        OutlinedButton(
             onClick = onViewAppointments,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
             shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+            border = BorderStroke(1.dp, SwastikPrimary)
         ) {
-            Text(stringResource(R.string.view_my_appointments), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Text(stringResource(R.string.view_my_appointments), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = SwastikPrimary)
         }
 
         // Add to Calendar
@@ -2196,6 +2293,7 @@ fun getPredefinedOptions(specialization: String): Pair<List<String>, List<String
         cleanSpec.contains("gyneco") || cleanSpec.contains("obste") -> listOf("Irregular Periods", "Pregnancy Checkup", "PCOD/PCOS", "Vaginal Infection", "Pelvic Pain")
         cleanSpec.contains("ortho") || cleanSpec.contains("bone") -> listOf("Joint Pain", "Back Pain", "Knee Pain", "Fracture/Injury", "Muscle Spasm", "Arthritis")
         cleanSpec.contains("neuro") -> listOf("Headache / Migraine", "Dizziness", "Numbness / Tingling", "Seizures", "Memory Issues")
+        cleanSpec.contains("sexol") || cleanSpec.contains("sexual") || cleanSpec.contains("intimacy") || cleanSpec.contains("androlog") -> listOf("Erectile Dysfunction", "Premature Ejaculation", "Low Libido / Drive", "Performance Anxiety", "Painful Intercourse", "Pre-Marital Checkup", "Hormonal & Testosterone Check")
         cleanSpec.contains("psychi") || cleanSpec.contains("psychol") -> listOf("Anxiety", "Depression", "Sleep Issues", "Stress", "Panic Attacks")
         cleanSpec.contains("dent") -> listOf("Toothache", "Bleeding Gums", "Cavity", "Scaling/Cleaning", "Root Canal")
         cleanSpec.contains("ophthalmo") || cleanSpec.contains("eye") -> listOf("Blurry Vision", "Eye Pain", "Redness / Itching", "Watering Eyes", "Cataract")
@@ -2226,7 +2324,8 @@ fun getPredefinedOptions(specialization: String): Pair<List<String>, List<String
         cleanSpec.contains("ortho") -> listOf("Swelling", "Stiffness", "Inability to Move", "Redness")
         cleanSpec.contains("ent") -> listOf("Discharge", "Ringing in Ear", "Nasal Congestion", "Loss of Smell/Taste")
         cleanSpec.contains("gastro") -> listOf("Nausea", "Vomiting", "Bloating", "Loss of Appetite", "Blood in Stool")
-        cleanSpec.contains("psychi") -> listOf("Restlessness", "Low Mood", "Racing Thoughts", "Fatigue")
+        cleanSpec.contains("sexol") || cleanSpec.contains("sexual") || cleanSpec.contains("intimacy") || cleanSpec.contains("androlog") -> listOf("Lack of Stamina", "Performance Anxiety", "Pain / Discomfort", "Erectile Weakness", "Low Energy")
+        cleanSpec.contains("psychi") || cleanSpec.contains("psychol") -> listOf("Restlessness", "Low Mood", "Racing Thoughts", "Fatigue")
         cleanSpec.contains("diet") || cleanSpec.contains("nutrition") -> listOf("Lethargy", "Hair Fall", "Weight Issues", "Indigestion")
         cleanSpec.contains("allergy") -> listOf("Sneezing", "Itching", "Hives", "Swelling", "Red Eyes")
         else -> listOf("Fever", "Headache", "Cough", "Weakness", "Nausea", "Pain")

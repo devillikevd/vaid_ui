@@ -105,6 +105,13 @@ fun CommunityQAScreen(
                         modifier = Modifier.weight(1f),
                         placeholder = { Text("Search discussions...", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        },
                         shape = RoundedCornerShape(24.dp),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -248,12 +255,12 @@ fun CommunityQAScreen(
                         if (question != null) {
                             val isOwner = question.patient?.userId == viewModel.currentUserId
                             val isBookmarked = localBookmarks[question.id] ?: question.isBookmarked ?: false
-                            val hasUpvoted = localUpvotes[question.id] ?: viewModel.hasUpvoted(question.id)
+                            val baseUpvoted = question.isUpvoted ?: false
+                            val hasUpvoted = localUpvotes[question.id] ?: baseUpvoted
                             
-                            val originalHasUpvoted = viewModel.hasUpvoted(question.id)
-                            val displayQuestion = if (hasUpvoted && !originalHasUpvoted) {
+                            val displayQuestion = if (hasUpvoted && !baseUpvoted) {
                                 question.copy(upvotes = question.upvotes + 1)
-                            } else if (!hasUpvoted && originalHasUpvoted) {
+                            } else if (!hasUpvoted && baseUpvoted) {
                                 question.copy(upvotes = maxOf(0, question.upvotes - 1))
                             } else {
                                 question
@@ -265,7 +272,7 @@ fun CommunityQAScreen(
                                 hasUpvoted = hasUpvoted,
                                 isBookmarked = isBookmarked, // Pass explicitly
                                 onClick = { navController.navigateSafe(com.example.swastik.navigation.Screen.CommunityQADetails.createRoute(question.id)) },
-                                onUpvote = { viewModel.upvoteQuestion(question.id) },
+                                onUpvote = { viewModel.upvoteQuestion(question.id, question.isUpvoted) },
                                 onDelete = {
                                     viewModel.deleteQuestion(question.id) {
                                         pagedQuestions.refresh()

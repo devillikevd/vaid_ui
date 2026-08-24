@@ -58,8 +58,16 @@ class AuthRepository @Inject constructor(
                         )
                     }
                     // Connect socket after login
-                    socketManager.connect()
-                    pushNotificationCoordinator.registerCurrentDeviceIfPossible()
+                    try {
+                        socketManager.connect()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Socket connect failed", e)
+                    }
+                    try {
+                        pushNotificationCoordinator.registerCurrentDeviceIfPossible()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "FCM registration failed", e)
+                    }
                     emit(Result.Success(true))
                 } else {
                     emit(Result.Error(body?.message ?: "Login failed"))
@@ -75,8 +83,109 @@ class AuthRepository @Inject constructor(
     }
 
     /**
-     * Register a new patient account.
-     * Backend no longer returns tokens — requires email OTP verification first.
+     * Send email verification OTP for patient registration.
+     */
+    fun sendRegistrationOtp(email: String, name: String?): Flow<Result<String>> = flow {
+        emit(Result.Loading)
+        try {
+            val response = apiService.sendRegistrationOtp(
+                SendRegistrationOtpRequest(
+                    email = email.trim(),
+                    name = name?.trim()?.takeIf { it.isNotBlank() },
+                    role = "patient"
+                )
+            )
+            if (response.isSuccessful) {
+                emit(Result.Success(response.body()?.message ?: "Verification code sent to your email."))
+            } else {
+                val failure = parseApiFailure(response.errorBody()?.string())
+                emit(Result.Error(failure?.message ?: "Failed to send verification code", failure))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Send registration OTP failed", e)
+            emit(Result.Error(userFriendlyErrorMessage(e)))
+        }
+    }
+
+    /**
+     * Verify registration OTP, create patient account, and perform auto-login.
+     */
+    fun verifyRegistrationOtpAndRegister(
+        name: String,
+        phone: String?,
+        email: String,
+        password: String,
+        otp: String
+    ): Flow<Result<Boolean>> = flow {
+        emit(Result.Loading)
+        try {
+            val normalizedEmail = email.trim()
+            val normalizedOtp = otp.trim()
+
+            // Step 1: Verify OTP
+            val verifyResponse = apiService.verifyRegistrationOtp(
+                VerifyRegistrationOtpRequest(email = normalizedEmail, otp = normalizedOtp)
+            )
+            if (!verifyResponse.isSuccessful) {
+                val failure = parseApiFailure(verifyResponse.errorBody()?.string())
+                emit(Result.Error(failure?.message ?: "Invalid or expired verification code", failure))
+                return@flow
+            }
+
+            // Step 2: Create Account
+            val regRequest = RegisterRequest(
+                name = name.trim(),
+                phone = phone?.takeIf { it.isNotBlank() },
+                email = normalizedEmail,
+                password = password,
+                role = "patient"
+            )
+            val regResponse = apiService.register(regRequest)
+            if (!regResponse.isSuccessful) {
+                val failure = parseApiFailure(regResponse.errorBody()?.string())
+                emit(Result.Error(failure?.message ?: "Registration failed", failure))
+                return@flow
+            }
+
+            // Step 3: Auto-login
+            try {
+                val loginResponse = apiService.login(
+                    LoginRequest(email = normalizedEmail, password = password, role = "patient")
+                )
+                if (loginResponse.isSuccessful) {
+                    val body = loginResponse.body()
+                    val token = body?.resolvedAccessToken()
+                    if (token != null) {
+                        tokenManager.saveTokens(
+                            accessToken = token,
+                            refreshToken = body.resolvedRefreshToken() ?: "",
+                            expiresInSeconds = body.resolvedExpiresIn()
+                        )
+                        body.resolvedUser()?.let { user ->
+                            tokenManager.saveUserInfo(
+                                userId = user.id,
+                                role = user.role,
+                                name = user.name ?: name,
+                                phone = user.phone ?: phone
+                            )
+                        }
+                        try { socketManager.connect() } catch (_: Exception) {}
+                        try { pushNotificationCoordinator.registerCurrentDeviceIfPossible() } catch (_: Exception) {}
+                    }
+                }
+            } catch (loginErr: Exception) {
+                Log.w(TAG, "Auto-login after registration failed (user can login manually)", loginErr)
+            }
+
+            emit(Result.Success(true))
+        } catch (e: Exception) {
+            Log.e(TAG, "Verify and register failed", e)
+            emit(Result.Error(userFriendlyErrorMessage(e)))
+        }
+    }
+
+    /**
+     * Register a new patient account directly (fallback).
      */
     fun register(name: String, phone: String?, email: String, password: String = ""): Flow<Result<Boolean>> = flow {
         emit(Result.Loading)
@@ -92,7 +201,6 @@ class AuthRepository @Inject constructor(
             if (response.isSuccessful) {
                 val body = response.body()
                 if (body?.success == true) {
-                    // Registration successful — user needs to verify email before logging in
                     emit(Result.Success(true))
                 } else {
                     emit(Result.Error(body?.message ?: "Registration failed"))
@@ -152,8 +260,16 @@ class AuthRepository @Inject constructor(
                         )
                     }
                     // Connect socket after login
-                    socketManager.connect()
-                    pushNotificationCoordinator.registerCurrentDeviceIfPossible()
+                    try {
+                        socketManager.connect()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Socket connect failed", e)
+                    }
+                    try {
+                        pushNotificationCoordinator.registerCurrentDeviceIfPossible()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "FCM registration failed", e)
+                    }
                     Result.Success(true)
                 } else {
                     Result.Error(body?.message ?: "Failed to verify email")

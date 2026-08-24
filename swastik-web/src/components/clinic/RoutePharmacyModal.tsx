@@ -23,9 +23,9 @@ export function RoutePharmacyModal({ prescriptionId, items, onClose, onSuccess }
         const fetchPartners = async () => {
             try {
                 const { fetchWithAuth } = await import('@/lib/api');
-                const isDoctorContext = window.location.pathname.includes('/doctor/');
+                const isDoctorContext = window.location.pathname.includes('/doctor');
                 const endpoint = isDoctorContext 
-                    ? `/doctor/prescriptions/${prescriptionId}/pharmacy-partners`
+                    ? `/doctors/prescriptions/${prescriptionId}/pharmacy-partners`
                     : '/clinics/owner/partnerships?status=active';
                 
                 const res = await fetchWithAuth(endpoint);
@@ -33,7 +33,7 @@ export function RoutePharmacyModal({ prescriptionId, items, onClose, onSuccess }
                 if (res.success && Array.isArray(res.data)) {
                     const pharmacyPartners = isDoctorContext 
                         ? res.data 
-                        : res.data.filter((p: any) => p.partner.type === 'pharmacy');
+                        : res.data.filter((p: any) => p.partner?.type === 'pharmacy' || p.target_type === 'pharmacy');
                     setPartnerships(pharmacyPartners);
                 }
             } catch (err) {
@@ -64,11 +64,11 @@ export function RoutePharmacyModal({ prescriptionId, items, onClose, onSuccess }
                 deliveryType: 'pickup', // Default to pickup
             };
 
-            const isDoctorContext = window.location.pathname.includes('/doctor/');
+            const isDoctorContext = window.location.pathname.includes('/doctor');
             let res;
             if (isDoctorContext) {
                 const { fetchWithAuth } = await import('@/lib/api');
-                res = await fetchWithAuth(`/doctor/prescriptions/${prescriptionId}/route-to-pharmacy`, {
+                res = await fetchWithAuth(`/doctors/prescriptions/${prescriptionId}/route-to-pharmacy`, {
                     method: 'POST',
                     body: JSON.stringify(payload),
                 });

@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS public.catalog_requests (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     patient_id UUID REFERENCES public.patients(id) ON DELETE CASCADE,
     items JSONB NOT NULL DEFAULT '[]',
-    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'expired')),
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'expired', 'cancelled')),
     accepted_pharmacy_id UUID REFERENCES public.pharmacies(id) ON DELETE SET NULL,
     accepted_total_price DECIMAL(10, 2),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),

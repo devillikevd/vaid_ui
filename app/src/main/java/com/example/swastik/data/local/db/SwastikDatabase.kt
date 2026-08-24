@@ -24,9 +24,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CachedHospital::class,
         PendingSyncAction::class,
         com.example.swastik.data.model.DailyFitnessLog::class,
-        GuardianEventEntity::class
+        GuardianEventEntity::class,
+        GaitSessionEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 abstract class SwastikDatabase : RoomDatabase() {
@@ -164,6 +165,33 @@ abstract class SwastikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `gait_sessions` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `timestamp` INTEGER NOT NULL,
+                        `durationSec` REAL NOT NULL,
+                        `cadenceSpm` INTEGER NOT NULL,
+                        `symmetryPercent` INTEGER NOT NULL,
+                        `lateralAsymmetry` REAL NOT NULL,
+                        `accelerationVariability` REAL NOT NULL,
+                        `sampleCount` INTEGER NOT NULL,
+                        `strideLengthMeters` REAL,
+                        `walkingSpeedKmh` REAL,
+                        `fatigueScore` REAL,
+                        `variabilityTrend` REAL,
+                        `turnCount` INTEGER NOT NULL DEFAULT 0,
+                        `turnInstabilityScore` REAL,
+                        `activityType` INTEGER NOT NULL DEFAULT 0,
+                        `latitude` REAL,
+                        `longitude` REAL,
+                        `isAnomalous` INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getDatabase(context: Context): SwastikDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -171,7 +199,7 @@ abstract class SwastikDatabase : RoomDatabase() {
                     SwastikDatabase::class.java,
                     "swastik_cache_db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_12_13)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_12_13, MIGRATION_14_15)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .fallbackToDestructiveMigration()
                     .build()

@@ -769,7 +769,7 @@
     <string name="keep_request">ವಿನಂತಿಯನ್ನು ಉಳಿಸಿಕೊಳ್ಳಿ</string>
     <string name="live_gps_active">ಲೈವ್ ಜಿಪಿಎಸ್ ಸಕ್ರಿಯವಾಗಿದೆ</string>
     <string name="digital_health_card">ಡಿಜಿಟಲ್ ಹೆಲ್ತ್ ಕಾರ್ಡ್</string>
-    <string name="valid_through_1225">12/25 ರವರೆಗೆ ಮಾನ್ಯ</string>
+    <string name="valid_through_1225">ತುರ್ತು ಪ್ರವೇಶ QR • 24 ಗಂಟೆಗಳ ಕಾಲ ಮಾನ್ಯ</string>
     <string name="share_this_id_for_manual">ಮ್ಯಾನುಯಲ್ ಎಂಟ್ರಿಗಾಗಿ ಈ ಐಡಿಯನ್ನು ಹಂಚಿಕೊಳ್ಳಿ</string>
     <string name="revoke_access">ಪ್ರವೇಶವನ್ನು ರದ್ದುಗೊಳಿಸಿ</string>
     <string name="generate_qr_code">ಕ್ಯೂಆರ್ ಕೋಡ್ ರಚಿಸಿ</string>

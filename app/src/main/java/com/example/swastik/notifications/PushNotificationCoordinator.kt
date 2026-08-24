@@ -242,7 +242,7 @@ class PushNotificationCoordinator @Inject constructor(
                     takenIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                builder.addAction(0, "Taken", takenPendingIntent)
+                builder.addAction(0, "✅ Taken", takenPendingIntent)
 
                 val snoozeIntent = Intent(context, ReminderActionReceiver::class.java).apply {
                     action = ReminderActionReceiver.ACTION_SNOOZE
@@ -260,7 +260,7 @@ class PushNotificationCoordinator @Inject constructor(
                     snoozeIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                builder.addAction(0, "Snooze 15m", snoozePendingIntent)
+                builder.addAction(0, "⏳ Snooze 15m", snoozePendingIntent)
 
                 val skipIntent = Intent(context, ReminderActionReceiver::class.java).apply {
                     action = ReminderActionReceiver.ACTION_SKIP
@@ -277,7 +277,7 @@ class PushNotificationCoordinator @Inject constructor(
                     skipIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                builder.addAction(0, "Skip", skipPendingIntent)
+                builder.addAction(0, "❌ Skip", skipPendingIntent)
             }
         }
 

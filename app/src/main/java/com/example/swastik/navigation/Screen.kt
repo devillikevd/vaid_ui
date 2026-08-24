@@ -8,9 +8,19 @@ sealed class Screen(val route: String) {
     object Home : Screen("home")
     object PatientRegister : Screen("patient_register")
     object PatientLogin : Screen("patient_login")
-    object EmailVerificationPending : Screen("email_verification_pending?email={email}") {
-        fun createRoute(email: String): String =
-            "email_verification_pending?email=${java.net.URLEncoder.encode(email, "UTF-8")}"
+    object EmailVerificationPending : Screen("email_verification_pending?email={email}&name={name}&phone={phone}&password={password}") {
+        fun createRoute(
+            email: String,
+            name: String = "",
+            phone: String = "",
+            password: String = ""
+        ): String {
+            val encEmail = java.net.URLEncoder.encode(email, "UTF-8")
+            val encName = java.net.URLEncoder.encode(name, "UTF-8")
+            val encPhone = java.net.URLEncoder.encode(phone, "UTF-8")
+            val encPassword = java.net.URLEncoder.encode(password, "UTF-8")
+            return "email_verification_pending?email=$encEmail&name=$encName&phone=$encPhone&password=$encPassword"
+        }
     }
 
     // Patient Screens
@@ -36,6 +46,19 @@ sealed class Screen(val route: String) {
     }
     object AllSpecialities : Screen("all_specialities?mode={mode}") {
         fun createRoute(mode: String = "in_person"): String = "all_specialities?mode=$mode"
+    }
+    object SpecialityDetail : Screen("speciality_detail?specialization={specialization}&search={search}&mode={mode}") {
+        fun createRoute(
+            specialization: String,
+            search: String? = null,
+            mode: String = "in_person"
+        ): String {
+            val params = mutableListOf<String>()
+            params.add("specialization=${java.net.URLEncoder.encode(specialization, "UTF-8").replace("+", "%20")}")
+            if (search != null) params.add("search=${java.net.URLEncoder.encode(search, "UTF-8").replace("+", "%20")}")
+            params.add("mode=$mode")
+            return "speciality_detail?${params.joinToString("&")}"
+        }
     }
     object AllCategories : Screen("all_categories")
     object AppointmentBooking : Screen("appointment_booking?doctorId={doctorId}&hospitalId={hospitalId}&clinicId={clinicId}&specialization={specialization}&consultationMode={consultationMode}&search={search}") {
@@ -155,6 +178,7 @@ sealed class Screen(val route: String) {
     }
     object WellnessExperts : Screen("wellness_experts")
     object WellnessCommunity : Screen("wellness_community")
+    object WellnessChallenges : Screen("wellness_challenges")
     object WellnessSupplements : Screen("wellness_supplements")
     object WellnessReports : Screen("wellness_reports")
     object WellnessAICoach : Screen("wellness_ai_coach")

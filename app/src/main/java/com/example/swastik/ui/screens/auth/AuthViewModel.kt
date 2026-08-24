@@ -89,8 +89,47 @@ class AuthViewModel @Inject constructor(
         }
     }
     
+    var pendingName by mutableStateOf("")
+    var pendingPhone by mutableStateOf<String?>(null)
+    var pendingEmail by mutableStateOf("")
+    var pendingPassword by mutableStateOf("")
+
     /**
-     * Register new patient — backend sends verification email
+     * Send email OTP before creating the patient account in backend.
+     */
+    fun sendRegistrationOtp(name: String, phone: String?, email: String, password: String) {
+        pendingName = name
+        pendingPhone = phone
+        pendingEmail = email
+        pendingPassword = password
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoading = true, errorMessage = null, errorCode = null, infoMessage = null, registrationComplete = false)
+            authRepository.sendRegistrationOtp(email, name).collectLatest { result ->
+                when (result) {
+                    is Result.Success -> {
+                        uiState = uiState.copy(
+                            isLoading = false,
+                            registrationComplete = true,
+                            infoMessage = result.data
+                        )
+                    }
+                    is Result.Error -> {
+                        uiState = uiState.copy(
+                            isLoading = false,
+                            errorMessage = result.message,
+                            errorCode = (result.exception as? AuthApiException)?.code
+                        )
+                    }
+                    is Result.Loading -> {
+                        uiState = uiState.copy(isLoading = true)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Register new patient directly (fallback).
      */
     fun register(name: String, phone: String?, email: String, password: String? = null) {
         viewModelScope.launch {
@@ -194,6 +233,109 @@ class AuthViewModel @Inject constructor(
                 }
                 is Result.Loading -> {
                     uiState = uiState.copy(isLoading = true)
+                }
+            }
+        }
+    }
+
+    fun verifyRegistrationOtp(
+        otp: String,
+        email: String = "",
+        password: String = "",
+        name: String = "",
+        phone: String? = null
+    ) {
+        val effectiveEmail = email.ifBlank { pendingEmail }
+        val effectivePassword = password.ifBlank { pendingPassword }
+        val effectiveName = name.ifBlank { pendingName }
+        val effectivePhone = phone ?: pendingPhone
+
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoading = true, errorMessage = null, errorCode = null, infoMessage = null, emailVerificationComplete = false)
+
+            if (effectivePassword.isNotBlank()) {
+                authRepository.verifyRegistrationOtpAndRegister(
+                    name = effectiveName,
+                    phone = effectivePhone,
+                    email = effectiveEmail,
+                    password = effectivePassword,
+                    otp = otp
+                ).collectLatest { result ->
+                    when (result) {
+                        is Result.Success -> {
+                            uiState = uiState.copy(
+                                isLoading = false,
+                                errorMessage = null,
+                                errorCode = null,
+                                infoMessage = "Registration completed successfully!",
+                                emailVerificationComplete = true,
+                                isSuccess = true
+                            )
+                        }
+                        is Result.Error -> {
+                            uiState = uiState.copy(
+                                isLoading = false,
+                                errorMessage = result.message,
+                                errorCode = (result.exception as? AuthApiException)?.code,
+                                infoMessage = null,
+                                emailVerificationComplete = false
+                            )
+                        }
+                        is Result.Loading -> {
+                            uiState = uiState.copy(isLoading = true)
+                        }
+                    }
+                }
+            } else {
+                when (val result = authRepository.verifyEmailOtp(effectiveEmail, otp)) {
+                    is Result.Success -> {
+                        uiState = uiState.copy(
+                            isLoading = false,
+                            errorMessage = null,
+                            errorCode = null,
+                            infoMessage = "Email verified successfully.",
+                            emailVerificationComplete = true,
+                            isSuccess = true
+                        )
+                    }
+                    is Result.Error -> {
+                        uiState = uiState.copy(
+                            isLoading = false,
+                            errorMessage = result.message,
+                            errorCode = (result.exception as? AuthApiException)?.code,
+                            infoMessage = null,
+                            emailVerificationComplete = false
+                        )
+                    }
+                    is Result.Loading -> {
+                        uiState = uiState.copy(isLoading = true)
+                    }
+                }
+            }
+        }
+    }
+
+    fun resendRegistrationOtp(email: String, name: String? = null) {
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoading = true, errorMessage = null, errorCode = null, infoMessage = null)
+            authRepository.sendRegistrationOtp(email, name ?: pendingName).collectLatest { result ->
+                when (result) {
+                    is Result.Success -> {
+                        uiState = uiState.copy(
+                            isLoading = false,
+                            infoMessage = result.data ?: "Verification code resent."
+                        )
+                    }
+                    is Result.Error -> {
+                        uiState = uiState.copy(
+                            isLoading = false,
+                            errorMessage = result.message,
+                            errorCode = (result.exception as? AuthApiException)?.code
+                        )
+                    }
+                    is Result.Loading -> {
+                        uiState = uiState.copy(isLoading = true)
+                    }
                 }
             }
         }

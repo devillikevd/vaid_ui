@@ -323,55 +323,63 @@ fun MedicineCartScreen(
                         CheckoutStep.ADDRESS -> {
                             // Delivery address step
                             item {
-                                Text("Delivery Details", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                Spacer(Modifier.height(4.dp))
-                                Text("Enter your delivery address so the pharmacy knows where to deliver", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(Modifier.height(16.dp))
-                                
-                                OutlinedTextField(
-                                    value = cartState.patientPhone,
-                                    onValueChange = { viewModel.setPatientPhone(cartType, it) },
-                                    label = { Text("Phone Number *") },
+                                Column(
                                     modifier = Modifier.fillMaxWidth(),
-                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
-                                    singleLine = true,
-                                    isError = cartState.patientPhone.isBlank(),
-                                    leadingIcon = { Icon(Icons.Default.Phone, null) }
-                                )
-                                Spacer(Modifier.height(12.dp))
-                                
-                                if (cartState.deliveryAddress.isBlank()) {
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
                                     com.example.swastik.ui.screens.patient.components.HomeAddressEditor(
-                                        initialAddress = "",
+                                        initialAddress = cartState.deliveryAddress,
                                         onAddressSaved = { address ->
                                             viewModel.setDeliveryAddress(cartType, address)
                                         }
                                     )
-                                } else {
+
+                                    // Contact Phone Number Card
                                     Card(
                                         modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                                     ) {
-                                        Column(Modifier.padding(16.dp)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(Icons.Default.LocationOn, null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
-                                                Spacer(Modifier.width(8.dp))
-                                                Text("Delivery Address", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                            }
-                                            Spacer(Modifier.height(8.dp))
-                                            Text(
-                                                text = cartState.deliveryAddress,
-                                                fontSize = 14.sp,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                            Spacer(Modifier.height(8.dp))
-                                            TextButton(
-                                                onClick = { viewModel.setDeliveryAddress(cartType, "") },
-                                                contentPadding = PaddingValues(0.dp)
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                                             ) {
-                                                Text("Change Address", color = SwastikPrimary, fontWeight = FontWeight.Bold)
+                                                Icon(
+                                                    Icons.Default.Phone,
+                                                    contentDescription = null,
+                                                    tint = SwastikPrimary,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Text(
+                                                    text = "Contact Phone for Delivery Updates",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp
+                                                )
                                             }
+
+                                            OutlinedTextField(
+                                                value = cartState.patientPhone,
+                                                onValueChange = { viewModel.setPatientPhone(cartType, it) },
+                                                placeholder = { Text("Enter 10-digit mobile number", fontSize = 13.sp) },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
+                                                ),
+                                                shape = RoundedCornerShape(10.dp),
+                                                singleLine = true,
+                                                isError = cartState.patientPhone.isBlank(),
+                                                prefix = {
+                                                    Text("+91 ", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                                }
+                                            )
                                         }
                                     }
                                 }

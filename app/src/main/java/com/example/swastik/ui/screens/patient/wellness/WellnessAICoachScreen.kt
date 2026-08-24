@@ -80,7 +80,7 @@ fun WellnessAICoachScreen(
         try {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Ask Swastik AI Coach...")
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Ask Vaididea AI Coach...")
             }
             speechLauncher.launch(intent)
         } catch (_e: Exception) {}
@@ -208,7 +208,7 @@ fun WellnessAICoachScreen(
                                 Text("💬", fontSize = 18.sp)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    "Chat with Swastik AI Coach",
+                                    "Chat with Vaididea AI Coach",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp
                                 )
@@ -428,7 +428,7 @@ fun WellnessAICoachScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("🤖", fontSize = 20.sp)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Swastik AI Coach (Fullscreen)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("Vaididea AI Coach (Fullscreen)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                         IconButton(onClick = { isFullscreenChat = false }) {
                             Icon(Icons.Default.Close, contentDescription = "Close")
@@ -585,7 +585,7 @@ fun WellnessAICoachScreen(
                         }
                     }
                     Text(
-                        "Swastik AI monitors your biometrics in real-time. If resting heart rate exceeds 100 BPM or blood pressure spikes, the coach automatically pauses high-intensity workouts and alerts you to consult a doctor.",
+                        "Vaididea AI monitors your biometrics in real-time. If resting heart rate exceeds 100 BPM or blood pressure spikes, the coach automatically pauses high-intensity workouts and alerts you to consult a doctor.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

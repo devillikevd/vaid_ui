@@ -103,7 +103,7 @@ private fun AuthGuard(
         content()
     } else {
         LaunchedEffect(Unit) {
-            navController.navigateSafe(Screen.Home.route) {
+            navController.navigateSafe(Screen.Splash.route) {
                 popUpTo(0) { inclusive = true }
             }
         }
@@ -172,7 +172,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             if (tokenManager.isAuthenticated()) {
                 Screen.PatientDashboard.createRoute()
             } else {
-                Screen.Home.route
+                Screen.Splash.route
             }
         }
         val startDestination = Screen.Splash.route
@@ -247,8 +247,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     }
                 },
                 onBackClick = { navController.popBackStack() },
-                onRegisterSuccess = { email ->
-                    navController.navigateSafe(Screen.EmailVerificationPending.createRoute(email)) {
+                onRegisterSuccess = { email, name, phone, password ->
+                    navController.navigateSafe(Screen.EmailVerificationPending.createRoute(email, name, phone, password)) {
                         popUpTo(Screen.PatientRegister.route) { inclusive = true }
                     }
                 }
@@ -278,16 +278,43 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     type = androidx.navigation.NavType.StringType
                     defaultValue = ""
                     nullable = true
+                },
+                androidx.navigation.navArgument("name") {
+                    type = androidx.navigation.NavType.StringType
+                    defaultValue = ""
+                    nullable = true
+                },
+                androidx.navigation.navArgument("phone") {
+                    type = androidx.navigation.NavType.StringType
+                    defaultValue = ""
+                    nullable = true
+                },
+                androidx.navigation.navArgument("password") {
+                    type = androidx.navigation.NavType.StringType
+                    defaultValue = ""
+                    nullable = true
                 }
             )
         ) { backStackEntry ->
             val email = backStackEntry.arguments?.getString("email")?.let {
-                java.net.URLDecoder.decode(it, "UTF-8")
+                try { java.net.URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
+            } ?: ""
+            val name = backStackEntry.arguments?.getString("name")?.let {
+                try { java.net.URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
+            } ?: ""
+            val phone = backStackEntry.arguments?.getString("phone")?.let {
+                try { java.net.URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
+            } ?: ""
+            val password = backStackEntry.arguments?.getString("password")?.let {
+                try { java.net.URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
             } ?: ""
             EmailVerificationPendingScreen(
                 email = email,
+                name = name,
+                phone = phone,
+                password = password,
                 onBackClick = { 
-                    navController.navigate(Screen.Home.route) {
+                    navController.navigateSafe(Screen.Splash.route) {
                         popUpTo(0) { inclusive = true }
                     }
                 },
@@ -428,7 +455,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             PatientDashboardScreen(
                 initialTab = initialTab,
                 onLogout = {
-                    navController.navigateSafe(Screen.Home.route) {
+                    navController.navigateSafe(Screen.Splash.route) {
                         popUpTo(0) { inclusive = true }
                     }
                 },
@@ -454,13 +481,17 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     navController.navigateSafe(Screen.VideoConsultation.createRoute(appointmentId, doctorName)) 
                 },
                 onNavigateToPharmacy = { pharmacyId, pharmacyName ->
-                    navController.navigateSafe(
-                        Screen.HospitalFinder.createRoute(
-                            type = FacilityType.MEDICAL_STORE,
-                            focusFacilityId = pharmacyId,
-                            focusFacilityName = pharmacyName
+                    if (!pharmacyId.isNullOrBlank()) {
+                        navController.navigateSafe(Screen.PharmacyDetail.createRoute(pharmacyId))
+                    } else {
+                        navController.navigateSafe(
+                            Screen.HospitalFinder.createRoute(
+                                type = FacilityType.MEDICAL_STORE,
+                                focusFacilityId = pharmacyId,
+                                focusFacilityName = pharmacyName
+                            )
                         )
-                    )
+                    }
                 },
                 onNavigateToReports = { navController.navigateSafe(Screen.Reports.route) },
                 onNavigateToPrescriptions = { navController.navigateSafe(Screen.Prescriptions.createRoute()) },
@@ -499,9 +530,10 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onNotificationActionRoute = { route -> navController.navigateSafe(route) },
                 onFindDoctorSpecialityClick = { speciality ->
                     val (mappedSpecialization, mappedSearch) = com.example.swastik.utils.SpecializationMapper.mapToSearchParams(speciality)
-                    navController.navigateSafe(Screen.AppointmentBooking.createRoute(
-                        specialization = mappedSpecialization,
-                        search = mappedSearch
+                    navController.navigateSafe(Screen.SpecialityDetail.createRoute(
+                        specialization = mappedSpecialization ?: speciality,
+                        search = mappedSearch,
+                        mode = "in_person"
                     ))
                 },
                 onNavigateToCommunityQA = { navController.navigateSafe(Screen.CommunityQA.route) },
@@ -510,6 +542,12 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 },
                 onNavigateToAllRecommendedDoctors = {
                     navController.navigateSafe(Screen.AppointmentBooking.createRoute(consultationMode = "recommended"))
+                },
+                onNavigateToGuardianDashboard = {
+                    navController.navigateSafe(Screen.GuardianDashboard.route)
+                },
+                onNavigateToVolunteerRegistration = {
+                    navController.navigateSafe(Screen.HeroVolunteerRegistration.route)
                 }
             )
             }
@@ -624,10 +662,10 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     mode = mode,
                     onBackClick = { navController.popBackStack() },
                     onSpecialityClick = { specialization, search ->
-                        navController.navigateSafe(Screen.AppointmentBooking.createRoute(
-                            specialization = specialization,
+                        navController.navigateSafe(Screen.SpecialityDetail.createRoute(
+                            specialization = specialization ?: "General Physician",
                             search = search,
-                            consultationMode = mode
+                            mode = mode
                         ))
                     },
                     onViewAllSpecialities = {
@@ -645,9 +683,10 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 com.example.swastik.ui.screens.patient.booking.AllCategoriesScreen(
                     onBackClick = { navController.popBackStack() },
                     onCategoryClick = { specialization, search ->
-                        navController.navigateSafe(Screen.AppointmentBooking.createRoute(
-                            specialization = specialization,
-                            search = search
+                        navController.navigateSafe(Screen.SpecialityDetail.createRoute(
+                            specialization = specialization ?: "General Physician",
+                            search = search,
+                            mode = "in_person"
                         ))
                     }
                 )
@@ -691,10 +730,48 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     mode = mode,
                     onBackClick = { navController.popBackStack() },
                     onSpecialityClick = { specialization, search ->
-                        navController.navigateSafe(Screen.AppointmentBooking.createRoute(
-                            specialization = specialization,
+                        navController.navigateSafe(Screen.SpecialityDetail.createRoute(
+                            specialization = specialization ?: "General Physician",
                             search = search,
-                            consultationMode = mode
+                            mode = mode
+                        ))
+                    }
+                )
+            }
+        }
+
+        composable(
+            route = Screen.SpecialityDetail.route,
+            arguments = listOf(
+                navArgument("specialization") {
+                    type = NavType.StringType
+                    defaultValue = "General Physician"
+                },
+                navArgument("search") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("mode") {
+                    type = NavType.StringType
+                    defaultValue = "in_person"
+                }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val specialization = backStackEntry.arguments?.getString("specialization") ?: "General Physician"
+                val search = backStackEntry.arguments?.getString("search")
+                val mode = backStackEntry.arguments?.getString("mode") ?: "in_person"
+                com.example.swastik.ui.screens.patient.booking.SpecialityDetailScreen(
+                    specialization = specialization,
+                    search = search,
+                    mode = mode,
+                    onBackClick = { navController.popBackStack() },
+                    onConsultClick = { spec, q, m ->
+                        navController.navigateSafe(Screen.AppointmentBooking.createRoute(
+                            specialization = spec,
+                            search = q,
+                            consultationMode = m
                         ))
                     }
                 )
@@ -1076,13 +1153,17 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                         navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
                     },
                     onPharmacyClick = { pharmacyId, pharmacyName ->
-                        navController.navigateSafe(
-                            Screen.HospitalFinder.createRoute(
-                                type = FacilityType.MEDICAL_STORE,
-                                focusFacilityId = pharmacyId,
-                                focusFacilityName = pharmacyName
+                        if (!pharmacyId.isNullOrBlank()) {
+                            navController.navigateSafe(Screen.PharmacyDetail.createRoute(pharmacyId))
+                        } else {
+                            navController.navigateSafe(
+                                Screen.HospitalFinder.createRoute(
+                                    type = FacilityType.MEDICAL_STORE,
+                                    focusFacilityId = pharmacyId,
+                                    focusFacilityName = pharmacyName
+                                )
                             )
-                        )
+                        }
                     },
                     onNavigateToHome = { navController.popBackStack() },
                     onNavigateToRecords = { navController.navigateSafe(Screen.Reports.route) },
@@ -1341,6 +1422,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onNavigateToWorkouts = { navController.navigateSafe(Screen.WellnessWorkouts.route) },
                     onNavigateToExperts = { navController.navigateSafe(Screen.WellnessExperts.route) },
                     onNavigateToCommunity = { navController.navigateSafe(Screen.WellnessCommunity.route) },
+                    onNavigateToChallenges = { navController.navigateSafe(Screen.WellnessChallenges.route) },
                     onNavigateToSupplements = { navController.navigateSafe(Screen.WellnessSupplements.route) },
                     onNavigateToReports = { navController.navigateSafe(Screen.WellnessReports.route) },
                     onNavigateToAICoach = { navController.navigateSafe(Screen.WellnessAICoach.route) },
@@ -1408,12 +1490,23 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             }
         }
 
+        composable(Screen.WellnessChallenges.route) {
+            AuthGuard(navController, tokenManager) {
+                val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.wellness.WellnessChallengesScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    viewModel = wellnessViewModel
+                )
+            }
+        }
+
         composable(Screen.WellnessSupplements.route) {
             AuthGuard(navController, tokenManager) {
                 val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 com.example.swastik.ui.screens.patient.wellness.WellnessSupplementsScreen(
                     onNavigateBack = { navController.popBackStack() },
-                    viewModel = wellnessViewModel
+                    viewModel = wellnessViewModel,
+                    onNavigateToCart = { navController.navigateSafe(Screen.MedicineCart.createRoute("global")) }
                 )
             }
         }
@@ -1505,6 +1598,15 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onBackClick = { navController.popBackStack() },
                     onJoinVideoCall = { sessionId, coachName ->
                         navController.navigateSafe(Screen.WellnessVideoCall.createRoute(sessionId, coachName))
+                    },
+                    onChatWithCoach = { sessionId, coachName ->
+                        navController.navigateSafe(Screen.WellnessChat.createRoute(sessionId, coachName))
+                    },
+                    onBookNewSession = {
+                        navController.navigateSafe(Screen.WellnessExperts.route)
+                    },
+                    onCoachDetailClick = { coachId ->
+                        navController.navigateSafe(Screen.WellnessCoachDetail.createRoute(coachId))
                     }
                 )
             }
@@ -1642,8 +1744,10 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
 
         composable(Screen.WellnessBadges.route) {
             AuthGuard(navController, tokenManager) {
+                val wellnessViewModel: com.example.swastik.ui.viewmodel.WellnessViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 com.example.swastik.ui.screens.patient.wellness.WellnessBadgesScreen(
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
+                    viewModel = wellnessViewModel
                 )
             }
         }
@@ -1710,6 +1814,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onBackClick = { navController.popBackStack() },
                     onNavigateToCart = {
                         navController.navigateSafe(Screen.MedicineCart.createRoute("GLOBAL"))
+                    },
+                    onNavigateToPharmacyDetail = { pharmacyId ->
+                        navController.navigateSafe(Screen.PharmacyDetail.createRoute(pharmacyId))
                     },
                     initialTab = tab
                 )

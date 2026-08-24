@@ -11,6 +11,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.AlarmOn
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -36,6 +39,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -780,6 +784,77 @@ fun PrescriptionDetailScreen(
                         }
                     )
                 }
+
+                // ⏰ Auto-Schedule Medication Alarms & Reminders Card
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                        elevation = CardDefaults.cardElevation(2.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFDCFCE7)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Alarm,
+                                        contentDescription = null,
+                                        tint = Color(0xFF16A34A),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Smart Medicine Reminders",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = Color(0xFF166534)
+                                    )
+                                    Text(
+                                        text = "Auto-set exact dose alarms from doctor's prescription",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF15803D)
+                                    )
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    viewModel.openSchedulePreview(prescription)
+                                },
+                                enabled = !uiState.schedulingReminders,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A), contentColor = Color.White)
+                            ) {
+                                if (uiState.schedulingReminders) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Scheduling Reminders...", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                } else {
+                                    Icon(Icons.Filled.AlarmOn, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("⚡ Auto-Schedule All Reminders", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             item {
@@ -793,7 +868,6 @@ fun PrescriptionDetailScreen(
 
             if (prescription.medicines.isNullOrEmpty()) {
                 item {
-                    val context = LocalContext.current
                     val docUrl = prescription.fileUrl ?: prescription.pdfUrl
                     if (!docUrl.isNullOrEmpty()) {
                         OutlinedButton(
@@ -831,7 +905,29 @@ fun PrescriptionDetailScreen(
                 }
             } else {
                 items(prescription.medicines.orEmpty()) { medicine ->
-                    MedicineDetailCard(medicine)
+                    MedicineDetailCard(
+                        medicine = medicine,
+                        onScheduleReminder = {
+                            viewModel.scheduleSingleMedicineReminder(
+                                medicine = medicine,
+                                doctorName = prescription.doctor?.name,
+                                onSuccess = { count ->
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "⏰ $count alarm(s) set for ${medicine.medicineName}!",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                },
+                                onError = { msg ->
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "⚠️ $msg",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            )
+                        }
+                    )
                 }
             }
 
@@ -984,6 +1080,32 @@ fun PrescriptionDetailScreen(
             item {
                 Spacer(modifier = Modifier.height(16.dp))
             }
+        }
+
+        if (uiState.schedulePreview != null) {
+            MedicationSchedulePreviewBottomSheet(
+                preview = uiState.schedulePreview!!,
+                isScheduling = uiState.schedulingReminders,
+                onConfirm = {
+                    viewModel.confirmSchedulePreview(
+                        onSuccess = { count ->
+                            android.widget.Toast.makeText(
+                                context,
+                                "✅ $count exact medication alarms scheduled!",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        },
+                        onError = { msg ->
+                            android.widget.Toast.makeText(
+                                context,
+                                "⚠️ $msg",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    )
+                },
+                onDismiss = { viewModel.closeSchedulePreview() }
+            )
         }
     }
 }
@@ -1394,7 +1516,10 @@ private fun isPrescriptionForwardable(prescription: Prescription): Boolean {
 }
 
 @Composable
-private fun MedicineDetailCard(medicine: PrescriptionItem) {
+private fun MedicineDetailCard(
+    medicine: PrescriptionItem,
+    onScheduleReminder: (() -> Unit)? = null
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -1470,7 +1595,195 @@ private fun MedicineDetailCard(medicine: PrescriptionItem) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                if (onScheduleReminder != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onScheduleReminder,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF16A34A))
+                    ) {
+                        Icon(Icons.Filled.Alarm, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Set Reminder", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MedicationSchedulePreviewBottomSheet(
+    preview: com.example.swastik.ui.viewmodel.MedicationSchedulePreview,
+    isScheduling: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFDCFCE7)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Alarm,
+                        contentDescription = null,
+                        tint = Color(0xFF16A34A),
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Smart Medication Schedule",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Dr. ${preview.doctorName ?: "Doctor"} • ${preview.totalAlarmsCount} Daily Doses",
+                        fontSize = 13.sp,
+                        color = Color(0xFF16A34A)
+                    )
+                }
+            }
+
+            // Course Duration Banner
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFF0FDF4),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Outlined.DateRange,
+                        contentDescription = null,
+                        tint = Color(0xFF16A34A),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "📅 Course Duration: ${preview.maxDurationDays} Days (Active until ${preview.endDateFormatted})",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF166534)
+                    )
+                }
+            }
+
+            // Routine Slots List
+            val grouped = preview.slots.groupBy { it.period }
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                grouped.forEach { (period, slots) ->
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = period.label,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = Color(0xFFDCFCE7)
+                                    ) {
+                                        Text(
+                                            text = slots.firstOrNull()?.time ?: "",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF166534),
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+
+                                slots.forEach { slot ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "${slot.medicineName} (${slot.dosage})",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = slot.mealInstructionLabel,
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF15803D)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Confirm Button
+            Button(
+                onClick = onConfirm,
+                enabled = !isScheduling,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A), contentColor = Color.White)
+            ) {
+                if (isScheduling) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("Programming Alarms...", fontWeight = FontWeight.Bold)
+                } else {
+                    Icon(Icons.Filled.AlarmOn, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("⏰ Confirm & Set All ${preview.totalAlarmsCount} Alarms", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
         }
     }
 }

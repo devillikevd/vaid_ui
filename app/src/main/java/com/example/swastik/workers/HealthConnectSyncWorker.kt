@@ -43,7 +43,7 @@ class HealthConnectSyncWorker(
             val patientRepository = hiltEntryPoint.patientRepository()
             val healthConnectManager = HealthConnectManager(applicationContext)
 
-            if (!healthConnectManager.hasAllPermissions()) {
+            if (!healthConnectManager.hasPermissions()) {
                 Log.d(TAG, "Health Connect permissions not granted. Skipping background sync.")
                 return androidx.work.ListenableWorker.Result.success()
             }

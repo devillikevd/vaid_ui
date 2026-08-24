@@ -2,6 +2,7 @@ package com.example.swastik.data.repository
 
 import com.example.swastik.data.remote.ApiService
 import com.example.swastik.data.remote.dto.*
+import com.example.swastik.notifications.ReminderAlarmScheduler
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -10,7 +11,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class VitalsRepository @Inject constructor(
-    private val apiService: ApiService
+    private val apiService: ApiService,
+    private val alarmScheduler: ReminderAlarmScheduler
 ) {
 
     // ==================== VITALS ====================
@@ -58,7 +60,28 @@ class VitalsRepository @Inject constructor(
         return try {
             val response = apiService.getReminders(type, isActive)
             if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(response.body()?.data ?: emptyList())
+                val list = response.body()?.data ?: emptyList()
+                // Sync OS alarms for active reminders
+                list.filter { !it.isCompleted }.forEach { r ->
+                    try {
+                        alarmScheduler.schedule(
+                            com.example.swastik.data.model.Reminder(
+                                id = r.id,
+                                title = r.title,
+                                type = when (r.type.lowercase()) {
+                                    "appointment" -> com.example.swastik.data.model.ReminderType.APPOINTMENT
+                                    "test" -> com.example.swastik.data.model.ReminderType.TEST
+                                    else -> com.example.swastik.data.model.ReminderType.MEDICINE
+                                },
+                                time = r.time,
+                                days = r.days.orEmpty(),
+                                snoozeUntil = r.snoozeUntil,
+                                isCompleted = r.isCompleted
+                            )
+                        )
+                    } catch (_: Exception) {}
+                }
+                Result.Success(list)
             } else {
                 Result.Error("Failed to load reminders")
             }
@@ -74,9 +97,29 @@ class VitalsRepository @Inject constructor(
         return try {
             val response = apiService.createReminder(request)
             if (response.isSuccessful && response.body()?.success == true) {
-                response.body()?.data?.let {
-                    Result.Success(it)
-                } ?: Result.Error("Failed to create reminder")
+                val reminderDto = response.body()?.data
+                if (reminderDto != null) {
+                    try {
+                        alarmScheduler.schedule(
+                            com.example.swastik.data.model.Reminder(
+                                id = reminderDto.id,
+                                title = reminderDto.title,
+                                type = when (reminderDto.type.lowercase()) {
+                                    "appointment" -> com.example.swastik.data.model.ReminderType.APPOINTMENT
+                                    "test" -> com.example.swastik.data.model.ReminderType.TEST
+                                    else -> com.example.swastik.data.model.ReminderType.MEDICINE
+                                },
+                                time = reminderDto.time,
+                                days = reminderDto.days.orEmpty(),
+                                snoozeUntil = reminderDto.snoozeUntil,
+                                isCompleted = reminderDto.isCompleted
+                            )
+                        )
+                    } catch (_: Exception) {}
+                    Result.Success(reminderDto)
+                } else {
+                    Result.Error("Failed to create reminder")
+                }
             } else {
                 Result.Error(response.body()?.message ?: "Failed to create reminder")
             }
@@ -140,6 +183,7 @@ class VitalsRepository @Inject constructor(
         return try {
             val response = apiService.deleteReminder(id)
             if (response.isSuccessful && response.body()?.success == true) {
+                alarmScheduler.cancelById(id)
                 Result.Success(Unit)
             } else {
                 Result.Error(response.body()?.message ?: "Failed to delete reminder")

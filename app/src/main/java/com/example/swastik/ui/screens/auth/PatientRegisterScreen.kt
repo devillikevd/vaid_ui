@@ -77,7 +77,7 @@ import com.example.swastik.ui.theme.SwastikPrimary
 fun PatientRegisterScreen(
     onLoginClick: () -> Unit,
     onBackClick: () -> Unit,
-    onRegisterSuccess: (String) -> Unit
+    onRegisterSuccess: (email: String, name: String, phone: String, password: String) -> Unit
 ) {
     val viewModel: AuthViewModel = hiltViewModel()
     val uiState = viewModel.uiState
@@ -133,7 +133,7 @@ fun PatientRegisterScreen(
     LaunchedEffect(uiState.registrationComplete) {
         if (uiState.registrationComplete) {
             viewModel.onRegistrationNavigated()
-            onRegisterSuccess(normalizedEmail)
+            onRegisterSuccess(normalizedEmail, trimmedName, phoneForApi ?: "", password)
         }
     }
 
@@ -384,7 +384,7 @@ fun PatientRegisterScreen(
                 Button(
                     onClick = {
                         focusManager.clearFocus()
-                        viewModel.register(
+                        viewModel.sendRegistrationOtp(
                             name = trimmedName,
                             phone = phoneForApi,
                             email = normalizedEmail,

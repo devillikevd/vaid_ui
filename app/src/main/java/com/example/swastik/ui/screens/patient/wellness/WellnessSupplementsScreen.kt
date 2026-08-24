@@ -52,10 +52,17 @@ import com.example.swastik.ui.viewmodel.WellnessViewModel
 @Composable
 fun WellnessSupplementsScreen(
     onNavigateBack: () -> Unit,
-    viewModel: WellnessViewModel
+    viewModel: WellnessViewModel,
+    onNavigateToCart: () -> Unit = {},
+    medicineViewModel: com.example.swastik.ui.viewmodel.MedicineViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
+    val globalCart by medicineViewModel.globalCartState.collectAsState()
+    val pharmacyCart by medicineViewModel.pharmacyCartState.collectAsState()
+    val totalCartItems = remember(globalCart, pharmacyCart) {
+        globalCart.items.sumOf { it.quantity } + pharmacyCart.items.sumOf { it.quantity }
+    }
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
@@ -205,6 +212,19 @@ fun WellnessSupplementsScreen(
                     IconButton(onClick = { viewModel.refreshSupplements() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = TealDark)
                     }
+                    IconButton(onClick = onNavigateToCart) {
+                        BadgedBox(
+                            badge = {
+                                if (totalCartItems > 0) {
+                                    Badge(containerColor = TealPrimary) {
+                                        Text(totalCartItems.toString(), color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Outlined.ShoppingCart, contentDescription = "Cart", tint = TealDark)
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = TealSurface)
             )
@@ -348,11 +368,31 @@ fun WellnessSupplementsScreen(
                             product = product,
                             onCardClick = { selectedProductForDetail = product },
                             onQuickAdd = {
-                                Toast.makeText(
-                                    context,
-                                    "Added ${product.name} to Pharmacy Cart! ⚡ Dispatched in 2 hrs.",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                val med = com.example.swastik.data.model.Medicine(
+                                    id = product.id,
+                                    name = product.name,
+                                    manufacturer = product.brand ?: "Vaididea Verified",
+                                    price = (product.price ?: 0).toFloat(),
+                                    mrp = (product.price ?: 0).toFloat(),
+                                    requiresPrescription = false,
+                                    category = com.example.swastik.data.model.MedicineCategory.POWDER,
+                                    description = product.description,
+                                    imageUrl = product.imageUrl
+                                )
+                                val added = medicineViewModel.addToCart(
+                                    type = com.example.swastik.ui.viewmodel.CartType.GLOBAL,
+                                    medicine = med,
+                                    pharmacyId = "GLOBAL_REQUEST",
+                                    pharmacyName = "Vaididea Health Plaza",
+                                    quantity = 1
+                                )
+                                if (added) {
+                                    Toast.makeText(
+                                        context,
+                                        "Added ${product.name} to Pharmacy Cart! ⚡ Dispatched in 2 hrs.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             }
                         )
                     }
@@ -369,12 +409,31 @@ fun WellnessSupplementsScreen(
             product = product,
             onDismiss = { selectedProductForDetail = null },
             onBuyNow = {
+                val med = com.example.swastik.data.model.Medicine(
+                    id = product.id,
+                    name = product.name,
+                    manufacturer = product.brand ?: "Vaididea Verified",
+                    price = (product.price ?: 0).toFloat(),
+                    mrp = (product.price ?: 0).toFloat(),
+                    requiresPrescription = false,
+                    category = com.example.swastik.data.model.MedicineCategory.POWDER,
+                    description = product.description,
+                    imageUrl = product.imageUrl
+                )
+                medicineViewModel.addToCart(
+                    type = com.example.swastik.ui.viewmodel.CartType.GLOBAL,
+                    medicine = med,
+                    pharmacyId = "GLOBAL_REQUEST",
+                    pharmacyName = "Vaididea Health Plaza",
+                    quantity = 1
+                )
                 Toast.makeText(
                     context,
-                    "Order placed for ${product.name}! Nearest pharmacy is preparing your 2-hr delivery.",
-                    Toast.LENGTH_LONG
+                    "Added ${product.name} to Cart!",
+                    Toast.LENGTH_SHORT
                 ).show()
                 selectedProductForDetail = null
+                onNavigateToCart()
             }
         )
     }

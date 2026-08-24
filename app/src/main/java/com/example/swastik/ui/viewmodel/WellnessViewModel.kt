@@ -44,6 +44,7 @@ data class WellnessUiState(
     val workoutsCompletedToday: Int = 0,
     val stepsToday: Int = 0,
     val activeCaloriesToday: Int = 0,
+    val activeMinutesToday: Int = 0,
     val streakDays: Int = 0,
     val activePlan: PatientWorkoutPlanDto? = null,
     val reels: List<WellnessReelDto> = emptyList(),
@@ -106,12 +107,54 @@ class WellnessViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             fitnessRepository.getTodayLog().collect { log ->
+                val steps = log.totalSteps
+                val cal = log.caloriesBurned.toInt()
+                val guidance = computeDailyGuidance(steps, _uiState.value.activePlan, _uiState.value.aiInsights, _uiState.value.dailyGuidanceItems)
                 _uiState.value = _uiState.value.copy(
-                    stepsToday = log.totalSteps,
-                    activeCaloriesToday = log.caloriesBurned.toInt()
+                    stepsToday = steps,
+                    activeCaloriesToday = cal,
+                    dailyGuidanceItems = guidance
                 )
             }
         }
+    }
+
+    private fun computeDailyGuidance(
+        stepsToday: Int,
+        activePlan: PatientWorkoutPlanDto?,
+        aiInsights: List<JsonObject>,
+        existingItems: List<com.example.swastik.data.model.DailyGuidanceItem>
+    ): List<com.example.swastik.data.model.DailyGuidanceItem> {
+        val items = mutableListOf<com.example.swastik.data.model.DailyGuidanceItem>()
+        
+        // 1. Hydration
+        val hydDone = existingItems.find { it.id == "g1" }?.isDone ?: true
+        items.add(com.example.swastik.data.model.DailyGuidanceItem("g1", "Morning Hydration (500ml)", "07:30 AM", "Drink room-temp water with pinch of Himalayan pink salt.", hydDone))
+        
+        // 2. Dynamic Step Milestone based on real steps
+        val stepTarget = 8000
+        val isStepDone = stepsToday >= stepTarget
+        items.add(com.example.swastik.data.model.DailyGuidanceItem("g2", "8,000 Step Milestone (${stepsToday}/8,000)", "01:00 PM", if (isStepDone) "Goal Achieved! Great cardiovascular effort today! 🏆" else "Take a 10-minute post-lunch walk to blunt glucose spike.", isStepDone))
+        
+        // 3. Dynamic Workout guidance if active plan exists
+        if (activePlan != null && !activePlan.plan?.title.isNullOrBlank()) {
+            val workoutDone = existingItems.find { it.id == "g3" }?.isDone ?: false
+            items.add(com.example.swastik.data.model.DailyGuidanceItem("g3", "Today's Session: ${activePlan.plan?.title}", "05:30 PM", "Complete scheduled exercises and maintain proper tempo.", workoutDone))
+        } else {
+            val mobDone = existingItems.find { it.id == "g3" }?.isDone ?: false
+            items.add(com.example.swastik.data.model.DailyGuidanceItem("g3", "15-min Posture & Mobility", "05:30 PM", "Desk stretch & thoracic spine decompression.", mobDone))
+        }
+
+        // 4. AI Insight or Sleep Wind-down
+        val firstInsight = aiInsights.firstOrNull()?.get("recommendation")?.asString ?: aiInsights.firstOrNull()?.get("text")?.asString
+        val sleepDone = existingItems.find { it.id == "g4" }?.isDone ?: false
+        if (!firstInsight.isNullOrBlank()) {
+            items.add(com.example.swastik.data.model.DailyGuidanceItem("g4", "AI Clinical Tip", "09:00 PM", firstInsight, sleepDone))
+        } else {
+            items.add(com.example.swastik.data.model.DailyGuidanceItem("g4", "Magnesium & Sleep Wind-down", "10:00 PM", "Screen-free 45 mins before bed + 4-7-8 breathing.", sleepDone))
+        }
+
+        return items
     }
 
     // ==================== Smart Health Hub (single aggregate call) ====================
@@ -131,20 +174,28 @@ class WellnessViewModel @Inject constructor(
         }
     }
 
-    private fun WellnessUiState.applyHub(hub: WellnessHubDto?): WellnessUiState = copy(
-        patientName = hub?.patient?.name,
-        workoutPlanCount = hub?.counts?.workoutPlans ?: 0,
-        exerciseCount = hub?.counts?.exercises ?: 0,
-        coachCount = hub?.counts?.coaches ?: 0,
-        fitnessCenterCount = hub?.counts?.fitnessCenters ?: 0,
-        communityCount = (hub?.counts?.groups ?: 0) + (hub?.counts?.challenges ?: 0),
-        supplementCount = hub?.counts?.supplements ?: 0,
-        workoutsCompletedToday = hub?.workoutsCompletedToday ?: 0,
-        // stepsToday and activeCaloriesToday are managed by local FitnessRepository flow
-        streakDays = hub?.activeWorkoutPlan?.streakDays ?: 0,
-        activePlan = hub?.activeWorkoutPlan,
-        reels = hub?.reels ?: emptyList()
-    )
+    private fun WellnessUiState.applyHub(hub: WellnessHubDto?): WellnessUiState {
+        val steps = if (stepsToday > 0) stepsToday else (hub?.todayStats?.steps ?: 0)
+        val actPlan = hub?.activeWorkoutPlan ?: activePlan
+        val updatedGuidance = computeDailyGuidance(steps, actPlan, aiInsights, dailyGuidanceItems)
+        return copy(
+            patientName = hub?.patient?.name,
+            workoutPlanCount = hub?.counts?.workoutPlans ?: 0,
+            exerciseCount = hub?.counts?.exercises ?: 0,
+            coachCount = hub?.counts?.coaches ?: 0,
+            fitnessCenterCount = hub?.counts?.fitnessCenters ?: 0,
+            communityCount = (hub?.counts?.groups ?: 0) + (hub?.counts?.challenges ?: 0),
+            supplementCount = hub?.counts?.supplements ?: 0,
+            workoutsCompletedToday = hub?.workoutsCompletedToday ?: 0,
+            stepsToday = steps,
+            activeCaloriesToday = if (activeCaloriesToday > 0) activeCaloriesToday else (hub?.todayStats?.activeCalories ?: 0),
+            activeMinutesToday = hub?.todayStats?.activeMinutes ?: 0,
+            streakDays = hub?.activeWorkoutPlan?.streakDays ?: 0,
+            activePlan = actPlan,
+            reels = hub?.reels ?: emptyList(),
+            dailyGuidanceItems = updatedGuidance
+        )
+    }
 
     // ==================== Sub-screen targeted refreshers ====================
 
@@ -481,7 +532,7 @@ class WellnessViewModel @Inject constructor(
             if (_uiState.value.aiChatMessages.isEmpty()) {
                 val welcome = com.example.swastik.data.model.AiChatMessage(
                     isUser = false,
-                    text = "Hello! 🌟 I'm your Swastik AI Health & Fitness Coach. Ask me anything about your personalized workouts, nutrition plans, sleep recovery, or injury prevention!",
+                    text = "Hello! 🌟 I'm your Vaididea AI Health & Fitness Coach. Ask me anything about your personalized workouts, nutrition plans, sleep recovery, or injury prevention!",
                     quickPrompts = listOf("🥗 High-Protein Diet Plan", "🏃 15-min Home Workout", "😴 Deep Sleep Fix", "💧 Daily Hydration Target")
                 )
                 _uiState.value = _uiState.value.copy(aiChatMessages = listOf(welcome))

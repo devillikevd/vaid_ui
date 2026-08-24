@@ -303,14 +303,14 @@ export default function RegisterPage({ params }: RegisterPageProps) {
             }
 
             // Send registration OTP
-            const otpRes = await authApi.sendRegistrationOtp(email.trim(), name.trim());
+            const otpRes = await authApi.sendRegistrationOtp(email.trim(), name.trim(), ROLE_CONFIG[role]?.role || role);
             if (otpRes.success) {
                 setVerificationSent(true);
                 setVerificationComplete(false);
                 setVerificationError('');
                 setVerificationInfo('We sent a 6-digit verification code to your email.');
             } else {
-                setError(otpRes.error || 'Failed to send verification code. Please try again.');
+                setError(otpRes.message || otpRes.error || 'Failed to send verification code. Please try again.');
             }
         } catch (err: any) {
             setError(err.message || 'An unexpected error occurred');
@@ -324,9 +324,10 @@ export default function RegisterPage({ params }: RegisterPageProps) {
 
         setResendingOtp(true);
         setVerificationError('');
+        setVerificationInfo('');
 
         try {
-            const result = await authApi.resendVerification(email.trim());
+            const result = await authApi.sendRegistrationOtp(email.trim(), name.trim(), ROLE_CONFIG[role]?.role || role);
             if (result.success) {
                 setVerificationInfo(result.message || 'Verification code sent. Please check your inbox.');
                 setResendCooldown(60);

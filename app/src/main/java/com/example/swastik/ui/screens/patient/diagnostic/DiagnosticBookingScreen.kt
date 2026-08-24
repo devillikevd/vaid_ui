@@ -449,66 +449,8 @@ private fun CenterTestsView(
     patientDashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel? = null,
     onNavigateToBookingHistory: () -> Unit = {}
 ) {
-    var isUploading by remember { mutableStateOf(false) }
-    var uploadSuccess by remember { mutableStateOf(false) }
-    var showRecordsSheet by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-    var selectedUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var selectedPrescriptionId by remember { mutableStateOf<String?>(null) }
-    
-    val galleryLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
-    ) { uri: android.net.Uri? ->
-        uri?.let {
-            selectedUri = it
-            selectedPrescriptionId = null
-            isUploading = true
-            coroutineScope.launch {
-                kotlinx.coroutines.delay(1500)
-                isUploading = false
-                uploadSuccess = true
-            }
-        }
-    }
-    
-    val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.TakePicturePreview()
-    ) { bitmap ->
-        if (bitmap != null) {
-            selectedPrescriptionId = null
-            isUploading = true
-            coroutineScope.launch {
-                kotlinx.coroutines.delay(1500)
-                isUploading = false
-                uploadSuccess = true
-            }
-        }
-    }
-
-    var showCameraPermissionRationale by remember { mutableStateOf(false) }
-    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            try { cameraLauncher.launch(null) } catch (e: Exception) { e.printStackTrace() }
-        } else {
-            showCameraPermissionRationale = true
-        }
-    }
-
-    if (showCameraPermissionRationale) {
-        AlertDialog(
-            onDismissRequest = { showCameraPermissionRationale = false },
-            title = { Text(stringResource(R.string.permission_required)) },
-            text = { Text(stringResource(R.string.camera_permission_is_required_to)) },
-            confirmButton = {
-                TextButton(onClick = { showCameraPermissionRationale = false }) {
-                    Text(stringResource(R.string.ok_1))
-                }
-            }
-        )
-    }
-
+    var showRecordsSheet by remember { mutableStateOf(false) }
     if (showRecordsSheet) {
         ModalBottomSheet(onDismissRequest = { showRecordsSheet = false }) {
             val uiState by patientDashboardViewModel?.uiState?.collectAsState() ?: remember { mutableStateOf(null) }
@@ -525,12 +467,7 @@ private fun CenterTestsView(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
                                 showRecordsSheet = false
                                 selectedPrescriptionId = testRecord.id
-                                isUploading = true
-                                coroutineScope.launch {
-                                    kotlinx.coroutines.delay(1500)
-                                    isUploading = false
-                                    uploadSuccess = true
-                                }
+                                onPrescriptionUploadClick(testRecord.id)
                             },
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
@@ -606,57 +543,19 @@ private fun CenterTestsView(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
 
-            if (isUploading) {
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = DiagnosticAccent)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(stringResource(R.string.uploading_1), color = DiagnosticAccent)
-                }
-            } else if (uploadSuccess) {
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.uploaded_successfully), color = Color(0xFF4CAF50), fontWeight = FontWeight.SemiBold)
-                }
-                LaunchedEffect(Unit) {
-                    kotlinx.coroutines.delay(1000)
-                    onPrescriptionUploadClick(selectedPrescriptionId)
-                }
-            } else {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).padding(bottom = 8.dp)
+            // Only app-generated prescriptions from Records
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).padding(bottom = 8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { showRecordsSheet = true },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, DiagnosticAccent)
                 ) {
-                    OutlinedButton(
-                        onClick = { galleryLauncher.launch(arrayOf("image/*", "application/pdf")) },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, DiagnosticAccent)
-                    ) {
-                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = DiagnosticAccent, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.gallery), color = DiagnosticAccent, fontSize = 11.sp)
-                    }
-                    OutlinedButton(
-                        onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, DiagnosticAccent)
-                    ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = DiagnosticAccent, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.camera), color = DiagnosticAccent, fontSize = 11.sp)
-                    }
-                    OutlinedButton(
-                        onClick = { showRecordsSheet = true },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, DiagnosticAccent)
-                    ) {
-                        Icon(Icons.Default.Folder, contentDescription = null, tint = DiagnosticAccent, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.records), color = DiagnosticAccent, fontSize = 11.sp)
-                    }
+                    Icon(Icons.Default.Folder, contentDescription = null, tint = DiagnosticAccent, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.records), color = DiagnosticAccent, fontSize = 11.sp)
                 }
             }
         }
@@ -851,66 +750,125 @@ fun DiagnosticBookingFlow(
                         }
                         2 -> {
                             Column(
-                                modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(androidx.compose.foundation.rememberScrollState()),
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                Text(stringResource(R.string.collection_type), fontWeight = FontWeight.Medium, fontSize = 16.sp)
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Sample Collection Preference", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
                                     FilterChip(
                                         selected = collectionType == "walk_in",
                                         onClick = { collectionType = "walk_in" },
-                                        label = { Text(stringResource(R.string.walk_in)) }
+                                        label = { Text("🏥 Lab Center Visit", fontWeight = if (collectionType == "walk_in") FontWeight.Bold else FontWeight.Normal) },
+                                        modifier = Modifier.weight(1f),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = DiagnosticAccent.copy(alpha = 0.15f),
+                                            selectedLabelColor = DiagnosticAccent
+                                        )
                                     )
                                     FilterChip(
                                         selected = collectionType == "home_collection",
                                         onClick = { collectionType = "home_collection" },
-                                        label = { Text(stringResource(R.string.home_collection)) }
+                                        label = { Text("🏠 Home Sample Pickup", fontWeight = if (collectionType == "home_collection") FontWeight.Bold else FontWeight.Normal) },
+                                        modifier = Modifier.weight(1f),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = DiagnosticAccent.copy(alpha = 0.15f),
+                                            selectedLabelColor = DiagnosticAccent
+                                        )
                                     )
                                 }
                                 
                                 if (collectionType == "home_collection") {
-                                    OutlinedTextField(
-                                        value = patientPhone,
-                                        onValueChange = { patientPhone = it },
-                                        label = { Text(stringResource(R.string.phone_number) + " *") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
-                                        singleLine = true,
-                                        isError = patientPhone.isBlank()
+                                    com.example.swastik.ui.screens.patient.components.HomeAddressEditor(
+                                        initialAddress = collectionAddress,
+                                        onAddressSaved = { address ->
+                                            collectionAddress = address
+                                        }
                                     )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    
-                                    if (collectionAddress.isBlank()) {
-                                        com.example.swastik.ui.screens.patient.components.HomeAddressEditor(
-                                            initialAddress = "",
-                                            onAddressSaved = { address ->
-                                                collectionAddress = address
-                                            }
-                                        )
-                                    } else {
-                                        androidx.compose.material3.Card(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                                            colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                                            elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 2.dp)
+
+                                    // Contact Phone Number Card
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            verticalArrangement = Arrangement.spacedBy(10.dp)
                                         ) {
                                             Row(
-                                                modifier = Modifier.padding(16.dp),
-                                                verticalAlignment = Alignment.CenterVertically
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                                             ) {
-                                                Icon(Icons.Default.LocationOn, tint = DiagnosticAccent, contentDescription = null)
-                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Icon(
+                                                    Icons.Default.Phone,
+                                                    contentDescription = null,
+                                                    tint = DiagnosticAccent,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
                                                 Text(
-                                                    text = collectionAddress,
-                                                    modifier = Modifier.weight(1f),
+                                                    text = "Contact Phone for Phlebotomist / Technician",
+                                                    fontWeight = FontWeight.Bold,
                                                     fontSize = 14.sp
                                                 )
-                                                TextButton(
-                                                    onClick = { collectionAddress = "" },
-                                                    modifier = Modifier.padding(start = 8.dp)
-                                                ) {
-                                                    Text(stringResource(R.string.change_address), color = DiagnosticAccent, fontWeight = FontWeight.Bold)
+                                            }
+
+                                            OutlinedTextField(
+                                                value = patientPhone,
+                                                onValueChange = { patientPhone = it },
+                                                placeholder = { Text("Enter 10-digit mobile number", fontSize = 13.sp) },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
+                                                ),
+                                                shape = RoundedCornerShape(10.dp),
+                                                singleLine = true,
+                                                isError = patientPhone.isBlank(),
+                                                prefix = {
+                                                    Text("+91 ", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                                                 }
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    // Walk-in Instructions
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = CardDefaults.cardColors(containerColor = DiagnosticAccent.copy(alpha = 0.08f)),
+                                        border = BorderStroke(1.dp, DiagnosticAccent.copy(alpha = 0.3f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.LocationCity,
+                                                contentDescription = null,
+                                                tint = DiagnosticAccent,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Column {
+                                                Text(
+                                                    text = "Visit Lab Center in Person",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = "Show your digital booking token at reception desk upon arrival for priority queue.",
+                                                    fontSize = 12.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
                                             }
                                         }
                                     }

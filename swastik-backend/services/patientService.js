@@ -544,7 +544,20 @@ class PatientService {
       let actions = await cacheGet(actionsKey);
       if (actions && typeof actions === 'string') actions = JSON.parse(actions);
       
+      let adherenceStats = {
+        adherence_rate: 100,
+        streak_days: 1,
+        taken_today: 0,
+        total_today: reminders.length
+      };
+
       if (Array.isArray(actions)) {
+        const takenCount = actions.filter(a => a.action === 'taken').length;
+        const totalActed = actions.length;
+        adherenceStats.taken_today = takenCount;
+        adherenceStats.adherence_rate = totalActed > 0 ? Math.round((takenCount / totalActed) * 100) : 100;
+        adherenceStats.streak_days = takenCount > 0 ? Math.min(takenCount, 7) : 1;
+
         reminders = reminders.map(reminder => {
           const actionsForReminder = actions.filter(a => a.reminderId === reminder.id);
           const actionEvent = actionsForReminder.sort((a, b) => new Date(b.actedAt) - new Date(a.actedAt))[0];
@@ -582,6 +595,7 @@ class PatientService {
       patient: { id: patient.id, name: patient.name },
       upcomingAppointments,
       reminders,
+      adherence: adherenceStats,
       recentConsultations,
       notifications,
       unreadNotificationCount: unreadCount,

@@ -193,8 +193,11 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideVitalsRepository(apiService: ApiService): VitalsRepository {
-        return VitalsRepository(apiService)
+    fun provideVitalsRepository(
+        apiService: ApiService,
+        alarmScheduler: com.example.swastik.notifications.ReminderAlarmScheduler
+    ): VitalsRepository {
+        return VitalsRepository(apiService, alarmScheduler)
     }
 
     // ==================== Room Database ====================

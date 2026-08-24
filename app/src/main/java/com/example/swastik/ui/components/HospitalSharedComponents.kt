@@ -398,10 +398,11 @@ fun TrustBadgesRow(
                 contentColor = accentBlue
             ))
         }
-        facility.openingHours?.takeIf { it.isNotBlank() }?.let { hours ->
+        val timingsBadge = com.example.swastik.util.FacilityTimingsFormatter.getBadgeTimingsLabel(facility)
+        timingsBadge?.takeIf { it.isNotBlank() }?.let { hoursLabel ->
             add(TrustBadgeData(
                 icon = Icons.Default.AccessTime,
-                label = hours,
+                label = hoursLabel,
                 containerColor = if (isDark) Color(0xFF1E3A5F) else Color(0xFFDBEAFE),
                 contentColor = if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB)
             ))

@@ -163,6 +163,17 @@ data class RegisterRequest(
     val role: String = "patient"
 )
 
+data class SendRegistrationOtpRequest(
+    val email: String,
+    val name: String? = null,
+    val role: String = "patient"
+)
+
+data class VerifyRegistrationOtpRequest(
+    val email: String,
+    val otp: String
+)
+
 data class ResendVerificationRequest(
     val email: String
 )
@@ -213,12 +224,12 @@ data class AuthResponse(
 
 data class UserDto(
     val id: String,
-    val email: String,
-    val phone: String,
-    val role: String,
-    val name: String?,
+    val email: String? = null,
+    val phone: String? = null,
+    val role: String = "patient",
+    val name: String? = null,
     @SerializedName("is_verified")
-    val isVerified: Boolean
+    val isVerified: Boolean = false
 )
 
 // ==================== PATIENT DTOs ====================
@@ -356,9 +367,17 @@ data class MedicalRecordAccessDto(
     val expiresAt: String? = null
 )
 
+data class AdherenceStatsDto(
+    @SerializedName("adherence_rate") val adherenceRate: Int? = 100,
+    @SerializedName("streak_days") val streakDays: Int? = 1,
+    @SerializedName("taken_today") val takenToday: Int? = 0,
+    @SerializedName("total_today") val totalToday: Int? = 0
+)
+
 data class PatientDashboardResponse(
     val success: Boolean,
     val reminders: List<ReminderDto>?,
+    val adherence: AdherenceStatsDto? = null,
     val upcomingAppointments: List<AppointmentDto>?,
     val recentConsultations: List<ConsultationDto>?,
     val stats: PatientStatsDto?,
@@ -1375,7 +1394,8 @@ data class WellnessWorkoutPlanDto(
     @SerializedName("duration_weeks") val durationWeeks: Int? = null,
     @SerializedName("days_per_week") val daysPerWeek: Int? = null,
     val equipment: List<String>? = null,
-    @SerializedName("cover_image_url") val coverImageUrl: String? = null
+    @SerializedName("cover_image_url") val coverImageUrl: String? = null,
+    val sessions: List<WorkoutSessionDto>? = null
 )
 
 data class ExerciseLibraryDto(

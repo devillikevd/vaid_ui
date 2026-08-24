@@ -92,9 +92,9 @@ class CommunityService {
       query = query.eq('category', category);
     }
 
-    if (search) {
-      const safeSearch = search.replace(/,/g, ' '); 
-      query = query.or(`fts.fts.english."${safeSearch}",title.ilike.%${safeSearch}%,content.ilike.%${safeSearch}%,topic.ilike.%${safeSearch}%`);
+    if (search && search.trim()) {
+      const safeSearch = search.trim().replace(/[%_]/g, ''); 
+      query = query.or(`title.ilike.%${safeSearch}%,content.ilike.%${safeSearch}%,topic.ilike.%${safeSearch}%,category.ilike.%${safeSearch}%`);
     }
 
     if (filter === 'My Specialty') {
@@ -244,12 +244,20 @@ class CommunityService {
     }
 
     let bookmarkedQuestionIds = [];
+    let upvotedQuestionIds = [];
     if (userId) {
-      const { data: bookmarks } = await rawSupabaseAdmin
-        .from('community_bookmarks')
-        .select('question_id')
-        .eq('user_id', userId);
-      bookmarkedQuestionIds = bookmarks?.map(b => b.question_id) || [];
+      const [bookmarksRes, upvotesRes] = await Promise.all([
+        rawSupabaseAdmin
+          .from('community_bookmarks')
+          .select('question_id')
+          .eq('user_id', userId),
+        rawSupabaseAdmin
+          .from('community_question_upvotes')
+          .select('question_id')
+          .eq('user_id', userId)
+      ]);
+      bookmarkedQuestionIds = bookmarksRes.data?.map(b => b.question_id) || [];
+      upvotedQuestionIds = upvotesRes.data?.map(u => u.question_id) || [];
     }
 
     await this._enrichAnswersWithOrgData(processedQuestions);
@@ -257,7 +265,8 @@ class CommunityService {
     return {
       questions: processedQuestions.map(q => ({
         ...q,
-        is_bookmarked: bookmarkedQuestionIds.includes(q.id)
+        is_bookmarked: bookmarkedQuestionIds.includes(q.id),
+        is_upvoted: upvotedQuestionIds.includes(q.id)
       })),
       total: count
     };
@@ -278,9 +287,9 @@ class CommunityService {
         statsQuery = statsQuery.eq('category', category);
       }
 
-      if (search) {
-        const safeSearch = search.replace(/,/g, ' ');
-        statsQuery = statsQuery.or(`fts.fts.english."${safeSearch}",title.ilike.%${safeSearch}%,content.ilike.%${safeSearch}%,topic.ilike.%${safeSearch}%`);
+      if (search && search.trim()) {
+        const safeSearch = search.trim().replace(/[%_]/g, '');
+        statsQuery = statsQuery.or(`title.ilike.%${safeSearch}%,content.ilike.%${safeSearch}%,topic.ilike.%${safeSearch}%,category.ilike.%${safeSearch}%`);
       }
 
       if (filter === 'Answered') {
@@ -328,12 +337,20 @@ class CommunityService {
       const sortedQuestions = ids.map(id => questions.find(q => q.id === id)).filter(Boolean);
 
       let bookmarkedQuestionIds = [];
+      let upvotedQuestionIds = [];
       if (userId) {
-        const { data: bookmarks } = await rawSupabaseAdmin
-          .from('community_bookmarks')
-          .select('question_id')
-          .eq('user_id', userId);
-        bookmarkedQuestionIds = bookmarks?.map(b => b.question_id) || [];
+        const [bookmarksRes, upvotesRes] = await Promise.all([
+          rawSupabaseAdmin
+            .from('community_bookmarks')
+            .select('question_id')
+            .eq('user_id', userId),
+          rawSupabaseAdmin
+            .from('community_question_upvotes')
+            .select('question_id')
+            .eq('user_id', userId)
+        ]);
+        bookmarkedQuestionIds = bookmarksRes.data?.map(b => b.question_id) || [];
+        upvotedQuestionIds = upvotesRes.data?.map(u => u.question_id) || [];
       }
 
       const qResult = sortedQuestions.map(q => {
@@ -345,7 +362,8 @@ class CommunityService {
           answers: q.answers?.filter(a => a.status === 'active') || [],
           answer_count: q.answers?.filter(a => a.status === 'active').length || 0,
           has_verified_answer: q.answers?.some(a => a.is_doctor_verified && a.status === 'active') || false,
-          is_bookmarked: bookmarkedQuestionIds.includes(q.id)
+          is_bookmarked: bookmarkedQuestionIds.includes(q.id),
+          is_upvoted: upvotedQuestionIds.includes(q.id)
         };
       });
 
@@ -393,16 +411,39 @@ class CommunityService {
     question.answer_count = question.answers.length;
     question.has_verified_answer = question.answers.some(a => a.is_doctor_verified);
 
+    let upvotedAnswerIds = [];
     if (userId) {
-      const { data: bookmark } = await rawSupabaseAdmin
-        .from('community_bookmarks')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('question_id', questionId)
-        .maybeSingle();
-      question.is_bookmarked = !!bookmark;
+      const [bookmarkRes, qUpvoteRes, aUpvotesRes] = await Promise.all([
+        rawSupabaseAdmin
+          .from('community_bookmarks')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('question_id', questionId)
+          .maybeSingle(),
+        rawSupabaseAdmin
+          .from('community_question_upvotes')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('question_id', questionId)
+          .maybeSingle(),
+        rawSupabaseAdmin
+          .from('community_answer_upvotes')
+          .select('answer_id')
+          .eq('user_id', userId)
+      ]);
+      question.is_bookmarked = !!bookmarkRes.data;
+      question.is_upvoted = !!qUpvoteRes.data;
+      upvotedAnswerIds = aUpvotesRes.data?.map(a => a.answer_id) || [];
     } else {
       question.is_bookmarked = false;
+      question.is_upvoted = false;
+    }
+
+    if (question.answers) {
+      question.answers = question.answers.map(ans => ({
+        ...ans,
+        is_upvoted: upvotedAnswerIds.includes(ans.id)
+      }));
     }
 
     if (questionId) {
@@ -675,96 +716,147 @@ class CommunityService {
   }
 
   async upvoteQuestion(questionId, userId, actionReq = 'upvote') {
-    let action = actionReq;
-    if (userId) {
-      const lockKey = `upvote:q:${questionId}:u:${userId}`;
-      if (action === 'upvote') {
-          await cacheSetIfNotExists(lockKey, '1', 60 * 60 * 24 * 365);
-      } else {
-          await cacheDel(lockKey);
-      }
+    if (!userId) {
+      throw new ApiError(401, 'Please log in to upvote questions');
     }
 
+    let action = actionReq;
+
+    // Check if user already upvoted
+    const { data: existingUpvote } = await rawSupabaseAdmin
+      .from('community_question_upvotes')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('question_id', questionId)
+      .maybeSingle();
+
     if (action === 'upvote') {
-      const { data: question, error } = await rawSupabaseAdmin
-        .rpc('increment_question_upvotes', { q_id: questionId });
-        
-      if (error) {
-        const { data: current } = await rawSupabaseAdmin
-          .from('community_questions')
-          .select('upvotes')
-          .eq('id', questionId)
-          .single();
-          
-        if (current) {
-          await rawSupabaseAdmin
-            .from('community_questions')
-            .update({ upvotes: current.upvotes + 1 })
-            .eq('id', questionId);
-        }
+      if (existingUpvote) {
+        // Already upvoted — do NOT increment again!
+        return { message: 'Already upvoted', action: 'upvote', is_upvoted: true };
       }
-      return { message: 'Upvoted successfully', action: 'upvote' };
-    } else {
+
+      // Record upvote in database
+      const { error: insertErr } = await rawSupabaseAdmin
+        .from('community_question_upvotes')
+        .insert({ user_id: userId, question_id: questionId });
+
+      if (insertErr && insertErr.code !== '23505') { // 23505 = unique constraint conflict
+        throw new ApiError(500, 'Failed to record upvote');
+      }
+
+      // Increment upvote count
       const { data: current } = await rawSupabaseAdmin
         .from('community_questions')
         .select('upvotes')
         .eq('id', questionId)
         .single();
         
-      if (current && current.upvotes > 0) {
+      if (current) {
         await rawSupabaseAdmin
           .from('community_questions')
-          .update({ upvotes: current.upvotes - 1 })
+          .update({ upvotes: (current.upvotes || 0) + 1 })
           .eq('id', questionId);
       }
-      return { message: 'Upvote removed', action: 'remove' };
+
+      return { message: 'Upvoted successfully', action: 'upvote', is_upvoted: true };
+    } else {
+      // Remove upvote
+      if (!existingUpvote) {
+        return { message: 'Not upvoted', action: 'remove', is_upvoted: false };
+      }
+
+      await rawSupabaseAdmin
+        .from('community_question_upvotes')
+        .delete()
+        .eq('user_id', userId)
+        .eq('question_id', questionId);
+
+      const { data: current } = await rawSupabaseAdmin
+        .from('community_questions')
+        .select('upvotes')
+        .eq('id', questionId)
+        .single();
+        
+      if (current && (current.upvotes || 0) > 0) {
+        await rawSupabaseAdmin
+          .from('community_questions')
+          .update({ upvotes: Math.max(0, current.upvotes - 1) })
+          .eq('id', questionId);
+      }
+
+      return { message: 'Upvote removed', action: 'remove', is_upvoted: false };
     }
   }
 
   async upvoteAnswer(answerId, userId, actionReq = 'upvote') {
-    let action = actionReq;
-    if (userId) {
-      const lockKey = `upvote:a:${answerId}:u:${userId}`;
-      if (action === 'upvote') {
-          await cacheSetIfNotExists(lockKey, '1', 60 * 60 * 24 * 365);
-      } else {
-          await cacheDel(lockKey);
-      }
+    if (!userId) {
+      throw new ApiError(401, 'Please log in to upvote answers');
     }
 
+    let action = actionReq;
+
+    // Check if user already upvoted
+    const { data: existingUpvote } = await rawSupabaseAdmin
+      .from('community_answer_upvotes')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('answer_id', answerId)
+      .maybeSingle();
+
     if (action === 'upvote') {
-      const { data: answer, error } = await rawSupabaseAdmin
-        .rpc('increment_answer_upvotes', { a_id: answerId });
-        
-      if (error) {
-        const { data: current } = await rawSupabaseAdmin
-          .from('community_answers')
-          .select('upvotes')
-          .eq('id', answerId)
-          .single();
-          
-        if (current) {
-          await rawSupabaseAdmin
-            .from('community_answers')
-            .update({ upvotes: current.upvotes + 1 })
-            .eq('id', answerId);
-        }
+      if (existingUpvote) {
+        // Already upvoted — do NOT increment again!
+        return { message: 'Already upvoted', action: 'upvote', is_upvoted: true };
       }
-      return { message: 'Upvoted successfully', action: 'upvote' };
-    } else {
+
+      const { error: insertErr } = await rawSupabaseAdmin
+        .from('community_answer_upvotes')
+        .insert({ user_id: userId, answer_id: answerId });
+
+      if (insertErr && insertErr.code !== '23505') {
+        throw new ApiError(500, 'Failed to record answer upvote');
+      }
+
       const { data: current } = await rawSupabaseAdmin
         .from('community_answers')
         .select('upvotes')
         .eq('id', answerId)
         .single();
         
-      if (current && current.upvotes > 0) {
+      if (current) {
         await rawSupabaseAdmin
           .from('community_answers')
-          .update({ upvotes: current.upvotes - 1 })
+          .update({ upvotes: (current.upvotes || 0) + 1 })
           .eq('id', answerId);
       }
-      return { message: 'Upvote removed', action: 'remove' };
+
+      return { message: 'Upvoted successfully', action: 'upvote', is_upvoted: true };
+    } else {
+      if (!existingUpvote) {
+        return { message: 'Not upvoted', action: 'remove', is_upvoted: false };
+      }
+
+      await rawSupabaseAdmin
+        .from('community_answer_upvotes')
+        .delete()
+        .eq('user_id', userId)
+        .eq('answer_id', answerId);
+
+      const { data: current } = await rawSupabaseAdmin
+        .from('community_answers')
+        .select('upvotes')
+        .eq('id', answerId)
+        .single();
+        
+      if (current && (current.upvotes || 0) > 0) {
+        await rawSupabaseAdmin
+          .from('community_answers')
+          .update({ upvotes: Math.max(0, current.upvotes - 1) })
+          .eq('id', answerId);
+      }
+
+      return { message: 'Upvote removed', action: 'remove', is_upvoted: false };
     }
   }
 

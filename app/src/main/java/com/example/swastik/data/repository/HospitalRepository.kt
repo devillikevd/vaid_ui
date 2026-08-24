@@ -17,6 +17,8 @@ import com.example.swastik.data.remote.dto.FitnessBookingRequest
 import com.example.swastik.data.remote.dto.FitnessCenterDto
 import com.example.swastik.data.remote.dto.PharmacyDto
 import com.example.swastik.data.remote.dto.PharmacyInventoryItemDto
+import com.example.swastik.util.toResolvedMediaUrl
+import com.example.swastik.util.toResolvedMediaUrls
 import com.example.swastik.utils.NavigationHelper
 import okhttp3.ResponseBody
 import org.json.JSONObject
@@ -785,7 +787,7 @@ class HospitalRepository @Inject constructor(
                 }
             },
             is24Hours = is24Hours ?: false,
-            imageUrl = imageUrl,
+            imageUrl = imageUrl.toResolvedMediaUrl(),
             isEmergencyAvailable = isEmergencyAvailable ?: false,
             specializations = resolvedSpecializations,
             doctors = resolvedDoctors,
@@ -794,19 +796,16 @@ class HospitalRepository @Inject constructor(
             totalBeds = totalBeds,
             bedsAvailable = bedsAvailable,
             facilities = facilities.orEmpty(),
-            images = galleryUrls.orEmpty(),
+            images = galleryUrls.toResolvedMediaUrls(),
             accreditations = accreditations.orEmpty(),
             description = description,
             openingHours = openingHours,
             websiteUrl = websiteUrl,
             establishedYear = establishedYear,
             insuranceAccepted = insuranceAccepted.orEmpty(),
-            reels = reels.orEmpty(),
+            reels = reels.orEmpty().map { it.copy(videoUrl = it.videoUrl.toResolvedMediaUrl() ?: it.videoUrl, thumbnailUrl = it.thumbnailUrl.toResolvedMediaUrl()) },
             erWaitTimeMinutes = erWaitTimeMinutes,
-            virtualTourUrl = virtualTourUrl,
-            floorGuideMapUrl = floorGuideMapUrl,
-            associatedPharmacies = associatedPharmacies.orEmpty(),
-            associatedDiagnosticCenters = associatedDiagnosticCenters.orEmpty()
+            virtualTourUrl = virtualTourUrl.toResolvedMediaUrl()
         )
     }
 
@@ -815,6 +814,38 @@ private fun ClinicDto.toMedicalFacility(
     userLongitude: Double? = null
 ): MedicalFacility {
     val distKm = resolvedDistanceKm(latitude, longitude, distance, userLatitude, userLongitude)
+    val parsedSchedule = com.example.swastik.util.FacilityTimingsFormatter.parseSchedule(openingHours)
+    val todaySchedule = if (parsedSchedule.isNotEmpty()) com.example.swastik.util.FacilityTimingsFormatter.getTodaySchedule(parsedSchedule) else null
+    val effectiveOpenTime = openTime?.takeIf { it.isNotBlank() } ?: todaySchedule?.openTime?.takeIf { it.isNotBlank() }
+    val effectiveCloseTime = closeTime?.takeIf { it.isNotBlank() } ?: todaySchedule?.closeTime?.takeIf { it.isNotBlank() }
+    val effectiveIsOpen = when {
+        is24Hours == true -> true
+        todaySchedule != null -> {
+            if (!todaySchedule.isOpen) false
+            else if (effectiveOpenTime.isNullOrBlank() || effectiveCloseTime.isNullOrBlank()) true
+            else {
+                val now = java.time.LocalTime.now()
+                val open = try { java.time.LocalTime.parse(effectiveOpenTime) } catch (_: Exception) { null }
+                val close = try { java.time.LocalTime.parse(effectiveCloseTime) } catch (_: Exception) { null }
+                when {
+                    open != null && close != null -> if (open.isBefore(close)) now.isAfter(open) && now.isBefore(close) else now.isAfter(open) || now.isBefore(close)
+                    else -> true
+                }
+            }
+        }
+        else -> {
+            val now = java.time.LocalTime.now()
+            val open = openTime?.let { try { java.time.LocalTime.parse(it) } catch (_: Exception) { null } }
+            val close = closeTime?.let { try { java.time.LocalTime.parse(it) } catch (_: Exception) { null } }
+            when {
+                open == null && close == null -> true
+                open != null && close != null -> if (open.isBefore(close)) now.isAfter(open) && now.isBefore(close) else now.isAfter(open) || now.isBefore(close)
+                open != null -> now.isAfter(open)
+                close != null -> now.isBefore(close)
+                else -> true
+            }
+        }
+    }
     return MedicalFacility(
         id = id,
         name = name,
@@ -831,30 +862,19 @@ private fun ClinicDto.toMedicalFacility(
         latitude = latitude ?: 0.0,
         longitude = longitude ?: 0.0,
         phone = phone ?: "",
-        openTime = openTime,
-        closeTime = closeTime,
-        isOpen = is24Hours == true || run {
-            val now = java.time.LocalTime.now()
-            val open = openTime?.let { try { java.time.LocalTime.parse(it) } catch (_: Exception) { null } }
-            val close = closeTime?.let { try { java.time.LocalTime.parse(it) } catch (_: Exception) { null } }
-            when {
-                open == null && close == null -> true
-                open != null && close != null -> if (open.isBefore(close)) now.isAfter(open) && now.isBefore(close) else now.isAfter(open) || now.isBefore(close)
-                open != null -> now.isAfter(open)
-                close != null -> now.isBefore(close)
-                else -> true
-            }
-        },
+        openTime = effectiveOpenTime,
+        closeTime = effectiveCloseTime,
+        isOpen = effectiveIsOpen,
         is24Hours = is24Hours ?: false,
         specializations = specializations ?: emptyList(),
-        imageUrl = imageUrl,
+        imageUrl = imageUrl.toResolvedMediaUrl(),
         facilities = facilities ?: emptyList(),
         departments = departments?.map { it.name ?: "" }?.filter { it.isNotBlank() } ?: emptyList(),
         images = buildList {
-            imageUrl?.let { add(it) }
-            galleryUrls?.let { addAll(it) }
-            images?.let { addAll(it) }
-        },
+            imageUrl.toResolvedMediaUrl()?.let { add(it) }
+            galleryUrls.toResolvedMediaUrls().let { addAll(it) }
+            images.toResolvedMediaUrls().let { addAll(it) }
+        }.distinct(),
         description = description,
         accreditations = accreditations ?: emptyList(),
         totalBeds = null,
@@ -864,13 +884,13 @@ private fun ClinicDto.toMedicalFacility(
         establishedYear = establishedYear,
         websiteUrl = websiteUrl,
         openingHours = openingHours,
-        virtualTourUrl = virtualTourUrl,
+        virtualTourUrl = virtualTourUrl.toResolvedMediaUrl(),
         isEmergencyAvailable = isEmergencyAvailable ?: false,
         reels = reels?.map { reel ->
             HospitalReel(
                 id = reel.id ?: "",
-                videoUrl = reel.videoUrl ?: "",
-                thumbnailUrl = reel.thumbnailUrl,
+                videoUrl = reel.videoUrl.toResolvedMediaUrl() ?: reel.videoUrl ?: "",
+                thumbnailUrl = reel.thumbnailUrl.toResolvedMediaUrl(),
                 title = reel.title,
                 createdAt = reel.createdAt
             )
@@ -888,7 +908,7 @@ private fun ClinicDto.toMedicalFacility(
             experience = experienceYears?.takeIf { it > 0 }?.let { "$it yrs" } ?: "Clinic specialist",
             rating = resolvedRating,
             consultationFee = consultationFee ?: 0,
-            profileImageUrl = profileImageUrl
+            profileImageUrl = profileImageUrl.toResolvedMediaUrl()
         )
     }
 
@@ -924,13 +944,13 @@ private fun ClinicDto.toMedicalFacility(
                 }
             },
             is24Hours = is24Hours ?: false,
-            imageUrl = imageUrl,
-            images = galleryUrls ?: emptyList(),
+            imageUrl = imageUrl.toResolvedMediaUrl(),
+            images = galleryUrls.toResolvedMediaUrls(),
             reels = reels?.map { reel ->
                 HospitalReel(
                     id = reel.id ?: "",
-                    videoUrl = reel.videoUrl ?: "",
-                    thumbnailUrl = reel.thumbnailUrl,
+                    videoUrl = reel.videoUrl.toResolvedMediaUrl() ?: reel.videoUrl ?: "",
+                    thumbnailUrl = reel.thumbnailUrl.toResolvedMediaUrl(),
                     title = reel.title,
                     createdAt = reel.createdAt
                 )
@@ -975,21 +995,21 @@ private fun ClinicDto.toMedicalFacility(
                 }
             },
             is24Hours = is24Hours ?: false,
-            imageUrl = imageUrl,
+            imageUrl = imageUrl.toResolvedMediaUrl(),
             isEmergencyAvailable = emergencyServices ?: false,
             specializations = specialties ?: emptyList(),
             homeCollectionAvailable = homeCollectionAvailable ?: false,
             homeCollectionFee = homeCollectionFee,
             testCategories = specialties ?: emptyList(),
             accreditations = accreditations ?: emptyList(),
-            images = galleryUrls ?: emptyList(),
+            images = galleryUrls.toResolvedMediaUrls(),
             hospitalId = hospitalId,
             clinicId = clinicId,
             reels = reels?.map { reel ->
                 HospitalReel(
                     id = reel.id ?: "",
-                    videoUrl = reel.videoUrl ?: "",
-                    thumbnailUrl = reel.thumbnailUrl,
+                    videoUrl = reel.videoUrl.toResolvedMediaUrl() ?: reel.videoUrl ?: "",
+                    thumbnailUrl = reel.thumbnailUrl.toResolvedMediaUrl(),
                     title = reel.title,
                     createdAt = reel.createdAt
                 )
@@ -1014,8 +1034,8 @@ private fun ClinicDto.toMedicalFacility(
     ): MedicalFacility {
         val distKm = resolvedDistanceKm(latitude, longitude, distance?.toFloat(), userLatitude, userLongitude)
         val photoUrls = buildList {
-            coverImageUrl?.takeIf { it.isNotBlank() }?.let { add(it) }
-            photos.orEmpty().filter { it.isNotBlank() }.forEach { add(it) }
+            coverImageUrl.toResolvedMediaUrl()?.takeIf { it.isNotBlank() }?.let { add(it) }
+            photos.toResolvedMediaUrls().filter { it.isNotBlank() }.forEach { add(it) }
         }.distinct()
         val centerFacilities = (
             facilities.orEmpty() +
@@ -1057,7 +1077,7 @@ private fun ClinicDto.toMedicalFacility(
                     experience = trainer.role?.replace("_", " ") ?: coach.headline ?: "Trainer",
                     rating = coach.rating?.toFloat() ?: 0f,
                     consultationFee = coach.sessionFee?.toInt() ?: 0,
-                    profileImageUrl = coach.profileImageUrl
+                    profileImageUrl = coach.profileImageUrl.toResolvedMediaUrl()
                 )
             }
             .distinctBy { it.id }
@@ -1092,7 +1112,7 @@ private fun ClinicDto.toMedicalFacility(
             phone = phone ?: "",
             isOpen = is24Hours ?: true,
             is24Hours = is24Hours ?: false,
-            imageUrl = coverImageUrl ?: photoUrls.firstOrNull(),
+            imageUrl = coverImageUrl.toResolvedMediaUrl() ?: photoUrls.firstOrNull(),
             specializations = buildList {
                 typeLabel?.let { add(it) }
                 addAll(classLabels.take(6))
@@ -1118,8 +1138,8 @@ private fun ClinicDto.toMedicalFacility(
             reels = reels?.map { reel ->
                 HospitalReel(
                     id = reel.id ?: "",
-                    videoUrl = reel.videoUrl ?: "",
-                    thumbnailUrl = reel.thumbnailUrl,
+                    videoUrl = reel.videoUrl.toResolvedMediaUrl() ?: reel.videoUrl ?: "",
+                    thumbnailUrl = reel.thumbnailUrl.toResolvedMediaUrl(),
                     title = reel.title,
                     createdAt = reel.createdAt
                 )

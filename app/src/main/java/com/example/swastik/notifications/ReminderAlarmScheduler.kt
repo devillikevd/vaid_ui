@@ -48,11 +48,9 @@ class AndroidAlarmScheduler @Inject constructor(
 
             // 2. If not snoozed, calculate regular schedule
             if (finalTimeInMillis == null) {
-                val parts = reminder.time.split(":")
-                if (parts.size < 2) return
-                val hour = parts[0].toInt()
-                val minute = parts[1].toInt()
-                if (hour !in 0..23 || minute !in 0..59) return
+                val timePair = parseReminderTime(reminder.time) ?: return
+                val hour = timePair.first
+                val minute = timePair.second
 
                 var alarmTime = LocalDateTime.now().withHour(hour).withMinute(minute).withSecond(0).withNano(0)
 
@@ -103,6 +101,7 @@ class AndroidAlarmScheduler @Inject constructor(
                 putExtra("EXTRA_REMINDER_TIME", reminder.time)
                 putExtra("EXTRA_REMINDER_TYPE", reminder.type.name)
                 putExtra("EXTRA_REMINDER_DAYS", reminder.days.toTypedArray())
+                putExtra("EXTRA_REMINDER_NOTES", reminder.notes)
             }
 
             val pendingIntent = PendingIntent.getBroadcast(
@@ -159,3 +158,34 @@ class AndroidAlarmScheduler @Inject constructor(
         // to pass the list of reminders to cancel.
     }
 }
+
+/**
+ * Resilient time parser for both 12-hour (AM/PM) and 24-hour time strings.
+ */
+private fun parseReminderTime(raw: String): Pair<Int, Int>? {
+    val trimmed = raw.trim()
+    // 12-hour format: "08:00 AM", "8:30 pm", "8:00PM", "08:00am"
+    val amPmRegex = """(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)""".toRegex()
+    val matchAmPm = amPmRegex.find(trimmed)
+    if (matchAmPm != null) {
+        val (hStr, mStr, period) = matchAmPm.destructured
+        var h = hStr.toIntOrNull() ?: return null
+        val m = mStr.toIntOrNull() ?: return null
+        if (period.equals("PM", ignoreCase = true) && h < 12) h += 12
+        if (period.equals("AM", ignoreCase = true) && h == 12) h = 0
+        if (h in 0..23 && m in 0..59) return Pair(h, m)
+    }
+
+    // 24-hour format: "08:00", "20:30", "8:00"
+    val h24Regex = """(\d{1,2}):(\d{2})""".toRegex()
+    val match24 = h24Regex.find(trimmed)
+    if (match24 != null) {
+        val (hStr, mStr) = match24.destructured
+        val h = hStr.toIntOrNull() ?: return null
+        val m = mStr.toIntOrNull() ?: return null
+        if (h in 0..23 && m in 0..59) return Pair(h, m)
+    }
+
+    return null
+}
+

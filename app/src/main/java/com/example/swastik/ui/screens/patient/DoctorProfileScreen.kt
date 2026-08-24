@@ -17,6 +17,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -82,7 +84,7 @@ fun DoctorProfileScreen(
                 title = { Text(stringResource(R.string.doctor_profile), fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -475,7 +477,7 @@ fun DoctorProfileContent(
                 ) {
                     Text(stringResource(R.string.view_full_queue_status), color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Icon(Icons.Default.ArrowForward, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
                 }
             }
         }
@@ -743,7 +745,7 @@ fun DoctorProfileContent(
                     repeat(5) { i ->
                         val icon = when {
                             avgRating >= i + 1 -> Icons.Filled.Star
-                            avgRating >= i + 0.5f -> Icons.Filled.StarHalf
+                            avgRating >= i + 0.5f -> Icons.AutoMirrored.Filled.StarHalf
                             else -> Icons.Outlined.StarOutline
                         }
                         Icon(icon, contentDescription = null, tint = Color(0xFFFFB800), modifier = Modifier.size(16.dp))
@@ -774,7 +776,7 @@ fun DoctorProfileContent(
                         Icon(Icons.Filled.Star, contentDescription = null, modifier = Modifier.size(10.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.width(8.dp))
                         LinearProgressIndicator(
-                            progress = progress,
+                            progress = { progress },
                             modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)),
                             color = SwastikPrimary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant

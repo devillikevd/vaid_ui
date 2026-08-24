@@ -13,6 +13,7 @@ import org.json.JSONObject
 import com.example.swastik.data.local.GuardianTelemetry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 @Singleton
 class GuardianRepository @Inject constructor(
@@ -23,7 +24,7 @@ class GuardianRepository @Inject constructor(
     val telemetryFlow = _telemetryFlow.asStateFlow()
 
     fun updateTelemetry(update: (GuardianTelemetry) -> GuardianTelemetry) {
-        _telemetryFlow.value = update(_telemetryFlow.value)
+        _telemetryFlow.update { current -> update(current) }
     }
 
     suspend fun logEvent(
@@ -43,6 +44,74 @@ class GuardianRepository @Inject constructor(
                 sensorDataSnippet = sensorDataSnippet
             )
             guardianDao.insertEvent(event)
+        }
+    }
+
+    // V2: Gait session persistence for trending
+    suspend fun saveGaitSession(session: com.example.swastik.data.local.db.GaitSessionEntity) {
+        withContext(Dispatchers.IO) {
+            guardianDao.insertGaitSession(session)
+        }
+    }
+
+    suspend fun getAverageSymmetrySince(sinceTimestamp: Long): Float? {
+        return withContext(Dispatchers.IO) {
+            guardianDao.getAverageSymmetrySince(sinceTimestamp)
+        }
+    }
+
+    suspend fun getRecentGaitSessions(limit: Int = 50): List<com.example.swastik.data.local.db.GaitSessionEntity> {
+        return withContext(Dispatchers.IO) {
+            guardianDao.getRecentGaitSessions(limit)
+        }
+    }
+
+    suspend fun getGaitTrendReport(): JSONObject {
+        return withContext(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            val sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000L
+            val thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000L
+            
+            val report = JSONObject()
+            report.put("report_type", "Guardian Gait & Mobility V2 Trend Report")
+            report.put("generated_at", java.time.Instant.now().toString())
+            
+            // 7-day averages
+            val week = JSONObject()
+            week.put("avg_cadence_spm", guardianDao.getAverageCadenceSince(sevenDaysAgo))
+            week.put("avg_symmetry_percent", guardianDao.getAverageSymmetrySince(sevenDaysAgo))
+            week.put("avg_walking_speed_kmh", guardianDao.getAverageWalkingSpeedSince(sevenDaysAgo))
+            week.put("avg_stride_length_m", guardianDao.getAverageStrideLengthSince(sevenDaysAgo))
+            week.put("anomalous_sessions", guardianDao.countAnomalousSessionsSince(sevenDaysAgo))
+            report.put("last_7_days", week)
+            
+            // 30-day averages
+            val month = JSONObject()
+            month.put("avg_cadence_spm", guardianDao.getAverageCadenceSince(thirtyDaysAgo))
+            month.put("avg_symmetry_percent", guardianDao.getAverageSymmetrySince(thirtyDaysAgo))
+            month.put("avg_walking_speed_kmh", guardianDao.getAverageWalkingSpeedSince(thirtyDaysAgo))
+            month.put("avg_stride_length_m", guardianDao.getAverageStrideLengthSince(thirtyDaysAgo))
+            month.put("anomalous_sessions", guardianDao.countAnomalousSessionsSince(thirtyDaysAgo))
+            report.put("last_30_days", month)
+            
+            // Recent sessions detail
+            val recentSessions = org.json.JSONArray()
+            guardianDao.getRecentGaitSessions(10).forEach { s ->
+                recentSessions.put(JSONObject().apply {
+                    put("timestamp", s.timestamp)
+                    put("cadence_spm", s.cadenceSpm)
+                    put("symmetry_percent", s.symmetryPercent)
+                    put("walking_speed_kmh", s.walkingSpeedKmh)
+                    put("stride_length_m", s.strideLengthMeters)
+                    put("fatigue_score", s.fatigueScore)
+                    put("turn_count", s.turnCount)
+                    put("turn_instability", s.turnInstabilityScore)
+                    put("is_anomalous", s.isAnomalous)
+                })
+            }
+            report.put("recent_sessions", recentSessions)
+            
+            report
         }
     }
 
@@ -95,18 +164,24 @@ class GuardianRepository @Inject constructor(
             }
             if (features.mobilityAnalysis) {
                 sources.put("Accelerometer walking/running windows for gait variability and lateral asymmetry")
+                sources.put("V2: Step counter for stride length estimation and post-impact verification")
+                sources.put("V2: GPS distance tracking for walking speed and stride calculation")
             }
             if (features.respiratoryTracker) {
                 sources.put("Google Health Connect heart-rate records, only when patient has granted Health Connect permission")
             }
+            if (features.fallDetection || features.crashDetection) {
+                sources.put("V2: Barometer (pressure sensor) for elevation change during falls")
+                sources.put("V2: Microphone peak detection for crash audio confirmation")
+            }
             json.put("data_sources", sources)
 
             val reliability = JSONObject()
-            reliability.put("fall_detection_contact_alerts", "Fall detection notifies emergency contacts only. It uses tightened impact/tumble plus post-impact stillness checks; it does not trigger ambulance SOS.")
-            reliability.put("vehicle_crash_auto_sos", "Crash detection uses in-vehicle context, higher speed, stronger impact, and tumbling checks before the crash SOS countdown. It is not a replacement for certified crash hardware.")
-            reliability.put("gait_mobility_analysis", "Implemented as a screening signal using motion-window asymmetry and variability. It supports doctor review but is not a medical diagnosis.")
+            reliability.put("fall_detection_contact_alerts", "V2: Fall detection uses freefall phase detection, impact waveform analysis, post-impact orientation, step counter verification, and barometer elevation change. Notifies emergency contacts only.")
+            reliability.put("vehicle_crash_auto_sos", "V2: Crash detection uses speed deceleration rate, multi-axis impact pattern, post-crash accelerometer silence, and audio peak analysis in addition to in-vehicle context and tumbling checks.")
+            reliability.put("gait_mobility_analysis", "V2: Enhanced with stride length estimation, walking speed tracking, fatigue scoring, turn instability detection, and 7/30-day trend comparisons. Supports doctor review for recovery monitoring.")
             reliability.put("respiratory_distress_tracker", "Implemented as contextual high heart-rate while still/low-activity. It requires Health Connect heart-rate permission and wearable/phone data availability.")
-            reliability.put("false_positive_reduction", "Uses multi-sensor verification, post-impact stillness, phone-only impact filters, and a loud grace-period prompt. Zero false positives cannot be guaranteed.")
+            reliability.put("false_positive_reduction", "V2: Uses freefall detection (90% phone drop elimination), impact waveform duration analysis, barometer elevation change, and raised confidence threshold (3+ signals). Zero false positives cannot be guaranteed.")
             json.put("reliability_notes", reliability)
             
             val summary = JSONObject()

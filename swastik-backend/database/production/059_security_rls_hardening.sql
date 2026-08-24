@@ -163,11 +163,18 @@ CREATE OR REPLACE FUNCTION public.audit_sensitive_dml()
 RETURNS TRIGGER AS $$
 DECLARE
     row_id_val TEXT;
+    rec_json JSONB;
 BEGIN
     IF TG_OP IN ('INSERT', 'UPDATE') THEN
-        row_id_val := COALESCE(NEW.id::TEXT, NEW.user_id::TEXT);
+        rec_json := to_jsonb(NEW);
     ELSIF TG_OP = 'DELETE' THEN
-        row_id_val := COALESCE(OLD.id::TEXT, OLD.user_id::TEXT);
+        rec_json := to_jsonb(OLD);
+    ELSE
+        rec_json := NULL;
+    END IF;
+
+    IF rec_json IS NOT NULL THEN
+        row_id_val := COALESCE(rec_json->>'id', rec_json->>'user_id');
     ELSE
         row_id_val := NULL;
     END IF;

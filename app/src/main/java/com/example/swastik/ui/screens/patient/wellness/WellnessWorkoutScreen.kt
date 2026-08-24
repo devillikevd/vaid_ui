@@ -507,19 +507,16 @@ private fun WorkoutPlanCard(plan: WellnessWorkoutPlanDto, onClick: () -> Unit) {
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Metadata chips (Clean formatted tags)
-                Row(
+                // Metadata chips (Clean formatted tags using FlowRow)
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     MetadataChip(icon = Icons.Default.Flag, text = formatGoalTag(plan.goal))
                     plan.minutesPerSession?.let { MetadataChip(icon = Icons.Default.Timer, text = "${it} min") }
                     plan.durationWeeks?.let { MetadataChip(icon = Icons.Default.CalendarMonth, text = "${it} wks") }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     plan.daysPerWeek?.let { days ->
                         MetadataChip(icon = Icons.Default.DateRange, text = "$days days/wk")
                     }
@@ -1431,7 +1428,14 @@ private fun MetadataChip(icon: ImageVector, text: String) {
         ) {
             Icon(icon, null, tint = Color(0xFF64748B), modifier = Modifier.size(13.dp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text(text, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF334155))
+            Text(
+                text = text,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF334155),
+                maxLines = 1,
+                softWrap = false
+            )
         }
     }
 }

@@ -771,7 +771,7 @@
     <string name="keep_request">Keep Request</string>
     <string name="live_gps_active">Live GPS Active</string>
     <string name="digital_health_card">Digital Health Card</string>
-    <string name="valid_through_1225">Valid through 12/25</string>
+    <string name="valid_through_1225">Emergency Access QR • Valid 24 Hours</string>
     <string name="share_this_id_for_manual">Share this ID for manual entry</string>
     <string name="revoke_access">Revoke Access</string>
     <string name="generate_qr_code">Generate QR Code</string>
@@ -1016,7 +1016,7 @@
     <string name="pharmacy_information">Pharmacy Information</string>
     <string name="setup_health_connect">Setup Health Connect</string>
     <string name="sync_your_health_data">Sync Your Health Data</string>
-    <string name="connect_swastik_with_google_health">Connect Swastik with Google Health Connect to automatically sync your daily steps, heart rate, and body temperature.</string>
+    <string name="connect_swastik_with_google_health">Connect Vaididea with Google Health Connect to automatically sync your daily steps, heart rate, and body temperature.</string>
     <string name="health_connect_update_required">Health Connect Update Required</string>
     <string name="your_health_connect_app_needs">Your Health Connect app needs an update to continue.</string>
     <string name="update_health_connect">Update Health Connect</string>

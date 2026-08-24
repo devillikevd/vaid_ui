@@ -227,36 +227,38 @@ fun AppointmentHistoryScreen(
                                         var selectedBookingStatusAppointment by remember { mutableStateOf<com.example.swastik.data.model.Appointment?>(null) }
                                         
                                         if (selectedBookingStatusAppointment != null) {
-                                            AlertDialog(
-                                                onDismissRequest = { selectedBookingStatusAppointment = null },
-                                                title = { Text(stringResource(R.string.booking_status), fontWeight = FontWeight.Bold) },
-                                                text = {
-                                                    Column {
-                                                        Text("Appointment ID: ${selectedBookingStatusAppointment?.appointmentNumber ?: selectedBookingStatusAppointment?.id}")
-                                                        Spacer(modifier = Modifier.height(8.dp))
-                                                        Text("Status: ${selectedBookingStatusAppointment?.status?.replaceFirstChar { it.uppercase() }}", fontWeight = FontWeight.Bold)
-                                                        Spacer(modifier = Modifier.height(8.dp))
-                                                        Text("Date: ${selectedBookingStatusAppointment?.date}")
-                                                        Text("Time: ${formatTimeSlot(selectedBookingStatusAppointment?.timeSlot)}")
-                                                        if (selectedBookingStatusAppointment?.doctor != null) {
-                                                            Spacer(modifier = Modifier.height(8.dp))
-                                                            Text("Doctor: ${selectedBookingStatusAppointment?.doctor?.name}")
-                                                        }
-                                                        Spacer(modifier = Modifier.height(16.dp))
-                                                        Text(stringResource(R.string.please_keep_this_information_for))
+                                            com.example.swastik.ui.screens.patient.booking.ConsultationStatusBottomSheet(
+                                                appointment = selectedBookingStatusAppointment!!,
+                                                onDismiss = { selectedBookingStatusAppointment = null },
+                                                onJoinConsultation = { _, _ ->
+                                                    val appt = selectedBookingStatusAppointment
+                                                    selectedBookingStatusAppointment = null
+                                                    if (appt != null) {
+                                                        onStartConsultation(appt)
                                                     }
                                                 },
-                                                confirmButton = {
-                                                    Button(onClick = { selectedBookingStatusAppointment = null }) {
-                                                        Text(stringResource(R.string.close))
-                                                    }
+                                                onNavigateToDoctorProfile = { docId ->
+                                                    selectedBookingStatusAppointment = null
+                                                    onNavigateToBooking(docId)
+                                                },
+                                                onReschedule = { docId ->
+                                                    selectedBookingStatusAppointment = null
+                                                    onNavigateToBooking(docId)
+                                                },
+                                                onCancelClick = { appt ->
+                                                    selectedBookingStatusAppointment = null
+                                                    showCancelDialog = appt
+                                                },
+                                                onPrescriptionClick = { apptId ->
+                                                    selectedBookingStatusAppointment = null
+                                                    onNavigateToPrescriptions(apptId)
                                                 }
                                             )
                                         }
 
                                         AppointmentCard(
                                             appointment = appointment,
-                                            onClick = { onAppointmentClick(appointment) },
+                                            onClick = { selectedBookingStatusAppointment = appointment },
                                             onStartConsultation = { onStartConsultation(appointment) },
                                             onPrescriptionClick = { onNavigateToPrescriptions(appointment.id) },
                                             onBookAgainClick = { onNavigateToBooking(appointment.doctor?.id ?: appointment.doctorId) },

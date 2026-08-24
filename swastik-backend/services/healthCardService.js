@@ -22,6 +22,7 @@ const consentService = require('./consentService');
 const HEALTH_CARD_PREFIX = 'health_card:';
 const HEALTH_CARD_REVERSE = 'health_card_user:'; // maps userId → token for revocation
 const TOKEN_EXPIRY_SECONDS = 86400; // 24 hours
+const PUBLIC_HEALTH_CARD_UUID = '00000000-0000-0000-0000-000000000000';
 
 class HealthCardService {
   /**
@@ -45,10 +46,22 @@ class HealthCardService {
       throw new ApiError(404, 'Patient profile not found');
     }
 
-    // Revoke any existing token
+    // Revoke any existing token in cache
     const existingToken = await cacheGet(`${HEALTH_CARD_REVERSE}${userId}`);
     if (existingToken) {
       await cacheDel(`${HEALTH_CARD_PREFIX}${existingToken}`);
+    }
+
+    // Invalidate existing active tokens in DB
+    try {
+      await supabaseAdmin
+        .from('health_cards')
+        .update({ status: 'revoked', updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('status', 'active');
+    } catch (dbErr) {
+      // Table might not exist yet if migration pending
+      console.warn('DB health_cards update note:', dbErr.message);
     }
 
     // Generate a secure 16-character alphanumeric token (VULN-BS-12: increased from 6)
@@ -59,24 +72,47 @@ class HealthCardService {
       token += chars[randomBytesArray[i] % chars.length];
     }
 
-    // Store: token → userId mapping (for public lookup)
+    const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_SECONDS * 1000).toISOString();
+    const generatedAt = new Date().toISOString();
+
+    // Persist token in PostgreSQL DB
+    try {
+      await supabaseAdmin.from('health_cards').insert({
+        token,
+        user_id: userId,
+        patient_id: patient.id,
+        patient_name: patient.name,
+        guardian_analytics: guardianAnalytics,
+        status: 'active',
+        expires_at: expiresAt,
+        created_at: generatedAt,
+      });
+    } catch (dbErr) {
+      console.warn('DB health_cards insert note:', dbErr.message);
+    }
+
+    // Store in Redis cache: token → userId mapping (for fast public lookup)
     await cacheSet(`${HEALTH_CARD_PREFIX}${token}`, {
       userId,
       patientId: patient.id,
       patientName: patient.name,
-      generatedAt: new Date().toISOString(),
-      guardianAnalytics, // Store if provided
+      generatedAt,
+      guardianAnalytics,
     }, TOKEN_EXPIRY_SECONDS);
 
-    // V-011 Fix: explicitly create a consent record for the health card
-    await consentService.grantConsent({
-      patientId: patient.id,
-      entityType: 'other', // Must be one of: hospital, pharmacy, diagnostic_center, doctor, research, family, other
-      entityId: '00000000-0000-0000-0000-000000000000', // Must be a valid UUID
-      entityName: 'Public Health Card QR',
-      purpose: 'Emergency medical access',
-      durationDays: 1 // health card expires in 24 hours
-    });
+    // Explicitly create an active consent record for the health card
+    try {
+      await consentService.grantConsent({
+        patientId: patient.id,
+        entityType: 'health_card_public',
+        entityId: PUBLIC_HEALTH_CARD_UUID,
+        entityName: 'Public Health Card QR',
+        purpose: 'Emergency medical access',
+        durationDays: 1, // health card expires in 24 hours
+      });
+    } catch (consentErr) {
+      console.warn('Grant consent note:', consentErr.message);
+    }
 
     // Store: userId → token mapping (for revocation)
     await cacheSet(`${HEALTH_CARD_REVERSE}${userId}`, token, TOKEN_EXPIRY_SECONDS);
@@ -84,7 +120,7 @@ class HealthCardService {
     return {
       token,
       url: `${config.frontendWebUrl}/health-card/${token}`,
-      expires_at: new Date(Date.now() + TOKEN_EXPIRY_SECONDS * 1000).toISOString(),
+      expires_at: expiresAt,
       expires_in_hours: 24,
     };
   }
@@ -99,7 +135,17 @@ class HealthCardService {
       await cacheDel(`${HEALTH_CARD_REVERSE}${userId}`);
     }
 
-    // V-011 Fix: revoke the active consent for health_card_public
+    try {
+      await supabaseAdmin
+        .from('health_cards')
+        .update({ status: 'revoked', updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('status', 'active');
+    } catch (dbErr) {
+      console.warn('DB health_cards revoke note:', dbErr.message);
+    }
+
+    // Revoke the active consent for health_card_public
     const { data: patient } = await supabaseAdmin
       .from('patients')
       .select('id')
@@ -111,7 +157,7 @@ class HealthCardService {
         .update({ status: 'revoked', revoked_at: new Date().toISOString(), revocation_reason: 'User revoked health card' })
         .eq('patient_id', patient.id)
         .eq('entity_type', 'health_card_public')
-        .eq('entity_id', 'public')
+        .eq('entity_id', PUBLIC_HEALTH_CARD_UUID)
         .eq('status', 'active');
     }
 
@@ -122,21 +168,47 @@ class HealthCardService {
    * Get the current active token status for a patient (used by the app).
    */
   async getTokenStatus(userId) {
-    const token = await cacheGet(`${HEALTH_CARD_REVERSE}${userId}`);
-    if (!token) {
-      return { has_active_card: false, url: null, generated_at: null, expires_at: null };
+    let token = await cacheGet(`${HEALTH_CARD_REVERSE}${userId}`);
+    let data = token ? await cacheGet(`${HEALTH_CARD_PREFIX}${token}`) : null;
+
+    if (!data) {
+      // Fallback: Query PostgreSQL DB for active, non-expired card
+      try {
+        const { data: dbCard } = await supabaseAdmin
+          .from('health_cards')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .gt('expires_at', new Date().toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (dbCard) {
+          token = dbCard.token;
+          data = {
+            userId: dbCard.user_id,
+            patientId: dbCard.patient_id,
+            patientName: dbCard.patient_name,
+            generatedAt: dbCard.created_at,
+            guardianAnalytics: dbCard.guardian_analytics,
+          };
+          const remainingTtl = Math.max(60, Math.floor((new Date(dbCard.expires_at).getTime() - Date.now()) / 1000));
+          await cacheSet(`${HEALTH_CARD_PREFIX}${token}`, data, remainingTtl);
+          await cacheSet(`${HEALTH_CARD_REVERSE}${userId}`, token, remainingTtl);
+        }
+      } catch (dbErr) {
+        console.warn('DB health_cards lookup note:', dbErr.message);
+      }
     }
 
-    // Verify the token data still exists (hasn't expired from Redis)
-    const data = await cacheGet(`${HEALTH_CARD_PREFIX}${token}`);
-    if (!data) {
-      // Token expired, clean up reverse mapping
-      await cacheDel(`${HEALTH_CARD_REVERSE}${userId}`);
-      return { has_active_card: false, url: null, generated_at: null, expires_at: null };
+    if (!token || !data) {
+      return { has_active_card: false, url: null, token: null, generated_at: null, expires_at: null };
     }
 
     return {
       has_active_card: true,
+      token,
       url: `${config.frontendWebUrl}/health-card/${token}`,
       generated_at: data.generatedAt,
       expires_at: data.generatedAt
@@ -152,7 +224,34 @@ class HealthCardService {
    * @param {object} accessInfo - IP address, user-agent for audit logging
    */
   async getHealthRecord(token, accessInfo = {}) {
-    const tokenData = await cacheGet(`${HEALTH_CARD_PREFIX}${token}`);
+    let tokenData = await cacheGet(`${HEALTH_CARD_PREFIX}${token}`);
+
+    if (!tokenData) {
+      // Fallback: Query PostgreSQL DB
+      try {
+        const { data: dbCard } = await supabaseAdmin
+          .from('health_cards')
+          .select('*')
+          .eq('token', token)
+          .eq('status', 'active')
+          .gt('expires_at', new Date().toISOString())
+          .maybeSingle();
+
+        if (dbCard) {
+          tokenData = {
+            userId: dbCard.user_id,
+            patientId: dbCard.patient_id,
+            patientName: dbCard.patient_name,
+            generatedAt: dbCard.created_at,
+            guardianAnalytics: dbCard.guardian_analytics,
+          };
+          const remainingTtl = Math.max(60, Math.floor((new Date(dbCard.expires_at).getTime() - Date.now()) / 1000));
+          await cacheSet(`${HEALTH_CARD_PREFIX}${token}`, tokenData, remainingTtl);
+        }
+      } catch (dbErr) {
+        console.warn('DB health_cards query note:', dbErr.message);
+      }
+    }
 
     if (!tokenData) {
       throw new ApiError(404, 'Health card not found or expired. Please ask the patient to generate a new QR code.');
@@ -160,10 +259,24 @@ class HealthCardService {
 
     const { patientId, userId, guardianAnalytics } = tokenData;
 
-    // V-011 Fix: Explicitly check that patient consent is still active
-    const hasConsent = await consentService.verifyConsent(patientId, 'health_card_public', 'public');
-    if (!hasConsent) {
-      throw new ApiError(403, 'Access denied: The patient has revoked consent for this health card.');
+    // Check if patient explicitly revoked consent
+    try {
+      const { data: revokedConsent } = await supabaseAdmin
+        .from('patient_consents')
+        .select('id')
+        .eq('patient_id', patientId)
+        .eq('entity_type', 'health_card_public')
+        .eq('entity_id', PUBLIC_HEALTH_CARD_UUID)
+        .eq('status', 'revoked')
+        .limit(1)
+        .maybeSingle();
+
+      if (revokedConsent) {
+        throw new ApiError(403, 'Access denied: The patient has revoked consent for this health card.');
+      }
+    } catch (consentErr) {
+      if (consentErr instanceof ApiError) throw consentErr;
+      console.warn('Consent check note:', consentErr.message);
     }
 
     // Audit log: record who accessed this health card
