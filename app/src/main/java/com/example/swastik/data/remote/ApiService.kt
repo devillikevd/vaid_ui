@@ -1172,4 +1172,58 @@ interface ApiService {
     suspend fun getDietHistory(
         @Query("limit") limit: Int = 10
     ): Response<ApiResponse<List<MealLogDto>>>
+
+    // ==================== HIS — PATIENT-FACING ====================
+
+    /** Get the patient's current OPD queue position across all hospitals. */
+    @GET("patients/queue/position")
+    suspend fun getMyQueuePosition(): Response<ApiResponse<com.example.swastik.data.model.QueuePositionWrapper>>
+
+    /** Get bed availability for a specific hospital (public). */
+    @GET("hospitals/{id}/beds/available")
+    suspend fun getHospitalBedAvailability(
+        @Path("id") hospitalId: String
+    ): Response<ApiResponse<com.example.swastik.data.model.BedAvailabilityWrapper>>
+
+    /** Get the patient's active and past admissions. */
+    @GET("patients/admissions")
+    suspend fun getMyAdmissions(
+        @Query("page") page: Int = 1,
+        @Query("status") status: String? = null
+    ): Response<ApiResponse<com.example.swastik.data.model.PatientAdmissionListWrapper>>
+
+    /** Get admission detail. */
+    @GET("patients/admissions/{id}")
+    suspend fun getAdmissionDetail(
+        @Path("id") id: String
+    ): Response<ApiResponse<com.example.swastik.data.model.PatientAdmission>>
+
+    /** Get the patient's lab and radiology reports. */
+    @GET("patients/lab-reports")
+    suspend fun getMyLabReports(
+        @Query("page") page: Int = 1,
+        @Query("status") status: String? = null,
+        @Query("type") type: String? = null // "lab" or "radiology"
+    ): Response<ApiResponse<com.example.swastik.data.model.PatientLabReportListWrapper>>
+
+    /** Get insurance pre-auth status for the patient. */
+    @GET("patients/insurance/preauth")
+    suspend fun getMyPreauthStatus(
+        @Query("page") page: Int = 1
+    ): Response<ApiResponse<com.example.swastik.data.model.PatientPreauthListWrapper>>
+
+    /** Get bill estimate for services at a hospital. */
+    @GET("hospitals/{id}/bill-estimate")
+    suspend fun getBillEstimate(
+        @Path("id") hospitalId: String,
+        @Query("services") serviceIds: String // comma-separated IDs
+    ): Response<ApiResponse<com.example.swastik.data.model.BillEstimateWrapper>>
+
+    /** Get hospital service catalog (public). */
+    @GET("hospitals/{id}/services")
+    suspend fun getHospitalServiceCatalog(
+        @Path("id") hospitalId: String,
+        @Query("category") category: String? = null,
+        @Query("search") search: String? = null
+    ): Response<ApiResponse<com.example.swastik.data.model.BillEstimateWrapper>>
 }

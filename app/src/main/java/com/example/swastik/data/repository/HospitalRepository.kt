@@ -1184,4 +1184,137 @@ private fun ClinicDto.toMedicalFacility(
             "N/A"
         }
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // HIS — Patient-Facing Methods
+    // ══════════════════════════════════════════════════════════════
+
+    /** Get the patient's live OPD queue position. */
+    suspend fun getMyQueuePosition(): com.example.swastik.data.model.QueuePositionWrapper? {
+        return try {
+            val response = apiService.getMyQueuePosition()
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data
+            } else {
+                Log.w(TAG, "getMyQueuePosition: ${parseApiErrorMessage(response.errorBody())}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getMyQueuePosition error", e)
+            null
+        }
+    }
+
+    /** Get ward-wise bed availability for a hospital. */
+    suspend fun getHospitalBedAvailability(hospitalId: String): com.example.swastik.data.model.BedAvailabilityWrapper? {
+        return try {
+            val response = apiService.getHospitalBedAvailability(hospitalId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data
+            } else {
+                Log.w(TAG, "getHospitalBedAvailability: ${parseApiErrorMessage(response.errorBody())}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getHospitalBedAvailability error", e)
+            null
+        }
+    }
+
+    /** Get the patient's admissions (active and past). */
+    suspend fun getMyAdmissions(page: Int = 1, status: String? = null): com.example.swastik.data.model.PatientAdmissionListWrapper? {
+        return try {
+            val response = apiService.getMyAdmissions(page, status)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data
+            } else {
+                Log.w(TAG, "getMyAdmissions: ${parseApiErrorMessage(response.errorBody())}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getMyAdmissions error", e)
+            null
+        }
+    }
+
+    /** Get admission detail by ID. */
+    suspend fun getAdmissionDetail(id: String): com.example.swastik.data.model.PatientAdmission? {
+        return try {
+            val response = apiService.getAdmissionDetail(id)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data
+            } else {
+                Log.w(TAG, "getAdmissionDetail: ${parseApiErrorMessage(response.errorBody())}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getAdmissionDetail error", e)
+            null
+        }
+    }
+
+    /** Get patient's lab/radiology reports. */
+    suspend fun getMyLabReports(page: Int = 1, status: String? = null, type: String? = null): com.example.swastik.data.model.PatientLabReportListWrapper? {
+        return try {
+            val response = apiService.getMyLabReports(page, status, type)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data
+            } else {
+                Log.w(TAG, "getMyLabReports: ${parseApiErrorMessage(response.errorBody())}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getMyLabReports error", e)
+            null
+        }
+    }
+
+    /** Get patient's insurance pre-auth requests. */
+    suspend fun getMyPreauthStatus(page: Int = 1): com.example.swastik.data.model.PatientPreauthListWrapper? {
+        return try {
+            val response = apiService.getMyPreauthStatus(page)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data
+            } else {
+                Log.w(TAG, "getMyPreauthStatus: ${parseApiErrorMessage(response.errorBody())}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getMyPreauthStatus error", e)
+            null
+        }
+    }
+
+    /** Get bill estimate for selected hospital services. */
+    suspend fun getBillEstimate(hospitalId: String, serviceIds: List<String>): com.example.swastik.data.model.BillEstimateWrapper? {
+        return try {
+            val response = apiService.getBillEstimate(hospitalId, serviceIds.joinToString(","))
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data
+            } else {
+                Log.w(TAG, "getBillEstimate: ${parseApiErrorMessage(response.errorBody())}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getBillEstimate error", e)
+            null
+        }
+    }
+
+    /** Get hospital's service catalog (public). */
+    suspend fun getHospitalServiceCatalog(hospitalId: String, category: String? = null, search: String? = null): com.example.swastik.data.model.BillEstimateWrapper? {
+        return try {
+            val response = apiService.getHospitalServiceCatalog(hospitalId, category, search)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data
+            } else {
+                Log.w(TAG, "getHospitalServiceCatalog: ${parseApiErrorMessage(response.errorBody())}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getHospitalServiceCatalog error", e)
+            null
+        }
+    }
 }
+

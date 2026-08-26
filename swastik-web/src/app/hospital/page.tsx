@@ -1,230 +1,249 @@
 'use client';
 
-import { useEffect, useCallback, useMemo, useRef } from 'react';
-import { Users, Building2, Calendar, Bed, Plus } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
-import Link from 'next/link';
-import { useHospitalStore, type Department } from '@/stores/hospitalStore';
-import { useAuthStore } from '@/stores/authStore';
-import { useRouter } from 'next/navigation';
+import { hospitalApi } from '@/lib/api';
 import { useAppointmentUpdates } from '@/hooks/useSocket';
-import { KeyboardShortcutHelp, usePageShortcuts } from '@/components/shared/KeyboardShortcutHelp';
+import Link from 'next/link';
+import {
+    BedDouble, Users, Calendar, Activity, TestTube, ScanLine,
+    Scissors, IndianRupee, AlertTriangle, TrendingUp, TrendingDown,
+    Clock, HeartPulse, ListOrdered, ShieldCheck, RefreshCw,
+    ArrowRight, Gauge,
+} from 'lucide-react';
 
-export default function HospitalDashboard() {
-    const { stats, departments, isLoading, error, fetchDashboardData, fetchReviews, reviews, loadingReviews } = useHospitalStore();
-    const { user } = useAuthStore();
-    const router = useRouter();
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-    // BUG-01 Fix: Debounce socket-driven refetches (500ms) to prevent thundering herd
-    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const debouncedFetch = useCallback(() => {
-        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = setTimeout(() => { fetchDashboardData(); }, 500);
-    }, [fetchDashboardData]);
-    useEffect(() => () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); }, []);
+// ── KPI Tile ──
+function KpiTile({ label, value, sub, icon: Icon, color, href, trend }: {
+    label: string; value: string | number; sub?: string;
+    icon: any; color: string; href?: string; trend?: 'up' | 'down' | null;
+}) {
+    const content = (
+        <div className={`rounded-xl border p-4 flex items-start gap-3 transition hover:shadow-md cursor-pointer ${color}`}>
+            <div className="p-2.5 rounded-lg bg-white/80 shadow-sm">
+                <Icon className="h-5 w-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-500 truncate">{label}</p>
+                <div className="flex items-center gap-1.5">
+                    <p className="text-xl font-bold">{value}</p>
+                    {trend === 'up' && <TrendingUp className="h-3.5 w-3.5 text-green-500" />}
+                    {trend === 'down' && <TrendingDown className="h-3.5 w-3.5 text-red-500" />}
+                </div>
+                {sub && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{sub}</p>}
+            </div>
+        </div>
+    );
+    return href ? <Link href={href}>{content}</Link> : content;
+}
 
-    // Real-time: refresh dashboard when appointments change (debounced)
-    useAppointmentUpdates(useCallback(() => { debouncedFetch(); }, [debouncedFetch]));
+// ── Occupancy Bar ──
+function OccupancyBar({ occupied, total, label }: { occupied: number; total: number; label: string }) {
+    const pct = total > 0 ? Math.round((occupied / total) * 100) : 0;
+    const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
+    return (
+        <div className="flex items-center gap-3 text-sm">
+            <span className="w-24 text-gray-600 truncate text-xs">{label}</span>
+            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+            </div>
+            <span className="w-12 text-right text-xs font-semibold">{pct}%</span>
+        </div>
+    );
+}
 
-    const shortcuts = useMemo(() => [
-        { key: 'd', description: 'Go to Departments', action: () => router.push('/hospital/departments') },
-        { key: 'o', description: 'Go to Doctors', action: () => router.push('/hospital/doctors') },
-        { key: 'a', description: 'Go to Appointments', action: () => router.push('/hospital/appointments') },
-        { key: 'r', description: 'Refresh dashboard', action: () => fetchDashboardData() },
-    ], [router, fetchDashboardData]);
+export default function ControlTowerPage() {
+    const [data, setData] = useState<any>(null);
+    const [occupancy, setOccupancy] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    const { showHelp, setShowHelp, allShortcuts } = usePageShortcuts(shortcuts);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    const fetchAll = useCallback(async () => {
+        try {
+            setLoading(prev => !data ? true : prev);
+            const [ctRes, occRes] = await Promise.all([
+                hospitalApi.getControlTower(),
+                hospitalApi.getOccupancyDrilldown(),
+            ]);
+            if (ctRes.success) setData(ctRes.data ?? ctRes);
+            if (occRes.success) setOccupancy((occRes.data as any)?.wards ?? (occRes as any)?.wards ?? []);
+            setError(null);
+        } catch (e: any) {
+            setError(e?.message || 'Failed to load control tower');
+        } finally {
+            setLoading(false);
+        }
+    }, [data]);
+
+    useEffect(() => { fetchAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Auto-refresh every 60s
     useEffect(() => {
-        fetchDashboardData();
-        fetchReviews();
-    }, [fetchDashboardData, fetchReviews]);
+        const iv = setInterval(fetchAll, 60_000);
+        return () => clearInterval(iv);
+    }, [fetchAll]);
 
-    const currentTime = new Date();
+    // Socket-driven refresh (debounced)
+    useAppointmentUpdates(useCallback(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(fetchAll, 1000);
+    }, [fetchAll]));
 
-    // Stats configuration using real data
-    const STATS = [
-        { label: 'Total Doctors', value: stats?.totalDoctors ?? 0, icon: Users, color: 'text-teal-600', bg: 'bg-teal-100' },
-        { label: 'Departments', value: stats?.departments ?? 0, icon: Building2, color: 'text-blue-600', bg: 'bg-blue-100' },
-        { label: "Today's Appointments", value: stats?.todaysAppointments ?? 0, icon: Calendar, color: 'text-green-600', bg: 'bg-green-100' },
-        { label: 'Bed Capacity', value: stats?.bedCapacity ?? '0%', icon: Bed, color: 'text-yellow-600', bg: 'bg-yellow-100' },
-    ];
+    if (loading && !data) return <DashboardSkeleton />;
 
-    // UI-05 Fix: Skeleton loading state
-    if (isLoading && !stats) {
-        return <DashboardSkeleton />;
-    }
-
-    if (error && !stats) {
+    if (error && !data) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-                <Building2 className="h-12 w-12 text-red-400" />
-                <p className="text-red-600 text-center max-w-md">{error}</p>
-                <button onClick={() => fetchDashboardData()} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
-                    Retry
-                </button>
+                <Gauge className="h-12 w-12 text-red-400" />
+                <p className="text-red-600">{error}</p>
+                <Button onClick={fetchAll}>Retry</Button>
             </div>
         );
     }
 
+    const ct = data || {};
+    const beds = ct.beds || {};
+    const ipd = ct.ipd || {};
+    const opd = ct.opd || {};
+    const lab = ct.lab || {};
+    const rad = ct.radiology || {};
+    const ot = ct.ot || {};
+    const enc = ct.encounters || {};
+    const fin = ct.financial || {};
+    const quality = ct.quality || {};
+
     return (
-        <>
         <div className="space-y-6">
-            {/* Welcome Banner */}
-            <div className="bg-gradient-to-r from-teal-600 to-teal-800 rounded-2xl p-6 text-white">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold">Hospital Management Console</h1>
-                        <p className="text-teal-100 mt-1">
-                            {currentTime.toLocaleDateString('en-IN', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                            })}
-                        </p>
+            {/* ── Header ── */}
+            <div className="bg-gradient-to-r from-teal-600 via-teal-700 to-emerald-700 rounded-2xl p-6 text-white flex items-center justify-between">
+                <div>
+                    <div className="flex items-center gap-2">
+                        <Gauge className="h-6 w-6" />
+                        <h1 className="text-2xl font-bold">Control Tower</h1>
                     </div>
-                    <div className="hidden md:block">
-                        <Button className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800 text-white border-0" onClick={() => router.push('/hospital/doctors')}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Doctor
-                        </Button>
-                    </div>
+                    <p className="text-teal-100 mt-1 text-sm">
+                        Real-time hospital operations • Auto-refreshes every 60s
+                    </p>
                 </div>
+                <Button variant="outline" className="text-white border-white/30 hover:bg-white/10" onClick={fetchAll}>
+                    <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+                </Button>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {STATS.map((stat) => {
-                    const Icon = stat.icon;
-                    return (
-                        <Card key={stat.label}>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</p>
-                                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{stat.value}</p>
-                                </div>
-                                <div className={`p-3 rounded-xl ${stat.bg}`}>
-                                    <Icon className={`h-6 w-6 ${stat.color}`} />
-                                </div>
-                            </div>
-                        </Card>
-                    );
-                })}
+            {/* ── KPI Grid ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                <KpiTile label="Bed Occupancy" value={`${beds.occupancy_percent || 0}%`}
+                    sub={`${beds.occupied || 0}/${beds.total || 0} beds`} icon={BedDouble}
+                    color="border-blue-200 bg-blue-50/50" href="/hospital/beds" />
+                <KpiTile label="Available Beds" value={beds.available || 0}
+                    sub={`${beds.maintenance || 0} under maintenance`} icon={Activity}
+                    color="border-emerald-200 bg-emerald-50/50" href="/hospital/beds" />
+                <KpiTile label="IPD Census" value={ipd.current_census || 0}
+                    sub={`+${ipd.admissions_today || 0} today / -${ipd.discharges_today || 0} discharged`}
+                    icon={HeartPulse} color="border-violet-200 bg-violet-50/50" href="/hospital/ipd" />
+                <KpiTile label="OPD Tokens" value={opd.total_tokens_today || 0}
+                    sub={`${opd.waiting || 0} waiting • avg ${opd.avg_wait_minutes || 0}m`}
+                    icon={ListOrdered} color="border-amber-200 bg-amber-50/50" href="/hospital/queue" />
+                <KpiTile label="Appointments" value={opd.appointments_today || 0}
+                    icon={Calendar} color="border-teal-200 bg-teal-50/50" href="/hospital/appointments" />
+                <KpiTile label="Encounters" value={enc.total_today || 0}
+                    sub={`OPD ${enc.opd || 0} • IPD ${enc.ipd || 0} • ER ${enc.emergency || 0}`}
+                    icon={Users} color="border-cyan-200 bg-cyan-50/50" href="/hospital/encounters" />
+                <KpiTile label="Lab Orders" value={lab.ordered_today || 0}
+                    sub={`${lab.pending || 0} pending • ${lab.stat_urgent || 0} urgent`}
+                    icon={TestTube} color="border-orange-200 bg-orange-50/50" href="/hospital/lab-orders" />
+                <KpiTile label="Radiology" value={rad.ordered_today || 0}
+                    sub={`${rad.pending || 0} pending`}
+                    icon={ScanLine} color="border-pink-200 bg-pink-50/50" href="/hospital/radiology-orders" />
+                <KpiTile label="OT Surgeries" value={ot.scheduled_today || 0}
+                    sub={`${ot.completed || 0} done • ${ot.in_progress || 0} running`}
+                    icon={Scissors} color="border-red-200 bg-red-50/50" href="/hospital/ot" />
+                <KpiTile label="Today Revenue" value={`₹${(fin.today_revenue || 0).toLocaleString('en-IN')}`}
+                    sub={`Collections ₹${(fin.today_collections || 0).toLocaleString('en-IN')}`}
+                    icon={IndianRupee} color="border-green-200 bg-green-50/50" href="/hospital/billing" />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Departments */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Department Overview</CardTitle>
-                        <Link href="/hospital/departments" className="text-sm text-teal-600 hover:underline">
-                            Manage
-                        </Link>
+            {/* ── Row 2: Occupancy + Quality + Financial ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Occupancy Drilldown */}
+                <Card className="lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <BedDouble className="h-4 w-4 text-blue-500" />
+                            Ward Occupancy
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {departments.map((dept: Department) => (
-                                <div key={dept.id} className="flex items-center justify-between p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-teal-200 transition-colors">
-                                    <div>
-                                        <p className="font-medium text-gray-900 dark:text-gray-100">{dept.name}</p>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">{dept.doctors} doctors</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-lg font-semibold text-teal-600">{dept.appointments}</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">appointments</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                    <CardContent className="space-y-2.5">
+                        {occupancy.length === 0 && (
+                            <p className="text-sm text-gray-400 text-center py-4">No wards configured yet.
+                                <Link href="/hospital/beds" className="text-teal-600 ml-1 hover:underline">Set up wards →</Link>
+                            </p>
+                        )}
+                        {occupancy.map((w: any) => (
+                            <OccupancyBar key={w.id} label={w.name} occupied={w.occupied_beds || 0} total={w.total_beds || 0} />
+                        ))}
                     </CardContent>
                 </Card>
 
-                {/* Quick Actions */}
+                {/* Quality Summary */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Quick Actions</CardTitle>
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4 text-amber-500" />
+                            Quality & Alerts
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-2 gap-3">
-                            <Link
-                                href="/hospital/doctors"
-                                className="p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-teal-300 hover:bg-teal-50 transition-colors text-center"
-                            >
-                                <Users className="h-8 w-8 text-teal-600 mx-auto mb-2" />
-                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Manage Doctors</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{stats?.totalDoctors ?? 0} active</p>
-                            </Link>
-                            <Link
-                                href="/hospital/departments"
-                                className="p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:bg-blue-50 transition-colors text-center"
-                            >
-                                <Building2 className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Departments</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{stats?.departments ?? 0} total</p>
-                            </Link>
-                            <Link
-                                href="/hospital/appointments"
-                                className="p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-green-300 hover:bg-green-50 transition-colors text-center"
-                            >
-                                <Calendar className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Appointments</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{stats?.todaysAppointments ?? 0} today</p>
-                            </Link>
-                            <Link
-                                href="/hospital/reports"
-                                className="p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-yellow-300 hover:bg-yellow-50 transition-colors text-center"
-                            >
-                                <Bed className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Reports</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">View analytics</p>
+                    <CardContent className="space-y-3">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-600">Incidents (month)</span>
+                            <span className="font-semibold">{quality.incidents_this_month || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-600">Open incidents</span>
+                            <span className={`font-semibold ${(quality.open_incidents || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {quality.open_incidents || 0}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-600">Sentinel events</span>
+                            <span className={`font-semibold ${(quality.sentinel_events || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {quality.sentinel_events || 0}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-600">Pending pre-auth</span>
+                            <span className="font-semibold text-amber-600">{fin.pending_preauth || 0}</span>
+                        </div>
+                        <div className="pt-2 border-t">
+                            <Link href="/hospital/quality" className="text-sm text-teal-600 hover:underline flex items-center gap-1">
+                                View Quality Dashboard <ArrowRight className="h-3.5 w-3.5" />
                             </Link>
                         </div>
                     </CardContent>
                 </Card>
+            </div>
 
-                {/* Recent Reviews */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Recent Reviews</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {(() => {
-                                if (loadingReviews && reviews.length === 0) {
-                                    return <div className="text-center py-4"><span className="text-teal-600">Loading reviews...</span></div>;
-                                }
-                                
-                                if (reviews.length === 0) {
-                                    return <p className="text-sm text-gray-500 dark:text-gray-400">No reviews yet.</p>;
-                                }
-                                
-                                return reviews.slice(0, 3).map((review) => (
-                                    <div key={review.id} className="p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                {review.is_anonymous ? 'Anonymous' : (review.patient?.name || 'Patient')}
-                                            </span>
-                                            <div className="flex">
-                                                {Array.from({ length: 5 }).map((_, i) => (
-                                                    <span key={i} className={`text-xs ${i < review.rating ? 'text-yellow-500' : 'text-gray-300'}`}>★</span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        {review.comment && (
-                                            <p className="text-xs text-gray-600 dark:text-gray-400 italic line-clamp-2">&quot;{review.comment}&quot;</p>
-                                        )}
-                                    </div>
-                                ));
-                            })()}
+            {/* ── Quick Actions ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                    { label: 'New Admission', href: '/hospital/ipd', icon: BedDouble, color: 'bg-violet-600 hover:bg-violet-700' },
+                    { label: 'Generate Token', href: '/hospital/queue', icon: ListOrdered, color: 'bg-amber-600 hover:bg-amber-700' },
+                    { label: 'Order Lab Test', href: '/hospital/lab-orders', icon: TestTube, color: 'bg-orange-600 hover:bg-orange-700' },
+                    { label: 'Schedule Surgery', href: '/hospital/ot', icon: Scissors, color: 'bg-red-600 hover:bg-red-700' },
+                ].map(action => (
+                    <Link key={action.label} href={action.href}>
+                        <div className={`${action.color} text-white rounded-xl p-4 flex items-center gap-3 transition-transform hover:scale-[1.02]`}>
+                            <action.icon className="h-5 w-5" />
+                            <span className="text-sm font-medium">{action.label}</span>
                         </div>
-                    </CardContent>
-                </Card>
+                    </Link>
+                ))}
             </div>
         </div>
-        <KeyboardShortcutHelp open={showHelp} onClose={() => setShowHelp(false)} shortcuts={allShortcuts} />
-        </>
     );
 }

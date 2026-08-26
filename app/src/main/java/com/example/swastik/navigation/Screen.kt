@@ -228,4 +228,12 @@ sealed class Screen(val route: String) {
     
     // AI Diagnostics
 
+    // HIS — Patient-facing hospital services
+    object HospitalServices : Screen("hospital_services")
+    object ServiceCatalog : Screen("service_catalog/{hospitalId}/{hospitalName}") {
+        fun createRoute(hospitalId: String, hospitalName: String): String {
+            return "service_catalog/$hospitalId/${java.net.URLEncoder.encode(hospitalName, "UTF-8")}"
+        }
+    }
+
 }

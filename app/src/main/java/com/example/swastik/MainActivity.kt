@@ -548,6 +548,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 },
                 onNavigateToVolunteerRegistration = {
                     navController.navigateSafe(Screen.HeroVolunteerRegistration.route)
+                },
+                onNavigateToHospitalServices = {
+                    navController.navigateSafe(Screen.HospitalServices.route)
                 }
             )
             }
@@ -996,6 +999,12 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     },
                     onNavigateToOrders = {
                         navController.navigateSafe(Screen.OrderHistory.createRoute(0))
+                    },
+                    onNavigateToHospitalServices = {
+                        navController.navigateSafe(Screen.HospitalServices.route)
+                    },
+                    onNavigateToServiceCatalog = { hId, hName ->
+                        navController.navigateSafe(Screen.ServiceCatalog.createRoute(hId, hName))
                     }
                 )
             }
@@ -1029,6 +1038,12 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     },
                     onNavigateToDiagnosticBooking = { centerId ->
                         navController.navigateSafe(Screen.DiagnosticBooking.createRoute(centerId))
+                    },
+                    onNavigateToHospitalServices = {
+                        navController.navigateSafe(Screen.HospitalServices.route)
+                    },
+                    onNavigateToServiceCatalog = { hId, hName ->
+                        navController.navigateSafe(Screen.ServiceCatalog.createRoute(hId, hName))
                     }
                 )
             }
@@ -1867,6 +1882,36 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     agentName = agentName,
                     agentPhone = agentPhone,
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+        }
+
+        // ==================== HIS — Patient-Facing Hospital Services ====================
+
+        composable(Screen.HospitalServices.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.healthcare.HospitalServicesScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(
+            route = Screen.ServiceCatalog.route,
+            arguments = listOf(
+                navArgument("hospitalId") { type = NavType.StringType },
+                navArgument("hospitalName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val hospitalId = backStackEntry.arguments?.getString("hospitalId") ?: return@AuthGuard
+                val hospitalName = java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("hospitalName") ?: "Hospital", "UTF-8"
+                )
+                com.example.swastik.ui.screens.patient.healthcare.ServiceCatalogScreen(
+                    hospitalId = hospitalId,
+                    hospitalName = hospitalName,
+                    onBack = { navController.popBackStack() }
                 )
             }
         }

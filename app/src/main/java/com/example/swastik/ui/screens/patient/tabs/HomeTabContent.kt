@@ -13,9 +13,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.runtime.*
 import androidx.compose.animation.core.animateFloat
@@ -23,9 +26,11 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.data.model.*
@@ -95,6 +100,7 @@ fun HomeTabContent(
     onNavigateToDietTracker: () -> Unit = {},
     onNavigateToWellnessHub: () -> Unit = {},
     onNavigateToHealthConnectDashboard: () -> Unit = {},
+    onNavigateToHospitalServices: () -> Unit = {},
     pendingConsents: List<com.example.swastik.data.remote.dto.ReferralConsentDto> = emptyList(),
     onConsentClick: (com.example.swastik.data.remote.dto.ReferralConsentDto) -> Unit = {}
 ) {
@@ -268,6 +274,83 @@ fun HomeTabContent(
                 WellnessHubActions(
                     onWellnessHubClick = onNavigateToWellnessHub
                 )
+
+                // Hospital HIS Services (OPD Live Queue, Admissions, Lab Reports & Insurance)
+                Card(
+                    onClick = onNavigateToHospitalServices,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, Color(0xFF00695C).copy(alpha = 0.2f)),
+                    elevation = CardDefaults.cardElevation(2.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        Color(0xFFE0F2F1),
+                                        Color(0xFFE8F5E9)
+                                    )
+                                )
+                            )
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF00695C),
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.LocalHospital,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "Hospital Services",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF004D40)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFF00695C)
+                                ) {
+                                    Text(
+                                        "LIVE",
+                                        color = Color.White,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                "Live OPD Queue • Admissions • Lab Reports • Pre-Auth",
+                                fontSize = 11.sp,
+                                color = Color(0xFF00695C).copy(alpha = 0.85f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = Color(0xFF00695C),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp)) // Reduced from 16.dp

@@ -7,7 +7,7 @@ import {
     Building2, Clock3, CheckCircle2, XCircle, RefreshCw, MailOpen, UserCheck, 
     ShieldAlert, HeartPulse, Building, FileText, CheckCircle, MailX, Check, MapPin, IndianRupee, 
     ChevronRight, Info, Search, Stethoscope, Briefcase, ExternalLink, CalendarDays, Share2, HelpCircle,
-    Calendar, Star, Clock, BadgeCheck, Phone, Mail, Loader2, Video, Send, MessageSquare, AlertCircle
+    Calendar, Star, Clock, BadgeCheck, Phone, Mail, Loader2, Video, Send, MessageSquare, AlertCircle, BedDouble
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { doctorApi } from '@/lib/api';
@@ -748,10 +748,22 @@ export default function MyCareNetworksPage() {
                                         </div>
                                     </div>
                                 ) : ['accepted', 'active'].includes(selectedInvite.status) ? (
-                                    <div className="flex items-center justify-end gap-3">
+                                    <div className="flex flex-wrap items-center justify-end gap-2.5">
+                                        <Link href="/doctor/appointments">
+                                            <Button className="rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm">
+                                                <Stethoscope className="w-3.5 h-3.5 mr-1.5" /> OPD Consultations
+                                            </Button>
+                                        </Link>
+                                        {selectedInvite.kind === 'hospital' && (
+                                            <Link href={`/doctor/ipd?hospitalId=${selectedInvite.providerId}`}>
+                                                <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm">
+                                                    <BedDouble className="w-3.5 h-3.5 mr-1.5" /> IPD Ward Rounds
+                                                </Button>
+                                            </Link>
+                                        )}
                                         <Link href="/doctor/schedule">
-                                            <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs">
-                                                <Calendar className="w-3.5 h-3.5 mr-1.5" /> View Practice Schedule
+                                            <Button variant="outline" className="rounded-xl border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-200 font-bold text-xs">
+                                                <Calendar className="w-3.5 h-3.5 mr-1.5" /> Schedule
                                             </Button>
                                         </Link>
                                     </div>
@@ -866,23 +878,49 @@ function NetworkCard({
                 )}
             </div>
 
-            {/* Actions: View Details Primary Action for Safety & Clarity */}
-            <div className="pt-3.5 border-t border-gray-200 dark:border-gray-800 mt-auto flex items-center gap-2">
-                <Button 
-                    onClick={onClick} 
-                    variant="outline" 
-                    className="flex-1 h-9 rounded-xl border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs font-bold text-gray-900 dark:text-gray-100"
-                >
-                    View Details
-                </Button>
+            {/* Actions */}
+            <div className="pt-3.5 border-t border-gray-200 dark:border-gray-800 mt-auto flex flex-wrap items-center gap-2">
+                {['accepted', 'active'].includes(item.status) ? (
+                    <>
+                        <Link href="/doctor/appointments" className="flex-1 min-w-[90px]">
+                            <Button className="w-full h-8 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-[11px] shadow-sm">
+                                <Stethoscope className="w-3 h-3 mr-1" /> OPD
+                            </Button>
+                        </Link>
+                        {isHospital && (
+                            <Link href={`/doctor/ipd?hospitalId=${item.providerId}`} className="flex-1 min-w-[90px]">
+                                <Button className="w-full h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-sm">
+                                    <BedDouble className="w-3 h-3 mr-1" /> IPD Care
+                                </Button>
+                            </Link>
+                        )}
+                        <Button 
+                            onClick={onClick} 
+                            variant="outline" 
+                            className="h-8 px-2.5 rounded-xl border-gray-300 dark:border-gray-700 text-[11px] font-bold text-gray-700 dark:text-gray-300"
+                        >
+                            Details
+                        </Button>
+                    </>
+                ) : (
+                    <>
+                        <Button 
+                            onClick={onClick} 
+                            variant="outline" 
+                            className="flex-1 h-9 rounded-xl border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs font-bold text-gray-900 dark:text-gray-100"
+                        >
+                            View Details
+                        </Button>
 
-                {item.status === 'pending' && !item.is_sent_request && (
-                    <Button 
-                        onClick={onClick} 
-                        className="flex-1 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm shadow-emerald-600/20"
-                    >
-                        Review & Respond
-                    </Button>
+                        {item.status === 'pending' && !item.is_sent_request && (
+                            <Button 
+                                onClick={onClick} 
+                                className="flex-1 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm shadow-emerald-600/20"
+                            >
+                                Review & Respond
+                            </Button>
+                        )}
+                    </>
                 )}
             </div>
         </div>

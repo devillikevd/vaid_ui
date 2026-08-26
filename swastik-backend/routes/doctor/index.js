@@ -61,6 +61,45 @@ router.get('/me/profile',
   })
 );
 
+// ── In-Patient (IPD) Admissions for Doctor ──
+const doctorIpdService = require('../../services/doctorIpdService');
+
+router.get('/me/ipd/admissions',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const result = await doctorIpdService.getMyAdmissions(req.user.id, req.query);
+    res.json({ success: true, ...result });
+  })
+);
+
+router.post('/me/ipd/rounds',
+  authenticate,
+  authorize('doctor'),
+  [
+    body('admissionId').isUUID().withMessage('Valid admission ID is required'),
+    body('clinicalNotes').notEmpty().withMessage('Clinical notes are required'),
+    validate,
+  ],
+  asyncHandler(async (req, res) => {
+    const round = await doctorIpdService.createDoctorRound(req.user.id, req.body);
+    res.status(201).json({ success: true, round });
+  })
+);
+
+router.get('/me/ipd/rounds/:admissionId',
+  authenticate,
+  authorize('doctor'),
+  [
+    param('admissionId').isUUID(),
+    validate,
+  ],
+  asyncHandler(async (req, res) => {
+    const rounds = await doctorIpdService.getDoctorRounds(req.params.admissionId);
+    res.json({ success: true, rounds });
+  })
+);
+
 // Get doctor reviews (own)
 router.get('/me/reviews',
   authenticate,

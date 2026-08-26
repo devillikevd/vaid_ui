@@ -17,6 +17,12 @@ const { asyncHandler } = require('../middleware/errorHandler');
 // All routes require authentication
 router.use(authenticate);
 
+// My Staff Role & Permissions Context
+router.get('/my-role', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+    const staffContext = await hospitalManagerService.getStaffContext(req.user.id);
+    res.json({ success: true, ...staffContext });
+}));
+
 // Dashboard
 router.get('/dashboard', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), requireApproval, asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
@@ -454,6 +460,27 @@ router.post('/managers', requireRole(ROLES.HOSPITAL_OWNER), [
     res.json({ success: true, manager });
 }));
 
+router.patch('/managers/:id', requireRole(ROLES.HOSPITAL_OWNER), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const updated = await hospitalManagerService.updateManager(hospital.id, req.user.id, req.params.id, req.body);
+    res.json({ success: true, manager: updated });
+}));
+
+router.patch('/managers/:id/password', requireRole(ROLES.HOSPITAL_OWNER), [
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const result = await hospitalManagerService.resetStaffPassword(hospital.id, req.user.id, req.params.id, req.body.password);
+    res.json(result);
+}));
+
+router.delete('/managers/:id', requireRole(ROLES.HOSPITAL_OWNER), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const result = await hospitalManagerService.removeManager(hospital.id, req.user.id, req.params.id);
+    res.json(result);
+}));
+
 // Emergencies
 router.get('/emergencies', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
@@ -608,5 +635,36 @@ router.delete('/reels/:reelId', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL
     await hospitalManagerService.deleteReel(hospital.id, req.user.id, req.params.reelId);
     res.json({ success: true });
 }));
+
+// ══════════════════════════════════════════════════════════════
+// HIS Sub-Routers (Hospital Information System modules)
+// ══════════════════════════════════════════════════════════════
+const ipdRoutes = require('./hospitalManager/ipd');
+const bedRoutes = require('./hospitalManager/beds');
+const queueRoutes = require('./hospitalManager/queue');
+const labRoutes = require('./hospitalManager/lab');
+const otRoutes = require('./hospitalManager/ot');
+const nursingRoutes = require('./hospitalManager/nursing');
+const servicesRoutes = require('./hospitalManager/services');
+const encounterRoutes = require('./hospitalManager/encounters');
+const controlTowerRoutes = require('./hospitalManager/controlTower');
+const billingRoutes = require('./hospitalManager/billing');
+const billingPhase4Routes = require('./hospitalManager/billingPhase4');
+const qualityRoutes = require('./hospitalManager/quality');
+const inhousePharmacyRoutes = require('./hospitalManager/inhousePharmacy');
+
+router.use('/ipd', ipdRoutes);
+router.use('/', bedRoutes);                   // /wards, /beds — flat under hospital-manager
+router.use('/queue', queueRoutes);
+router.use('/', labRoutes);                   // /lab/orders, /radiology/orders
+router.use('/ot', otRoutes);
+router.use('/nursing', nursingRoutes);
+router.use('/services', servicesRoutes);
+router.use('/encounters', encounterRoutes);
+router.use('/control-tower', controlTowerRoutes);
+router.use('/', billingRoutes);               // /deposits, /insurance/preauth
+router.use('/billing', billingPhase4Routes);   // /billing/charges, /billing/invoices, /billing/tpa-claims, /billing/revenue, /billing/tally
+router.use('/', qualityRoutes);               // /incidents, /quality-indicators
+router.use('/inhouse-pharmacy', inhousePharmacyRoutes);
 
 module.exports = router;

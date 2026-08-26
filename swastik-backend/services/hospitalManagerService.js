@@ -2,6 +2,7 @@
  * Hospital Manager Service
  * Hospital owner/manager operations: profile, doctors, appointments, analytics
  */
+const bcrypt = require('bcryptjs');
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const { cacheDel } = require('../config/redis');
@@ -43,6 +44,58 @@ const getHospitalByOwner = async (userId) => {
     ...hospital,
     profile_image_url: hospital.profile_image_url || hospital.image_url || null,
   };
+};
+
+/**
+ * Resolve staff context: staff_role, permissions, and department
+ */
+const getStaffContext = async (userId) => {
+  // Check if owner
+  const { data: ownerHospital } = await supabaseAdmin
+    .from('hospitals')
+    .select('id, name, city, address, approval_status')
+    .eq('owner_id', userId)
+    .maybeSingle();
+
+  if (ownerHospital) {
+    return {
+      hospital: ownerHospital,
+      staffRole: 'hospital_owner',
+      isOwner: true,
+      permissions: ['*'],
+      department: null,
+      shift: 'all',
+    };
+  }
+
+  // Check if hospital staff/manager
+  const { data: staffEntry } = await supabaseAdmin
+    .from('hospital_managers')
+    .select(`
+      id,
+      role,
+      staff_role,
+      permissions,
+      shift,
+      department_id,
+      hospital:hospitals(id, name, city, address, approval_status),
+      department:hospital_departments(id, name)
+    `)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (staffEntry && staffEntry.hospital) {
+    return {
+      hospital: staffEntry.hospital,
+      staffRole: staffEntry.staff_role || staffEntry.role || 'hospital_admin',
+      isOwner: false,
+      permissions: staffEntry.permissions || [],
+      department: staffEntry.department || null,
+      shift: staffEntry.shift || 'general',
+    };
+  }
+
+  throw new ApiError(404, 'Hospital not found for this user');
 };
 
 const assertDoctorBelongsToHospital = async (hospitalId, doctorId) => {
@@ -779,30 +832,52 @@ const getAnalytics = async (hospitalId, userId, period = '30d') => {
   };
 };
 
-// Get managers
+// Get managers & staff
 const getManagers = async (hospitalId, userId) => {
   const { data, error } = await supabaseAdmin
     .from('hospital_managers')
-    .select('*, user:users(id, name, email, phone, profile_image_url)')
+    .select('*, user:users(id, name, email, phone, profile_image_url), department:hospital_departments(id, name)')
     .eq('hospital_id', hospitalId);
 
   if (error) throw error;
   return data || [];
 };
 
-// Add manager
+// Add manager / staff member with specific role
 const addManager = async (hospitalId, userId, managerData) => {
-  const { email, name, phone, permissions } = managerData;
+  const { email, name, phone, password, permissions, role, staffRole, departmentId, shift } = managerData;
+
+  const normalizedEmail = email.toLowerCase().trim();
 
   // Find user by email
-  const { data: user } = await supabaseAdmin
+  let { data: user } = await supabaseAdmin
     .from('users')
     .select('id, name, email, phone, role')
-    .eq('email', email)
-    .single();
+    .eq('email', normalizedEmail)
+    .maybeSingle();
 
+  // If user does not exist, create new staff account directly with password
   if (!user) {
-    throw new ApiError(404, 'User not found with this email');
+    const rawPassword = password || 'Staff@123';
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(rawPassword, salt);
+
+    const { data: newUser, error: createError } = await supabaseAdmin
+      .from('users')
+      .insert({
+        email: normalizedEmail,
+        name: name?.trim() || normalizedEmail,
+        phone: phone?.trim() || null,
+        password_hash: passwordHash,
+        role: 'hospital_manager',
+        is_active: true,
+        email_verified: true,
+      })
+      .select('id, name, email, phone, role')
+      .single();
+
+    if (createError) throw createError;
+    user = newUser;
   }
 
   // Check if user is already a manager for this hospital
@@ -814,7 +889,7 @@ const addManager = async (hospitalId, userId, managerData) => {
     .maybeSingle();
 
   if (existingManager) {
-    throw new ApiError(409, 'This user is already a manager for this hospital');
+    throw new ApiError(409, 'This user is already a staff/manager for this hospital');
   }
 
   const { data: existingManagerAssignment } = await supabaseAdmin
@@ -824,7 +899,7 @@ const addManager = async (hospitalId, userId, managerData) => {
     .maybeSingle();
 
   if (existingManagerAssignment && existingManagerAssignment.hospital_id !== hospitalId) {
-    throw new ApiError(409, 'This user is already assigned as a manager for another hospital');
+    throw new ApiError(409, 'This user is already assigned as staff for another hospital');
   }
 
   // Check if user already has a provider role that shouldn't be overwritten
@@ -843,20 +918,102 @@ const addManager = async (hospitalId, userId, managerData) => {
     .eq('id', user.id);
   if (userUpdateError) throw userUpdateError;
 
+  const assignedRole = staffRole || role || 'hospital_admin';
+
   const { data: manager, error } = await supabaseAdmin
     .from('hospital_managers')
     .insert({
       hospital_id: hospitalId,
       user_id: user.id,
       name: name || user.name || user.email,
-      role: 'manager',
-      permissions: permissions || ['view_appointments', 'manage_doctors'],
+      role: assignedRole,
+      staff_role: assignedRole,
+      department_id: departmentId || null,
+      shift: shift || 'general',
+      permissions: permissions || ['*'],
     })
-    .select('*, user:users(id, name, email)')
+    .select('*, user:users(id, name, email), department:hospital_departments(id, name)')
     .single();
 
   if (error) throw error;
   return manager;
+};
+
+// Remove staff member / manager
+const removeManager = async (hospitalId, userId, managerId) => {
+  const { data: manager, error: findError } = await supabaseAdmin
+    .from('hospital_managers')
+    .select('id, user_id')
+    .eq('id', managerId)
+    .eq('hospital_id', hospitalId)
+    .single();
+
+  if (findError || !manager) {
+    throw new ApiError(404, 'Staff member not found in this hospital');
+  }
+
+  const { error: deleteError } = await supabaseAdmin
+    .from('hospital_managers')
+    .delete()
+    .eq('id', managerId)
+    .eq('hospital_id', hospitalId);
+
+  if (deleteError) throw deleteError;
+  return { success: true };
+};
+
+// Reset staff password directly by hospital owner
+const resetStaffPassword = async (hospitalId, userId, managerId, newPassword) => {
+  if (!newPassword || newPassword.length < 6) {
+    throw new ApiError(400, 'Password must be at least 6 characters');
+  }
+
+  const { data: manager, error: findError } = await supabaseAdmin
+    .from('hospital_managers')
+    .select('id, user_id')
+    .eq('id', managerId)
+    .eq('hospital_id', hospitalId)
+    .single();
+
+  if (findError || !manager) {
+    throw new ApiError(404, 'Staff member not found in this hospital');
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  const passwordHash = await bcrypt.hash(newPassword, salt);
+
+  const { error: updateError } = await supabaseAdmin
+    .from('users')
+    .update({ password_hash: passwordHash })
+    .eq('id', manager.user_id);
+
+  if (updateError) throw updateError;
+  return { success: true, message: 'Password updated successfully' };
+};
+
+// Update staff member role / shift
+const updateManager = async (hospitalId, userId, managerId, updates) => {
+  const { staffRole, role, shift, departmentId, permissions } = updates;
+
+  const updateFields = {};
+  if (staffRole || role) {
+    updateFields.role = staffRole || role;
+    updateFields.staff_role = staffRole || role;
+  }
+  if (shift) updateFields.shift = shift;
+  if (departmentId !== undefined) updateFields.department_id = departmentId;
+  if (permissions) updateFields.permissions = permissions;
+
+  const { data, error } = await supabaseAdmin
+    .from('hospital_managers')
+    .update(updateFields)
+    .eq('id', managerId)
+    .eq('hospital_id', hospitalId)
+    .select('*, user:users(id, name, email), department:hospital_departments(id, name)')
+    .single();
+
+  if (error) throw error;
+  return data;
 };
 
 // Get consultations for doctors currently active in this hospital roster
@@ -1148,6 +1305,7 @@ const respondToJoinRequest = async (hospitalId, userId, requestId, decision, res
 
 module.exports = {
   getHospitalByOwner,
+  getStaffContext,
   getDashboard,
   updateHospital,
   getDoctors,
@@ -1161,6 +1319,9 @@ module.exports = {
   getAnalytics,
   getManagers,
   addManager,
+  updateManager,
+  removeManager,
+  resetStaffPassword,
   getConsultations,
   getAffiliatedAmbulances,
   inviteAmbulance,

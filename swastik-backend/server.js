@@ -542,6 +542,11 @@ app.use('/api/patient/referrals', patientReferralRoutes);
 app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api/emergency-network', require('./routes/emergencyNetwork'));
 
+// HIS — Patient-facing routes (queue position, admissions, lab reports, insurance)
+app.use('/api/patients', require('./routes/patient/his'));
+// HIS — Public hospital routes (bed availability, service catalog, bill estimates)
+app.use('/api/hospitals', require('./routes/hospital/his'));
+
 
 // Error handling
 app.use(notFound);

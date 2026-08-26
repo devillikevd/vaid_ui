@@ -813,6 +813,16 @@ export const doctorApi = {
             method: 'POST',
         }),
 
+    // ── Doctor IPD In-Patient Care & Rounds ──
+    getDoctorIpdAdmissions: (params: Record<string, string> = {}) => {
+        const p = new URLSearchParams(params);
+        return fetchWithAuth(`/doctor/me/ipd/admissions?${p}`);
+    },
+    addDoctorIpdRound: (data: Record<string, unknown>) =>
+        fetchWithAuth('/doctor/me/ipd/rounds', { method: 'POST', body: JSON.stringify(data) }),
+    getDoctorIpdRounds: (admissionId: string) =>
+        fetchWithAuth(`/doctor/me/ipd/rounds/${admissionId}`),
+
     updateVerificationDocuments: (data: Record<string, unknown>) =>
         fetchWithAuth('/doctors/me/verification-documents', {
             method: 'PUT',
@@ -1211,6 +1221,23 @@ export const hospitalApi = {
             body: JSON.stringify(data),
         }),
 
+    updateManager: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/managers/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        }),
+
+    resetStaffPassword: (id: string, password: string) =>
+        fetchWithAuth(`/hospital-manager/managers/${id}/password`, {
+            method: 'PATCH',
+            body: JSON.stringify({ password }),
+        }),
+
+    removeManager: (id: string) =>
+        fetchWithAuth(`/hospital-manager/managers/${id}`, {
+            method: 'DELETE',
+        }),
+
     getEmergencies: () => fetchWithAuth('/hospital-manager/emergencies'),
 
     getConsultations: (page: number = 1, status?: string, search: string = '', limit: number = 20) => {
@@ -1273,6 +1300,268 @@ export const hospitalApi = {
     },
     getOutbreakHeatmap: () => fetchWithAuth('/admin/outbreaks/public/heatmap'),
     getOutbreakStats: (days: number = 30) => fetchWithAuth(`/admin/outbreaks/public/stats?days=${days}`),
+
+    // ══════════════════════════════════════════════
+    // HIS MODULE APIs
+    // ══════════════════════════════════════════════
+
+    // ── Control Tower ──
+    getControlTower: (period?: string) =>
+        fetchWithAuth(`/hospital-manager/control-tower${period ? `?period=${period}` : ''}`),
+    getRevenueBreakdown: (fromDate?: string, toDate?: string) => {
+        const p = new URLSearchParams();
+        if (fromDate) p.set('fromDate', fromDate);
+        if (toDate) p.set('toDate', toDate);
+        return fetchWithAuth(`/hospital-manager/control-tower/revenue?${p}`);
+    },
+    getOccupancyDrilldown: () => fetchWithAuth('/hospital-manager/control-tower/occupancy'),
+
+    // ── IPD ──
+    createAdmission: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/ipd/admissions', { method: 'POST', body: JSON.stringify(data) }),
+    getAdmissions: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/ipd/admissions?${p}`);
+    },
+    getAdmissionDetail: (id: string) => fetchWithAuth(`/hospital-manager/ipd/admissions/${id}`),
+    admitPatient: (id: string, bedId: string, wardId?: string) =>
+        fetchWithAuth(`/hospital-manager/ipd/admissions/${id}/admit`, { method: 'POST', body: JSON.stringify({ bedId, wardId }) }),
+    transferBed: (id: string, newBedId: string, reason?: string) =>
+        fetchWithAuth(`/hospital-manager/ipd/admissions/${id}/transfer`, { method: 'POST', body: JSON.stringify({ newBedId, reason }) }),
+    dischargePatient: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/ipd/admissions/${id}/discharge`, { method: 'POST', body: JSON.stringify(data) }),
+    addProgressNote: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/ipd/admissions/${id}/progress-notes`, { method: 'POST', body: JSON.stringify(data) }),
+    getProgressNotes: (id: string, page = 1) =>
+        fetchWithAuth(`/hospital-manager/ipd/admissions/${id}/progress-notes?page=${page}`),
+    getIPDCensus: () => fetchWithAuth('/hospital-manager/ipd/census'),
+
+    // ── Beds ──
+    getWards: () => fetchWithAuth('/hospital-manager/wards'),
+    createWard: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/wards', { method: 'POST', body: JSON.stringify(data) }),
+    updateWard: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/wards/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteWard: (id: string) =>
+        fetchWithAuth(`/hospital-manager/wards/${id}`, { method: 'DELETE' }),
+    getBeds: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/beds?${p}`);
+    },
+    createBed: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/beds', { method: 'POST', body: JSON.stringify(data) }),
+    createBedsBulk: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/beds/bulk', { method: 'POST', body: JSON.stringify(data) }),
+    updateBed: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/beds/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    updateBedStatus: (id: string, status: string, data?: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/beds/${id}/status`, { method: 'PUT', body: JSON.stringify({ status, ...data }) }),
+    getBedOccupancy: () => fetchWithAuth('/hospital-manager/beds/occupancy'),
+    getAvailableBeds: (wardType?: string) =>
+        fetchWithAuth(`/hospital-manager/beds/available${wardType ? `?wardType=${wardType}` : ''}`),
+
+    // ── OPD Queue ──
+    generateQueueToken: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/queue/token', { method: 'POST', body: JSON.stringify(data) }),
+    getQueue: (params: Record<string, string> = {}) => {
+        const p = new URLSearchParams(params);
+        return fetchWithAuth(`/hospital-manager/queue?${p}`);
+    },
+    callNextPatient: (doctorId: string) =>
+        fetchWithAuth('/hospital-manager/queue/0/call-next', { method: 'POST', body: JSON.stringify({ doctorId }) }),
+    updateQueueStatus: (id: string, status: string, notes?: string) =>
+        fetchWithAuth(`/hospital-manager/queue/${id}/status`, { method: 'PUT', body: JSON.stringify({ status, notes }) }),
+    getQueueStats: () => fetchWithAuth('/hospital-manager/queue/stats'),
+    getPatientQueuePosition: (patientId: string) =>
+        fetchWithAuth(`/hospital-manager/queue/patient/${patientId}`),
+
+    // ── Lab Orders ──
+    createLabOrder: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/lab/orders', { method: 'POST', body: JSON.stringify(data) }),
+    createLabOrdersBulk: (orders: Record<string, unknown>[]) =>
+        fetchWithAuth('/hospital-manager/lab/orders/bulk', { method: 'POST', body: JSON.stringify({ orders }) }),
+    getLabOrders: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/lab/orders?${p}`);
+    },
+    updateLabOrderStatus: (id: string, status: string, data?: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/lab/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ status, ...data }) }),
+    getLabTAT: (period?: string) =>
+        fetchWithAuth(`/hospital-manager/lab/tat${period ? `?period=${period}` : ''}`),
+
+    // ── Radiology ──
+    createRadiologyOrder: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/radiology/orders', { method: 'POST', body: JSON.stringify(data) }),
+    getRadiologyOrders: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/radiology/orders?${p}`);
+    },
+    updateRadiologyOrderStatus: (id: string, status: string, data?: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/radiology/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ status, ...data }) }),
+
+    // ── OT ──
+    getOtRooms: () => fetchWithAuth('/hospital-manager/ot/rooms'),
+    createOtRoom: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/ot/rooms', { method: 'POST', body: JSON.stringify(data) }),
+    updateOtRoom: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/ot/rooms/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    getOtSchedules: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/ot/schedules?${p}`);
+    },
+    scheduleOt: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/ot/schedules', { method: 'POST', body: JSON.stringify(data) }),
+    updateOtStatus: (id: string, status: string, data?: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/ot/schedules/${id}/status`, { method: 'PUT', body: JSON.stringify({ status, ...data }) }),
+    addOtChecklist: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/ot/schedules/${id}/checklist`, { method: 'POST', body: JSON.stringify(data) }),
+    getOtAvailability: (date?: string) =>
+        fetchWithAuth(`/hospital-manager/ot/availability${date ? `?date=${date}` : ''}`),
+
+    // ── Nursing ──
+    createNursingTask: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/nursing/tasks', { method: 'POST', body: JSON.stringify(data) }),
+    getNursingTasks: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/nursing/tasks?${p}`);
+    },
+    updateNursingTask: (id: string, status: string, data?: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/nursing/tasks/${id}`, { method: 'PUT', body: JSON.stringify({ status, ...data }) }),
+    addMedication: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/nursing/mar', { method: 'POST', body: JSON.stringify(data) }),
+    updateMedication: (id: string, status: string, data?: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/nursing/mar/${id}`, { method: 'PUT', body: JSON.stringify({ status, ...data }) }),
+    getMedicationSchedule: (admissionId: string, date?: string) =>
+        fetchWithAuth(`/hospital-manager/nursing/mar/${admissionId}${date ? `?date=${date}` : ''}`),
+    getWardDashboard: (wardId: string) =>
+        fetchWithAuth(`/hospital-manager/nursing/ward-dashboard/${wardId}`),
+
+    // ── Service Catalog ──
+    getHospitalServices: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/services?${p}`);
+    },
+    createHospitalService: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/services', { method: 'POST', body: JSON.stringify(data) }),
+    updateHospitalService: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/services/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteHospitalService: (id: string) =>
+        fetchWithAuth(`/hospital-manager/services/${id}`, { method: 'DELETE' }),
+    getServiceCategories: () => fetchWithAuth('/hospital-manager/services/categories'),
+
+    // ── Encounters ──
+    createEncounter: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/encounters', { method: 'POST', body: JSON.stringify(data) }),
+    getEncounters: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/encounters?${p}`);
+    },
+    getEncounterDetail: (id: string) => fetchWithAuth(`/hospital-manager/encounters/${id}`),
+    updateEncounter: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/encounters/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    addEncounterService: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/encounters/${id}/services`, { method: 'POST', body: JSON.stringify(data) }),
+    getEncounterBill: (id: string) => fetchWithAuth(`/hospital-manager/encounters/${id}/bill`),
+    getPatientEncounterHistory: (patientId: string, page = 1) =>
+        fetchWithAuth(`/hospital-manager/encounters/patient/${patientId}?page=${page}`),
+
+    // ── Billing Foundation & Phase 4 ──
+    createDeposit: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/deposits', { method: 'POST', body: JSON.stringify(data) }),
+    getDeposits: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/deposits?${p}`);
+    },
+    createPreauth: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/insurance/preauth', { method: 'POST', body: JSON.stringify(data) }),
+    getPreauths: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/insurance/preauth?${p}`);
+    },
+    updatePreauth: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/insurance/preauth/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    // ── Billing Phase 4: Charges, Invoices, TPA, Revenue, Tally ──
+    aggregateCharges: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/billing/charges/aggregate', { method: 'POST', body: JSON.stringify(data) }),
+    getCharges: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/billing/charges?${p}`);
+    },
+    generateInvoice: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/billing/invoices/generate', { method: 'POST', body: JSON.stringify(data) }),
+    finalizeInvoice: (id: string) =>
+        fetchWithAuth(`/hospital-manager/billing/invoices/${id}/finalize`, { method: 'PUT' }),
+    recordInvoicePayment: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/billing/invoices/${id}/payment`, { method: 'POST', body: JSON.stringify(data) }),
+    createTpaClaim: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/billing/tpa-claims', { method: 'POST', body: JSON.stringify(data) }),
+    getTpaClaims: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/billing/tpa-claims?${p}`);
+    },
+    updateTpaClaim: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/billing/tpa-claims/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    getRevenueReport: (params: Record<string, string> = {}) => {
+        const p = new URLSearchParams(params);
+        return fetchWithAuth(`/hospital-manager/billing/revenue?${p}`);
+    },
+    buildDailyRevenue: (data: Record<string, unknown> = {}) =>
+        fetchWithAuth('/hospital-manager/billing/revenue/build-daily', { method: 'POST', body: JSON.stringify(data) }),
+    exportTally: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/billing/tally/export', { method: 'POST', body: JSON.stringify(data) }),
+    getTallyExports: () =>
+        fetchWithAuth('/hospital-manager/billing/tally/exports'),
+
+    // ── Quality ──
+    createIncident: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/incidents', { method: 'POST', body: JSON.stringify(data) }),
+    getIncidents: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/incidents?${p}`);
+    },
+    updateIncident: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/incidents/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    getQualityIndicators: (params: Record<string, string> = {}) => {
+        const p = new URLSearchParams(params);
+        return fetchWithAuth(`/hospital-manager/quality-indicators?${p}`);
+    },
+
+    // ── Staff Role Context ──
+    getMyStaffRole: () => fetchWithAuth('/hospital-manager/my-role'),
+
+    // ── In-House Pharmacy ──
+    getInhouseInventory: (params: Record<string, string | number | boolean> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/inhouse-pharmacy/inventory?${p}`);
+    },
+    addInhouseInventory: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/inhouse-pharmacy/inventory', { method: 'POST', body: JSON.stringify(data) }),
+    updateInhouseInventory: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/inhouse-pharmacy/inventory/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    getPendingDispensations: () =>
+        fetchWithAuth('/hospital-manager/inhouse-pharmacy/pending-prescriptions'),
+    dispensePrescription: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/inhouse-pharmacy/dispense', { method: 'POST', body: JSON.stringify(data) }),
+    getDispensationsHistory: (params: Record<string, string | number> = {}) => {
+        const p = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
+        return fetchWithAuth(`/hospital-manager/inhouse-pharmacy/dispensations?${p}`);
+    },
 };
 
 // ==================== PHARMACY API ====================

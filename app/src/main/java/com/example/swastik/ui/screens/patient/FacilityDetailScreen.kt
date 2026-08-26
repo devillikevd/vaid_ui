@@ -87,7 +87,9 @@ fun FacilityDetailScreen(
     viewModel: FacilityDetailViewModel = hiltViewModel(),
     medicineViewModel: com.example.swastik.ui.viewmodel.MedicineViewModel = hiltViewModel(),
     onNavigateToOrders: () -> Unit = {},
-    onNavigateToDiagnosticBooking: (String) -> Unit = {}
+    onNavigateToDiagnosticBooking: (String) -> Unit = {},
+    onNavigateToHospitalServices: () -> Unit = {},
+    onNavigateToServiceCatalog: (String, String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -791,7 +793,9 @@ fun FacilityDetailScreen(
                                 onBookFitnessVisitClick = {
                                     viewModel.bookFitnessCenterVisit(facilityId)
                                 },
-                                fitnessBookingSubmitting = uiState.fitnessBookingSubmitting
+                                fitnessBookingSubmitting = uiState.fitnessBookingSubmitting,
+                                onNavigateToHospitalServices = onNavigateToHospitalServices,
+                                onNavigateToServiceCatalog = onNavigateToServiceCatalog
                             )
                         }
 
@@ -962,7 +966,9 @@ private fun LazyListScope.overviewTabContent(
     onOrderMedicineClick: () -> Unit = {},
     onBookTestClick: () -> Unit = {},
     onBookFitnessVisitClick: () -> Unit = {},
-    fitnessBookingSubmitting: Boolean = false
+    fitnessBookingSubmitting: Boolean = false,
+    onNavigateToHospitalServices: () -> Unit = {},
+    onNavigateToServiceCatalog: (String, String) -> Unit = { _, _ -> }
 ) {
     val offsetY = (-24).dp
 
@@ -1004,6 +1010,67 @@ private fun LazyListScope.overviewTabContent(
             isDark = isDark,
             modifier = Modifier.offset(y = offsetY)
         )
+    }
+
+    // ── Hospital HIS Services & Bed Availability (Hospital Only) ──
+    if (facilityType == FacilityType.HOSPITAL) {
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .offset(y = offsetY),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.LocalHospital,
+                            contentDescription = null,
+                            tint = Color(0xFF00695C),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Hospital Digital Services",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = titleColor
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = onNavigateToHospitalServices,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00695C))
+                        ) {
+                            Text("Queue & Token", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        OutlinedButton(
+                            onClick = { onNavigateToServiceCatalog(facility.id, facility.name) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Color(0xFF00695C))
+                        ) {
+                            Text("Rate Card & Est.", fontSize = 12.sp, color = Color(0xFF00695C), fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Box(modifier = Modifier.padding(horizontal = 16.dp).offset(y = offsetY)) {
+                com.example.swastik.ui.screens.patient.healthcare.BedAvailabilitySection(hospitalId = facility.id)
+            }
+        }
     }
 
     // ── About Section ──

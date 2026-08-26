@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Calendar, CalendarClock, Clock, User, Video, Search, RefreshCw, Loader2, AlertCircle, Play, XCircle as XCircleIcon, CheckCircle, Bell, UserCheck, CalendarX, Inbox, FileText, ClipboardList, SearchX, X, Mic, Compass, Stethoscope, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, CalendarClock, Clock, User, Video, Search, RefreshCw, Loader2, AlertCircle, Play, XCircle as XCircleIcon, CheckCircle, Bell, UserCheck, CalendarX, Inbox, FileText, ClipboardList, SearchX, X, Mic, Compass, Stethoscope, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
 import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -9,8 +9,9 @@ import { Input } from '@/components/ui/Input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Pagination, usePagination } from '@/components/ui/Pagination';
 import { useDoctorStore } from '@/stores/doctorStore';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { doctorApi } from '@/lib/api';
 import { useAppointmentUpdates, type AppointmentUpdate } from '@/hooks/useSocket';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 import {
@@ -519,6 +520,42 @@ export default function DoctorAppointmentsPage() {
     // Auto-refresh polling fallback
     useAutoRefresh(() => fetchAppointments(selectedStatus, undefined, 1));
 
+    const searchParams = useSearchParams();
+    const [facilityFilter, setFacilityFilter] = useState<string>(searchParams?.get('facilityId') || 'all');
+    const [associatedFacilities, setAssociatedFacilities] = useState<Array<{ id: string; name: string; kind: 'hospital' | 'clinic' }>>([]);
+
+    useEffect(() => {
+        const loadFacilities = async () => {
+            try {
+                const [hRes, cRes] = await Promise.all([
+                    doctorApi.getHospitalInvites(),
+                    doctorApi.getClinicInvites(),
+                ]);
+                const facList: Array<{ id: string; name: string; kind: 'hospital' | 'clinic' }> = [];
+                if (hRes.success && Array.isArray(hRes.data)) {
+                    hRes.data.filter((i: any) => ['accepted', 'active'].includes(i.status)).forEach((i: any) => {
+                        const h = i.hospital;
+                        if (h && (h.id || i.hospital_id)) {
+                            facList.push({ id: h.id || i.hospital_id, name: h.name || 'Hospital', kind: 'hospital' });
+                        }
+                    });
+                }
+                if (cRes.success && Array.isArray(cRes.data)) {
+                    cRes.data.filter((i: any) => ['accepted', 'active'].includes(i.status)).forEach((i: any) => {
+                        const c = i.clinic;
+                        if (c && (c.id || i.clinic_id)) {
+                            facList.push({ id: c.id || i.clinic_id, name: c.name || 'Clinic', kind: 'clinic' });
+                        }
+                    });
+                }
+                setAssociatedFacilities(facList);
+            } catch (e) {
+                console.error('Failed to load associated facilities', e);
+            }
+        };
+        loadFacilities();
+    }, []);
+
     const filtered = useMemo(() => {
         return (appointments || []).filter(apt => {
             const matchesSearch = (apt.patientName || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -534,15 +571,24 @@ export default function DoctorAppointmentsPage() {
             const canonicalVisitType = resolveCanonicalVisitType(apt);
             const matchesVisitType = visitTypeFilter === 'all' || canonicalVisitType === visitTypeFilter;
 
-            return matchesSearch && matchesStatus && matchesSource && matchesVisitType;
+            // Facility Dimension Filter
+            let matchesFacility = true;
+            if (facilityFilter === 'telemedicine') {
+                matchesFacility = apt.type?.toLowerCase() === 'video' || (apt as any).consultation_mode === 'video' || apt.type === 'telemedicine';
+            } else if (facilityFilter !== 'all') {
+                const aptFacilityId = (apt as any).hospital_id || (apt as any).hospitalId || (apt as any).clinic_id || (apt as any).clinicId || (apt as any).facility_id || (apt as any).hospital?.id || (apt as any).clinic?.id;
+                matchesFacility = aptFacilityId === facilityFilter || (apt as any).hospital?.name === facilityFilter;
+            }
+
+            return matchesSearch && matchesStatus && matchesSource && matchesVisitType && matchesFacility;
         });
-    }, [appointments, searchQuery, statusFilter, sourceFilter, visitTypeFilter, isActiveAppointment]);
+    }, [appointments, searchQuery, statusFilter, sourceFilter, visitTypeFilter, facilityFilter, isActiveAppointment]);
 
     const { totalPages, totalItems, itemsPerPage, paginate } = usePagination(filtered, 10);
     const paginatedItems = useMemo(() => paginate(page), [paginate, page]);
 
     // Reset page when filters change
-    useEffect(() => { setPage(1); }, [searchQuery, statusFilter, sourceFilter, visitTypeFilter]);
+    useEffect(() => { setPage(1); }, [searchQuery, statusFilter, sourceFilter, visitTypeFilter, facilityFilter]);
 
     // Handlers
     const handleConfirm = async (id: string) => {
@@ -691,6 +737,51 @@ export default function DoctorAppointmentsPage() {
                         {isListLoading ? 'Refreshing...' : 'Refresh List'}
                     </Button>
                 </div>
+            </div>
+
+            {/* Associated Facilities & Consultation Mode Switcher */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                <button
+                    onClick={() => setFacilityFilter('all')}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
+                        facilityFilter === 'all'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
+                    }`}
+                >
+                    All OPD Sessions ({appointments.length})
+                </button>
+                <button
+                    onClick={() => setFacilityFilter('telemedicine')}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 ${
+                        facilityFilter === 'telemedicine'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
+                    }`}
+                >
+                    <Video className="h-3.5 w-3.5" />
+                    Online Telemedicine ({appointments.filter(a => a.type?.toLowerCase() === 'video' || (a as any).consultation_mode === 'video' || a.type === 'telemedicine').length})
+                </button>
+                {associatedFacilities.map(f => {
+                    const count = appointments.filter(a => {
+                        const fid = (a as any).hospital_id || (a as any).hospitalId || (a as any).clinic_id || (a as any).clinicId || (a as any).facility_id || (a as any).hospital?.id || (a as any).clinic?.id;
+                        return fid === f.id || (a as any).hospital?.name === f.name;
+                    }).length;
+                    return (
+                        <button
+                            key={f.id}
+                            onClick={() => setFacilityFilter(f.id)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 ${
+                                facilityFilter === f.id
+                                    ? 'bg-emerald-600 text-white shadow-sm'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
+                            }`}
+                        >
+                            <Building2 className="h-3.5 w-3.5" />
+                            {f.name} ({count})
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Search and Filters Section */}
