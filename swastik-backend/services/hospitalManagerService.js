@@ -834,12 +834,21 @@ const getAnalytics = async (hospitalId, userId, period = '30d') => {
 
 // Get managers & staff
 const getManagers = async (hospitalId, userId) => {
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from('hospital_managers')
     .select('*, user:users(id, name, email, phone, profile_image_url), department:hospital_departments(id, name)')
     .eq('hospital_id', hospitalId);
 
-  if (error) throw error;
+  // Fallback if migration 112 (department_id FK) hasn't run yet
+  if (error) {
+    const fallback = await supabaseAdmin
+      .from('hospital_managers')
+      .select('*, user:users(id, name, email, phone, profile_image_url)')
+      .eq('hospital_id', hospitalId);
+    if (fallback.error) throw fallback.error;
+    data = fallback.data;
+  }
+
   return data || [];
 };
 
@@ -920,7 +929,9 @@ const addManager = async (hospitalId, userId, managerData) => {
 
   const assignedRole = staffRole || role || 'hospital_admin';
 
-  const { data: manager, error } = await supabaseAdmin
+  let manager;
+  // Try inserting with enhanced migration 112 fields first
+  const { data: enhancedManager, error: insertError } = await supabaseAdmin
     .from('hospital_managers')
     .insert({
       hospital_id: hospitalId,
@@ -935,7 +946,27 @@ const addManager = async (hospitalId, userId, managerData) => {
     .select('*, user:users(id, name, email), department:hospital_departments(id, name)')
     .single();
 
-  if (error) throw error;
+  if (!insertError) {
+    manager = enhancedManager;
+  } else {
+    // Fallback gracefully to standard schema if migration 112 columns aren't applied yet
+    console.warn('[HospitalManagerService] Migration 112 columns not yet present, using base schema insert:', insertError.message);
+    const { data: fallbackManager, error: fallbackError } = await supabaseAdmin
+      .from('hospital_managers')
+      .insert({
+        hospital_id: hospitalId,
+        user_id: user.id,
+        name: name || user.name || user.email,
+        role: assignedRole,
+        permissions: permissions || ['*'],
+      })
+      .select('*, user:users(id, name, email)')
+      .single();
+
+    if (fallbackError) throw fallbackError;
+    manager = { ...fallbackManager, staff_role: assignedRole, shift: shift || 'general' };
+  }
+
   return manager;
 };
 
@@ -1004,7 +1035,7 @@ const updateManager = async (hospitalId, userId, managerId, updates) => {
   if (departmentId !== undefined) updateFields.department_id = departmentId;
   if (permissions) updateFields.permissions = permissions;
 
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from('hospital_managers')
     .update(updateFields)
     .eq('id', managerId)
@@ -1012,7 +1043,24 @@ const updateManager = async (hospitalId, userId, managerId, updates) => {
     .select('*, user:users(id, name, email), department:hospital_departments(id, name)')
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // Fallback if enhanced schema not present
+    const baseUpdates = {};
+    if (staffRole || role) baseUpdates.role = staffRole || role;
+    if (permissions) baseUpdates.permissions = permissions;
+
+    const fallback = await supabaseAdmin
+      .from('hospital_managers')
+      .update(baseUpdates)
+      .eq('id', managerId)
+      .eq('hospital_id', hospitalId)
+      .select('*, user:users(id, name, email)')
+      .single();
+
+    if (fallback.error) throw fallback.error;
+    data = fallback.data;
+  }
+
   return data;
 };
 

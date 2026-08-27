@@ -39,7 +39,7 @@ export function VideoUpload({
         setUploading(true);
 
         try {
-            const res = await uploadApi.uploadFile(file, 'profile');
+            const res = await uploadApi.uploadFile(file, 'video');
             if (res.success) {
                 const data = res.data as any;
                 const url = data?.url || data?.fileUrl || (res as any).url;

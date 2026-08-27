@@ -449,7 +449,7 @@ router.get('/managers', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER
     res.json({ success: true, managers });
 }));
 
-router.post('/managers', requireRole(ROLES.HOSPITAL_OWNER), [
+router.post('/managers', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
     body('email').isEmail().toLowerCase().withMessage('Valid email is required'),
     body('name').notEmpty().isString().trim().isLength({ min: 2, max: 100 }).withMessage('Name is required (2-100 chars)'),
     body('phone').optional().isString().trim(),
@@ -460,13 +460,13 @@ router.post('/managers', requireRole(ROLES.HOSPITAL_OWNER), [
     res.json({ success: true, manager });
 }));
 
-router.patch('/managers/:id', requireRole(ROLES.HOSPITAL_OWNER), asyncHandler(async (req, res) => {
+router.patch('/managers/:id', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
     const updated = await hospitalManagerService.updateManager(hospital.id, req.user.id, req.params.id, req.body);
     res.json({ success: true, manager: updated });
 }));
 
-router.patch('/managers/:id/password', requireRole(ROLES.HOSPITAL_OWNER), [
+router.patch('/managers/:id/password', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
     validate,
 ], asyncHandler(async (req, res) => {
@@ -475,7 +475,7 @@ router.patch('/managers/:id/password', requireRole(ROLES.HOSPITAL_OWNER), [
     res.json(result);
 }));
 
-router.delete('/managers/:id', requireRole(ROLES.HOSPITAL_OWNER), asyncHandler(async (req, res) => {
+router.delete('/managers/:id', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
     const result = await hospitalManagerService.removeManager(hospital.id, req.user.id, req.params.id);
     res.json(result);
