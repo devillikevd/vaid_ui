@@ -35,9 +35,12 @@ PUBLIC_IP="$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -fsS http://169.254.169.
 PRIVATE_IP="$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -fsS http://169.254.169.254/latest/meta-data/local-ipv4 || true)"
 
 REGION="$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -fsS http://169.254.169.254/latest/meta-data/placement/region || true)"
-TURN_SECRET="$(aws ssm get-parameter --name "/swastik/turn/secret" --with-decryption --region "$REGION" --query "Parameter.Value" --output text || echo "default-secret")"
+TURN_SECRET="${turn_password}"
+if [ -z "$TURN_SECRET" ]; then
+  TURN_SECRET="$(aws ssm get-parameter --name "/swastik/prod/turn_password" --with-decryption --region "$REGION" --query "Parameter.Value" --output text 2>/dev/null || true)"
+fi
 
-cat > "$TMP" <<'CONF'
+cat > "$TMP" <<CONF
 listening-port=3478
 min-port=${turn_min_port}
 max-port=${turn_max_port}

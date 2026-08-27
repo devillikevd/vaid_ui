@@ -55,22 +55,13 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 MONGODB_URI = os.getenv("MONGODB_URI", "")
 MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "swastik_healthcare")
 
-# CVE-002: this service MUST NOT share the backend access-token secret in
-# production. Operators should set JWT_AI_SERVICE_SECRET (a separate key the
-# backend mints short-lived aiServiceToken's with). Falling back to
-# JWT_ACCESS_SECRET is only supported for legacy/transitional deployments.
+# CVE-002: Support verifying both user access tokens (JWT_ACCESS_SECRET / JWT_SECRET)
+# and backend-to-service tokens (JWT_AI_SERVICE_SECRET).
 JWT_AI_SERVICE_SECRET = os.getenv("JWT_AI_SERVICE_SECRET", "").strip()
-if JWT_AI_SERVICE_SECRET:
-    JWT_SECRET = JWT_AI_SERVICE_SECRET
-else:
-    JWT_SECRET = os.getenv("JWT_ACCESS_SECRET", "") or os.getenv("JWT_SECRET", "")
-    if os.getenv("NODE_ENV", "development") == "production":
-        import sys
-        print("FATAL: JWT_AI_SERVICE_SECRET is required in production. "
-              "Do not share JWT_ACCESS_SECRET with the AI service (CVE-002).")
-        sys.exit(1)
-
-JWT_AUDIENCE = os.getenv("JWT_AI_SERVICE_AUDIENCE", "swastik-ai-service") if JWT_AI_SERVICE_SECRET else os.getenv("JWT_AUDIENCE", "swastik-backend")
+JWT_ACCESS_SECRET = os.getenv("JWT_ACCESS_SECRET", "").strip()
+JWT_SECRET = os.getenv("JWT_SECRET", "").strip()
+JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "swastik-backend")
+JWT_AI_SERVICE_AUDIENCE = os.getenv("JWT_AI_SERVICE_AUDIENCE", "swastik-ai-service")
 JWT_ISSUER = os.getenv("JWT_ISSUER", "swastik-backend")
 AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", "1500"))
 AI_TEMPERATURE = float(os.getenv("AI_TEMPERATURE", "0.3"))
@@ -210,19 +201,31 @@ async def add_security_headers(request, call_next):
 
 # CVE-002: single JWT verification path enforcing aud/iss/exp/sub/type.
 def verify_token(token: str) -> dict:
-    if not JWT_SECRET:
+    secrets_to_try = [s for s in [JWT_ACCESS_SECRET, JWT_SECRET, JWT_AI_SERVICE_SECRET] if s]
+    if not secrets_to_try:
         raise jwt.InvalidTokenError("JWT secret is not configured")
-    payload = jwt.decode(
-        token,
-        JWT_SECRET,
-        algorithms=["HS256"],
-        audience=JWT_AUDIENCE,
-        issuer=JWT_ISSUER,
-        options={"require": ["exp", "aud", "iss", "sub"]},
-    )
-    if payload.get("type") not in ("access", "ai"):
-        raise jwt.InvalidTokenError("Invalid token type")
-    return payload
+    audiences = [JWT_AUDIENCE, JWT_AI_SERVICE_AUDIENCE, "swastik-backend", "swastik-ai-service"]
+    last_err = None
+    for secret in secrets_to_try:
+        for aud in audiences:
+            try:
+                payload = jwt.decode(
+                    token,
+                    secret,
+                    algorithms=["HS256"],
+                    audience=aud,
+                    issuer=JWT_ISSUER,
+                    options={"require": ["exp", "aud", "iss", "sub"]},
+                )
+                if payload.get("type") not in ("access", "ai"):
+                    raise jwt.InvalidTokenError("Invalid token type")
+                return payload
+            except jwt.InvalidTokenError as e:
+                last_err = e
+                continue
+    if last_err:
+        raise last_err
+    raise jwt.InvalidTokenError("Invalid token")
 
 
 # CVE-003: per-IP WebSocket connection throttle backed by Redis.

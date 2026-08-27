@@ -122,14 +122,17 @@ locals {
     { name = "AI_SERVICE_PORT", value = "8000" },
     { name = "AI_SERVICE_WORKERS", value = tostring(var.ai_service_workers) },
     { name = "AI_SERVICE_RELOAD", value = "false" },
-    { name = "BACKEND_URL", value = "http://backend:5001" },
+    { name = "BACKEND_URL", value = "https://api.vaididea.in" },
     { name = "JWT_AI_SERVICE_AUDIENCE", value = "swastik-ai-service" },
     { name = "JWT_AUDIENCE", value = "swastik-backend" },
     { name = "JWT_ISSUER", value = "swastik-backend" },
     { name = "REDIS_URL", value = local.redis_url },
     { name = "MONGODB_DB_NAME", value = var.mongodb_db_name },
     { name = "PYTHONUNBUFFERED", value = "1" },
-    { name = "PYTHONDONTWRITEBYTECODE", value = "1" }
+    { name = "PYTHONDONTWRITEBYTECODE", value = "1" },
+    { name = "FRONTEND_WEB_URL", value = "https://${var.app_domain != "" ? var.app_domain : "vaididea.in"}" },
+    { name = "FRONTEND_DOCTOR_WEB_URL", value = "https://${var.app_domain != "" ? var.app_domain : "vaididea.in"}" },
+    { name = "AI_SERVICE_ALLOWED_ORIGINS", value = "https://${var.app_domain != "" ? var.app_domain : "vaididea.in"},https://www.${var.app_domain != "" ? var.app_domain : "vaididea.in"},http://localhost:3000,http://localhost:3001" }
   ]
 
   backend_secrets = [
@@ -144,7 +147,8 @@ locals {
     "MONGODB_URI",
     "GROQ_API_KEY",
     "GEMINI_API_KEY",
-    "HUGGINGFACE_API_KEY"
+    "HUGGINGFACE_API_KEY",
+    "REDIS_PASSWORD"
   ])
 
   ai_secrets = [
