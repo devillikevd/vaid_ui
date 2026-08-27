@@ -130,9 +130,9 @@ locals {
     { name = "MONGODB_DB_NAME", value = var.mongodb_db_name },
     { name = "PYTHONUNBUFFERED", value = "1" },
     { name = "PYTHONDONTWRITEBYTECODE", value = "1" },
-    { name = "FRONTEND_WEB_URL", value = "https://${var.app_domain != "" ? var.app_domain : "vaididea.in"}" },
-    { name = "FRONTEND_DOCTOR_WEB_URL", value = "https://${var.app_domain != "" ? var.app_domain : "vaididea.in"}" },
-    { name = "AI_SERVICE_ALLOWED_ORIGINS", value = "https://${var.app_domain != "" ? var.app_domain : "vaididea.in"},https://www.${var.app_domain != "" ? var.app_domain : "vaididea.in"},http://localhost:3000,http://localhost:3001" }
+    { name = "FRONTEND_WEB_URL", value = "https://vaididea.in" },
+    { name = "FRONTEND_DOCTOR_WEB_URL", value = "https://vaididea.in" },
+    { name = "AI_SERVICE_ALLOWED_ORIGINS", value = "https://vaididea.in,https://www.vaididea.in,http://localhost:3000,http://localhost:3001" }
   ]
 
   backend_secrets = [
