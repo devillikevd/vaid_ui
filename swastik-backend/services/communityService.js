@@ -62,6 +62,35 @@ class CommunityService {
     });
   }
 
+  _buildSearchFilter(search) {
+    if (!search || !search.trim()) return null;
+    const clean = search.trim().replace(/[%_'"\\]/g, '');
+    if (!clean) return null;
+
+    const stopWords = new Set(['i', 'a', 'an', 'the', 'is', 'am', 'are', 'was', 'were', 'have', 'has', 'had', 'do', 'does', 'did', 'for', 'to', 'in', 'on', 'at', 'by', 'with', 'from', 'what', 'how', 'why', 'when', 'where', 'who', 'me', 'my', 'we', 'our', 'you', 'your']);
+    const words = clean.split(/\s+/).filter(w => w.length > 0);
+    
+    let keywords = words.filter(w => !stopWords.has(w.toLowerCase()) && w.length >= 2);
+    if (keywords.length === 0) {
+      keywords = words;
+    }
+
+    const conditions = [];
+    conditions.push(`title.ilike.%${clean}%`);
+    conditions.push(`content.ilike.%${clean}%`);
+    conditions.push(`topic.ilike.%${clean}%`);
+    conditions.push(`category.ilike.%${clean}%`);
+
+    keywords.forEach(kw => {
+      conditions.push(`title.ilike.%${kw}%`);
+      conditions.push(`content.ilike.%${kw}%`);
+      conditions.push(`topic.ilike.%${kw}%`);
+      conditions.push(`category.ilike.%${kw}%`);
+    });
+
+    return conditions.join(',');
+  }
+
   async getQuestions(limit = 20, offset = 0, filter = 'All', topic = null, search = null, userId = null, sortBy = 'recent', category = null, specialtyTarget = null, userRole = null) {
     if (userRole === 'pharmacy_owner') category = 'Medications';
     if (userRole === 'diagnostic_center_owner') category = 'Diagnostics';
@@ -92,9 +121,9 @@ class CommunityService {
       query = query.eq('category', category);
     }
 
-    if (search && search.trim()) {
-      const safeSearch = search.trim().replace(/[%_]/g, ''); 
-      query = query.or(`title.ilike.%${safeSearch}%,content.ilike.%${safeSearch}%,topic.ilike.%${safeSearch}%,category.ilike.%${safeSearch}%`);
+    const searchFilter = this._buildSearchFilter(search);
+    if (searchFilter) {
+      query = query.or(searchFilter);
     }
 
     if (filter === 'My Specialty') {
@@ -287,9 +316,9 @@ class CommunityService {
         statsQuery = statsQuery.eq('category', category);
       }
 
-      if (search && search.trim()) {
-        const safeSearch = search.trim().replace(/[%_]/g, '');
-        statsQuery = statsQuery.or(`title.ilike.%${safeSearch}%,content.ilike.%${safeSearch}%,topic.ilike.%${safeSearch}%,category.ilike.%${safeSearch}%`);
+      const searchFilter = this._buildSearchFilter(search);
+      if (searchFilter) {
+        statsQuery = statsQuery.or(searchFilter);
       }
 
       if (filter === 'Answered') {

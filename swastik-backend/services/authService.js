@@ -1457,13 +1457,33 @@ const forgotPassword = async (rawEmail, expectedRole = null) => {
     .eq('email', email)
     .single();
 
-  if (!user || !user.is_active) {
-    return { message: 'If an account exists with this email, a 6-digit reset code has been sent.' };
+  if (!user) {
+    throw new ApiError(404, 'This email address is not registered with any account. Please check your spelling or register a new account.');
+  }
+
+  if (!user.is_active) {
+    throw new ApiError(403, 'This account has been deactivated. Please contact Swastik support.');
   }
 
   if (expectedRole) {
     if (!authRoleMatches(user, expectedRole)) {
-      return { message: 'If an account exists with this email, a 6-digit reset code has been sent.' };
+      const friendlyRoleNames = {
+        patient: 'Patient',
+        doctor: 'Doctor',
+        hospital_owner: 'Hospital',
+        hospital_manager: 'Hospital',
+        clinic_owner: 'Clinic',
+        pharmacy_owner: 'Pharmacy',
+        ambulance_operator: 'Ambulance Operator',
+        ambulance_driver: 'Ambulance Driver',
+        wellness_coach: 'Wellness Coach',
+        fitness_center_owner: 'Gym / Fitness Studio',
+        diagnostic_center_owner: 'Diagnostic Center',
+        admin: 'Admin',
+        super_admin: 'Admin',
+      };
+      const expectedName = friendlyRoleNames[expectedRole] || expectedRole.replace(/_/g, ' ');
+      throw new ApiError(404, `This email is not registered for a ${expectedName} account. Please verify your portal or role.`);
     }
   }
 
@@ -1475,7 +1495,7 @@ const forgotPassword = async (rawEmail, expectedRole = null) => {
     name: user.name,
   });
 
-  return { message: 'If an account exists with this email, a 6-digit reset code has been sent.' };
+  return { message: 'A 6-digit password reset code has been sent to your email.' };
 };
 
 // ==================== Reset Password ====================

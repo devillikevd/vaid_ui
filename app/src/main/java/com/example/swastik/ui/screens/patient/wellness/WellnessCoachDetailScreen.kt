@@ -86,14 +86,17 @@ fun WellnessCoachDetailScreen(
         bottomBar = {
             coachDetail?.let { coach ->
                 Surface(
-                    shadowElevation = 12.dp,
+                    shadowElevation = 16.dp,
                     color = Color.White,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, WellnessTheme.TealBorderLight)
+                    border = androidx.compose.foundation.BorderStroke(1.dp, WellnessTheme.TealBorderLight),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                            .padding(horizontal = 20.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

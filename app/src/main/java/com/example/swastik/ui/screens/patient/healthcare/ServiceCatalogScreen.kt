@@ -67,12 +67,15 @@ fun ServiceCatalogScreen(
             if (selectedServices.isNotEmpty()) {
                 Surface(
                     shadowElevation = 8.dp,
-                    color = SurfaceLight
+                    color = SurfaceLight,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {

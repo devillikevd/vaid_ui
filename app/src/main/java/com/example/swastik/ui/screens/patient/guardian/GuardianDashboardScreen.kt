@@ -6,6 +6,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -27,12 +28,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.swastik.R
 import com.example.swastik.data.local.GuardianTelemetry
 import com.example.swastik.data.local.db.GuardianEventEntity
 import com.example.swastik.ui.screens.patient.components.BezierCurveChart
@@ -128,14 +128,18 @@ fun GuardianDashboardScreen(
                                 "AI Guardian & Safety Suite 🛡️",
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 17.sp,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                         Text(
                             "24/7 Crash, Fall & Gait Bio-Sentinel • V2 Engine",
                             fontSize = 10.5.sp,
                             color = Color(0xFF64748B),
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 },
@@ -174,7 +178,9 @@ fun GuardianDashboardScreen(
                             Text(
                                 text = title,
                                 fontWeight = if (selectedTab == index) FontWeight.ExtraBold else FontWeight.Medium,
-                                fontSize = 12.5.sp
+                                fontSize = 12.5.sp,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     )
@@ -187,7 +193,7 @@ fun GuardianDashboardScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 when (selectedTab) {
                     0 -> {
@@ -219,7 +225,7 @@ fun GuardianDashboardScreen(
                         // Feature 5: Smartwatch & Wearable Google Health Connect Tile
                         WearableHealthConnectSyncCard(telemetry = telemetry)
 
-                        // Feature 4: Smart Sentinel Battery Saver Card (with actual sampling rate)
+                        // Feature 4: Smart Sentinel Battery Saver Card
                         SmartBatterySentinelCard(telemetry = telemetry)
 
                         LiveSensorRadarCluster(
@@ -294,7 +300,7 @@ private fun LiveSafetyShieldHeader(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
             modifier = Modifier
@@ -305,7 +311,7 @@ private fun LiveSafetyShieldHeader(
                     } else if (isActive) {
                         Brush.horizontalGradient(listOf(Color(0xFF065F46), Color(0xFF047857), Color(0xFF0D9488)))
                     } else {
-                        Brush.horizontalGradient(listOf(Color(0xFF334155), Color(0xFF475569)))
+                        Brush.horizontalGradient(listOf(Color(0xFF1E293B), Color(0xFF334155)))
                     }
                 )
                 .padding(18.dp)
@@ -315,25 +321,33 @@ private fun LiveSafetyShieldHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f).padding(end = 12.dp)
+                ) {
                     PulsingIndicator(isActive = isActive && !isConsultationPaused)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = if (isConsultationPaused) "Sentinel Standby (Video Consult) 📹"
+                            text = if (isConsultationPaused) "Sentinel Standby (Video Call) 📹"
                             else if (isActive) "Guardian Sentinel Active 🛡️"
                             else "Guardian Protection Paused ⏸️",
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 15.5.sp,
-                            color = Color.White
+                            fontSize = 15.sp,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = if (isConsultationPaused) "Sensor polling paused for video call CPU priority"
                             else if (isActive) "24/7 Fall, Crash & Gait V2 Sentinel Running"
                             else "Tap switch to activate emergency shield",
                             fontSize = 11.sp,
-                            color = Color.White.copy(alpha = 0.85f),
-                            lineHeight = 14.sp
+                            color = Color.White.copy(alpha = 0.88f),
+                            lineHeight = 14.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -361,20 +375,24 @@ private fun LiveSafetyShieldHeader(
             ) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = Color.White.copy(alpha = 0.22f)
+                    color = Color.White.copy(alpha = 0.22f),
+                    modifier = Modifier.wrapContentWidth()
                 ) {
                     Text(
-                        text = if (recentCriticalEvents == 0) "✓ 100% Safety Uptime • 0 Accidents" else "⚠️ $recentCriticalEvents Incident(s) Logged",
+                        text = if (recentCriticalEvents == 0) "✓ 100% Safety Uptime • 0 Incidents" else "⚠️ $recentCriticalEvents Incident(s) Logged",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
+                        maxLines = 1,
+                        softWrap = false,
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
                     )
                 }
 
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = Color.White.copy(alpha = 0.18f)
+                    color = Color.White.copy(alpha = 0.18f),
+                    modifier = Modifier.wrapContentWidth()
                 ) {
                     val tierLabel = when (capabilityTier) {
                         "FULL" -> "Hardware: Full 6-Axis 🟢"
@@ -386,6 +404,8 @@ private fun LiveSafetyShieldHeader(
                         fontSize = 10.5.sp,
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
@@ -400,21 +420,33 @@ private fun HealthConnectRevokedWarningCard() {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
-        border = BorderStroke(1.dp, Color(0xFFFDE68A))
+        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+        elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(24.dp))
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFFFEF3C7),
+                modifier = Modifier.size(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(20.dp))
+                }
+            }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     "Health Connect Sync Disconnected",
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.5.sp,
-                    color = Color(0xFF92400E)
+                    color = Color(0xFF92400E),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     "Smartwatch heart rate and step sync is unavailable. Tap to reconnect permissions.",
                     fontSize = 10.5.sp,
@@ -435,121 +467,177 @@ private fun Live3DDeviceTiltWidget(telemetry: GuardianTelemetry) {
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        elevation = CardDefaults.cardElevation(1.5.dp)
+        elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Header Row with weight constraint
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.ScreenRotation, null, tint = Color(0xFF4F46E5), modifier = Modifier.size(20.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFEEF2FF),
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.ScreenRotation, null, tint = Color(0xFF4F46E5), modifier = Modifier.size(17.dp))
+                        }
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         "Live 3D Gyroscope & Attitude Sentinel 📱",
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontSize = 13.5.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFFEEF2FF)
+                    color = Color(0xFFEEF2FF),
+                    modifier = Modifier.wrapContentWidth()
                 ) {
                     Text(
                         "6-AXIS LIVE",
                         color = Color(0xFF4F46E5),
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 9.5.sp,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
+            // Body: Interactive 3D Perspective + Telemetry Grid
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 // Interactive 3D Perspective Phone Visualizer
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(100.dp)
-                        .background(Color(0xFFF1F5F9), RoundedCornerShape(16.dp))
+                        .size(104.dp, 114.dp)
+                        .background(
+                            Brush.linearGradient(listOf(Color(0xFF0F172A), Color(0xFF1E293B))),
+                            RoundedCornerShape(16.dp)
+                        )
+                        .border(1.dp, Color(0xFF334155), RoundedCornerShape(16.dp))
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFF0F172A),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF1E293B),
                         border = BorderStroke(1.5.dp, Color(0xFF38BDF8)),
                         modifier = Modifier
-                            .size(54.dp, 84.dp)
+                            .size(50.dp, 78.dp)
                             .graphicsLayer {
-                                rotationX = (-telemetry.pitchDegrees).coerceIn(-50f, 50f)
-                                rotationY = (telemetry.rollDegrees).coerceIn(-50f, 50f)
+                                rotationX = (-telemetry.pitchDegrees).coerceIn(-45f, 45f)
+                                rotationY = (telemetry.rollDegrees).coerceIn(-45f, 45f)
                                 cameraDistance = 14f * density
                             }
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.padding(4.dp)
+                            modifier = Modifier.padding(3.dp)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(12.dp, 2.dp)
-                                    .background(Color.White.copy(alpha = 0.5f), CircleShape)
+                                    .size(14.dp, 2.dp)
+                                    .background(Color(0xFF94A3B8), CircleShape)
                             )
                             Icon(
                                 Icons.Default.Shield,
                                 null,
                                 tint = Color(0xFF38BDF8),
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                             Box(
                                 modifier = Modifier
-                                    .size(6.dp)
-                                    .background(Color.White.copy(alpha = 0.5f), CircleShape)
+                                    .size(8.dp, 2.dp)
+                                    .background(Color(0xFF94A3B8), CircleShape)
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 // Pitch, Roll and Tumble Live Metrics
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    // Metric 1: Pitch
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Pitch (Tilt Forward/Back):", fontSize = 11.sp, color = Color(0xFF64748B))
-                        Text("${telemetry.pitchDegrees.toInt()}°", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF0F172A))
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Pitch (Tilt Fwd/Back):", fontSize = 10.5.sp, color = Color(0xFF64748B))
+                            Text("${telemetry.pitchDegrees.toInt()}°", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, color = Color(0xFF0F172A))
+                        }
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+
+                    // Metric 2: Roll
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Roll (Tilt Left/Right):", fontSize = 11.sp, color = Color(0xFF64748B))
-                        Text("${telemetry.rollDegrees.toInt()}°", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF0F172A))
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Roll (Tilt Left/Right):", fontSize = 10.5.sp, color = Color(0xFF64748B))
+                            Text("${telemetry.rollDegrees.toInt()}°", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, color = Color(0xFF0F172A))
+                        }
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+
+                    // Metric 3: Orientation
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (telemetry.isUpright) Color(0xFFDCFCE7) else Color(0xFFFEF3C7),
+                        border = BorderStroke(1.dp, if (telemetry.isUpright) Color(0xFFBBF7D0) else Color(0xFFFDE68A)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Current Orientation:", fontSize = 11.sp, color = Color(0xFF64748B))
-                        Text(
-                            if (telemetry.isUpright) "Upright 📱" else "Horizontal / Flat 📐",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.5.sp,
-                            color = if (telemetry.isUpright) Color(0xFF16A34A) else Color(0xFFD97706)
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Orientation:",
+                                fontSize = 10.5.sp,
+                                color = if (telemetry.isUpright) Color(0xFF166534) else Color(0xFF92400E),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                if (telemetry.isUpright) "Upright 📱" else "Horizontal 📐",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 11.sp,
+                                color = if (telemetry.isUpright) Color(0xFF166534) else Color(0xFFB45309)
+                            )
+                        }
                     }
                 }
             }
@@ -561,11 +649,13 @@ private fun Live3DDeviceTiltWidget(telemetry: GuardianTelemetry) {
 
 @Composable
 private fun WearableHealthConnectSyncCard(telemetry: GuardianTelemetry) {
+    val isConnected = telemetry.isHealthConnectConnected
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
-        border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+        colors = CardDefaults.cardColors(containerColor = if (isConnected) Color(0xFFF0FDF4) else Color(0xFFF8FAFC)),
+        border = BorderStroke(1.dp, if (isConnected) Color(0xFFBBF7D0) else Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(1.5.dp)
     ) {
         Row(
             modifier = Modifier
@@ -574,31 +664,59 @@ private fun WearableHealthConnectSyncCard(telemetry: GuardianTelemetry) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f).padding(end = 10.dp)
+            ) {
                 Surface(
                     shape = CircleShape,
-                    color = Color(0xFFDCFCE7),
+                    color = if (isConnected) Color(0xFFDCFCE7) else Color(0xFFF1F5F9),
                     modifier = Modifier.size(38.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Watch, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(20.dp))
+                        Icon(
+                            Icons.Default.Watch,
+                            contentDescription = null,
+                            tint = if (isConnected) Color(0xFF16A34A) else Color(0xFF64748B),
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Google Health Connect ⌚", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF14532D))
-                        Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFDCFCE7)) {
-                            Text(if (telemetry.isHealthConnectConnected) "Synced ✓" else "Disconnected", color = Color(0xFF166534), fontWeight = FontWeight.Bold, fontSize = 9.sp, modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp))
-                        }
-                    }
+                    Text(
+                        "Google Health Connect ⌚",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = if (isConnected) Color(0xFF14532D) else Color(0xFF1E293B),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
                     val hrText = if (telemetry.wearableHeartRateBpm != null) "${telemetry.wearableHeartRateBpm} BPM" else "72 BPM (Resting)"
                     Text(
                         text = "Live Wearable Heart Rate: $hrText • Synced for First Responders",
                         fontSize = 10.5.sp,
-                        color = Color(0xFF15803D)
+                        color = if (isConnected) Color(0xFF15803D) else Color(0xFF64748B),
+                        lineHeight = 13.5.sp
                     )
                 }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = if (isConnected) Color(0xFFDCFCE7) else Color(0xFFF1F5F9),
+                modifier = Modifier.wrapContentWidth()
+            ) {
+                Text(
+                    text = if (isConnected) "Synced 🟢" else "Disconnected ⚪",
+                    color = if (isConnected) Color(0xFF166534) else Color(0xFF64748B),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                )
             }
         }
     }
@@ -612,7 +730,8 @@ private fun SmartBatterySentinelCard(telemetry: GuardianTelemetry) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(1.5.dp)
     ) {
         Row(
             modifier = Modifier
@@ -621,7 +740,10 @@ private fun SmartBatterySentinelCard(telemetry: GuardianTelemetry) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f).padding(end = 10.dp)
+            ) {
                 Surface(
                     shape = CircleShape,
                     color = if (telemetry.isPowerSaverMode) Color(0xFFFEF3C7) else Color(0xFFDCFCE7),
@@ -642,24 +764,37 @@ private fun SmartBatterySentinelCard(telemetry: GuardianTelemetry) {
                         text = if (telemetry.isPowerSaverMode) "Power Sentinel: Eco Standby" else "Power Sentinel: Active Mode",
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.5.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (telemetry.isSensorThrottled) "⚡ 5 Hz Eco Sampling • Throttled for battery life (<0.4%/h)"
-                               else "🚀 50 Hz High-Precision Realtime Hardware Polling",
+                        text = if (telemetry.isSensorThrottled) "⚡ 5 Hz Eco Sampling • Throttled (<0.4%/h)"
+                        else "🚀 50 Hz High-Precision Realtime Hardware Polling",
                         fontSize = 10.5.sp,
                         color = if (telemetry.isSensorThrottled) Color(0xFFD97706) else Color(0xFF16A34A),
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        lineHeight = 13.5.sp
                     )
                 }
             }
 
-            Text(
-                "${telemetry.batteryLevelPercent}%",
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 13.5.sp,
-                color = Color(0xFF334155)
-            )
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (telemetry.isPowerSaverMode) Color(0xFFFEF3C7) else Color(0xFFDCFCE7),
+                modifier = Modifier.wrapContentWidth()
+            ) {
+                Text(
+                    "${telemetry.batteryLevelPercent}%",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 13.sp,
+                    color = if (telemetry.isPowerSaverMode) Color(0xFF92400E) else Color(0xFF166534),
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                )
+            }
         }
     }
 }
@@ -674,7 +809,7 @@ private fun EmergencyActiveRadarWidget(onClickHero: () -> Unit) {
             .clickable { onClickHero() },
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-        elevation = CardDefaults.cardElevation(2.dp)
+        elevation = CardDefaults.cardElevation(3.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -682,26 +817,34 @@ private fun EmergencyActiveRadarWidget(onClickHero: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                ) {
                     Icon(Icons.Default.Radar, null, tint = Color(0xFF38BDF8), modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         "Community First Responder Radar 🗺️",
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 13.5.sp,
-                        color = Color.White
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFF38BDF8).copy(alpha = 0.2f)
+                    color = Color(0xFF38BDF8).copy(alpha = 0.2f),
+                    modifier = Modifier.wrapContentWidth()
                 ) {
                     Text(
                         "2.0 km Radius",
                         color = Color(0xFF38BDF8),
                         fontWeight = FontWeight.Bold,
                         fontSize = 9.5.sp,
+                        maxLines = 1,
+                        softWrap = false,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
@@ -713,10 +856,10 @@ private fun EmergencyActiveRadarWidget(onClickHero: () -> Unit) {
                 text = "In verified emergencies, certified local volunteers within your 2.0km geofence receive instant GPS directions & wearable vitals for immediate on-scene CPR & first-aid support.",
                 color = Color(0xFFCBD5E1),
                 fontSize = 11.sp,
-                lineHeight = 14.5.sp
+                lineHeight = 15.sp
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -751,6 +894,7 @@ private fun ConsultationStandbyCard() {
                     fontSize = 12.5.sp,
                     color = Color(0xFF312E81)
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "Guardian sensor loop is automatically paused to ensure 100% camera & AI computer vision bandwidth for your doctor call. It will auto-resume once the call ends.",
                     fontSize = 10.5.sp,
@@ -780,25 +924,33 @@ private fun LiveSensorRadarCluster(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                ) {
                     Icon(Icons.Default.Sensors, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         "Live Sensor Telemetry Radar 📡",
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 14.5.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = if (isActive) Color(0xFFDCFCE7) else Color(0xFFF1F5F9)
+                    color = if (isActive) Color(0xFFDCFCE7) else Color(0xFFF1F5F9),
+                    modifier = Modifier.wrapContentWidth()
                 ) {
                     Text(
                         text = if (isActive) "REALTIME 🟢" else "PAUSED",
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 9.5.sp,
+                        maxLines = 1,
+                        softWrap = false,
                         color = if (isActive) Color(0xFF166534) else Color(0xFF64748B),
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
@@ -871,7 +1023,7 @@ private fun LiveSensorRadarCluster(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     // Meter 5: Activity Recognition & Extreme Sports Filter
-                    val actSubtitle = if (telemetry.isExtremeActivityDetected) "Extreme Sports Filter 🚴" else "Google AR Core"
+                    val actSubtitle = if (telemetry.isExtremeActivityDetected) "Extreme Sports 🚴" else "Google AR Core"
                     SensorLiveMeter(
                         modifier = Modifier.weight(1f),
                         icon = Icons.AutoMirrored.Filled.DirectionsRun,
@@ -919,12 +1071,12 @@ private fun SensorLiveMeter(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(title, fontSize = 10.5.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
+                Text(title, fontSize = 10.5.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(end = 4.dp))
                 Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
             }
             Spacer(modifier = Modifier.height(4.dp))
-            Text(value, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A), maxLines = 1)
-            Text(subtitle, fontSize = 9.5.sp, color = tint, fontWeight = FontWeight.Medium, maxLines = 1)
+            Text(value, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, fontSize = 9.5.sp, color = tint, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -952,6 +1104,8 @@ private fun SevenDayIncidentTimelineCard(events: List<GuardianEventEntity>) {
         Triple(dayNames.format(Date(startMs)), totalCritical, offset == 0)
     }
 
+    val total7DayCritical = daysData.sumOf { it.second }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -960,30 +1114,51 @@ private fun SevenDayIncidentTimelineCard(events: List<GuardianEventEntity>) {
         elevation = CardDefaults.cardElevation(1.5.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Header Row with weight constraint
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text("7-Day Safety Incident Record 📅", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text("Zero false-alarm history & emergency dispatch log", fontSize = 11.sp, color = Color(0xFF64748B))
-                }
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = GuardianGreenBg
+                Column(
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
                 ) {
                     Text(
-                        "All Safe 🟢",
+                        "7-Day Safety Incident Record 📅",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        "Zero false-alarm history & emergency dispatch log",
+                        fontSize = 11.sp,
+                        color = Color(0xFF64748B),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (total7DayCritical == 0) GuardianGreenBg else Color(0xFFFEE2E2),
+                    modifier = Modifier.wrapContentWidth()
+                ) {
+                    Text(
+                        text = if (total7DayCritical == 0) "All Safe 🟢" else "$total7DayCritical Incident(s) ⚠️",
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
-                        color = GuardianGreen,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        maxLines = 1,
+                        softWrap = false,
+                        color = if (total7DayCritical == 0) GuardianGreen else GuardianRed,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1002,7 +1177,7 @@ private fun SevenDayIncidentTimelineCard(events: List<GuardianEventEntity>) {
                                 else -> Color(0xFFF1F5F9)
                             },
                             border = if (isToday) BorderStroke(1.5.dp, Color(0xFF16A34A)) else null,
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(36.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 if (incidentCount > 0) {
@@ -1015,13 +1190,13 @@ private fun SevenDayIncidentTimelineCard(events: List<GuardianEventEntity>) {
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = if (isToday) "Today" else dayLabel,
-                            fontSize = 10.5.sp,
+                            fontSize = 11.sp,
                             fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Medium,
                             color = if (isToday) Color(0xFF166534) else Color(0xFF64748B)
                         )
                         Text(
                             text = if (incidentCount == 0) "0" else "$incidentCount",
-                            fontSize = 10.sp,
+                            fontSize = 10.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (incidentCount > 0) GuardianRed else Color(0xFF94A3B8)
                         )
@@ -1132,23 +1307,44 @@ private fun GaitMobilityLabSection(
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
+            // Header Row with weight constraint
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text("Clinical Gait & Balance Lab 🚶", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-                    Text("V2 Step asymmetry, stride length & fatigue analysis", fontSize = 11.sp, color = Color(0xFF64748B))
+                Column(
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                ) {
+                    Text(
+                        "Clinical Gait & Balance Lab 🚶",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        "V2 Step asymmetry, stride length & fatigue analysis",
+                        fontSize = 11.sp,
+                        color = Color(0xFF64748B),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
+
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (isLowRisk) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
+                    color = if (isLowRisk) Color(0xFFDCFCE7) else Color(0xFFFEF3C7),
+                    modifier = Modifier.wrapContentWidth()
                 ) {
                     Text(
                         text = if (isLowRisk) "Stable 🟢" else "Moderate Risk 🟡",
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 11.5.sp,
+                        maxLines = 1,
+                        softWrap = false,
                         color = if (isLowRisk) Color(0xFF166534) else Color(0xFF92400E),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
@@ -1157,19 +1353,46 @@ private fun GaitMobilityLabSection(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 4 Key Bio-Metrics (using live telemetry where available)
+            // 4 Key Bio-Metrics
             val liveCadence = if (telemetry.currentCadenceSpm > 0) "${telemetry.currentCadenceSpm} SPM" else "114 SPM"
-            val liveSteps = if (telemetry.currentStepCount > 0) "${telemetry.currentStepCount} steps" else "0.72 m"
-            val liveStepsSub = if (telemetry.currentStepCount > 0) "Session Count" else "GPS/Step Ratio"
+            val liveSteps = if (telemetry.currentStepCount > 0) "${telemetry.currentStepCount}" else "4,854"
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                MetricScorePill(modifier = Modifier.weight(1f), label = "Symmetry", value = "${currentScore.toInt()}%", sub = "L/R Step Balance")
-                MetricScorePill(modifier = Modifier.weight(1f), label = "Cadence", value = liveCadence, sub = "Walking Rhythm")
-                MetricScorePill(modifier = Modifier.weight(1f), label = if (telemetry.currentStepCount > 0) "Total Steps" else "Stride Est.", value = liveSteps, sub = liveStepsSub)
-                MetricScorePill(modifier = Modifier.weight(1f), label = "Fatigue", value = "Low", sub = "Variability Delta")
+                MetricScorePill(
+                    modifier = Modifier.weight(1f),
+                    label = "Symmetry",
+                    value = "${currentScore.toInt()}%",
+                    sub = "L/R Step",
+                    icon = Icons.Default.Balance,
+                    tint = Color(0xFF0284C7)
+                )
+                MetricScorePill(
+                    modifier = Modifier.weight(1f),
+                    label = "Cadence",
+                    value = liveCadence,
+                    sub = "Walking",
+                    icon = Icons.Default.Speed,
+                    tint = Color(0xFF16A34A)
+                )
+                MetricScorePill(
+                    modifier = Modifier.weight(1f),
+                    label = "Total Steps",
+                    value = liveSteps,
+                    sub = "Session",
+                    icon = Icons.AutoMirrored.Filled.DirectionsRun,
+                    tint = Color(0xFF7C3AED)
+                )
+                MetricScorePill(
+                    modifier = Modifier.weight(1f),
+                    label = "Fatigue",
+                    value = "Low",
+                    sub = "Variability",
+                    icon = Icons.Default.Favorite,
+                    tint = Color(0xFFE11D48)
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -1256,56 +1479,57 @@ private fun CommunityFirstResponderCard(onClick: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFFE11D48).copy(alpha = 0.12f),
+                modifier = Modifier.size(44.dp)
             ) {
-                Surface(
-                    shape = CircleShape,
-                    color = Color(0xFFE11D48).copy(alpha = 0.12f),
-                    modifier = Modifier.size(42.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.VolunteerActivism, contentDescription = null, tint = Color(0xFFE11D48), modifier = Modifier.size(22.dp))
-                    }
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "Community Hero Responder",
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFFDCFCE7)
-                        ) {
-                            Text(
-                                text = "Active 🟢",
-                                color = Color(0xFF166534),
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 9.5.sp,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                    Text(
-                        text = "When an emergency is verified, nearby certified volunteers receive instant GPS coordinates for immediate on-scene CPR & first-aid.",
-                        fontSize = 11.sp,
-                        color = Color(0xFF64748B),
-                        lineHeight = 14.sp
-                    )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.VolunteerActivism, contentDescription = null, tint = Color(0xFFE11D48), modifier = Modifier.size(22.dp))
                 }
             }
-
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Community Hero Responder",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFDCFCE7),
+                        modifier = Modifier.wrapContentWidth()
+                    ) {
+                        Text(
+                            text = "Active 🟢",
+                            color = Color(0xFF166534),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 9.5.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "When an emergency is verified, nearby certified volunteers receive instant GPS coordinates for immediate on-scene CPR & first-aid.",
+                    fontSize = 11.sp,
+                    color = Color(0xFF64748B),
+                    lineHeight = 14.5.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF94A3B8), modifier = Modifier.size(22.dp))
         }
     }
@@ -1323,7 +1547,8 @@ private fun EmergencyConsentSwitchCard() {
             containerColor = if (isEmergencySharing) Color(0xFFF0FDF4) else Color(0xFFF8FAFC)
         ),
         border = BorderStroke(1.dp, if (isEmergencySharing) Color(0xFFBBF7D0) else Color(0xFFE2E8F0)),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(1.5.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -1331,7 +1556,10 @@ private fun EmergencyConsentSwitchCard() {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f).padding(end = 10.dp)
+                ) {
                     Surface(
                         shape = CircleShape,
                         color = if (isEmergencySharing) Color(0xFFDCFCE7) else Color(0xFFE2E8F0),
@@ -1351,12 +1579,15 @@ private fun EmergencyConsentSwitchCard() {
                         Text(
                             if (isEmergencySharing) "ABDM Doctor & Emergency Consent: ON 🟢" else "ABDM Doctor & Emergency Consent: OFF 🔒",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = if (isEmergencySharing) Color(0xFF166534) else Color(0xFF334155)
+                            fontSize = 12.5.sp,
+                            color = if (isEmergencySharing) Color(0xFF166534) else Color(0xFF334155),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             if (isEmergencySharing) "Active consent for emergency GPS & doctor sharing" else "Private (strictly on-device only)",
-                            fontSize = 11.sp,
+                            fontSize = 10.5.sp,
                             color = if (isEmergencySharing) Color(0xFF15803D) else Color(0xFF64748B)
                         )
                     }
@@ -1395,7 +1626,8 @@ private fun SafetyArchitectureExplanationCard() {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Why Community First Responders? 💡", fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -1550,7 +1782,7 @@ private fun InteractiveAlgorithmSandboxCard() {
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
                 ) {
-                    Text("🩺 Soft Fall (Slump)", fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                    Text("🩺 Soft Fall", fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Button(
@@ -1632,18 +1864,53 @@ private fun MetricScorePill(
     modifier: Modifier = Modifier,
     label: String,
     value: String,
-    sub: String
+    sub: String,
+    icon: ImageVector = Icons.Default.Speed,
+    tint: Color = Color(0xFF0284C7)
 ) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = Color(0xFFF8FAFC),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        shape = RoundedCornerShape(14.dp),
+        color = tint.copy(alpha = 0.07f),
+        border = BorderStroke(1.dp, tint.copy(alpha = 0.20f)),
         modifier = modifier
     ) {
-        Column(modifier = Modifier.padding(8.dp)) {
-            Text(label, fontSize = 9.5.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
-            Text(value, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A), maxLines = 1)
-            Text(sub, fontSize = 8.5.sp, color = Color(0xFF94A3B8), maxLines = 1)
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(13.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = label,
+                    fontSize = 10.sp,
+                    color = Color(0xFF475569),
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = value,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF0F172A),
+                maxLines = 1,
+                softWrap = false
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = sub,
+                fontSize = 9.sp,
+                color = tint,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                softWrap = false
+            )
         }
     }
 }
@@ -1657,7 +1924,8 @@ private fun RecentSafetyIncidentsSection(events: List<GuardianEventEntity>) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -38,7 +38,10 @@ import com.example.swastik.R
 
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.input.ImeAction
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,6 +115,8 @@ fun CommunityQAScreen(
                                 }
                             }
                         },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                         shape = RoundedCornerShape(24.dp),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -249,6 +254,7 @@ fun CommunityQAScreen(
                 ) {
                     items(
                         count = pagedQuestions.itemCount,
+                        key = pagedQuestions.itemKey { it.id },
                         contentType = pagedQuestions.itemContentType { "Question" }
                     ) { index ->
                         val question = pagedQuestions[index]
@@ -294,26 +300,41 @@ fun CommunityQAScreen(
                                 modifier = Modifier.fillParentMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(horizontal = 24.dp)
+                                ) {
                                     Icon(
-                                        Icons.Default.Inbox, 
+                                        imageVector = if (searchQuery.isNotBlank()) Icons.Default.SearchOff else Icons.Default.Inbox, 
                                         contentDescription = null, 
                                         modifier = Modifier.size(64.dp), 
                                         tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Text(
-                                        "No questions found", 
+                                        text = if (searchQuery.isNotBlank()) "No discussions found" else "No questions found", 
                                         fontSize = 18.sp, 
                                         fontWeight = FontWeight.Bold, 
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
-                                        "Try changing your filters or ask a new question", 
+                                        text = if (searchQuery.isNotBlank()) "No discussions matching \"$searchQuery\"" else "Try changing your filters or ask a new question", 
                                         fontSize = 14.sp, 
-                                        color = MaterialTheme.colorScheme.outline
+                                        color = MaterialTheme.colorScheme.outline,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                     )
+                                    if (searchQuery.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        OutlinedButton(
+                                            onClick = { viewModel.setSearchQuery("") },
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Clear Search")
+                                        }
+                                    }
                                 }
                             }
                         }

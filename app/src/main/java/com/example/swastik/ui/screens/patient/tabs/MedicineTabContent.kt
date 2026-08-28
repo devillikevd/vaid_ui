@@ -5,6 +5,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -31,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -70,7 +72,6 @@ fun MedicineTabContent(
     val favorites by viewModel.favoriteMedicines.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var isGridView by remember { mutableStateOf(true) }
-    var isCategoriesExpanded by remember { mutableStateOf(false) }
     val colorScheme = MaterialTheme.colorScheme
     val filteredMedicines = viewModel.getFilteredMedicines()
     val pagedMedicines = viewModel.pagedMedicines.collectAsLazyPagingItems()
@@ -83,16 +84,31 @@ fun MedicineTabContent(
     val backendCategories = state.categories
     val categoryIconMap = remember {
         mapOf(
+            "all" to Icons.Default.GridView,
             "general" to Icons.Default.Medication,
+            "general medicine" to Icons.Default.Medication,
             "antibiotic" to Icons.Default.Biotech,
+            "antibiotics" to Icons.Default.Biotech,
             "painkiller" to Icons.Default.Healing,
+            "pain relief" to Icons.Default.Healing,
             "vitamin" to Icons.Default.Spa,
+            "vitamins" to Icons.Default.Spa,
             "cardiac" to Icons.Default.FavoriteBorder,
             "diabetes" to Icons.Default.Bloodtype,
             "skin" to Icons.Default.Face,
+            "skin care" to Icons.Default.Face,
             "respiratory" to Icons.Default.Air,
             "digestive" to Icons.Default.Restaurant,
             "ayurvedic" to Icons.Default.Eco,
+            "recovery" to Icons.Default.LocalHospital,
+            "device" to Icons.Default.MedicalServices,
+            "devices" to Icons.Default.MedicalServices,
+            "first aid" to Icons.Default.Healing,
+            "baby care" to Icons.Default.ChildCare,
+            "personal care" to Icons.Default.Spa,
+            "eye care" to Icons.Default.Visibility,
+            "dental" to Icons.Default.Mood,
+            "immunity" to Icons.Default.Shield,
         )
     }
 
@@ -290,11 +306,9 @@ fun MedicineTabContent(
                                 }
                             }
 
-                            // Category Expandable Grid (full width span)
+                            // Category Horizontal Carousel (full width span)
                             item(span = { GridItemSpan(if (isGridView) 3 else 1) }) {
                                 if (backendCategories.isNotEmpty()) {
-                                    val firstRow = backendCategories.take(5)
-                                    val secondRow = backendCategories.drop(5).take(5)
                                     Surface(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -306,74 +320,64 @@ fun MedicineTabContent(
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(horizontal = 12.dp, vertical = 16.dp)
-                                                .animateContentSize()
+                                                .padding(vertical = 14.dp)
                                         ) {
-                                            Text(
-                                                text = "Order by Category",
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 17.sp,
-                                                color = colorScheme.onSurface,
-                                                modifier = Modifier.padding(bottom = 16.dp)
-                                            )
-
                                             Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                firstRow.forEach { catDto ->
+                                                Text(
+                                                    text = "Order by Category",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 17.sp,
+                                                    color = colorScheme.onSurface
+                                                )
+                                                if (state.selectedCategory != null) {
+                                                    Text(
+                                                        text = "Clear filter ✕",
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = SwastikPrimary,
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .clickable { viewModel.setCategoryByName(null) }
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+
+                                            LazyRow(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                item {
+                                                    CategoryChip(
+                                                        label = "All",
+                                                        icon = Icons.Default.GridView,
+                                                        isSelected = state.selectedCategory == null,
+                                                        onClick = { viewModel.setCategoryByName(null) }
+                                                    )
+                                                }
+
+                                                items(backendCategories) { catDto ->
                                                     val catName = catDto.name.lowercase()
-                                                    val displayName = catDto.displayName ?: catName.replaceFirstChar { it.uppercase() }
+                                                    val displayName = formatCategoryDisplayName(catName, catDto.displayName)
                                                     val isSelected = state.selectedCategory?.lowercase() == catName
                                                     CategoryChip(
                                                         label = displayName,
                                                         icon = categoryIconMap[catName] ?: Icons.Default.Medication,
                                                         isSelected = isSelected,
-                                                        onClick = { viewModel.setCategoryByName(catName) }
-                                                    )
-                                                }
-                                            }
-
-                                            if (isCategoriesExpanded && secondRow.isNotEmpty()) {
-                                                Spacer(modifier = Modifier.height(16.dp))
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    secondRow.forEach { catDto ->
-                                                        val catName = catDto.name.lowercase()
-                                                        val displayName = catDto.displayName ?: catName.replaceFirstChar { it.uppercase() }
-                                                        val isSelected = state.selectedCategory?.lowercase() == catName
-                                                        CategoryChip(
-                                                            label = displayName,
-                                                            icon = categoryIconMap[catName] ?: Icons.Default.Medication,
-                                                            isSelected = isSelected,
-                                                            onClick = { viewModel.setCategoryByName(catName) }
-                                                        )
-                                                    }
-                                                }
-                                            }
-
-                                            if (backendCategories.size > 5) {
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clickable { isCategoriesExpanded = !isCategoriesExpanded }
-                                                        .padding(top = 16.dp, bottom = 4.dp),
-                                                    horizontalArrangement = Arrangement.Center,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Text(
-                                                        text = if (isCategoriesExpanded) "Show Less" else "Explore More",
-                                                        fontSize = 12.sp,
-                                                        color = SwastikPrimary,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                    Icon(
-                                                        imageVector = if (isCategoriesExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                                        contentDescription = null,
-                                                        tint = SwastikPrimary,
-                                                        modifier = Modifier.size(18.dp)
+                                                        onClick = {
+                                                            if (isSelected) {
+                                                                viewModel.setCategoryByName(null)
+                                                            } else {
+                                                                viewModel.setCategoryByName(catName)
+                                                            }
+                                                        }
                                                     )
                                                 }
                                             }
@@ -517,7 +521,14 @@ private data class PharmacySummary(
     val deliveryAvailable: Boolean = false
 )
 
-// ==================== HEADER COMPONENTS ====================
+private fun formatCategoryDisplayName(rawName: String, displayName: String?): String {
+    if (!displayName.isNullOrBlank()) return displayName
+    return rawName.split(" ", "_", "-")
+        .filter { it.isNotBlank() }
+        .joinToString(" ") { word ->
+            word.lowercase().replaceFirstChar { it.uppercase() }
+        }
+}
 
 @Composable
 private fun CategoryChip(
@@ -528,50 +539,59 @@ private fun CategoryChip(
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
-    // Generate vibrant colors based on the label
+    // Vibrant category background & icon palettes
     val bgColors = listOf(
-        Color(0xFFE8F5E9), // Light Green
-        Color(0xFFE3F2FD), // Light Blue
-        Color(0xFFFFF3E0), // Light Orange
-        Color(0xFFFCE4EC), // Light Pink
-        Color(0xFFF3E5F5), // Light Purple
-        Color(0xFFE0F2F1), // Light Teal
-        Color(0xFFFFF8E1), // Light Yellow
-        Color(0xFFFFEBEE)  // Light Red
+        Color(0xFFFCE4EC), // Soft Pink
+        Color(0xFFFFF3E0), // Soft Orange
+        Color(0xFFFFF8E1), // Soft Warm Yellow
+        Color(0xFFE8F5E9), // Soft Mint Green
+        Color(0xFFE0F2F1), // Soft Teal
+        Color(0xFFE3F2FD), // Soft Sky Blue
+        Color(0xFFF3E5F5), // Soft Purple / Lavender
+        Color(0xFFE0F7FA), // Soft Cyan
+        Color(0xFFFBE9E7)  // Soft Coral
     )
     val iconColors = listOf(
-        Color(0xFF2E7D32), // Dark Green
-        Color(0xFF1565C0), // Dark Blue
-        Color(0xFFEF6C00), // Dark Orange
-        Color(0xFFC2185B), // Dark Pink
-        Color(0xFF6A1B9A), // Dark Purple
-        Color(0xFF00695C), // Dark Teal
-        Color(0xFFF57F17), // Dark Yellow
-        Color(0xFFC62828)  // Dark Red
+        Color(0xFFE91E63), // Pink
+        Color(0xFFF57C00), // Orange
+        Color(0xFFFFA000), // Amber
+        Color(0xFF2E7D32), // Green
+        Color(0xFF00897B), // Teal
+        Color(0xFF1976D2), // Blue
+        Color(0xFF8E24AA), // Purple
+        Color(0xFF0097A7), // Cyan
+        Color(0xFFD84315)  // Coral
     )
 
-    val colorIndex = kotlin.math.abs(label.hashCode()) % bgColors.size
-    val bgColor = bgColors[colorIndex]
-    val iconColor = iconColors[colorIndex]
+    val isAll = label.equals("all", ignoreCase = true)
+    val colorIndex = kotlin.math.abs(label.lowercase().trim().hashCode()) % bgColors.size
+    val bgColor = if (isAll) Color(0xFFF1F5F9) else bgColors[colorIndex]
+    val iconColor = if (isAll) Color(0xFF475569) else iconColors[colorIndex]
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clickable { onClick() }
-            .padding(horizontal = 2.dp)
+            .width(74.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(52.dp)
+                .size(54.dp)
                 .clip(CircleShape)
                 .background(if (isSelected) SwastikPrimary else bgColor)
                 .then(
-                    if (isSelected) Modifier.shadow(4.dp, CircleShape) else Modifier
+                    if (isSelected) {
+                        Modifier.shadow(elevation = 6.dp, shape = CircleShape)
+                    } else {
+                        Modifier.border(width = 1.dp, color = Color(0x15000000), shape = CircleShape)
+                    }
                 ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                icon,
+                imageVector = icon,
                 contentDescription = label,
                 tint = if (isSelected) Color.White else iconColor,
                 modifier = Modifier.size(24.dp)
@@ -580,11 +600,17 @@ private fun CategoryChip(
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = label,
-            fontSize = 11.sp,
-            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+            fontSize = 11.5.sp,
+            lineHeight = 14.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
             color = if (isSelected) SwastikPrimary else colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            minLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 2.dp)
         )
     }
 }

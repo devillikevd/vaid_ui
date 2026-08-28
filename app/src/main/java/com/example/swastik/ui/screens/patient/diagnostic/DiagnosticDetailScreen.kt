@@ -81,12 +81,15 @@ fun DiagnosticDetailScreen(
                 Surface(
                     color = colorScheme.surface,
                     tonalElevation = 8.dp,
-                    modifier = Modifier.fillMaxWidth()
+                    shadowElevation = 12.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
                 ) {
-                    Box(modifier = Modifier.padding(16.dp)) {
+                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                         Button(
                             onClick = { onBookTestsClick(facility) },
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                         ) {

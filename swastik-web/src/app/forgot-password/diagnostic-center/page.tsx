@@ -26,14 +26,14 @@ export default function DiagnosticForgotPasswordPage() {
 
         try {
             const result = await authApi.forgotPassword(email.trim(), backendRole);
-            if (result.success) {
+            if (result?.success) {
                 setCodeSent(true);
-                setSuccessMessage('If an account exists for this email, we’ve sent instructions to reset your password.');
+                setSuccessMessage(result.message || 'A 6-digit password reset code has been sent to your email.');
             } else {
-                setError('Unable to send reset instructions. Please try again.');
+                setError(result?.message || 'This email address is not registered as a Diagnostic Center.');
             }
-        } catch {
-            setError('Unable to send reset instructions. Please try again.');
+        } catch (err: any) {
+            setError(err?.message || 'This email address is not registered as a Diagnostic Center.');
         } finally {
             setIsLoading(false);
         }
@@ -63,14 +63,14 @@ export default function DiagnosticForgotPasswordPage() {
         setIsLoading(true);
         try {
             const result = await authApi.resetPasswordWithOtp(email.trim(), otp.trim(), password, backendRole);
-            if (result.success) {
+            if (result?.success) {
                 setSuccess(true);
                 setSuccessMessage('Password updated successfully. You can now return to the sign-in page and use your new password.');
             } else {
-                setError('Unable to reset password. Please try again or request a new code.');
+                setError(result?.message || 'Unable to reset password. Please try again or request a new code.');
             }
-        } catch {
-            setError('Network error. Please check your connection.');
+        } catch (err: any) {
+            setError(err?.message || 'Network error. Please check your connection.');
         } finally {
             setIsLoading(false);
         }

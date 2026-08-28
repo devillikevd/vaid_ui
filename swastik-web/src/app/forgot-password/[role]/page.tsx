@@ -16,7 +16,15 @@ const ROLE_MAP: Record<string, string> = {
     doctor: 'doctor',
     clinic: 'clinic_owner',
     pharmacy: 'pharmacy_owner',
-    // We only support these three roles right now as per user constraints
+    hospital: 'hospital_owner',
+    'diagnostic-center': 'diagnostic_center_owner',
+    wellness: 'wellness_coach',
+    'fitness-center': 'fitness_center_owner',
+    gym: 'fitness_center_owner',
+    ambulance: 'ambulance_operator',
+    'ambulance-driver': 'ambulance_driver',
+    admin: 'admin',
+    patient: 'patient',
 };
 
 const getTheme = (role: string) => {
@@ -54,19 +62,103 @@ const getTheme = (role: string) => {
                 subtitle: 'Reset your Pharmacy account password and securely return to your pharmacy dashboard.',
                 successDesc: 'Password updated successfully. You can now return to the sign-in page and use your new password.',
             };
+        case 'hospital':
+            return {
+                bgPulse1: 'bg-teal-500/10',
+                bgPulse2: 'bg-emerald-500/10',
+                buttonGradient: 'from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 !text-white shadow-[0_0_20px_rgba(20,184,166,0.3)]',
+                focusClass: '[&_input]:focus:!border-teal-500 [&_input]:focus:!ring-teal-500/50',
+                title: 'Hospital',
+                heading: 'Forgot your password?',
+                subtitle: 'Reset your Hospital administration password securely.',
+                successDesc: 'Password updated successfully. You can now return to the sign-in page and use your new password.',
+            };
+        case 'diagnostic-center':
+            return {
+                bgPulse1: 'bg-purple-500/10',
+                bgPulse2: 'bg-indigo-500/10',
+                buttonGradient: 'from-[#7A42A8] to-[#5B2A86] hover:from-[#5B2A86] hover:to-[#4A1E70] !text-white shadow-[0_0_20px_rgba(122,66,168,0.3)]',
+                focusClass: '[&_input]:focus:!border-[#7A42A8] [&_input]:focus:!ring-[#7A42A8]/50',
+                title: 'Diagnostic Center',
+                heading: 'Forgot your password?',
+                subtitle: 'Reset your Diagnostic Center account password.',
+                successDesc: 'Password updated successfully. You can now return to the sign-in page and use your new password.',
+            };
+        case 'wellness':
+            return {
+                bgPulse1: 'bg-lime-500/10',
+                bgPulse2: 'bg-emerald-500/10',
+                buttonGradient: 'from-lime-600 to-emerald-600 hover:from-lime-700 hover:to-emerald-700 !text-white shadow-[0_0_20px_rgba(101,163,13,0.3)]',
+                focusClass: '[&_input]:focus:!border-lime-500 [&_input]:focus:!ring-lime-500/50',
+                title: 'Wellness Coach',
+                heading: 'Forgot your password?',
+                subtitle: 'Reset your Wellness Coach account password.',
+                successDesc: 'Password updated successfully. You can now return to the sign-in page and use your new password.',
+            };
+        case 'fitness-center':
+        case 'gym':
+            return {
+                bgPulse1: 'bg-cyan-500/10',
+                bgPulse2: 'bg-blue-500/10',
+                buttonGradient: 'from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 !text-white shadow-[0_0_20px_rgba(8,145,178,0.3)]',
+                focusClass: '[&_input]:focus:!border-cyan-500 [&_input]:focus:!ring-cyan-500/50',
+                title: 'Gym & Fitness Studio',
+                heading: 'Forgot your password?',
+                subtitle: 'Reset your Fitness Center account password.',
+                successDesc: 'Password updated successfully. You can now return to the sign-in page and use your new password.',
+            };
+        case 'ambulance':
+        case 'ambulance-driver':
+            return {
+                bgPulse1: 'bg-red-500/10',
+                bgPulse2: 'bg-rose-500/10',
+                buttonGradient: 'from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 !text-white shadow-[0_0_20px_rgba(220,38,38,0.3)]',
+                focusClass: '[&_input]:focus:!border-red-500 [&_input]:focus:!ring-red-500/50',
+                title: 'Ambulance Operator',
+                heading: 'Forgot your password?',
+                subtitle: 'Reset your Ambulance Fleet password.',
+                successDesc: 'Password updated successfully. You can now return to the sign-in page and use your new password.',
+            };
+        case 'admin':
+            return {
+                bgPulse1: 'bg-violet-500/10',
+                bgPulse2: 'bg-purple-500/10',
+                buttonGradient: 'from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 !text-white shadow-[0_0_20px_rgba(124,58,237,0.3)]',
+                focusClass: '[&_input]:focus:!border-violet-500 [&_input]:focus:!ring-violet-500/50',
+                title: 'Admin',
+                heading: 'Forgot your password?',
+                subtitle: 'Reset your Administrator account password.',
+                successDesc: 'Password updated successfully. You can now return to the sign-in page and use your new password.',
+            };
+        case 'patient':
+            return {
+                bgPulse1: 'bg-blue-500/10',
+                bgPulse2: 'bg-indigo-500/10',
+                buttonGradient: 'from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 !text-white shadow-[0_0_20px_rgba(37,99,235,0.3)]',
+                focusClass: '[&_input]:focus:!border-blue-500 [&_input]:focus:!ring-blue-500/50',
+                title: 'Patient',
+                heading: 'Forgot your password?',
+                subtitle: 'Reset your Patient account password.',
+                successDesc: 'Password updated successfully. You can now return to the sign-in page and use your new password.',
+            };
         default:
-            return null; // Will trigger notFound()
+            return {
+                bgPulse1: 'bg-emerald-500/10',
+                bgPulse2: 'bg-teal-500/10',
+                buttonGradient: 'from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 !text-white shadow-[0_0_20px_rgba(5,150,105,0.3)]',
+                focusClass: '[&_input]:focus:!border-emerald-500 [&_input]:focus:!ring-emerald-500/50',
+                title: 'Healthcare',
+                heading: 'Forgot your password?',
+                subtitle: 'Reset your account password.',
+                successDesc: 'Password updated successfully. You can now return to the sign-in page and use your new password.',
+            };
     }
 };
 
 export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) {
     const { role } = use(params);
-    const backendRole = ROLE_MAP[role];
+    const backendRole = ROLE_MAP[role] || role;
     const theme = getTheme(role);
-    
-    if (!backendRole || !theme) {
-        notFound();
-    }
 
     const [email, setEmail] = useState('');
     const [otp, setOtp] = useState('');
@@ -85,14 +177,14 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
 
         try {
             const result = await authApi.forgotPassword(email.trim(), backendRole);
-            if (result.success) {
+            if (result?.success) {
                 setCodeSent(true);
-                setSuccessMessage('If an account exists for this email, we’ve sent instructions to reset your password.');
+                setSuccessMessage(result.message || 'A 6-digit password reset code has been sent to your email.');
             } else {
-                setError('Unable to send reset instructions. Please try again.');
+                setError(result?.message || 'This email address is not registered. Please check the spelling or create an account.');
             }
-        } catch {
-            setError('Unable to send reset instructions. Please try again.');
+        } catch (err: any) {
+            setError(err?.message || 'This email address is not registered. Please check the spelling or create an account.');
         } finally {
             setIsLoading(false);
         }
@@ -122,14 +214,14 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
         setIsLoading(true);
         try {
             const result = await authApi.resetPasswordWithOtp(email.trim(), otp.trim(), password, backendRole);
-            if (result.success) {
+            if (result?.success) {
                 setSuccess(true);
                 setSuccessMessage(theme.successDesc);
             } else {
-                setError('Unable to reset password. Please try again or request a new code.');
+                setError(result?.message || 'Unable to reset password. Please verify the code or request a new one.');
             }
-        } catch {
-            setError('Network error. Please check your connection.');
+        } catch (err: any) {
+            setError(err?.message || 'Unable to reset password. Please check your connection.');
         } finally {
             setIsLoading(false);
         }

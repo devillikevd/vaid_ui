@@ -471,7 +471,7 @@ private fun ForgotPasswordDialog(
                     onValueChange = onEmailChange,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    isError = emailError != null,
+                    isError = emailError != null || (step == 0 && !errorMessage.isNullOrBlank()),
                     leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                     placeholder = { Text(stringResource(R.string.youexamplecom)) },
                     keyboardOptions = KeyboardOptions(

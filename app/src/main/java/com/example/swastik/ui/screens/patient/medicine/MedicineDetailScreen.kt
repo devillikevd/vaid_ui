@@ -121,13 +121,16 @@ fun MedicineDetailScreen(
         bottomBar = {
             Surface(
                 shadowElevation = 12.dp,
-                tonalElevation = 2.dp
+                tonalElevation = 2.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(colorScheme.surface)
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
