@@ -83,9 +83,10 @@ const connectRedis = async () => {
       const Redis = require('ioredis');
       const client = new Redis(config.redis.ioredisUrl, {
         lazyConnect: true,
-        maxRetriesPerRequest: 3,
-        retryStrategy: (times) => Math.min(times * 200, 5000),
+        maxRetriesPerRequest: 1,
+        retryStrategy: () => null, // don't reconnect in infinite loop if offline
       });
+      client.on('error', () => {});
       await client.connect();
 
       const facade = makeIoredisFacade(client);

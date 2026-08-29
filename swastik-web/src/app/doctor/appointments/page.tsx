@@ -22,6 +22,7 @@ import {
     resolveCanonicalSource,
     resolveCanonicalVisitType
 } from '@/lib/clinicalDimensions';
+import { getAppointmentStartTimingInfo, isAppointmentTimePast } from '@/lib/utils';
 
 // --- Sub-components for better UX and Performance ---
 
@@ -118,32 +119,17 @@ const EmptyState = ({ statusFilter, searchQuery }: { statusFilter: string; searc
 
 // Memoized single row component
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const AppointmentCard = React.memo(({ apt, searchQuery, handleConfirm, handleStartConsultation, handleCheckIn, handleComplete, openNewSchedule, handleCancel, setAuditTrailModal, isActing, router }: any) => {
+const AppointmentCard = React.memo(({ apt, searchQuery, handleConfirm, handleStartConsultation, handleCheckIn, handleComplete, openNewSchedule, handleCancel, setAuditTrailModal, isActing, router, nowMs }: any) => {
     const isActive = ['scheduled', 'confirmed', 'pending', 'in_progress'].includes((apt.status || '').toLowerCase());
     const consultationId = apt.consultation_id || apt.consultation_room_id;
     const [isExpanded, setIsExpanded] = React.useState(false);
 
-    // Overdue check
-    const isOverdue = (() => {
-        if (!['scheduled', 'confirmed'].includes(apt.status || '')) return false;
-        const timeStr = apt.time || apt.timeSlot || '';
-        const dateStr = apt.date || '';
-        if (!timeStr || !dateStr) return false;
-        
-        const [hStr, mStr] = timeStr.split(':');
-        
-        let y, m, d;
-        if (dateStr.includes('T')) {
-            const datePart = dateStr.split('T')[0];
-            [y, m, d] = datePart.split('-');
-        } else {
-            [y, m, d] = dateStr.split('-');
-        }
-        if (!y || !m || !d) return false;
-        
-        const apptDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
-        return new Date() > apptDate;
-    })();
+    // Overdue check (canonical IST date-time comparison)
+    const isOverdue = ['scheduled', 'confirmed'].includes((apt.status || '').toLowerCase()) &&
+        isAppointmentTimePast(apt.date || apt.appointment_date, apt.time || apt.timeSlot || apt.time_slot, nowMs);
+
+    // Start timing eligibility (canonical 10-minute early start window in IST)
+    const startTimingInfo = getAppointmentStartTimingInfo(apt.date || apt.appointment_date, apt.time || apt.timeSlot, nowMs);
 
     const age = apt.patient?.date_of_birth ? Math.abs(new Date(Date.now() - new Date(apt.patient.date_of_birth).getTime()).getUTCFullYear() - 1970) : null;
     const hasDetails = Boolean(apt.reason || (apt.symptoms && apt.symptoms.length > 0) || apt.patient_notes || apt.severity_current !== undefined || apt.onset_type || apt.voice_note_url || apt.known_allergies?.length || apt.current_medications || apt.medical_history);
@@ -388,11 +374,34 @@ const AppointmentCard = React.memo(({ apt, searchQuery, handleConfirm, handleSta
                     {apt.status === 'confirmed' && (
                         <>
                             {(apt.type === 'video' || apt.type === 'Video') ? (
-                                <Button aria-label="Start Consultation" size="sm" variant="primary" onClick={() => handleStartConsultation(apt.id)} disabled={isActing || isOverdue} leftIcon={isActing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />} className={isOverdue ? 'opacity-50 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-600 text-white'}>
-                                    {isOverdue ? 'Reschedule First' : 'Start'}
+                                <Button
+                                    aria-label="Start Consultation"
+                                    size="sm"
+                                    variant="primary"
+                                    onClick={() => handleStartConsultation(apt.id)}
+                                    disabled={isActing || isOverdue || !startTimingInfo.canStart}
+                                    leftIcon={isActing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+                                    className={
+                                        isOverdue
+                                            ? 'opacity-50 cursor-not-allowed'
+                                            : !startTimingInfo.canStart
+                                                ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700 cursor-not-allowed font-medium'
+                                                : 'bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white font-bold'
+                                    }
+                                    title={!startTimingInfo.canStart ? 'Consultation can be started 10 minutes before the scheduled time' : 'Click to start consultation'}
+                                >
+                                    {isOverdue ? 'Reschedule First' : startTimingInfo.label}
                                 </Button>
                             ) : (
-                                <Button aria-label="Check-In Patient" size="sm" variant="primary" onClick={() => handleCheckIn(apt.id)} disabled={isActing || isOverdue} leftIcon={isActing ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}>
+                                <Button
+                                    aria-label="Check-In Patient"
+                                    size="sm"
+                                    variant="primary"
+                                    onClick={() => handleCheckIn(apt.id)}
+                                    disabled={isActing || isOverdue}
+                                    leftIcon={isActing ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
+                                    className="bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white"
+                                >
                                     Check-In
                                 </Button>
                             )}
@@ -464,6 +473,7 @@ export default function DoctorAppointmentsPage() {
     
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [newApptAlert, setNewApptAlert] = useState<string | null>(null);
+    const [nowMs, setNowMs] = useState(() => Date.now());
     const [page, setPage] = useState(1);
     const [cancelAppointmentId, setCancelAppointmentId] = useState<string | null>(null);
     const [cancelReason, setCancelReason] = useState('');
@@ -481,6 +491,12 @@ export default function DoctorAppointmentsPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [auditTrailModal, setAuditTrailModal] = useState<any>(null);
     const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Heartbeat timer (every 30s) to continuously update start countdowns and gating
+    useEffect(() => {
+        const timer = setInterval(() => setNowMs(Date.now()), 30000);
+        return () => clearInterval(timer);
+    }, []);
 
     const selectedStatus = statusFilter === 'all' ? undefined : statusFilter;
     const isActiveAppointment = useCallback((status?: string) => ['scheduled', 'confirmed', 'pending', 'in_progress'].includes((status || '').toLowerCase()), []);
@@ -595,10 +611,12 @@ export default function DoctorAppointmentsPage() {
         setActionLoading(id);
         const apt = appointments.find(a => a.id === id);
         if (apt) {
-            const [hStr, mStr] = (apt.time || apt.timeSlot || '00:00').split(':');
-            const apptDate = new Date();
-            apptDate.setHours(parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
-            if (new Date() > apptDate) {
+            const isPast = isAppointmentTimePast(
+                apt.date || apt.appointment_date,
+                apt.time || apt.timeSlot || apt.time_slot,
+                nowMs
+            );
+            if (isPast) {
                 setReschedulePrompt(apt);
                 setActionLoading(null);
                 return;
@@ -911,6 +929,7 @@ export default function DoctorAppointmentsPage() {
                                 setAuditTrailModal={setAuditTrailModal}
                                 isActing={actionLoading === apt.id}
                                 router={router}
+                                nowMs={nowMs}
                             />
                         ))
                     )}

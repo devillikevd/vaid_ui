@@ -68,6 +68,13 @@ const sanitizeUser = (user) => {
   return safe;
 };
 
+const {
+  parseAppointmentDateTimeMs,
+  checkAppointmentStartEligibility,
+  isAppointmentTimePast,
+  checkAppointmentApprovalEligibility,
+} = require('./appointmentTiming');
+
 module.exports = {
   asyncHandler,
   paginate,
@@ -76,4 +83,8 @@ module.exports = {
   calculateDistance,
   sanitizeUser,
   sanitizeString,
+  parseAppointmentDateTimeMs,
+  checkAppointmentStartEligibility,
+  isAppointmentTimePast,
+  checkAppointmentApprovalEligibility,
 };

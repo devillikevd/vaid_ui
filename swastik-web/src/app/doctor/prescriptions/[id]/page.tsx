@@ -15,19 +15,21 @@ import { RouteHospitalModal } from '@/components/clinic/RouteHospitalModal';
 // --- Sub-components ---
 
 const DetailsSkeleton = () => (
-    <div className="max-w-5xl mx-auto space-y-6 animate-pulse">
+    <div className="max-w-6xl mx-auto space-y-6 animate-pulse">
         {/* Header Skeleton */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="flex items-center gap-4 w-full sm:w-1/2">
-                <div className="h-10 w-10 bg-gray-200 dark:bg-gray-800 rounded-full"></div>
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+            <div className="flex items-center gap-4 w-full lg:w-1/2">
+                <div className="h-10 w-10 bg-gray-200 dark:bg-gray-800 rounded-full shrink-0"></div>
                 <div className="space-y-2 w-full">
-                    <div className="h-7 bg-gray-200 dark:bg-gray-800 rounded w-1/2"></div>
-                    <div className="h-4 bg-gray-100 dark:bg-gray-800/50 rounded w-1/3"></div>
+                    <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded w-1/3"></div>
+                    <div className="h-4 bg-gray-100 dark:bg-gray-800/50 rounded w-1/4"></div>
                 </div>
             </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-                <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-lg w-24"></div>
-                <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-lg w-32"></div>
+            <div className="flex items-center gap-2 overflow-x-auto w-full lg:w-auto shrink-0">
+                <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-lg w-20 shrink-0"></div>
+                <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-lg w-36 shrink-0"></div>
+                <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-lg w-36 shrink-0"></div>
+                <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-lg w-36 shrink-0"></div>
             </div>
         </div>
         
@@ -126,70 +128,76 @@ export default function PrescriptionDetailsPage() {
     return (
         <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8 pb-10">
             {/* Header Section */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 bg-white dark:bg-gray-900 p-5 sm:p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-                <div className="flex items-start sm:items-center gap-4 sm:gap-5">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     <button
                         onClick={() => router.back()}
-                        className="p-2.5 mt-1 sm:mt-0 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+                        className="p-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300 shrink-0"
                         aria-label="Go back"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
-                    <div>
-                        <div className="flex flex-wrap items-center gap-3">
-                            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                            <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight truncate">
                                 {prescription.patientName || 'Unknown Patient'}
                             </h1>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border shadow-sm ${getStatusStyle(prescription.status)}`}>
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border shadow-xs ${getStatusStyle(prescription.status)}`}>
                                 {(prescription.status || 'Active')}
                             </span>
                         </div>
-                        <p className="text-gray-500 dark:text-gray-400 mt-1.5 flex items-center gap-1.5 text-sm font-medium">
-                            <Calendar className="w-4 h-4 text-gray-400" /> 
-                            {createdDate ? createdDate.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Unknown Date'}
+                        <p className="text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1.5 text-xs sm:text-sm font-medium">
+                            <Calendar className="w-3.5 h-3.5 text-gray-400" /> 
+                            {createdDate ? createdDate.toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown Date'}
                         </p>
                     </div>
                 </div>
                 
-                <div className="flex flex-wrap gap-2.5 w-full sm:w-auto mt-2 sm:mt-0">
+                {/* Compact Horizontal Inline Action Toolbar */}
+                <div className="flex items-center justify-start lg:justify-end gap-2 overflow-x-auto pb-1 lg:pb-0 scrollbar-none flex-nowrap shrink-0">
                     <button 
                         onClick={() => window.print()}
-                        className="flex-1 sm:flex-none justify-center items-center gap-2 px-5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+                        className="inline-flex items-center gap-1.5 h-10 px-3.5 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-lg sm:rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-xs sm:text-sm font-semibold shadow-xs whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-gray-300 shrink-0"
+                        title="Print Prescription"
                     >
-                        <Printer className="w-4 h-4" /> 
-                        <span className="hidden sm:inline">Print</span>
+                        <Printer className="w-4 h-4 text-gray-500 dark:text-gray-400" /> 
+                        <span>Print</span>
                     </button>
                     {((prescription as any).file_url || (prescription as any).pdf_url) && (
                         <a 
                             href={(prescription as any).file_url || (prescription as any).pdf_url} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-2.5 bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500/50"
+                            className="inline-flex items-center gap-1.5 h-10 px-3.5 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-lg sm:rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-xs sm:text-sm font-semibold shadow-xs whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-gray-300 shrink-0"
+                            title="Download PDF"
                         >
-                            <Download className="w-4 h-4" /> 
-                            Download <span className="hidden sm:inline">PDF</span>
+                            <Download className="w-4 h-4 text-gray-500 dark:text-gray-400" /> 
+                            <span>PDF</span>
                         </a>
                     )}
                     <button
                         onClick={() => setShowRouteModal(true)}
-                        className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        className="inline-flex items-center gap-1.5 h-10 px-3.5 bg-emerald-600 text-white rounded-lg sm:rounded-xl hover:bg-emerald-700 transition-colors text-xs sm:text-sm font-semibold shadow-xs whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-emerald-500/50 shrink-0"
+                        title="Send to Partner Pharmacy"
                     >
                         <Pill className="w-4 h-4" />
-                        Send to Partner Pharmacy
+                        <span>Send to Pharmacy</span>
                     </button>
                     <button
                         onClick={() => setShowDiagnosticModal(true)}
-                        className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className="inline-flex items-center gap-1.5 h-10 px-3.5 bg-blue-600 text-white rounded-lg sm:rounded-xl hover:bg-blue-700 transition-colors text-xs sm:text-sm font-semibold shadow-xs whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500/50 shrink-0"
+                        title="Route to Diagnostic Center"
                     >
                         <Stethoscope className="w-4 h-4" />
-                        Route to Diagnostic Center
+                        <span>Route to Diagnostic</span>
                     </button>
                     <button
                         onClick={() => setShowHospitalModal(true)}
-                        className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        className="inline-flex items-center gap-1.5 h-10 px-3.5 bg-indigo-600 text-white rounded-lg sm:rounded-xl hover:bg-indigo-700 transition-colors text-xs sm:text-sm font-semibold shadow-xs whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shrink-0"
+                        title="Refer to Hospital"
                     >
                         <Building2 className="w-4 h-4" />
-                        Refer to Hospital
+                        <span>Refer to Hospital</span>
                     </button>
                 </div>
             </div>
@@ -400,6 +408,7 @@ export default function PrescriptionDetailsPage() {
             )}
             {showHospitalModal && (
                 <RouteHospitalModal
+                    prescriptionId={prescription.id}
                     patientId={prescription.patientId || (prescription as any).patient_id}
                     consultationId={prescription.consultationId || (prescription as any).consultation_id}
                     onClose={() => setShowHospitalModal(false)}

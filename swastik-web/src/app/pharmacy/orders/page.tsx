@@ -135,14 +135,14 @@ export default function PharmacyOrdersPage() {
             {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-orange-100 p-2.5"><ShoppingCart className="h-5 w-5 text-orange-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.total}</p><p className="text-xs text-gray-500 dark:text-gray-400">Total Orders</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-yellow-100 p-2.5"><ShoppingCart className="h-5 w-5 text-yellow-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.pending}</p><p className="text-xs text-gray-500 dark:text-gray-400">Pending</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-blue-100 p-2.5"><Package className="h-5 w-5 text-blue-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.active}</p><p className="text-xs text-gray-500 dark:text-gray-400">Active</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-green-100 p-2.5"><CheckCircle className="h-5 w-5 text-green-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.completed}</p><p className="text-xs text-gray-500 dark:text-gray-400">Completed</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-orange-100 dark:bg-orange-950/40 p-2.5"><ShoppingCart className="h-5 w-5 text-orange-600 dark:text-orange-400" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.total}</p><p className="text-xs text-gray-500 dark:text-gray-400">Total Orders</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-yellow-100 dark:bg-yellow-950/40 p-2.5"><ShoppingCart className="h-5 w-5 text-yellow-600 dark:text-yellow-400" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.pending}</p><p className="text-xs text-gray-500 dark:text-gray-400">Pending</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-blue-100 dark:bg-blue-950/40 p-2.5"><Package className="h-5 w-5 text-blue-600 dark:text-blue-400" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.active}</p><p className="text-xs text-gray-500 dark:text-gray-400">Active</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="rounded-xl bg-green-100 dark:bg-green-950/40 p-2.5"><CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{orderSummary.completed}</p><p className="text-xs text-gray-500 dark:text-gray-400">Completed</p></div></div></Card>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
-                <div className="flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-700">
+                <div className="flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
                     {([
                         { key: 'all' as const, label: 'All Status' },
                         { key: 'pending' as const, label: 'Pending' },
@@ -190,7 +190,7 @@ export default function PharmacyOrdersPage() {
                 {filteredOrders.length === 0 ? (
                     <Card padding="lg">
                         <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                            <ShoppingCart className="mx-auto mb-2 h-10 w-10 text-gray-300" />
+                            <ShoppingCart className="mx-auto mb-2 h-10 w-10 text-gray-300 dark:text-gray-600" />
                             <p className="font-medium text-gray-900 dark:text-gray-100">No orders found</p>
                             <p className="mt-1 text-sm">Try changing your filters or search terms.</p>
                         </div>
@@ -250,7 +250,7 @@ export default function PharmacyOrdersPage() {
                                 <div className="flex flex-col items-end gap-3 flex-shrink-0">
                                     <div className="flex flex-col items-end gap-1">
                                         <StatusBadge status={order.status || 'pending'} size="sm" />
-                                        {order.status === 'pending' && <p className="text-xs font-medium text-orange-600">Stock Reserved</p>}
+                                        {order.status === 'pending' && <p className="text-xs font-medium text-orange-600 dark:text-orange-400">Stock Reserved</p>}
                                     </div>
                                     {total > 0 ? <div className="font-bold text-gray-900 dark:text-gray-100">₹{Number(total).toFixed(0)}</div> : null}
                                     
@@ -258,7 +258,7 @@ export default function PharmacyOrdersPage() {
                                         <div className="flex gap-2 mt-2" onClick={(event) => event.stopPropagation()}>
                                             {order.status === 'pending' ? (
                                                 <>
-                                                    <Button size="sm" variant="outline" onClick={() => void handleStatus(order.id, 'cancelled')} disabled={actionLoading === order.id} className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
+                                                    <Button size="sm" variant="outline" onClick={() => void handleStatus(order.id, 'cancelled')} disabled={actionLoading === order.id} className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 dark:border-red-900/40 dark:text-red-400 dark:hover:bg-red-950/30">
                                                         Reject
                                                     </Button>
                                                     <Button size="sm" onClick={() => void handleStatus(order.id, 'confirmed')} disabled={actionLoading === order.id} className="h-8 bg-blue-600 hover:bg-blue-700 text-white">

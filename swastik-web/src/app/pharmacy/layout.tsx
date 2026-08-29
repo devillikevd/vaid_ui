@@ -8,7 +8,7 @@ import {
     ShoppingCart,
     Inbox,
     Network,
-    Link2,
+    Share2,
     BadgePercent,
     Star,
     PlaySquare,
@@ -32,11 +32,11 @@ const BASE_NAV: NavItem[] = [
     { name: 'Orders', href: '/pharmacy/orders', icon: ShoppingCart, section: 'OPERATIONS', allowedRoles: PHARMACY_ROLES },
     { name: 'Prescriptions', href: '/pharmacy/prescriptions', icon: ClipboardList, section: 'OPERATIONS', allowedRoles: PHARMACY_ROLES },
     { name: 'Inventory', href: '/pharmacy/inventory', icon: Package, section: 'OPERATIONS', allowedRoles: PHARMACY_ROLES },
-    { name: 'Requests', href: '/pharmacy/requests', icon: Inbox, section: 'OPERATIONS', allowedRoles: PHARMACY_ROLES },
+    { name: 'Medicine Requests', href: '/pharmacy/requests', icon: Inbox, section: 'OPERATIONS', allowedRoles: PHARMACY_ROLES },
+    { name: 'Referrals', href: '/pharmacy/referrals', icon: Share2, section: 'OPERATIONS', allowedRoles: ['pharmacy_owner', 'pharmacy_manager'] },
 
     // NETWORK — owner only
-    { name: 'Partnerships', href: '/pharmacy/partnerships', icon: Network, section: 'NETWORK', allowedRoles: ['pharmacy_owner'] },
-    { name: 'Associations', href: '/pharmacy/associations', icon: Link2, section: 'NETWORK', allowedRoles: ['pharmacy_owner'] },
+    { name: 'My Network', href: '/pharmacy/network', icon: Network, section: 'NETWORK', allowedRoles: ['pharmacy_owner'] },
 
     // GROWTH & REPUTATION — owner + manager
     { name: 'Campaigns', href: '/pharmacy/campaigns', icon: BadgePercent, section: 'GROWTH & REPUTATION', allowedRoles: ['pharmacy_owner', 'pharmacy_manager'] },

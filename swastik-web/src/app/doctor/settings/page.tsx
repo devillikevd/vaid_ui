@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import {
     Save, Loader2, User, Stethoscope, ShieldCheck, Video,
     Bell, Lock, ChevronRight, CheckCircle2, AlertCircle, Edit3, X,
-    Palette, Globe, EyeOff
+    Palette, Globe, EyeOff, Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -19,7 +19,8 @@ import { doctorApi, authApi } from '@/lib/api';
 import { loadDoctorNotificationSettings, saveDoctorNotificationSettings } from '@/lib/doctorNotificationSettings';
 import { getResubmissionSuccessMessage, refreshAuthenticatedUser } from '@/lib/authSession';
 import { useTheme } from '@/components/shared/ThemeProvider';
-import { DoctorPortalCard } from '@/components/doctor/DoctorPortalCard';
+import { OnboardingChecklist } from '@/components/doctor/OnboardingChecklist';
+import type { DoctorProfile } from '@/stores/doctorStore';
 
 // Standardized specialization list — must match backend utils/specializations.js
 const SPECIALIZATIONS = [
@@ -47,32 +48,52 @@ const TABS: { id: TabId; label: string; icon: React.ElementType; desc: string }[
     { id: 'privacy',       label: 'Privacy',        icon: EyeOff,      desc: 'Profile visibility' },
 ];
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionDivider({ title }: { title: string }) {
     return (
-        <p className="text-xs font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-4 mt-2">
-            {children}
-        </p>
+        <div className="flex items-center gap-3 mt-5 mb-3">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 whitespace-nowrap">{title}</span>
+            <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
+        </div>
     );
 }
 
 function FieldRow({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
     return (
         <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">
+                {label}{required && <span className="text-red-400 ml-0.5">*</span>}
             </label>
             {children}
         </div>
     );
 }
 
-function ViewField({ label, value }: { label: string; value: React.ReactNode }) {
+function ViewRow({ label, value, mono }: { label: string; value?: React.ReactNode; mono?: boolean }) {
     return (
-        <div className="bg-gray-50 dark:bg-[#131A2B] p-4 rounded-2xl border border-gray-200 dark:border-gray-800/50 shadow-sm transition-all hover:border-gray-300 dark:hover:border-gray-700/50 hover:bg-gray-100 dark:hover:bg-[#1A2235]">
-            <span className="block text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-1.5">{label}</span>
-            <div className="text-[15px] font-medium text-gray-900 dark:text-gray-100 truncate" title={typeof value === 'string' ? value : undefined}>{value || <span className="text-gray-500">Not provided</span>}</div>
+        <div>
+            <span className="block text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-0.5">{label}</span>
+            <div className={`text-sm text-gray-900 dark:text-gray-100 ${mono ? 'font-mono' : 'font-medium'} break-all`}>
+                {value || <span className="text-gray-400 dark:text-gray-600 italic font-normal">Not provided</span>}
+            </div>
         </div>
     );
+}
+
+function ProfileAvatar({ src, name, size = 'md' }: { src?: string | null; name?: string; size?: 'sm' | 'md' | 'lg' }) {
+    const [errored, setErrored] = useState(false);
+    const clean = (name || '').replace(/^(Dr\.|Dr|Prof\.|Prof)\s+/i, '').trim();
+    const parts = clean.split(/\s+/).filter(Boolean);
+    const initials = parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : clean.slice(0, 2).toUpperCase() || 'DC';
+    const sz = size === 'lg' ? 'w-14 h-14' : size === 'sm' ? 'w-8 h-8' : 'w-11 h-11';
+    const textSz = size === 'lg' ? 'text-lg' : size === 'sm' ? 'text-xs' : 'text-sm';
+    if (!src || errored) {
+        return (
+            <div className={`${sz} rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0 border border-emerald-200 dark:border-emerald-800/50 ${textSz}`}>
+                {initials}
+            </div>
+        );
+    }
+    return <img src={src} alt="Profile" className={`${sz} rounded-full object-cover border border-gray-200 dark:border-gray-700 shrink-0`} onError={() => setErrored(true)} />;
 }
 
 function SelectField({ value, onChange, children }: { value: string; onChange: (v: string) => void; children: React.ReactNode }) {
@@ -107,7 +128,9 @@ export default function DoctorSettingsPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [showFullBio, setShowFullBio] = useState(false);
 
+    const [rawDoctorProfile, setRawDoctorProfile] = useState<DoctorProfile | null>(null);
     const [profile, setProfile] = useState({
         name: '', phone: '', specialization: '', experience: '',
         qualification: '', consultationFee: '', languages: '', bio: '',
@@ -133,6 +156,7 @@ export default function DoctorSettingsPage() {
             if (profileRes.success) {
                 const d = profileRes.data as any;
                 const p = d?.profile || d?.data || d || {};
+                setRawDoctorProfile(p);
                 setProfile({
                     name: p.name || user?.name || '',
                     phone: p.phone || p.user?.phone || '',
@@ -303,131 +327,122 @@ export default function DoctorSettingsPage() {
         </div>
     );
 
-    const activeTabDef = TABS.find(t => t.id === activeTab)!;
-    const ActiveIcon = activeTabDef.icon;
     const isEditableTab = ['personal', 'professional', 'compliance', 'video'].includes(activeTab);
+    const displaySpec = profile.specialization || 'Specialization not provided';
+    const BIO_LIMIT = 280;
+    const isLongBio = profile.bio && profile.bio.length > BIO_LIMIT;
+    const bioDisplay = profile.bio && !showFullBio && isLongBio ? profile.bio.slice(0, BIO_LIMIT) + '...' : profile.bio;
+
+    const switchTab = (id: TabId) => {
+        if (isEditing && isEditableTab) {
+            if (confirm('You have unsaved changes. Switch tabs?')) {
+                setActiveTab(id); setIsEditing(false); loadProfileData();
+            }
+        } else { setActiveTab(id); setIsEditing(false); }
+    };
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6">
-            {/* Page Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your account, practice info &amp; preferences</p>
+        <div className="max-w-5xl mx-auto">
+            <div className="mb-5">
+                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Manage your account, practice info &amp; preferences</p>
             </div>
 
-            {/* Status Toast */}
             {saveStatus && (
-                <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium border ${saveStatus.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'}`}>
-                    {saveStatus.type === 'success' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
+                <div className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-medium mb-4 border ${saveStatus.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300' : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'}`}>
+                    {saveStatus.type === 'success' ? <Check className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
                     {saveStatus.message}
                 </div>
             )}
 
-            <div className="flex flex-col lg:flex-row gap-6">
-                {/* Sidebar Tabs */}
-                <aside className="lg:w-full max-w-sm shrink-0">
-                    <DoctorPortalCard className="!p-0 overflow-hidden">
-                        {TABS.map((tab, idx) => {
+            <div className="flex flex-col lg:flex-row gap-5">
+                {/* Sidebar */}
+                <aside className="lg:w-56 shrink-0">
+                    {/* Mobile: horizontal scroll */}
+                    <div className="flex lg:hidden gap-1 overflow-x-auto pb-2">
+                        {TABS.map(tab => {
                             const Icon = tab.icon;
                             const isActive = activeTab === tab.id;
                             return (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => {
-                                        if (isEditing && isEditableTab) {
-                                            if (confirm('You have unsaved changes. Are you sure you want to switch tabs?')) {
-                                                setActiveTab(tab.id);
-                                                setIsEditing(false);
-                                                loadProfileData();
-                                            }
-                                        } else {
-                                            setActiveTab(tab.id);
-                                            setIsEditing(false);
-                                        }
-                                    }}
-                                    className={`relative w-full flex items-center gap-3 px-4 h-[68px] text-left transition-all duration-200 group border-b border-gray-100 dark:border-gray-800/50 last:border-0 ${isActive ? 'bg-emerald-50/50 dark:bg-emerald-500/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/40'}`}
-                                >
-                                    {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />}
-                                    <span className={`flex items-center justify-center h-10 w-10 rounded-xl shrink-0 transition-colors ${isActive ? 'bg-emerald-500 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 group-hover:bg-emerald-100 group-hover:text-emerald-600 dark:group-hover:bg-emerald-500/20 dark:group-hover:text-emerald-400'}`}>
-                                        <Icon className="h-4 w-4" />
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                        <p className={`text-sm font-bold truncate transition-colors ${isActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-gray-100'}`}>{tab.label}</p>
-                                        <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{tab.desc}</p>
-                                    </div>
-                                    <ChevronRight className={`h-4 w-4 shrink-0 transition-all ${isActive ? 'text-emerald-500 translate-x-0 opacity-100' : 'text-gray-400 -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100'}`} />
+                                <button key={tab.id} onClick={() => switchTab(tab.id)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${isActive ? 'bg-emerald-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
+                                    <Icon className="h-3.5 w-3.5" />{tab.label}
                                 </button>
                             );
                         })}
-                    </DoctorPortalCard>
+                    </div>
+                    {/* Desktop: vertical nav */}
+                    <nav className="hidden lg:block rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+                        {TABS.map(tab => {
+                            const Icon = tab.icon;
+                            const isActive = activeTab === tab.id;
+                            return (
+                                <button key={tab.id} onClick={() => switchTab(tab.id)}
+                                    className={`relative w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors border-b border-gray-100 dark:border-gray-800/60 last:border-0 ${isActive ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'hover:bg-gray-50 dark:hover:bg-gray-800/40'}`}>
+                                    {isActive && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-emerald-500 rounded-r" />}
+                                    <span className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 ${isActive ? 'bg-emerald-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
+                                        <Icon className="h-3.5 w-3.5" />
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className={`text-sm font-semibold truncate ${isActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'}`}>{tab.label}</p>
+                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate">{tab.desc}</p>
+                                    </div>
+                                    {isActive && <ChevronRight className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
+                                </button>
+                            );
+                        })}
+                    </nav>
                 </aside>
 
-                {/* Content Panel */}
+                {/* Content */}
                 <div className="flex-1 min-w-0">
-                    <DoctorPortalCard className="!p-0 overflow-hidden">
-                        {/* Panel Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
-                            <div className="flex items-center gap-3">
-                                <span className="flex items-center justify-center h-9 w-9 rounded-xl bg-emerald-500 text-white shadow-md">
-                                    <ActiveIcon className="h-4 w-4" />
-                                </span>
-                                <div>
-                                    <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">{activeTabDef.label}</h2>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">{activeTabDef.desc}</p>
-                                </div>
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+                        {/* Panel header */}
+                        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-gray-800">
+                            <div>
+                                <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100">{TABS.find(t => t.id === activeTab)?.label}</h2>
+                                <p className="text-xs text-gray-400 mt-0.5">{TABS.find(t => t.id === activeTab)?.desc}</p>
                             </div>
                             {isEditableTab && (
-                                <div>
-                                    {!isEditing ? (
-                                        <Button size="sm" variant="outline" onClick={() => setIsEditing(true)} leftIcon={<Edit3 className="w-3.5 h-3.5" />}>
-                                            Edit Details
-                                        </Button>
-                                    ) : (
-                                        <Button size="sm" variant="ghost" onClick={handleCancelEdit} leftIcon={<X className="w-3.5 h-3.5" />} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
-                                            Cancel Editing
-                                        </Button>
-                                    )}
-                                </div>
+                                !isEditing ? (
+                                    <button type="button" onClick={() => setIsEditing(true)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-semibold transition-colors">
+                                        <Edit3 className="h-3.5 w-3.5" /> Edit
+                                    </button>
+                                ) : (
+                                    <button type="button" onClick={handleCancelEdit}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-semibold transition-colors">
+                                        <X className="h-3.5 w-3.5" /> Cancel
+                                    </button>
+                                )
                             )}
                         </div>
 
-                        <div className="p-6 space-y-6">
+                        <div className="p-5 space-y-4">
 
                             {/* PERSONAL INFO */}
                             {activeTab === 'personal' && (
-                                <div className="space-y-8">
+                                <div className="space-y-4">
                                     {!isEditing && (
-                                        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 bg-gray-50 dark:bg-[#0B1020] p-6 rounded-2xl border border-gray-200 dark:border-gray-800/50 shadow-sm">
-                                            <div className="relative shrink-0">
-                                                {profile.profileImage ? (
-                                                    <img src={profile.profileImage} alt="Profile" className="w-[100px] h-[100px] rounded-full object-cover border-[4px] border-[#131A2B] shadow-md" />
-                                                ) : (
-                                                    <div className="w-[100px] h-[100px] rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 text-3xl font-bold border-[4px] border-[#131A2B] shadow-md">
-                                                        {(profile.name || 'D').charAt(0).toUpperCase()}
-                                                    </div>
-                                                )}
-                                                <div className="absolute bottom-2 right-2 w-4 h-4 bg-emerald-500 border-2 border-[#131A2B] rounded-full animate-pulse shadow-sm" title="Online" />
-                                            </div>
-                                            <div className="flex-1 min-w-0 text-center sm:text-left mt-2 sm:mt-0">
-                                                <div className="flex items-center justify-center sm:justify-start gap-2">
-                                                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white truncate">{profile.name || 'Dr. Name'}</h3>
-                                                    {user?.approval_status === 'approved' && <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />}
+                                        <div className="flex items-center gap-4">
+                                            <ProfileAvatar src={profile.profileImage} name={profile.name} size="lg" />
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <h3 className="text-base font-bold text-gray-900 dark:text-white truncate">{profile.name || 'Doctor Name'}</h3>
+                                                    {user?.approval_status === 'approved' && (
+                                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                                                            <CheckCircle2 className="h-3.5 w-3.5" /> Verified
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <p className="text-[15px] font-medium text-gray-400 mt-1">{profile.specialization || 'General Physician'}</p>
-                                                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-4">
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-500">
-                                                        Online
-                                                    </span>
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-500">
-                                                        Profile {profile.name && profile.specialization ? '100' : '60'}% Complete
-                                                    </span>
-                                                </div>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{displaySpec}</p>
+                                                {user?.email && <p className="text-xs text-gray-400 mt-0.5 truncate">{user.email}</p>}
                                             </div>
                                         </div>
                                     )}
 
                                     {isEditing && (
-                                        <div className="flex justify-center mb-8 bg-gray-50 dark:bg-[#0B1020] p-8 rounded-2xl border border-gray-200 dark:border-gray-800/50">
+                                        <div className="flex justify-center py-2">
                                             <ProfileImageUpload
                                                 currentImage={profile.profileImage}
                                                 name={profile.name}
@@ -437,50 +452,65 @@ export default function DoctorSettingsPage() {
                                         </div>
                                     )}
 
-                                    <div>
-                                        <SectionLabel>Basic Information</SectionLabel>
-                                        {isEditing ? (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <FieldRow label="Full Name" required>
-                                                    <Input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} placeholder="Dr. Full Name" />
-                                                </FieldRow>
-                                                <FieldRow label="Email Address">
-                                                    <Input value={user?.email || ''} readOnly className="opacity-60 cursor-not-allowed" />
-                                                </FieldRow>
-                                                <FieldRow label="Phone Number">
-                                                    <Input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="+91 XXXXX XXXXX" />
-                                                </FieldRow>
-                                            </div>
-                                        ) : (
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                                <ViewField label="Full Name" value={profile.name} />
-                                                <ViewField label="Email Address" value={user?.email || ''} />
-                                                <ViewField label="Phone Number" value={profile.phone} />
-                                            </div>
-                                        )}
-                                    </div>
-                                    
-                                    <div>
-                                        <SectionLabel>Profile Summary</SectionLabel>
-                                        {isEditing ? (
-                                            <FieldRow label="About / Bio">
-                                                <textarea
-                                                    value={profile.bio}
-                                                    onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))}
-                                                    placeholder="Short clinical background, areas of focus, and patient-care approach..."
-                                                    rows={4}
-                                                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl text-[15px] bg-white dark:bg-[#131A2B] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 resize-none transition-all"
-                                                />
+                                    {rawDoctorProfile && !isEditing && (
+                                        <OnboardingChecklist profile={rawDoctorProfile} variant="card" />
+                                    )}
+
+                                    <SectionDivider title="Basic Information" />
+                                    {isEditing ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <FieldRow label="Full Name" required>
+                                                <Input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} placeholder="Dr. Full Name" />
                                             </FieldRow>
-                                        ) : (
-                                            <div className="bg-gray-50 dark:bg-[#131A2B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800/50 shadow-sm transition-all hover:border-gray-300 dark:hover:border-gray-700/50">
-                                                <p className="text-[15px] text-gray-800 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{profile.bio || <span className="text-gray-500">No bio provided. Add a brief summary about your clinical background.</span>}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                    
+                                            <FieldRow label="Email Address">
+                                                <Input value={user?.email || ''} readOnly className="opacity-60 cursor-not-allowed" />
+                                            </FieldRow>
+                                            <FieldRow label="Phone Number">
+                                                <Input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="+91 XXXXX XXXXX" />
+                                            </FieldRow>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-4">
+                                            <ViewRow label="Full Name" value={profile.name} />
+                                            <ViewRow label="Email" value={user?.email} />
+                                            <ViewRow label="Phone" value={profile.phone} />
+                                        </div>
+                                    )}
+
+                                    <SectionDivider title="Profile Summary" />
+                                    {isEditing ? (
+                                        <FieldRow label="About / Bio">
+                                            <textarea
+                                                value={profile.bio}
+                                                onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))}
+                                                placeholder="Short clinical background, areas of focus, and patient-care approach..."
+                                                rows={4}
+                                                className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 resize-none transition-all"
+                                            />
+                                        </FieldRow>
+                                    ) : (
+                                        <div>
+                                            {profile.bio ? (
+                                                <>
+                                                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{bioDisplay}</p>
+                                                    {isLongBio && (
+                                                        <button type="button" onClick={() => setShowFullBio(v => !v)}
+                                                            className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1.5 hover:underline">
+                                                            {showFullBio ? 'Show less' : 'Show more'}
+                                                        </button>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+                                                    No bio provided.{' '}
+                                                    <button type="button" onClick={() => setIsEditing(true)} className="text-emerald-600 dark:text-emerald-400 not-italic font-semibold hover:underline">Add Summary</button>
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {isEditing && (
-                                        <div className="pt-6 mt-6 border-t border-gray-800/50 flex justify-end">
+                                        <div className="flex justify-end pt-3 border-t border-gray-100 dark:border-gray-800">
                                             <Button onClick={handleSaveProfile} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>Save Personal Info</Button>
                                         </div>
                                     )}
@@ -489,173 +519,127 @@ export default function DoctorSettingsPage() {
 
                             {/* PROFESSIONAL */}
                             {activeTab === 'professional' && (
-                                <div className="space-y-8">
-                                    <div>
-                                        <SectionLabel>Medical Expertise</SectionLabel>
-                                        {isEditing ? (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <FieldRow label="Specialization" required>
-                                                    <SelectField value={profile.specialization} onChange={v => setProfile(p => ({ ...p, specialization: v }))}>
-                                                        <option value="">Select specialization</option>
-                                                        {SPECIALIZATIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                                    </SelectField>
-                                                </FieldRow>
-                                                <FieldRow label="Years of Experience" required>
-                                                    <Input type="number" min="0" value={profile.experience} onChange={e => setProfile(p => ({ ...p, experience: e.target.value }))} placeholder="e.g. 8" />
-                                                </FieldRow>
-                                                <div className="sm:col-span-2">
-                                                    <FieldRow label="Qualifications / Degrees" required>
-                                                        <Input value={profile.qualification} onChange={e => setProfile(p => ({ ...p, qualification: e.target.value }))} placeholder="MBBS, MD Internal Medicine (comma separated)" />
-                                                    </FieldRow>
-                                                </div>
-                                                <FieldRow label="Languages Spoken">
-                                                    <Input value={profile.languages} onChange={e => setProfile(p => ({ ...p, languages: e.target.value }))} placeholder="Hindi, English, Marathi" />
-                                                </FieldRow>
-                                                <FieldRow label="Awards & Achievements">
-                                                    <Input value={profile.awards} onChange={e => setProfile(p => ({ ...p, awards: e.target.value }))} placeholder="Best Doctor Award 2022..." />
+                                <div className="space-y-4">
+                                    <SectionDivider title="Medical Expertise" />
+                                    {isEditing ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <FieldRow label="Specialization" required>
+                                                <SelectField value={profile.specialization} onChange={v => setProfile(p => ({ ...p, specialization: v }))}>
+                                                    <option value="">Select specialization</option>
+                                                    {SPECIALIZATIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                                </SelectField>
+                                            </FieldRow>
+                                            <FieldRow label="Years of Experience" required>
+                                                <Input type="number" min="0" value={profile.experience} onChange={e => setProfile(p => ({ ...p, experience: e.target.value }))} placeholder="e.g. 8" />
+                                            </FieldRow>
+                                            <div className="sm:col-span-2">
+                                                <FieldRow label="Qualifications / Degrees" required>
+                                                    <Input value={profile.qualification} onChange={e => setProfile(p => ({ ...p, qualification: e.target.value }))} placeholder="MBBS, MD Internal Medicine" />
                                                 </FieldRow>
                                             </div>
-                                        ) : (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <ViewField label="Specialization" value={profile.specialization} />
-                                                <ViewField label="Years of Experience" value={profile.experience ? `${profile.experience} Years` : ''} />
-                                                <div className="sm:col-span-2">
-                                                    <ViewField label="Qualifications / Degrees" value={profile.qualification} />
-                                                </div>
-                                                <ViewField label="Languages Spoken" value={profile.languages} />
-                                                <ViewField label="Awards & Achievements" value={profile.awards} />
-                                            </div>
-                                        )}
-                                    </div>
-                                    
-                                    <div>
-                                        <SectionLabel>Practice & Fees</SectionLabel>
-                                        {isEditing ? (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <FieldRow label="Consultation Fee (₹)" required>
-                                                    <Input type="number" value={profile.consultationFee} onChange={e => setProfile(p => ({ ...p, consultationFee: e.target.value }))} placeholder="e.g. 500" />
-                                                </FieldRow>
-                                            </div>
-                                        ) : (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <ViewField label="Consultation Fee (₹)" value={profile.consultationFee ? `₹${profile.consultationFee}` : ''} />
-                                            </div>
-                                        )}
-                                    </div>
+                                            <FieldRow label="Languages Spoken">
+                                                <Input value={profile.languages} onChange={e => setProfile(p => ({ ...p, languages: e.target.value }))} placeholder="Hindi, English, Marathi" />
+                                            </FieldRow>
+                                            <FieldRow label="Awards & Achievements">
+                                                <Input value={profile.awards} onChange={e => setProfile(p => ({ ...p, awards: e.target.value }))} placeholder="Best Doctor Award 2022..." />
+                                            </FieldRow>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                                            <ViewRow label="Specialization" value={profile.specialization || displaySpec} />
+                                            <ViewRow label="Years of Experience" value={profile.experience ? `${profile.experience} yrs` : ''} />
+                                            <div className="sm:col-span-2"><ViewRow label="Qualifications" value={profile.qualification} /></div>
+                                            <ViewRow label="Languages" value={profile.languages} />
+                                            <ViewRow label="Awards" value={profile.awards} />
+                                        </div>
+                                    )}
 
-                                    <div>
-                                        <SectionLabel>Consultation Types</SectionLabel>
-                                        <div className="flex flex-wrap gap-3">
-                                            {['In-Person', 'Video'].map(type => (
-                                                <button
-                                                    key={type}
-                                                    onClick={() => toggleConsultationType(type)}
-                                                    disabled={!isEditing}
-                                                    className={`flex items-center gap-2 px-5 py-3 rounded-2xl border-2 text-[15px] font-bold transition-all ${profile.consultationTypes.includes(type) ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-gray-300 dark:border-gray-800 bg-gray-50 dark:bg-[#131A2B] text-gray-500 hover:border-gray-400 dark:hover:border-gray-700'} ${!isEditing && !profile.consultationTypes.includes(type) ? 'hidden' : ''} ${!isEditing ? 'cursor-default pointer-events-none' : ''}`}
-                                                >
-                                                    {profile.consultationTypes.includes(type) && <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />}
+                                    <SectionDivider title="Practice & Fees" />
+                                    {isEditing ? (
+                                        <div className="max-w-xs">
+                                            <FieldRow label="Consultation Fee (₹)" required>
+                                                <Input type="number" value={profile.consultationFee} onChange={e => setProfile(p => ({ ...p, consultationFee: e.target.value }))} placeholder="e.g. 500" />
+                                            </FieldRow>
+                                        </div>
+                                    ) : (
+                                        <ViewRow label="Consultation Fee" value={profile.consultationFee ? `₹${profile.consultationFee}` : ''} />
+                                    )}
+
+                                    <SectionDivider title="Consultation Types" />
+                                    <div className="flex flex-wrap gap-2">
+                                        {['In-Person', 'Video'].map(type => {
+                                            const active = profile.consultationTypes.includes(type);
+                                            if (!isEditing && !active) return null;
+                                            return (
+                                                <button key={type} type="button" onClick={() => toggleConsultationType(type)} disabled={!isEditing}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold transition-all ${active ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400' : 'border-gray-200 dark:border-gray-700 text-gray-500'} ${!isEditing ? 'cursor-default' : ''}`}>
+                                                    {active && <Check className="h-3.5 w-3.5" />}
                                                     {type === 'In-Person' ? '🏥' : '📹'} {type}
                                                 </button>
-                                            ))}
-                                            {!isEditing && profile.consultationTypes.length === 0 && (
-                                                <div className="text-[15px] text-gray-500 font-medium bg-gray-50 dark:bg-[#131A2B] px-5 py-3 rounded-2xl border border-gray-200 dark:border-gray-800/50">No consultation types selected.</div>
-                                            )}
-                                        </div>
+                                            );
+                                        })}
+                                        {!isEditing && profile.consultationTypes.length === 0 && <span className="text-sm text-gray-400 italic">None selected</span>}
                                     </div>
-                                    
+
                                     {isEditing && (
-                                        <div className="pt-6 mt-6 border-t border-gray-800/50 flex justify-end">
+                                        <div className="flex justify-end pt-3 border-t border-gray-100 dark:border-gray-800">
                                             <Button onClick={handleSaveProfile} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>Save Professional Info</Button>
                                         </div>
                                     )}
                                 </div>
                             )}
 
-                            {/* REGISTRATION & COMPLIANCE */}
+                            {/* REGISTRATION */}
                             {activeTab === 'compliance' && (
-                                <div className="space-y-8">
-                                    <div>
-                                        <SectionLabel>Registration Details</SectionLabel>
-                                        {isEditing ? (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <FieldRow label="Medical Council Registration No." required>
-                                                    <Input value={profile.registrationNumber} onChange={e => setProfile(p => ({ ...p, registrationNumber: e.target.value }))} placeholder="MCI/State council registration number" />
-                                                </FieldRow>
-                                                <FieldRow label="Medical License Number" required>
-                                                    <Input value={profile.licenseNumber} onChange={e => setProfile(p => ({ ...p, licenseNumber: e.target.value }))} placeholder="License number" />
-                                                </FieldRow>
-                                            </div>
-                                        ) : (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <ViewField label="Medical Council Registration No." value={profile.registrationNumber} />
-                                                <ViewField label="Medical License Number" value={profile.licenseNumber} />
-                                            </div>
-                                        )}
-                                    </div>
-                                    
-                                    <div>
-                                        <SectionLabel>Compliance Documents</SectionLabel>
-                                        {isEditing ? (
-                                            <div className="space-y-4">
-                                                <ComplianceDocumentUpload
-                                                    label="Medical License Document"
-                                                    providerType="doctor"
-                                                    value={profile.licenseDocumentUrl}
-                                                    onChange={url => setProfile(prev => ({ ...prev, licenseDocumentUrl: url }))}
-                                                    description="Upload the medical license document for admin review."
-                                                />
-                                                <ComplianceDocumentUpload
-                                                    label="Degree Certificate (MBBS / MD)"
-                                                    providerType="doctor"
-                                                    value={profile.degreeCertificateUrl}
-                                                    onChange={url => setProfile(prev => ({ ...prev, degreeCertificateUrl: url }))}
-                                                    description="Upload your MBBS/MD degree certificate."
-                                                />
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <div className="bg-gray-50 dark:bg-[#131A2B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-gray-300 dark:hover:border-gray-700/50">
-                                                    <div className="flex items-start gap-4">
-                                                        <div className="w-12 h-12 rounded-xl bg-gray-200 dark:bg-gray-800/50 flex items-center justify-center shrink-0">
-                                                            <ShieldCheck className="w-6 h-6 text-emerald-500" />
-                                                        </div>
-                                                        <div>
-                                                            <span className="block text-[15px] font-bold text-gray-900 dark:text-gray-100 mb-1">Medical License Document</span>
-                                                            {profile.licenseDocumentUrl ? (
-                                                                <span className="text-xs font-semibold text-emerald-500 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5"/> Uploaded & Verified</span>
-                                                            ) : (
-                                                                <span className="text-xs font-semibold text-amber-500 flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5"/> Pending Upload</span>
-                                                            )}
-                                                        </div>
+                                <div className="space-y-4">
+                                    <SectionDivider title="Registration Details" />
+                                    {isEditing ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <FieldRow label="Medical Council Registration No." required>
+                                                <Input value={profile.registrationNumber} onChange={e => setProfile(p => ({ ...p, registrationNumber: e.target.value }))} placeholder="MCI/State council registration number" />
+                                            </FieldRow>
+                                            <FieldRow label="Medical License Number" required>
+                                                <Input value={profile.licenseNumber} onChange={e => setProfile(p => ({ ...p, licenseNumber: e.target.value }))} placeholder="License number" />
+                                            </FieldRow>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                                            <ViewRow label="Registration No." value={profile.registrationNumber} mono />
+                                            <ViewRow label="License Number" value={profile.licenseNumber} mono />
+                                        </div>
+                                    )}
+
+                                    <SectionDivider title="Compliance Documents" />
+                                    {isEditing ? (
+                                        <div className="space-y-3">
+                                            <ComplianceDocumentUpload label="Medical License Document" providerType="doctor" value={profile.licenseDocumentUrl}
+                                                onChange={url => setProfile(prev => ({ ...prev, licenseDocumentUrl: url }))}
+                                                description="Upload the medical license document for admin review." />
+                                            <ComplianceDocumentUpload label="Degree Certificate (MBBS / MD)" providerType="doctor" value={profile.degreeCertificateUrl}
+                                                onChange={url => setProfile(prev => ({ ...prev, degreeCertificateUrl: url }))}
+                                                description="Upload your MBBS/MD degree certificate." />
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1">
+                                            {[
+                                                { label: 'Medical License Document', url: profile.licenseDocumentUrl },
+                                                { label: 'Degree Certificate (MBBS / MD)', url: profile.degreeCertificateUrl },
+                                            ].map(doc => (
+                                                <div key={doc.label} className="flex items-center justify-between py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{doc.label}</p>
+                                                        {doc.url
+                                                            ? <span className="text-xs text-emerald-500 font-semibold flex items-center gap-1 mt-0.5"><CheckCircle2 className="w-3 h-3" /> Uploaded</span>
+                                                            : <span className="text-xs text-amber-500 font-semibold flex items-center gap-1 mt-0.5"><AlertCircle className="w-3 h-3" /> Pending</span>}
                                                     </div>
-                                                    {profile.licenseDocumentUrl && (
-                                                        <a href={profile.licenseDocumentUrl} target="_blank" rel="noreferrer" className="px-5 py-2.5 bg-gray-800 text-sm font-medium text-gray-200 rounded-xl hover:bg-gray-700 transition-colors shrink-0">View Document</a>
-                                                    )}
+                                                    {doc.url && <a href={doc.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">View</a>}
                                                 </div>
-                                                <div className="bg-gray-50 dark:bg-[#131A2B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-gray-300 dark:hover:border-gray-700/50">
-                                                    <div className="flex items-start gap-4">
-                                                        <div className="w-12 h-12 rounded-xl bg-gray-200 dark:bg-gray-800/50 flex items-center justify-center shrink-0">
-                                                            <ShieldCheck className="w-6 h-6 text-blue-500" />
-                                                        </div>
-                                                        <div>
-                                                            <span className="block text-[15px] font-bold text-gray-900 dark:text-gray-100 mb-1">Degree Certificate (MBBS / MD)</span>
-                                                            {profile.degreeCertificateUrl ? (
-                                                                <span className="text-xs font-semibold text-emerald-500 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5"/> Uploaded & Verified</span>
-                                                            ) : (
-                                                                <span className="text-xs font-semibold text-amber-500 flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5"/> Pending Upload</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    {profile.degreeCertificateUrl && (
-                                                        <a href={profile.degreeCertificateUrl} target="_blank" rel="noreferrer" className="px-5 py-2.5 bg-gray-800 text-sm font-medium text-gray-200 rounded-xl hover:bg-gray-700 transition-colors shrink-0">View Document</a>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
+                                            ))}
+                                        </div>
+                                    )}
 
                                     {isEditing && (
-                                        <div className="pt-6 mt-6 border-t border-gray-800/50 flex justify-end">
+                                        <div className="flex justify-end pt-3 border-t border-gray-100 dark:border-gray-800">
                                             <Button onClick={handleSaveProfile} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>Save Registration Info</Button>
                                         </div>
                                     )}
@@ -664,153 +648,98 @@ export default function DoctorSettingsPage() {
 
                             {/* INTRO VIDEO */}
                             {activeTab === 'video' && (
-                                <div className="space-y-8">
-                                    <SectionLabel>Profile Intro Video</SectionLabel>
+                                <div className="space-y-4">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">A short <strong>15-second intro video</strong> helps patients build trust before booking. Doctors with intro videos get up to 3× more bookings.</p>
                                     {!isEditing && profile.introVideoUrl ? (
-                                        <div className="bg-gray-50 dark:bg-[#0B1020] p-6 rounded-2xl border border-gray-200 dark:border-gray-800/50 flex flex-col items-center shadow-sm">
-                                            <div className="aspect-[9/16] w-full max-w-[280px] bg-gray-100 dark:bg-black rounded-2xl overflow-hidden relative shadow-lg ring-4 ring-white dark:ring-[#131A2B]">
+                                        <div className="flex justify-center py-2">
+                                            <div className="aspect-[9/16] w-full max-w-[240px] rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 shadow">
                                                 <video src={profile.introVideoUrl} controls className="w-full h-full object-cover" />
                                             </div>
                                         </div>
+                                    ) : isEditing ? (
+                                        <VideoUpload currentVideo={profile.introVideoUrl} onUploadComplete={url => { setProfile(p => ({ ...p, introVideoUrl: url })); handleSaveProfile(); }} />
                                     ) : (
-                                        <>
-                                            <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-transparent border-l-4 border-emerald-500 text-[15px] text-emerald-400 mb-6 flex gap-3">
-                                                <span className="text-xl">📱</span>
-                                                <p>
-                                                    Upload a <strong>15-second intro video</strong> that appears as an Instagram-style story ring on your profile. Doctors with intro videos get <strong>3× more bookings</strong>.
-                                                </p>
-                                            </div>
-                                            {isEditing ? (
-                                                <div className="bg-gray-50 dark:bg-[#131A2B] p-6 rounded-2xl border border-gray-200 dark:border-gray-800/50">
-                                                    <VideoUpload
-                                                        currentVideo={profile.introVideoUrl}
-                                                        onUploadComplete={url => {
-                                                            setProfile(p => ({ ...p, introVideoUrl: url }));
-                                                            handleSaveProfile();
-                                                        }}
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <div className="flex flex-col items-center justify-center py-16 bg-gray-50 dark:bg-[#0B1020] rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-800 transition-all hover:border-gray-400 dark:hover:border-gray-700 hover:bg-gray-100 dark:hover:bg-[#0B1020]/80">
-                                                    <div className="w-16 h-16 rounded-2xl bg-white dark:bg-gray-900/80 flex items-center justify-center mb-4 border border-gray-200 dark:border-gray-800">
-                                                        <Video className="w-8 h-8 text-emerald-500" />
-                                                    </div>
-                                                    <p className="text-[15px] font-bold text-gray-900 dark:text-white">No intro video uploaded yet</p>
-                                                    <p className="text-sm text-gray-500 mt-1 mb-6">Upload a short reel to introduce yourself to patients.</p>
-                                                    <Button variant="outline" onClick={() => setIsEditing(true)}>Upload Video</Button>
-                                                </div>
-                                            )}
-                                        </>
+                                        <div className="flex flex-col items-center justify-center py-12 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-center gap-3">
+                                            <Video className="h-8 w-8 text-gray-400" />
+                                            <p className="text-sm font-medium text-gray-500">No intro video uploaded yet</p>
+                                            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>Upload Video</Button>
+                                        </div>
                                     )}
                                 </div>
                             )}
 
                             {/* NOTIFICATIONS */}
                             {activeTab === 'notifications' && (
-                                <div className="space-y-6">
-                                    <SectionLabel>Alert Preferences</SectionLabel>
-                                    <div className="bg-white dark:bg-[#131A2B] rounded-2xl border border-gray-200 dark:border-gray-800/50 divide-y divide-gray-100 dark:divide-gray-800/50">
-                                        {([
-                                            { key: 'emailNotifications' as const, label: 'Email Notifications', desc: 'Receive appointment confirmations and updates via email', emoji: '📧' },
-                                            { key: 'smsNotifications' as const, label: 'SMS Notifications', desc: 'Get real-time SMS alerts for new bookings and cancellations', emoji: '💬' },
-                                        ]).map(item => (
-                                            <div key={item.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 hover:bg-gray-50 dark:hover:bg-[#1A2235] transition-colors">
-                                                <div className="flex items-start gap-4">
-                                                    <div className="w-12 h-12 rounded-xl bg-gray-800/50 flex items-center justify-center shrink-0 text-2xl">
-                                                        {item.emoji}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[15px] font-bold text-gray-900 dark:text-gray-100">{item.label}</p>
-                                                        <p className="text-sm text-gray-500 mt-1">{item.desc}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex justify-end">
-                                                    <Toggle
-                                                        checked={settings[item.key]}
-                                                        onChange={() => handleNotificationToggle(item.key)}
-                                                        disabled={savingNotifications}
-                                                    />
-                                                </div>
+                                <div className="space-y-1">
+                                    <SectionDivider title="Alert Preferences" />
+                                    {([
+                                        { key: 'emailNotifications' as const, label: 'Email Notifications', desc: 'Appointment confirmations and updates via email' },
+                                        { key: 'smsNotifications' as const, label: 'SMS Notifications', desc: 'Real-time SMS alerts for new bookings and cancellations' },
+                                    ]).map(item => (
+                                        <div key={item.key} className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                                            <div>
+                                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{item.label}</p>
+                                                <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <Toggle checked={settings[item.key]} onChange={() => handleNotificationToggle(item.key)} disabled={savingNotifications} />
+                                        </div>
+                                    ))}
                                 </div>
                             )}
 
                             {/* SECURITY */}
-                            {activeTab === 'security' && (
-                                <SecuritySettings showStatus={showStatus} />
-                            )}
+                            {activeTab === 'security' && <SecuritySettings showStatus={showStatus} />}
 
                             {/* APPEARANCE */}
                             {activeTab === 'appearance' && (
-                                <div className="space-y-6">
-                                    <SectionLabel>Theme Preferences</SectionLabel>
-                                    <div className="bg-white dark:bg-[#131A2B] rounded-2xl border border-gray-200 dark:border-gray-800/50 p-6 text-center">
-                                        <Palette className="h-10 w-10 text-emerald-500 mx-auto mb-4" />
-                                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Appearance Settings</h3>
-                                        <p className="text-sm text-gray-400 mb-6 max-w-sm mx-auto">Customize how the Vaididea portal looks on your device.</p>
-                                        <div className="inline-flex items-center gap-2 p-1 bg-gray-100 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-800">
-                                            <button onClick={() => setTheme('dark')} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors ${theme === 'dark' ? 'bg-emerald-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}>Dark Mode</button>
-                                            <button onClick={() => setTheme('light')} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors ${theme === 'light' ? 'bg-emerald-500 text-white shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}>Light Mode</button>
-                                        </div>
+                                <div className="space-y-3">
+                                    <SectionDivider title="Theme" />
+                                    <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg w-fit">
+                                        <button onClick={() => setTheme('dark')} className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${theme === 'dark' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>Dark</button>
+                                        <button onClick={() => setTheme('light')} className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${theme === 'light' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}>Light</button>
                                     </div>
+                                    <p className="text-xs text-gray-400">Choose your preferred portal theme. This setting is saved per device.</p>
                                 </div>
                             )}
 
                             {/* LANGUAGE */}
                             {activeTab === 'language' && (
-                                <div className="space-y-6">
-                                    <SectionLabel>Language Settings</SectionLabel>
-                                    <div className="bg-white dark:bg-[#131A2B] rounded-2xl border border-gray-200 dark:border-gray-800/50 p-6 text-center">
-                                        <Globe className="h-10 w-10 text-blue-500 mx-auto mb-4" />
-                                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Regional Settings</h3>
-                                        <p className="text-sm text-gray-400 mb-6 max-w-sm mx-auto">Select your preferred app language and the languages you speak with patients.</p>
-                                        <div className="max-w-xs mx-auto text-left space-y-4">
-                                            <div>
-                                                <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Interface Language</label>
-                                                <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30">
-                                                    <option>English (US)</option>
-                                                    <option>Hindi (India)</option>
-                                                </select>
-                                            </div>
-                                        </div>
+                                <div className="space-y-3">
+                                    <SectionDivider title="Language Settings" />
+                                    <div className="max-w-xs">
+                                        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Interface Language</label>
+                                        <select className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30">
+                                            <option>English (US)</option>
+                                            <option>Hindi (India)</option>
+                                        </select>
                                     </div>
                                 </div>
                             )}
 
                             {/* PRIVACY */}
                             {activeTab === 'privacy' && (
-                                <div className="space-y-6">
-                                    <SectionLabel>Privacy & Visibility</SectionLabel>
-                                    <div className="bg-white dark:bg-[#131A2B] rounded-2xl border border-gray-200 dark:border-gray-800/50 p-6 text-center">
-                                        <EyeOff className="h-10 w-10 text-purple-500 mx-auto mb-4" />
-                                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Profile Privacy</h3>
-                                        <p className="text-sm text-gray-400 mb-6 max-w-sm mx-auto">Control who can see your profile and contact you on the platform.</p>
-                                        <div className="space-y-4 max-w-md mx-auto text-left">
-                                            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/30 rounded-xl border border-gray-200 dark:border-gray-800">
-                                                <div>
-                                                    <p className="font-semibold text-gray-900 dark:text-white text-sm">Public Profile</p>
-                                                    <p className="text-xs text-gray-500">Allow patients to find you in search.</p>
-                                                </div>
-                                                <Toggle checked={profile.isPublicProfile} onChange={() => handlePrivacyToggle('isPublicProfile')} />
+                                <div className="space-y-1">
+                                    <SectionDivider title="Profile Visibility" />
+                                    {([
+                                        { key: 'isPublicProfile' as const, label: 'Public Profile', desc: 'Allow patients to find you in search.' },
+                                        { key: 'showPhoneNumber' as const, label: 'Show Phone Number', desc: 'Display your direct contact number on your profile.' },
+                                    ]).map(item => (
+                                        <div key={item.key} className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                                            <div>
+                                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{item.label}</p>
+                                                <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
                                             </div>
-                                            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/30 rounded-xl border border-gray-200 dark:border-gray-800">
-                                                <div>
-                                                    <p className="font-semibold text-gray-900 dark:text-white text-sm">Show Phone Number</p>
-                                                    <p className="text-xs text-gray-500">Display your direct contact number.</p>
-                                                </div>
-                                                <Toggle checked={profile.showPhoneNumber} onChange={() => handlePrivacyToggle('showPhoneNumber')} />
-                                            </div>
+                                            <Toggle checked={profile[item.key]} onChange={() => handlePrivacyToggle(item.key)} />
                                         </div>
-                                    </div>
+                                    ))}
                                 </div>
                             )}
 
                         </div>
-                    </DoctorPortalCard>
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
+

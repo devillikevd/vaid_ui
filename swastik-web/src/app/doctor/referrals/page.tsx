@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { Suspense, useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useDoctorStore } from '@/stores/doctorStore';
 import { api } from '@/lib/api';
 import { UniversalReferral, ReferralStatus, ReferralUrgency } from '@/types/referrals';
@@ -33,13 +34,22 @@ import {
     Sparkles
 } from 'lucide-react';
 
-export default function DoctorReferralsPage() {
+function DoctorReferralsContent() {
     const toast = useToast();
+    const searchParams = useSearchParams();
+    const initialSelectedId = searchParams.get('selectedId');
+
     const { organizations, fetchOrganizations, loadingOrganizations } = useDoctorStore();
     const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'inbox' | 'sent'>('inbox');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [selectedReferralId, setSelectedReferralId] = useState<string | null>(null);
+    const [selectedReferralId, setSelectedReferralId] = useState<string | null>(initialSelectedId);
+
+    useEffect(() => {
+        if (initialSelectedId) {
+            setSelectedReferralId(initialSelectedId);
+        }
+    }, [initialSelectedId]);
 
     // Data states
     const [inboxReferrals, setInboxReferrals] = useState<UniversalReferral[]>([]);
@@ -802,5 +812,17 @@ export default function DoctorReferralsPage() {
                 />
             )}
         </div>
+    );
+}
+
+export default function DoctorReferralsPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex h-64 items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+            </div>
+        }>
+            <DoctorReferralsContent />
+        </Suspense>
     );
 }

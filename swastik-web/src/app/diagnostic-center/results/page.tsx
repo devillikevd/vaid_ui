@@ -9,6 +9,9 @@ import { useDiagnosticCenterStore, type DiagnosticBooking } from '@/stores/diagn
 import { Pagination } from '@/components/ui/Pagination';
 import { DashboardCard } from '@/components/shared/DashboardCard';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { diagnosticCenterApi } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
+import { ReportViewerModal } from '@/components/diagnostic-center/ReportViewerModal';
 
 const RESULT_STATUS_FILTERS = [
     { label: 'All', value: '', icon: FileCheck },
@@ -28,12 +31,30 @@ export default function ResultsPage() {
         uploadResult,
         clearError,
     } = useDiagnosticCenterStore();
+    const toast = useToast();
     const [page, setPage] = useState(1);
     const [resultStatusFilter, setResultStatusFilter] = useState('');
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [uploadingId, setUploadingId] = useState<string | null>(null);
     const [resultForm, setResultForm] = useState<{ file: File | null; result_notes: string }>({ file: null, result_notes: '' });
+    const [viewerState, setViewerState] = useState<{
+        isOpen: boolean;
+        reportUrl: string | null;
+        patientName: string;
+        testName: string;
+        bookingId: string;
+        isLoading: boolean;
+        error: string | null;
+    }>({
+        isOpen: false,
+        reportUrl: null,
+        patientName: '',
+        testName: '',
+        bookingId: '',
+        isLoading: false,
+        error: null,
+    });
     const pageSize = 10;
 
     useEffect(() => {
@@ -71,6 +92,64 @@ export default function ResultsPage() {
                 resultStatus: resultStatusFilter || 'all',
                 search: debouncedSearch || undefined,
             });
+        }
+    };
+
+    const handleViewReport = async (booking: DiagnosticBooking) => {
+        setViewerState({
+            isOpen: true,
+            reportUrl: null,
+            patientName: booking.patient_name || 'Patient',
+            testName: booking.test_name || 'Diagnostic Report',
+            bookingId: booking.id,
+            isLoading: true,
+            error: null,
+        });
+
+        try {
+            const res = await diagnosticCenterApi.getBookingReportUrl(booking.id);
+            const resData = res.data as { url?: string; objectName?: string } | undefined;
+            if (res.success && resData?.url) {
+                setViewerState((prev) => ({
+                    ...prev,
+                    reportUrl: resData.url || null,
+                    isLoading: false,
+                    error: null,
+                }));
+            } else if (booking.result_url && booking.result_url.includes('X-Amz-Signature')) {
+                setViewerState((prev) => ({
+                    ...prev,
+                    reportUrl: booking.result_url || null,
+                    isLoading: false,
+                    error: null,
+                }));
+            } else {
+                const errMsg = res.error || (res.status === 403 ? "You don't have permission to view this report" : 'Report not found');
+                setViewerState((prev) => ({
+                    ...prev,
+                    isLoading: false,
+                    error: errMsg,
+                }));
+                toast.error('Report Error', errMsg);
+            }
+        } catch (err: any) {
+            console.error('Error fetching report URL:', err);
+            if (booking.result_url && booking.result_url.includes('X-Amz-Signature')) {
+                setViewerState((prev) => ({
+                    ...prev,
+                    reportUrl: booking.result_url || null,
+                    isLoading: false,
+                    error: null,
+                }));
+            } else {
+                const errMsg = 'Unable to load report. Please try again.';
+                setViewerState((prev) => ({
+                    ...prev,
+                    isLoading: false,
+                    error: errMsg,
+                }));
+                toast.error('Unable to load report', 'Please try again or check storage connectivity.');
+            }
         }
     };
 
@@ -179,14 +258,13 @@ export default function ResultsPage() {
                                                 <p className="text-xs text-green-600 mt-0.5">{booking.result_notes}</p>
                                             )}
                                         </div>
-                                        <a
-                                            href={booking.result_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-1 text-purple-600 hover:underline text-sm"
+                                        <button
+                                            type="button"
+                                            onClick={() => handleViewReport(booking)}
+                                            className="flex items-center gap-1 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-medium hover:underline text-sm cursor-pointer"
                                         >
                                             <Eye className="h-3.5 w-3.5" /> View Report
-                                        </a>
+                                        </button>
                                     </div>
                                 )}
 
@@ -267,6 +345,22 @@ export default function ResultsPage() {
                 onPageChange={setPage}
                 totalItems={resultsPagination.total}
                 itemsPerPage={resultsPagination.limit}
+            />
+
+            {/* Secure Report Viewer Modal */}
+            <ReportViewerModal
+                isOpen={viewerState.isOpen}
+                onClose={() => setViewerState((prev) => ({ ...prev, isOpen: false }))}
+                reportUrl={viewerState.reportUrl}
+                patientName={viewerState.patientName}
+                testName={viewerState.testName}
+                bookingId={viewerState.bookingId}
+                isLoading={viewerState.isLoading}
+                error={viewerState.error}
+                onRetry={() => {
+                    const b = results.find((r) => r.id === viewerState.bookingId);
+                    if (b) handleViewReport(b);
+                }}
             />
         </div>
     );

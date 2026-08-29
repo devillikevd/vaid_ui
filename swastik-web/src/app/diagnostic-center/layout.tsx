@@ -9,13 +9,13 @@ import {
     Settings,
     Microscope,
     FileCheck,
-    Link2,
     Users,
     Star,
     Network,
     MessageCircle,
     ClipboardList,
     DollarSign,
+    Share2,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
@@ -28,8 +28,8 @@ const DC_CONFIG: DashboardConfig = {
     theme: { color: 'purple', dataTheme: 'diagnostic-center' },
     showApprovalBanner: true,
     showFullDropdown: true,
-    profileHref: '/diagnostic-center/settings',
-    settingsHref: '/diagnostic-center/settings',
+    profileHref: '/diagnosis/profile',
+    settingsHref: '/diagnosis/settings',
     userDisplayName: 'DC',
     navItems: [
         { name: 'Dashboard', href: '/diagnostic-center', icon: LayoutDashboard, section: 'OPERATIONS', allowedRoles: ['diagnostic_center_owner', 'diagnostic_manager'] },
@@ -40,8 +40,8 @@ const DC_CONFIG: DashboardConfig = {
         { name: 'Work Queue', href: '/diagnostic-center/work-queue', icon: ClipboardList, allowedRoles: ['lab_technician'] },
         { name: 'Collection Agents', href: '/diagnostic-center/agents', icon: Users, section: 'COLLECTION & TEAM', allowedRoles: ['diagnostic_center_owner', 'diagnostic_manager'] },
         { name: 'Staff', href: '/diagnostic-center/staff', icon: Users, section: 'COLLECTION & TEAM', allowedRoles: ['diagnostic_center_owner'] },
-        { name: 'Partnerships', href: '/diagnostic-center/partnerships', icon: Network, section: 'NETWORK', allowedRoles: ['diagnostic_center_owner'] },
-        { name: 'Associations', href: '/diagnostic-center/associations', icon: Link2, section: 'NETWORK', allowedRoles: ['diagnostic_center_owner', 'diagnostic_manager'] },
+        { name: 'My Network', href: '/diagnostic-center/partnerships', icon: Network, section: 'NETWORK', allowedRoles: ['diagnostic_center_owner'] },
+        { name: 'Referrals', href: '/diagnostic-center/referrals', icon: Share2, section: 'NETWORK', allowedRoles: ['diagnostic_center_owner', 'diagnostic_manager', 'lab_technician'] },
         { name: 'Reports', href: '/diagnostic-center/reports', icon: BarChart3, section: 'INSIGHTS & REPUTATION', allowedRoles: ['diagnostic_center_owner', 'diagnostic_manager'] },
         { name: 'Revenue', href: '/diagnostic-center/revenue', icon: DollarSign, section: 'INSIGHTS & REPUTATION', allowedRoles: ['diagnostic_center_owner', 'diagnostic_manager'] },
         { name: 'Reviews', href: '/diagnostic-center/reviews', icon: Star, section: 'INSIGHTS & REPUTATION', allowedRoles: ['diagnostic_center_owner', 'diagnostic_manager'] },

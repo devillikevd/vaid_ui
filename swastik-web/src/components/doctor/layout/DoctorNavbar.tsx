@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { 
     Menu, Search, Bell, MessageSquare, Plus, 
     Wifi, CircleDot, User, Settings, LogOut,
-    ClipboardList, Clock, QrCode, Building2, ChevronDown
+    ClipboardList, Clock, QrCode, Building2, ChevronDown, Repeat
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { getInitials } from '@/lib/utils';
@@ -201,14 +201,13 @@ export function DoctorNavbar({ setIsMobileOpen }: DoctorNavbarProps) {
                                 <Settings className="w-4 h-4 text-gray-400" />
                                 Settings
                             </Link>
-                            <Link 
-                                href="/doctor/care-networks" 
+                            <button 
                                 onClick={() => setShowProfileMenu(false)}
-                                className="flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-gray-200 hover:bg-[rgba(255,255,255,0.05)] hover:text-white transition-colors"
+                                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-gray-200 hover:bg-[rgba(255,255,255,0.05)] hover:text-white transition-colors text-left"
                             >
-                                <Building2 className="w-4 h-4 text-blue-400" />
-                                Care Networks
-                            </Link>
+                                <Repeat className="w-4 h-4 text-purple-400" />
+                                Switch Account
+                            </button>
                             <div className="my-1 border-t border-[rgba(255,255,255,0.06)]" />
                             <button 
                                 onClick={handleLogout}

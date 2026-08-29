@@ -882,7 +882,7 @@ class SocketManager @Inject constructor(
             } catch (e: Exception) { Log.e(TAG, "Error parsing appointment:cancelled", e) }
         }
 
-        // --- Doctor Slots Updates (Race Condition) ---
+        // --- Doctor Slots Updates (Real-time Blocking / Unblocking / Booking) ---
         socket?.on("appointment:booked") { args ->
             try {
                 val data = args[0] as? JSONObject ?: return@on
@@ -890,6 +890,15 @@ class SocketManager @Inject constructor(
                     _doctorSlotsUpdates.emit(data)
                 }
             } catch (e: Exception) { Log.e(TAG, "Error parsing appointment:booked", e) }
+        }
+
+        socket?.on("slot:update") { args ->
+            try {
+                val data = args[0] as? JSONObject ?: return@on
+                scope.launch {
+                    _doctorSlotsUpdates.emit(data)
+                }
+            } catch (e: Exception) { Log.e(TAG, "Error parsing slot:update", e) }
         }
         // --- Agent Tracking Updates ---
         socket?.on("agent:location-update") { args ->

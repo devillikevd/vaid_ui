@@ -48,10 +48,12 @@ class AppEventEmitter extends EventEmitter {
     const Redis = require('ioredis');
     this.pubClient = new Redis(config.redis.ioredisUrl, {
       lazyConnect: true,
-      maxRetriesPerRequest: 3,
-      retryStrategy: (times) => Math.min(times * 200, 5000),
+      maxRetriesPerRequest: 1,
+      retryStrategy: () => null,
     });
+    this.pubClient.on('error', () => {});
     this.subClient = this.pubClient.duplicate();
+    this.subClient.on('error', () => {});
 
     await Promise.all([this.pubClient.connect(), this.subClient.connect()]);
     await this.subClient.subscribe(this.eventBusChannel);
@@ -208,6 +210,14 @@ class AppEventEmitter extends EventEmitter {
     });
     // Broadcast to slot room so clients can update UI instantly
     this.notifyRoom(`doctor:slots:${doctor_id}`, 'appointment:booked', appointment);
+    if (doctor_id && (appointment.appointment_date || appointment.date) && (appointment.time_slot || appointment.timeSlot)) {
+      this.emitSlotUpdate(
+        doctor_id,
+        appointment.appointment_date || appointment.date,
+        appointment.time_slot || appointment.timeSlot,
+        false
+      );
+    }
     // Notify hospital/clinic owner for real-time dashboard updates
     if (hospital_owner_id) {
       this.notifyUser(hospital_owner_id, 'appointment:new', appointment);
@@ -230,6 +240,25 @@ class AppEventEmitter extends EventEmitter {
       });
     }
     this.emitDistributed('appointment:booked', appointment);
+  }
+
+  emitSlotUpdate(doctorId, date, timeSlot, isAvailable) {
+    const payload = {
+      doctorId,
+      doctor_id: doctorId,
+      date,
+      slot_date: date,
+      timeSlot,
+      time_slot: timeSlot,
+      isAvailable,
+      timestamp: new Date().toISOString(),
+    };
+    this.notifyRoom(`doctor:slots:${doctorId}`, 'slot:update', payload);
+    this.notifyRoom(`doctor:${doctorId}`, 'slot:update', payload);
+    if (this.io) {
+      this.io.emit('slot:update', payload);
+    }
+    this.emitDistributed('slot:update', payload);
   }
 
   // Resolve the clinic owner's user_id for real-time dashboard updates.

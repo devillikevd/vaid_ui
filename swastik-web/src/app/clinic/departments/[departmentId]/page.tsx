@@ -7,6 +7,7 @@ import {
     Building2, Users, CalendarDays, CalendarClock, CheckCircle2, XCircle,
     ArrowLeft, Edit2, Trash2, Activity, AlertCircle, RefreshCw, Stethoscope,
     ShieldCheck, MapPin, Video, Phone, Home, Clock, Star, AlertTriangle,
+    UserPlus, UserMinus,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -15,6 +16,7 @@ import { SkeletonStatsGrid, SkeletonTable } from '@/components/ui/Skeleton';
 import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
 import { DepartmentFormModal, DepartmentFormValue } from '@/components/clinic/DepartmentFormModal';
+import { AssignDoctorsModal } from '@/components/clinic/AssignDoctorsModal';
 import { useClinicStore } from '@/stores/clinicStore';
 import type { DepartmentDoctorMember } from '@/stores/clinicStore';
 
@@ -40,13 +42,15 @@ export default function ClinicDepartmentDetailPage() {
 
     const {
         departmentDetail, loadingDepartmentDetail, error,
-        fetchDepartmentDetail, deleteDepartment, clearError,
+        fetchDepartmentDetail, deleteDepartment, unassignDoctorFromDepartment, clearError,
     } = useClinicStore();
     const toast = useToast();
     const { dialogProps, confirm } = useConfirmDialog();
 
     const [showForm, setShowForm] = useState(false);
+    const [showAssignModal, setShowAssignModal] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
+    const [unassigningDoctorId, setUnassigningDoctorId] = useState<string | null>(null);
 
     useEffect(() => {
         if (departmentId) fetchDepartmentDetail(departmentId);
@@ -90,6 +94,33 @@ export default function ClinicDepartmentDetailPage() {
             window.location.href = '/clinic/departments';
         } else {
             toast.error('Error', 'Failed to delete department');
+        }
+    };
+
+    const handleUnassignDoctor = async (doctor: DepartmentDoctorMember) => {
+        if (!departmentDetail) return;
+        const isHead = doctor.is_head || departmentDetail.head_doctor_id === doctor.doctor_id;
+        const message = isHead
+            ? `Remove ${doctor.name} from "${departmentDetail.name}"? This doctor is currently the Department Head, so removing them will also clear the Head Doctor assignment.`
+            : `Remove ${doctor.name} from "${departmentDetail.name}"?`;
+
+        const confirmed = await confirm({
+            title: 'Remove Doctor from Department',
+            message,
+            confirmLabel: 'Remove Doctor',
+            variant: 'danger',
+        });
+
+        if (!confirmed) return;
+
+        setUnassigningDoctorId(doctor.doctor_id);
+        const success = await unassignDoctorFromDepartment(departmentDetail.id, doctor.doctor_id);
+        setUnassigningDoctorId(null);
+
+        if (success) {
+            toast.success('Doctor Removed', `${doctor.name} was unassigned from ${departmentDetail.name}`);
+        } else {
+            toast.error('Error', 'Failed to remove doctor from department');
         }
     };
 
@@ -151,49 +182,63 @@ export default function ClinicDepartmentDetailPage() {
     ];
 
     const DoctorRow = ({ doctor }: { doctor: DepartmentDoctorMember }) => (
-        <div className="flex items-center gap-3 py-3 px-1">
-            {doctor.profile_image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={doctor.profile_image_url} alt="" className="h-11 w-11 rounded-full object-cover flex-shrink-0" />
-            ) : (
-                <div className="h-11 w-11 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center flex-shrink-0">
-                    <Stethoscope className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-                </div>
-            )}
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                        {doctor.name.startsWith('Dr.') ? doctor.name : `Dr. ${doctor.name}`}
+        <div className="flex items-center justify-between gap-3 py-3 px-1 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 rounded-xl transition group">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+                {doctor.profile_image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={doctor.profile_image_url} alt="" className="h-11 w-11 rounded-full object-cover flex-shrink-0" />
+                ) : (
+                    <div className="h-11 w-11 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center flex-shrink-0">
+                        <Stethoscope className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                    </div>
+                )}
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                            {doctor.name.startsWith('Dr.') ? doctor.name : `Dr. ${doctor.name}`}
+                        </p>
+                        {doctor.is_head && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                                Head
+                            </span>
+                        )}
+                        {doctor.verification === 'verified' && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 flex items-center gap-1">
+                                <ShieldCheck className="w-3 h-3" /> Verified
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                        {doctor.specialization}
+                        {doctor.experience_years > 0 && ` \u2022 ${doctor.experience_years} yrs exp`}
+                        {doctor.rating != null && (
+                            <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400 ml-1">
+                                <Star className="h-3 w-3 fill-current" /> {doctor.rating}
+                            </span>
+                        )}
                     </p>
-                    {doctor.is_head && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
-                            Head
-                        </span>
-                    )}
-                    {doctor.verification === 'verified' && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 flex items-center gap-1">
-                            <ShieldCheck className="w-3 h-3" /> Verified
-                        </span>
-                    )}
-                </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                    {doctor.specialization}
-                    {doctor.experience_years > 0 && ` \u2022 ${doctor.experience_years} yrs exp`}
-                    {doctor.rating != null && (
-                        <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400 ml-1">
-                            <Star className="h-3 w-3 fill-current" /> {doctor.rating}
-                        </span>
-                    )}
-                </p>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="text-xs text-gray-400 dark:text-gray-500">{practiceTypeLabel(doctor.practice_type)}</span>
-                    {doctor.consultation_modes.map((mode) => (
-                        <span key={mode} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                            {modeLabel(mode)}
-                        </span>
-                    ))}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{practiceTypeLabel(doctor.practice_type)}</span>
+                        {doctor.consultation_modes.map((mode) => (
+                            <span key={mode} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                                {modeLabel(mode)}
+                            </span>
+                        ))}
+                    </div>
                 </div>
             </div>
+
+            <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleUnassignDoctor(doctor)}
+                isLoading={unassigningDoctorId === doctor.doctor_id}
+                className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 opacity-80 hover:opacity-100 transition"
+                title="Remove from department"
+            >
+                <UserMinus className="h-4 w-4" />
+                <span className="hidden sm:inline ml-1 text-xs">Remove</span>
+            </Button>
         </div>
     );
 
@@ -263,19 +308,39 @@ export default function ClinicDepartmentDetailPage() {
                     )}
 
                     <Card padding="md">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Doctors ({dept.doctors.length})</h3>
-                            <Link href="/clinic/doctors" className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
-                                Manage doctors
-                            </Link>
+                        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                            <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                                Assigned Doctors ({dept.doctors.length})
+                            </h3>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    size="sm"
+                                    onClick={() => setShowAssignModal(true)}
+                                    leftIcon={<UserPlus className="h-3.5 w-3.5" />}
+                                    className="bg-teal-600 hover:bg-teal-700 text-white text-xs px-3 py-1.5"
+                                >
+                                    Assign Doctors
+                                </Button>
+                                <Link href="/clinic/doctors" className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                                    Manage Roster
+                                </Link>
+                            </div>
                         </div>
                         {dept.doctors.length === 0 ? (
                             <div className="text-center py-8">
                                 <Users className="h-10 w-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
                                 <p className="text-gray-600 dark:text-gray-300 font-medium">No doctors assigned yet</p>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    Assign a head doctor or link doctors to this department from the doctors page.
+                                    Assign active clinic doctors to this department to make them available for discovery and booking.
                                 </p>
+                                <Button
+                                    size="sm"
+                                    onClick={() => setShowAssignModal(true)}
+                                    leftIcon={<UserPlus className="h-4 w-4" />}
+                                    className="mt-3 bg-teal-600 hover:bg-teal-700 text-white"
+                                >
+                                    Assign Doctors Now
+                                </Button>
                             </div>
                         ) : (
                             <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
@@ -401,6 +466,15 @@ export default function ClinicDepartmentDetailPage() {
                 }}
                 onSaved={() => fetchDepartmentDetail(dept.id)}
             />
+
+            <AssignDoctorsModal
+                open={showAssignModal}
+                onClose={() => setShowAssignModal(false)}
+                departmentId={dept.id}
+                departmentName={dept.name}
+                onSaved={() => fetchDepartmentDetail(dept.id)}
+            />
+
             <ConfirmDialog {...dialogProps} />
         </div>
     );

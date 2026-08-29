@@ -26,16 +26,26 @@ import {
     AlertCircle,
     UserPlus,
     Network,
+    Sliders,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useClinicStore, type ClinicAppointment } from '@/stores/clinicStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useAppointmentUpdates, useClinicInviteUpdates } from '@/hooks/useSocket';
 import { usePageShortcuts } from '@/components/shared/KeyboardShortcutHelp';
 import { useToast } from '@/components/ui/Toast';
 import { AppointmentDetailModal } from '@/components/clinic/AppointmentDetailModal';
+import {
+    CustomizeQuickOperationsModal,
+    QUICK_ACTION_REGISTRY,
+    DEFAULT_QUICK_ACTIONS,
+} from '@/components/clinic/CustomizeQuickOperationsModal';
+import { InviteDoctorModal } from '@/components/clinic/InviteDoctorModal';
+import { ClinicProfileCompletionCard } from '@/components/clinic/ClinicProfileCompletionCard';
+import { ClinicOnboardingModal } from '@/components/clinic/ClinicOnboardingModal';
 import { cn } from '@/lib/utils';
 
 export default function ClinicDashboard() {
@@ -50,17 +60,59 @@ export default function ClinicDashboard() {
         recentActivity,
         isLoading,
         error,
+        profileCompletion,
+        dashboardPreferences,
         fetchDashboardData,
         updateAppointmentStatus,
         checkInAppointment,
     } = useClinicStore();
 
+    const { user } = useAuthStore();
     const router = useRouter();
     const toast = useToast();
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [queueFilter, setQueueFilter] = useState<'all' | 'unconfirmed' | 'checked_in' | 'in_progress'>('all');
     const [selectedAppointment, setSelectedAppointment] = useState<ClinicAppointment | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [isCustomizeModalOpen, setIsCustomizeModalOpen] = useState(false);
+    const [isInviteDoctorModalOpen, setIsInviteDoctorModalOpen] = useState(false);
+    const [isOnboardingDismissed, setIsOnboardingDismissed] = useState(false);
+
+    // Scoped localStorage persistence for quick operations
+    const storageKey = useMemo(() => {
+        const clinicId = user?.id || 'default_clinic';
+        const userId = user?.id || 'default_user';
+        return `swastik_clinic_quick_ops_${clinicId}_${userId}`;
+    }, [user?.id]);
+
+    const [quickActionIds, setQuickActionIds] = useState<string[]>(DEFAULT_QUICK_ACTIONS);
+
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed) && parsed.length >= 4 && parsed.length <= 6) {
+                    const validIds = parsed.filter((id) => Boolean(QUICK_ACTION_REGISTRY[id]));
+                    if (validIds.length >= 4) {
+                        setQuickActionIds(validIds);
+                    }
+                }
+            }
+        } catch {
+            // Use defaults on parse error
+        }
+    }, [storageKey]);
+
+    const handleSaveQuickOperations = (newActionIds: string[]) => {
+        setQuickActionIds(newActionIds);
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(newActionIds));
+            toast.success('Quick Operations Updated', 'Your customized dashboard shortcuts have been saved.');
+        } catch {
+            toast.error('Save Failed', 'Could not save quick operations preferences.');
+        }
+    };
 
     // Keyboard shortcuts
     const shortcuts = useMemo(
@@ -205,6 +257,11 @@ export default function ClinicDashboard() {
                     </Button>
                 </div>
             </div>
+
+            {/* ── 1.5 CLINIC SETUP & PROFILE COMPLETION WIDGET ── */}
+            {dashboardPreferences?.show_profile_completion !== false && profileCompletion && (
+                <ClinicProfileCompletionCard variant="dashboard" className="mb-2" />
+            )}
 
             {/* ── 2. TOP 6 COMPACT & CLICKABLE KPI CARDS ── */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -432,98 +489,55 @@ export default function ClinicDashboard() {
                         </div>
                     </Card>
 
-                    {/* B. CONNECTED CARE (3-PART PARTNER MODULE) */}
+                    {/* B. CARE COORDINATION (PRIMARY REFERRAL & PARTNER CHANNELS) */}
                     <Card padding="none" className="overflow-hidden">
-                        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800/60 bg-gray-50/50 dark:bg-gray-800/30">
-                            <div className="flex items-center gap-2">
-                                <Network className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                                <h2 className="text-sm font-bold text-gray-900 dark:text-white">Connected Care Pipeline</h2>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800/60 bg-gray-50/50 dark:bg-gray-800/30 gap-2">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/50">
+                                    <Network className="h-4 w-4" />
+                                </div>
+                                <div>
+                                    <h2 className="text-sm font-bold text-gray-900 dark:text-white">Care Coordination</h2>
+                                    <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                                        Track referrals, diagnostics, pharmacy orders and partner care from one place.
+                                    </p>
+                                </div>
                             </div>
-                            <Link href="/clinic/partnerships" className="text-xs text-pink-600 hover:underline flex items-center gap-0.5">
-                                Partnerships <ChevronRight className="h-3 w-3" />
+                            <Link
+                                href="/clinic/referrals"
+                                className="text-xs font-semibold text-pink-600 hover:text-pink-700 dark:text-pink-400 hover:underline flex items-center gap-1 self-start sm:self-auto shrink-0"
+                            >
+                                View All Referrals <ChevronRight className="h-3.5 w-3.5" />
                             </Link>
                         </div>
 
+                        {/* Visual Care Journey Flow Indicator */}
+                        <div className="px-4 py-2.5 bg-gradient-to-r from-pink-50/50 via-purple-50/30 to-blue-50/50 dark:from-[#0B1020] dark:via-[#0f172a] dark:to-[#0B1020] border-b border-gray-100 dark:border-gray-800/60 flex items-center justify-between overflow-x-auto text-[10px] font-medium text-gray-500 dark:text-gray-400">
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
+                                <span className="font-semibold text-gray-800 dark:text-gray-200">Patient Care</span>
+                            </div>
+                            <ChevronRight className="h-3 w-3 text-gray-300 dark:text-gray-600 shrink-0" />
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                                <span className="font-semibold text-gray-800 dark:text-gray-200">Referral Routed</span>
+                            </div>
+                            <ChevronRight className="h-3 w-3 text-gray-300 dark:text-gray-600 shrink-0" />
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                <span className="font-semibold text-gray-800 dark:text-gray-200">Care Partner Fulfillment</span>
+                            </div>
+                            <ChevronRight className="h-3 w-3 text-gray-300 dark:text-gray-600 shrink-0" />
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                <span className="font-semibold text-gray-800 dark:text-gray-200">Outcome &amp; Closure</span>
+                            </div>
+                        </div>
+
                         <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {/* 1. Pharmacy Pipeline */}
+                            {/* 1. Hospital Referrals Pipeline */}
                             <Link
-                                href="/clinic/pharmacies"
-                                className="group cursor-pointer block p-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0B1020] hover:border-pink-300 dark:hover:border-pink-800 hover:-translate-y-0.5 hover:shadow-xs transition-all space-y-3"
-                                title="Open Pharmacy Orders operations"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900 dark:text-white group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors">
-                                        <Pill className="h-4 w-4 text-pink-600" />
-                                        Pharmacy Orders
-                                    </div>
-                                    <span className="text-xs font-bold text-gray-500">
-                                        {connectedCare?.pharmacy.totalOrders ?? 0}
-                                    </span>
-                                </div>
-
-                                <div className="space-y-1.5 text-[11px]">
-                                    <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
-                                        <span>Pending Accept</span>
-                                        <span className="font-bold">{connectedCare?.pharmacy.pending ?? 0}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
-                                        <span>Processing / Dispatched</span>
-                                        <span className="font-bold">{connectedCare?.pharmacy.processing ?? 0}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-                                        <span>Ready / Completed</span>
-                                        <span className="font-bold">
-                                            {(connectedCare?.pharmacy.ready ?? 0) + (connectedCare?.pharmacy.completed ?? 0)}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/60 group-hover:bg-pink-50 group-hover:text-pink-600 dark:group-hover:bg-pink-950/30 text-center text-[11px] font-semibold text-gray-700 dark:text-gray-300 transition-colors">
-                                    Manage Orders →
-                                </div>
-                            </Link>
-
-                            {/* 2. Diagnostics Pipeline */}
-                            <Link
-                                href="/clinic/diagnostic-centers"
-                                className="group cursor-pointer block p-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0B1020] hover:border-teal-300 dark:hover:border-teal-800 hover:-translate-y-0.5 hover:shadow-xs transition-all space-y-3"
-                                title="Open Diagnostic Lab Bookings"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                                        <Microscope className="h-4 w-4 text-teal-600" />
-                                        Diagnostics
-                                    </div>
-                                    <span className="text-xs font-bold text-gray-500">
-                                        {connectedCare?.diagnostics.totalBookings ?? 0}
-                                    </span>
-                                </div>
-
-                                <div className="space-y-1.5 text-[11px]">
-                                    <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
-                                        <span>Pending Sample</span>
-                                        <span className="font-bold">{connectedCare?.diagnostics.pending ?? 0}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
-                                        <span>In Lab Processing</span>
-                                        <span className="font-bold">
-                                            {(connectedCare?.diagnostics.sampleCollected ?? 0) + (connectedCare?.diagnostics.processing ?? 0)}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-                                        <span>Reports Ready</span>
-                                        <span className="font-bold">{connectedCare?.diagnostics.reportsReady ?? 0}</span>
-                                    </div>
-                                </div>
-
-                                <div className="py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/60 group-hover:bg-teal-50 group-hover:text-teal-600 dark:group-hover:bg-teal-950/30 text-center text-[11px] font-semibold text-gray-700 dark:text-gray-300 transition-colors">
-                                    View Test Bookings →
-                                </div>
-                            </Link>
-
-                            {/* 3. Hospital Referrals Pipeline */}
-                            <Link
-                                href="/clinic/referrals"
+                                href="/clinic/referrals?channel=hospital"
                                 className="group cursor-pointer block p-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0B1020] hover:border-purple-300 dark:hover:border-purple-800 hover:-translate-y-0.5 hover:shadow-xs transition-all space-y-3"
                                 title="Track Hospital Referrals & Admissions"
                             >
@@ -532,7 +546,7 @@ export default function ClinicDashboard() {
                                         <Building2 className="h-4 w-4 text-purple-600" />
                                         Hospital Referrals
                                     </div>
-                                    <span className="text-xs font-bold text-gray-500">
+                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">
                                         {connectedCare?.hospitals.totalReferrals ?? 0}
                                     </span>
                                 </div>
@@ -556,6 +570,82 @@ export default function ClinicDashboard() {
 
                                 <div className="py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/60 group-hover:bg-purple-50 group-hover:text-purple-600 dark:group-hover:bg-purple-950/30 text-center text-[11px] font-semibold text-gray-700 dark:text-gray-300 transition-colors">
                                     Track Referrals →
+                                </div>
+                            </Link>
+
+                            {/* 2. Diagnostics Pipeline */}
+                            <Link
+                                href="/clinic/referrals?channel=diagnostic"
+                                className="group cursor-pointer block p-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0B1020] hover:border-teal-300 dark:hover:border-teal-800 hover:-translate-y-0.5 hover:shadow-xs transition-all space-y-3"
+                                title="Open Diagnostic Lab Bookings"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                                        <Microscope className="h-4 w-4 text-teal-600" />
+                                        Diagnostics
+                                    </div>
+                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800/60">
+                                        {connectedCare?.diagnostics.totalBookings ?? 0}
+                                    </span>
+                                </div>
+
+                                <div className="space-y-1.5 text-[11px]">
+                                    <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
+                                        <span>Pending Sample</span>
+                                        <span className="font-bold">{connectedCare?.diagnostics.pending ?? 0}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
+                                        <span>In Lab Processing</span>
+                                        <span className="font-bold">
+                                            {(connectedCare?.diagnostics.sampleCollected ?? 0) + (connectedCare?.diagnostics.processing ?? 0)}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+                                        <span>Reports Ready</span>
+                                        <span className="font-bold">{connectedCare?.diagnostics.reportsReady ?? 0}</span>
+                                    </div>
+                                </div>
+
+                                <div className="py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/60 group-hover:bg-teal-50 group-hover:text-teal-600 dark:group-hover:bg-teal-950/30 text-center text-[11px] font-semibold text-gray-700 dark:text-gray-300 transition-colors">
+                                    View Diagnostics →
+                                </div>
+                            </Link>
+
+                            {/* 3. Pharmacy Orders Pipeline */}
+                            <Link
+                                href="/clinic/referrals?channel=pharmacy"
+                                className="group cursor-pointer block p-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0B1020] hover:border-pink-300 dark:hover:border-pink-800 hover:-translate-y-0.5 hover:shadow-xs transition-all space-y-3"
+                                title="Open Pharmacy Orders operations"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900 dark:text-white group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors">
+                                        <Pill className="h-4 w-4 text-pink-600" />
+                                        Pharmacy Orders
+                                    </div>
+                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-pink-50 dark:bg-pink-950/60 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-800/60">
+                                        {connectedCare?.pharmacy.totalOrders ?? 0}
+                                    </span>
+                                </div>
+
+                                <div className="space-y-1.5 text-[11px]">
+                                    <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
+                                        <span>Pending Accept</span>
+                                        <span className="font-bold">{connectedCare?.pharmacy.pending ?? 0}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
+                                        <span>Processing / Dispatched</span>
+                                        <span className="font-bold">{connectedCare?.pharmacy.processing ?? 0}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+                                        <span>Ready / Completed</span>
+                                        <span className="font-bold">
+                                            {(connectedCare?.pharmacy.ready ?? 0) + (connectedCare?.pharmacy.completed ?? 0)}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/60 group-hover:bg-pink-50 group-hover:text-pink-600 dark:group-hover:bg-pink-950/30 text-center text-[11px] font-semibold text-gray-700 dark:text-gray-300 transition-colors">
+                                    Manage Pharmacy →
                                 </div>
                             </Link>
                         </div>
@@ -787,59 +877,95 @@ export default function ClinicDashboard() {
                         </div>
                     </Card>
 
-                    {/* B. QUICK OPERATIONS */}
-                    <Card padding="sm">
-                        <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-2.5">
-                            Quick Operations
-                        </span>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            <Link
-                                href="/clinic/doctors?tab=invites"
-                                className="p-2.5 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-pink-300 hover:bg-pink-50/50 dark:hover:bg-pink-950/20 text-center transition-all group hover:-translate-y-0.5"
+                    {/* B. CUSTOMIZABLE QUICK OPERATIONS */}
+                    <Card padding="none" className="overflow-hidden">
+                        <div className="flex items-center justify-between p-3.5 border-b border-gray-100 dark:border-gray-800/60 bg-gray-50/50 dark:bg-gray-800/30">
+                            <div>
+                                <h2 className="text-sm font-bold text-gray-900 dark:text-white">Quick Operations</h2>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                                    Customizable shortcuts for clinic management
+                                </p>
+                            </div>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setIsCustomizeModalOpen(true)}
+                                className="h-7 px-2.5 text-xs text-pink-600 dark:text-pink-400 border-pink-200 dark:border-pink-800 hover:bg-pink-50 dark:hover:bg-pink-950/30 font-semibold"
                             >
-                                <UserPlus className="h-4 w-4 mx-auto text-pink-600 mb-1 group-hover:scale-110 transition-transform" />
-                                <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200 block">Invite Doctor</span>
-                            </Link>
+                                <Sliders className="h-3 w-3 mr-1" />
+                                Edit ✎
+                            </Button>
+                        </div>
 
-                            <Link
-                                href="/clinic/partnerships"
-                                className="p-2.5 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-purple-300 hover:bg-purple-50/50 dark:hover:bg-purple-950/20 text-center transition-all group hover:-translate-y-0.5"
-                            >
-                                <Network className="h-4 w-4 mx-auto text-purple-600 mb-1 group-hover:scale-110 transition-transform" />
-                                <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200 block">Partnerships</span>
-                            </Link>
+                        <div className="p-3 grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                            {quickActionIds.map((id) => {
+                                const action = QUICK_ACTION_REGISTRY[id];
+                                if (!action) return null;
+                                const Icon = action.icon;
 
-                            <Link
-                                href="/clinic/schedule"
-                                className="p-2.5 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-teal-300 hover:bg-teal-50/50 dark:hover:bg-teal-950/20 text-center transition-all group hover:-translate-y-0.5"
-                            >
-                                <Calendar className="h-4 w-4 mx-auto text-teal-600 mb-1 group-hover:scale-110 transition-transform" />
-                                <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200 block">Schedules</span>
-                            </Link>
+                                if (action.isModal && action.id === 'invite_doctor') {
+                                    return (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => setIsInviteDoctorModalOpen(true)}
+                                            className="text-left p-3 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-pink-300 hover:bg-pink-50/30 dark:hover:bg-pink-950/20 transition-all group hover:-translate-y-0.5 hover:shadow-2xs cursor-pointer block w-full"
+                                        >
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <div
+                                                    className={cn(
+                                                        'p-1.5 rounded-lg border group-hover:scale-105 transition-transform',
+                                                        action.colorTheme.bg,
+                                                        action.colorTheme.text,
+                                                        action.colorTheme.border
+                                                    )}
+                                                >
+                                                    <Icon className="h-4 w-4" />
+                                                </div>
+                                                <span className="text-[10px] font-semibold text-pink-600 dark:text-pink-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    Open ↗
+                                                </span>
+                                            </div>
+                                            <span className="text-xs font-bold text-gray-900 dark:text-white block group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors truncate">
+                                                {action.title}
+                                            </span>
+                                            <span className="text-[10px] text-gray-500 dark:text-gray-400 block line-clamp-1 mt-0.5">
+                                                {action.description}
+                                            </span>
+                                        </button>
+                                    );
+                                }
 
-                            <Link
-                                href="/clinic/referrals"
-                                className="p-2.5 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 text-center transition-all group hover:-translate-y-0.5"
-                            >
-                                <Building2 className="h-4 w-4 mx-auto text-blue-600 mb-1 group-hover:scale-110 transition-transform" />
-                                <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200 block">Hospital Referrals</span>
-                            </Link>
-
-                            <Link
-                                href="/clinic/pharmacies"
-                                className="p-2.5 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-pink-300 hover:bg-pink-50/50 dark:hover:bg-pink-950/20 text-center transition-all group hover:-translate-y-0.5"
-                            >
-                                <Pill className="h-4 w-4 mx-auto text-pink-600 mb-1 group-hover:scale-110 transition-transform" />
-                                <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200 block">Pharmacy Orders</span>
-                            </Link>
-
-                            <Link
-                                href="/clinic/diagnostic-centers"
-                                className="p-2.5 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-teal-300 hover:bg-teal-50/50 dark:hover:bg-teal-950/20 text-center transition-all group hover:-translate-y-0.5"
-                            >
-                                <Microscope className="h-4 w-4 mx-auto text-teal-600 mb-1 group-hover:scale-110 transition-transform" />
-                                <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200 block">Diagnostic Orders</span>
-                            </Link>
+                                return (
+                                    <Link
+                                        key={id}
+                                        href={action.href || '/clinic'}
+                                        className="p-3 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-pink-300 hover:bg-pink-50/30 dark:hover:bg-pink-950/20 transition-all group hover:-translate-y-0.5 hover:shadow-2xs cursor-pointer block"
+                                    >
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <div
+                                                className={cn(
+                                                    'p-1.5 rounded-lg border group-hover:scale-105 transition-transform',
+                                                    action.colorTheme.bg,
+                                                    action.colorTheme.text,
+                                                    action.colorTheme.border
+                                                )}
+                                            >
+                                                <Icon className="h-4 w-4" />
+                                            </div>
+                                            <span className="text-[10px] font-semibold text-pink-600 dark:text-pink-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                Go →
+                                            </span>
+                                        </div>
+                                        <span className="text-xs font-bold text-gray-900 dark:text-white block group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors truncate">
+                                            {action.title}
+                                        </span>
+                                        <span className="text-[10px] text-gray-500 dark:text-gray-400 block line-clamp-1 mt-0.5">
+                                            {action.description}
+                                        </span>
+                                    </Link>
+                                );
+                            })}
                         </div>
                     </Card>
 
@@ -1001,6 +1127,23 @@ export default function ClinicDashboard() {
                     }}
                 />
             )}
+
+            {/* ── CUSTOMIZE QUICK OPERATIONS MODAL ── */}
+            <CustomizeQuickOperationsModal
+                isOpen={isCustomizeModalOpen}
+                onClose={() => setIsCustomizeModalOpen(false)}
+                currentActionIds={quickActionIds}
+                onSave={handleSaveQuickOperations}
+            />
+
+            {/* ── INVITE DOCTOR MODAL ── */}
+            <InviteDoctorModal
+                isOpen={isInviteDoctorModalOpen}
+                onClose={() => {
+                    setIsInviteDoctorModalOpen(false);
+                    void fetchDashboardData();
+                }}
+            />
         </div>
     );
 }

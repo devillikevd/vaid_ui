@@ -28,6 +28,7 @@ import {
     ShieldCheck,
     ClipboardList,
     Gauge,
+    Share2,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig, type NavItem } from '@/components/shared/DashboardLayout';
 import { hospitalApi } from '@/lib/api';
@@ -54,6 +55,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
     { name: 'Quality', href: '/hospital/quality', icon: ShieldCheck },
     // ── Partnerships ──
     { name: 'Partnerships', href: '/hospital/partnerships', icon: Network, section: 'Partners' },
+    { name: 'Referrals', href: '/hospital/referrals', icon: Share2 },
     { name: 'Pharmacies', href: '/hospital/pharmacies', icon: Pill },
     { name: 'Diagnostics', href: '/hospital/diagnostic-centers', icon: Microscope },
     // ── Other ──

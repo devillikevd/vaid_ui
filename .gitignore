@@ -153,6 +153,17 @@ convert_image.py
 
 # ==================== Local Test / Debug Scripts ====================
 build_log.txt
+*.diff
+*.patch
+*.bak
+*.old
+*.tmp
+scratch/
+scratch.js
+patch_conflict.sh
+push_secrets.py
+swastik-backend/scripts/inspectData.js
+swastik-backend/scripts/testCanonicalUpdate.js
 swastik-backend/_check_upcoming.js
 swastik-backend/_check_upcoming2.js
 swastik-backend/check-conn.js
@@ -168,3 +179,4 @@ swastik-backend/test_insert.js
 swastik-backend/test_journey.js
 swastik-backend/test_schema.js
 failed_log.txt
+

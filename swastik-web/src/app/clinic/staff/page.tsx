@@ -16,6 +16,7 @@ import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDial
 import { useToast } from '@/components/ui/Toast';
 import { InviteDoctorModal } from '@/components/clinic/InviteDoctorModal';
 import { DoctorDetailModal } from '@/components/clinic/DoctorDetailModal';
+import { DoctorAvatar } from '@/components/shared/DoctorAvatar';
 
 export default function ClinicStaffPage() {
     const { user } = useAuthStore();
@@ -435,17 +436,12 @@ export default function ClinicStaffPage() {
                                             >
                                                 <div className="space-y-4">
                                                     <div className="flex items-start gap-3.5">
-                                                        {doc.profile_image_url ? (
-                                                            <img
-                                                                src={doc.profile_image_url}
-                                                                alt={doc.name}
-                                                                className="w-14 h-14 rounded-2xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm shrink-0"
-                                                            />
-                                                        ) : (
-                                                            <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-extrabold text-lg flex items-center justify-center border border-emerald-200 dark:border-emerald-800 shadow-sm shrink-0">
-                                                                {doc.name.replace('Dr. ', '').slice(0, 2).toUpperCase()}
-                                                            </div>
-                                                        )}
+                                                        <DoctorAvatar
+                                                            src={doc.profile_image_url}
+                                                            name={doc.name}
+                                                            className="w-14 h-14 rounded-2xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm shrink-0"
+                                                            fallbackClassName="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-extrabold text-lg flex items-center justify-center border border-emerald-200 dark:border-emerald-800 shadow-sm shrink-0"
+                                                        />
 
                                                         <div className="min-w-0 flex-1">
                                                             <div className="flex items-center gap-1.5 flex-wrap">
@@ -465,7 +461,7 @@ export default function ClinicStaffPage() {
                                                             </h3>
 
                                                             <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 truncate">
-                                                                {doc.specialization}
+                                                                {doc.specialization || 'Specialization not provided'}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -529,9 +525,12 @@ export default function ClinicStaffPage() {
                                             >
                                                 <div className="space-y-4">
                                                     <div className="flex items-start gap-3.5">
-                                                        <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-extrabold text-base flex items-center justify-center border border-amber-200 dark:border-amber-800 shrink-0">
-                                                            {doc.name ? doc.name.replace('Dr. ', '').slice(0, 2).toUpperCase() : 'DR'}
-                                                        </div>
+                                                        <DoctorAvatar
+                                                            src={doc.profile_image_url}
+                                                            name={doc.name}
+                                                            className="w-12 h-12 rounded-2xl object-cover border border-amber-200 dark:border-amber-800 shadow-sm shrink-0"
+                                                            fallbackClassName="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-extrabold text-base flex items-center justify-center border border-amber-200 dark:border-amber-800 shrink-0"
+                                                        />
                                                         <div className="min-w-0 flex-1">
                                                             <div className="flex items-center gap-1.5 flex-wrap">
                                                                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
@@ -554,7 +553,7 @@ export default function ClinicStaffPage() {
                                                     <div className="p-3 rounded-2xl bg-gray-50 dark:bg-[#0f172a] border border-gray-100 dark:border-gray-800 text-xs space-y-1 text-gray-600 dark:text-gray-400">
                                                         <div className="flex justify-between">
                                                             <span>Specialization:</span>
-                                                            <span className="font-bold text-gray-900 dark:text-gray-100">{doc.specialization || 'General'}</span>
+                                                            <span className="font-bold text-gray-900 dark:text-gray-100">{doc.specialization || 'Specialization not provided'}</span>
                                                         </div>
                                                         {inv.expiresAt && (
                                                             <div className="flex justify-between text-[11px] text-gray-500">

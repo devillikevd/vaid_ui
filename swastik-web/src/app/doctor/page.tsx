@@ -49,7 +49,7 @@ import {
     Tag,
     X
 } from 'lucide-react';
-import { formatDoctorName } from '@/lib/utils';
+import { formatDoctorName, formatDoctorFirstName, getAppointmentStartTimingInfo, isAppointmentTimePast } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -65,6 +65,7 @@ import { useDoctorStore, type Appointment } from '@/stores/doctorStore';
 import { VerificationProgressCard } from '@/components/doctor/VerificationProgressCard';
 import { RejectionBanner } from '@/components/doctor/RejectionBanner';
 import { OnboardingChecklist } from '@/components/doctor/OnboardingChecklist';
+import { CustomizableQuickActions } from '@/components/doctor/CustomizableQuickActions';
 import { WelcomeTour } from '@/components/doctor/WelcomeTour';
 import OnboardingPopup from '@/components/doctor/OnboardingPopup';
 import { useAppointmentUpdates, type AppointmentUpdate } from '@/hooks/useSocket';
@@ -215,11 +216,22 @@ export default function DoctorDashboard() {
     const [showOnboardingPopup, setShowOnboardingPopup] = useState(false);
 
     useEffect(() => {
-        if (doctorProfile && !doctorProfile.practice_setup_type && !doctorProfile.onboarding_completed_at) {
-            setShowOnboardingPopup(true);
-        } else {
+        if (!doctorProfile) {
             setShowOnboardingPopup(false);
+            return;
         }
+
+        const hasAffiliations = (doctorProfile.clinic_affiliations && doctorProfile.clinic_affiliations.some((c: any) => c.is_active)) ||
+                                (doctorProfile.hospital_affiliations && doctorProfile.hospital_affiliations.some((h: any) => h.is_active)) ||
+                                (doctorProfile.affiliations && doctorProfile.affiliations.length > 0) ||
+                                Boolean(doctorProfile.hospital_id);
+
+        const isSetup = Boolean(doctorProfile.practice_setup_type) ||
+                        Boolean(doctorProfile.onboarding_completed) ||
+                        Boolean(doctorProfile.onboarding_completed_at) ||
+                        hasAffiliations;
+
+        setShowOnboardingPopup(!isSetup);
     }, [doctorProfile]);
 
     const [isSavingAndPrescribing, setIsSavingAndPrescribing] = useState(false);
@@ -459,9 +471,15 @@ export default function DoctorDashboard() {
         fetchQuestions();
     }, [fetchDashboardData, fetchReviews, loadAnalytics, performancePeriod, loadInsights, loadReferrals, fetchQuestions]);
 
-    useAutoRefresh(fetchDashboardData);
+    const [nowMs, setNowMs] = useState(() => Date.now());
 
-    const currentTime = new Date();
+    // Heartbeat timer (every 30s) to continuously update start countdowns and gating
+    useEffect(() => {
+        const timer = setInterval(() => setNowMs(Date.now()), 30000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const currentTime = new Date(nowMs);
     const getGreeting = () => {
         const hour = currentTime.getHours();
         if (hour >= 5 && hour < 12) return 'Good Morning';
@@ -496,28 +514,18 @@ export default function DoctorDashboard() {
 
     const handleApprove = useCallback(async (appointment: Appointment) => {
         const aptDateStr = appointment.date || appointment.appointment_date;
-        const aptTimeStr = appointment.time || appointment.timeSlot;
+        const aptTimeStr = appointment.time || appointment.timeSlot || appointment.time_slot;
         if (aptDateStr && aptTimeStr) {
-            try {
-                const aptDate = new Date(aptDateStr);
-                const now = new Date();
-                const [hours, minutes] = aptTimeStr.split(':').map(Number);
-                if (!isNaN(hours) && !isNaN(minutes)) {
-                    const aptDateTime = new Date(aptDate.getFullYear(), aptDate.getMonth(), aptDate.getDate(), hours, minutes);
-                    if (aptDateTime < now) {
-                        setReschedulePrompt(appointment);
-                        return;
-                    }
-                }
-            } catch (e) {
-                console.error(e);
+            if (isAppointmentTimePast(aptDateStr, aptTimeStr, nowMs)) {
+                setReschedulePrompt(appointment);
+                return;
             }
         }
         setApprovingId(appointment.id);
         await confirmAppointment(appointment.id);
         setApprovingId(null);
         setSelectedAppointment(appointment);
-    }, [confirmAppointment]);
+    }, [confirmAppointment, nowMs]);
 
     const confirmReschedule = useCallback(async () => {
         if (!reschedulePrompt) return;
@@ -723,7 +731,7 @@ export default function DoctorDashboard() {
                             )}
                         </div>
                         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                            {getGreeting()}, {formatDoctorName(user?.name) || 'Doctor'}!
+                            {getGreeting()}, {formatDoctorFirstName(user?.name) || 'Doctor'}!
                         </h1>
                         <p className="text-emerald-100/90 text-sm mt-1 flex items-center gap-1.5">
                             <Calendar className="w-4 h-4 opacity-75" />
@@ -748,13 +756,14 @@ export default function DoctorDashboard() {
                             {(() => {
                                 if (!nextAppointment) return <p className="font-bold text-emerald-100 text-sm mt-0.5">No upcoming</p>;
                                 const timeStr = nextAppointment.time || nextAppointment.timeSlot || '';
-                                const isExpired = (() => {
-                                    if (!timeStr) return false;
-                                    const [h, m] = timeStr.split(':');
-                                    const t = new Date();
-                                    t.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
-                                    return currentTime > t;
-                                })();
+                                const isExpired = Boolean(
+                                    nextAppointment &&
+                                    isAppointmentTimePast(
+                                        nextAppointment.date || nextAppointment.appointment_date,
+                                        nextAppointment.time || nextAppointment.timeSlot || nextAppointment.time_slot,
+                                        nowMs
+                                    )
+                                );
                                 return isExpired ? (
                                     <div className="flex items-center justify-end gap-1.5 mt-0.5">
                                         <span className="relative flex h-2 w-2">
@@ -785,7 +794,7 @@ export default function DoctorDashboard() {
             )}
 
             {doctorProfile && doctorProfile.approval_status === 'approved' && (
-                <OnboardingChecklist profile={doctorProfile} />
+                <OnboardingChecklist profile={doctorProfile} variant="reminder" className="mb-6" />
             )}
 
             {/* 1. TOP KPI / PRACTICE OVERVIEW GRID */}
@@ -854,16 +863,18 @@ export default function DoctorDashboard() {
                                     const consultationReady = canOpenConsultation(appointment);
                                     const consultationLive = ['in_progress', 'active'].includes(appointment.status);
                                     const isLaunching = launchingAppointmentId === appointment.id;
+                                    const startTimingInfo = getAppointmentStartTimingInfo(
+                                        appointment.date || appointment.appointment_date,
+                                        appointment.time || appointment.timeSlot,
+                                        nowMs
+                                    );
 
-                                    const isOverdue = (() => {
-                                        if (!['scheduled', 'confirmed'].includes(appointment.status)) return false;
-                                        const timeStr = appointment.time || appointment.timeSlot || '';
-                                        if (!timeStr) return false;
-                                        const [hStr, mStr] = timeStr.split(':');
-                                        const apptDate = new Date();
-                                        apptDate.setHours(parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
-                                        return currentTime > apptDate;
-                                    })();
+                                    const isOverdue = ['scheduled', 'confirmed'].includes(appointment.status) &&
+                                        isAppointmentTimePast(
+                                            appointment.date || appointment.appointment_date,
+                                            appointment.time || appointment.timeSlot || appointment.time_slot,
+                                            nowMs
+                                        );
 
                                     return (
                                         <div
@@ -937,12 +948,27 @@ export default function DoctorDashboard() {
                                                             className={`text-xs font-bold rounded-xl ${
                                                                 isOverdue
                                                                     ? 'bg-gray-400 cursor-not-allowed opacity-60 text-white'
+                                                                    : !startTimingInfo.canStart && !consultationLive
+                                                                    ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700 cursor-not-allowed font-medium'
                                                                     : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
                                                             }`}
-                                                            disabled={isLaunching || isOverdue}
+                                                            disabled={isLaunching || isOverdue || (!startTimingInfo.canStart && !consultationLive)}
                                                             onClick={() => handleOpenConsultation(appointment)}
+                                                            title={
+                                                                !startTimingInfo.canStart && !consultationLive
+                                                                    ? 'Consultation can be started 10 minutes before the scheduled time'
+                                                                    : 'Click to start consultation'
+                                                            }
                                                         >
-                                                            {isLaunching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : consultationLive ? 'Join Live Call' : 'Start Video Call'}
+                                                            {isLaunching ? (
+                                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                            ) : consultationLive ? (
+                                                                'Join Live Call'
+                                                            ) : isOverdue ? (
+                                                                'Reschedule First'
+                                                            ) : (
+                                                                startTimingInfo.label
+                                                            )}
                                                         </Button>
                                                     )}
 
@@ -1293,59 +1319,10 @@ export default function DoctorDashboard() {
                 <div className="lg:col-span-4 space-y-6">
 
                     {/* 3. QUICK ACTIONS */}
-                    <div className="bg-white dark:bg-[#111c2e] rounded-3xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm">
-                        <h3 className="font-extrabold text-gray-900 dark:text-white text-lg mb-4">Quick Actions</h3>
-                        <div className="grid grid-cols-2 gap-2.5">
-                            <button
-                                type="button"
-                                onClick={openDirectVisitModal}
-                                className="col-span-2 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white transition-all text-center flex items-center justify-center gap-2 shadow-sm group font-bold text-xs"
-                            >
-                                <UserPlus className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                                <span>+ Record Direct / Walk-in Visit</span>
-                            </button>
-
-                            <Link
-                                href="/doctor/prescriptions/new"
-                                className="p-3 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-emerald-300 dark:hover:border-emerald-800 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-all text-center group"
-                            >
-                                <PenLine className="h-5 w-5 text-emerald-600 mx-auto mb-1.5 group-hover:scale-110 transition-transform" />
-                                <p className="text-xs font-bold text-gray-800 dark:text-gray-200">New Rx</p>
-                            </Link>
-
-                            <Link
-                                href="/doctor/patients"
-                                className="p-3 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-800 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-all text-center group"
-                            >
-                                <User className="h-5 w-5 text-blue-600 mx-auto mb-1.5 group-hover:scale-110 transition-transform" />
-                                <p className="text-xs font-bold text-gray-800 dark:text-gray-200">Patients</p>
-                            </Link>
-
-                            <Link
-                                href="/doctor/schedule"
-                                className="p-3 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-yellow-300 dark:hover:border-yellow-800 hover:bg-yellow-50/50 dark:hover:bg-yellow-950/20 transition-all text-center group"
-                            >
-                                <Calendar className="h-5 w-5 text-yellow-600 mx-auto mb-1.5 group-hover:scale-110 transition-transform" />
-                                <p className="text-xs font-bold text-gray-800 dark:text-gray-200">Schedule</p>
-                            </Link>
-
-                            <Link
-                                href="/doctor/referrals"
-                                className="p-3 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-purple-300 dark:hover:border-purple-800 hover:bg-purple-50/50 dark:hover:bg-purple-950/20 transition-all text-center group"
-                            >
-                                <Share2 className="h-5 w-5 text-purple-600 mx-auto mb-1.5 group-hover:scale-110 transition-transform" />
-                                <p className="text-xs font-bold text-gray-800 dark:text-gray-200">Referrals</p>
-                            </Link>
-
-                            <Link
-                                href="/doctor/scan-patient"
-                                className="col-span-2 p-3 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-emerald-300 dark:hover:border-emerald-800 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 transition-all flex items-center justify-center gap-2 group"
-                            >
-                                <QrCode className="h-5 w-5 text-emerald-600 group-hover:scale-110 transition-transform" />
-                                <p className="text-xs font-bold text-gray-800 dark:text-gray-200">Scan Patient QR Code</p>
-                            </Link>
-                        </div>
-                    </div>
+                    <CustomizableQuickActions
+                        userId={user?.id}
+                        onRecordDirectVisit={openDirectVisitModal}
+                    />
 
                     {/* 10. AI PRACTICE INSIGHTS */}
                     <div className="bg-white dark:bg-[#111c2e] rounded-3xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm">

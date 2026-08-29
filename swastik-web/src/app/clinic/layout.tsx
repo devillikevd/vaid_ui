@@ -48,14 +48,12 @@ const CLINIC_CONFIG: DashboardConfig = {
         { name: 'Schedule', href: '/clinic/schedule', icon: Clock, section: 'Clinical Ops' },
 
         // OPERATIONS
-        { name: 'Pharmacy Orders', href: '/clinic/pharmacies', icon: Pill, section: 'Operations' },
-        { name: 'Diagnostic Orders', href: '/clinic/diagnostic-centers', icon: Microscope, section: 'Operations' },
-        { name: 'Hospital Referrals', href: '/clinic/referrals', icon: Building, section: 'Operations' },
+        { name: 'Referrals', href: '/clinic/referrals', icon: Building, section: 'Operations' },
         { name: 'Reports', href: '/clinic/reports', icon: ListChecks, section: 'Operations' },
         { name: 'Health Alerts', href: '/clinic/health-alerts', icon: Radar, section: 'Operations' },
 
         // PARTNERS
-        { name: 'Partnerships', href: '/clinic/partnerships', icon: Network, section: 'Partners' },
+        { name: 'My Network', href: '/clinic/network', icon: Network, section: 'Partners' },
 
         // GROWTH & REPUTATION
         { name: 'Reviews', href: '/clinic/reviews', icon: Star, section: 'Growth & Reputation' },

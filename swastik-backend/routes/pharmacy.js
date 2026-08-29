@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const pharmacyService = require('../services/pharmacyService');
 const facilityAssociationService = require('../services/facilityAssociationService');
+const organizationPartnershipService = require('../services/organizationPartnershipService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -100,12 +101,15 @@ router.post('/register', requireRole(ROLES.PHARMACY_OWNER), [
 router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
 
-    // Get inventory with low stock filter
-    const inventoryResult = await pharmacyService.getInventory(pharmacy.id, { lowStock: 'true' }, 1, 50);
-    const lowStockItems = inventoryResult.items || inventoryResult.data || [];
+    // Get inventory with low stock filter and profile completion concurrently
+    const [inventoryResult, ordersResult, profileCompletion, preferences] = await Promise.all([
+        pharmacyService.getInventory(pharmacy.id, { lowStock: 'true' }, 1, 50),
+        pharmacyService.getOrders(pharmacy.id, { status: 'pending' }, 1, 20),
+        pharmacyService.getPharmacyProfileCompletion(pharmacy.id, req.user.id),
+        pharmacyService.getPharmacyPreferences(pharmacy.id, req.user.id),
+    ]);
 
-    // Get pending orders
-    const ordersResult = await pharmacyService.getOrders(pharmacy.id, { status: 'pending' }, 1, 20);
+    const lowStockItems = inventoryResult.items || inventoryResult.data || [];
     const pendingOrders = ordersResult.orders || ordersResult.data || [];
 
     // Calculate today's revenue from delivered/completed orders
@@ -141,7 +145,9 @@ router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asy
     res.json({
         success: true,
         stats,
-        pendingPrescriptions: pendingOrders.map(o => ({
+        profileCompletion,
+        preferences,
+        pendingPrescriptions: pendingOrders.map((o) => ({
             id: o.id,
             patientName: o.patient?.name || o.patient_name || 'Patient',
             patientId: o.patient_id,
@@ -150,7 +156,7 @@ router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asy
             time: o.created_at,
             status: o.status,
         })),
-        lowStockItems: lowStockItems.map(item => ({
+        lowStockItems: lowStockItems.map((item) => ({
             id: item.id,
             name: item.name || item.medicine_name,
             quantity: item.quantity ?? item.stock ?? 0,
@@ -162,10 +168,31 @@ router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asy
     });
 }));
 
+// Profile completion endpoints
+router.get(['/completion', '/owner/completion'], requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
+    const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
+    const completion = await pharmacyService.getPharmacyProfileCompletion(pharmacy.id, req.user.id);
+    res.json({ success: true, data: completion });
+}));
+
+// Preferences endpoints
+router.get(['/preferences', '/owner/preferences'], requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
+    const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
+    const preferences = await pharmacyService.getPharmacyPreferences(pharmacy.id, req.user.id);
+    res.json({ success: true, data: preferences });
+}));
+
+router.put(['/preferences', '/owner/preferences'], requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
+    const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
+    const preferences = await pharmacyService.updatePharmacyPreferences(pharmacy.id, req.user.id, req.body || {});
+    res.json({ success: true, data: preferences });
+}));
+
 // Get own pharmacy
 router.get('/profile', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
-    res.json({ success: true, data: pharmacy });
+    const profileCompletion = await pharmacyService.getPharmacyProfileCompletion(pharmacy.id, req.user.id);
+    res.json({ success: true, data: pharmacy, profileCompletion });
 }));
 
 // Update pharmacy
@@ -178,14 +205,16 @@ router.put('/profile', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (re
         'drug_license_number', 'drugLicenseNumber', 'license_document_url', 'licenseDocumentUrl',
         'opening_time', 'closing_time', 'opening_hours', 'is_24_hours',
         'is_open', 'delivery_available', 'deliveryAvailable', 'offers_delivery', 'delivery_radius_km',
-        'image_url', 'profile_image', 'profile_image_url', 'profileImage', 'is24Hours'
+        'image_url', 'profile_image', 'profile_image_url', 'profileImage', 'is24Hours',
+        'gst_number', 'facilities', 'description', 'accreditations'
     ];
     const safeUpdates = {};
     for (const key of allowed) {
         if (req.body[key] !== undefined) safeUpdates[key] = req.body[key];
     }
     const updated = await pharmacyService.updatePharmacy(pharmacy.id, req.user.id, safeUpdates);
-    res.json({ success: true, data: updated });
+    const profileCompletion = await pharmacyService.getPharmacyProfileCompletion(pharmacy.id, req.user.id);
+    res.json({ success: true, data: updated, profileCompletion });
 }));
 
 router.use(requireRole(ROLES.PHARMACY_OWNER), requireApproval);
@@ -496,6 +525,91 @@ router.get('/reviews', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (re
     const reviewService = require('../services/reviewService');
     const result = await reviewService.getEntityReviews('pharmacy', pharmacy.id, parseInt(page), parseInt(limit));
     res.json({ success: true, ...result });
+}));
+
+// ==================== UNIFIED PARTNERSHIPS ====================
+
+router.get('/partnerships', requireRole(ROLES.PHARMACY_OWNER, ROLES.PHARMACY_MANAGER), asyncHandler(async (req, res) => {
+    const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
+    const { status } = req.query;
+
+    const partnerships = await organizationPartnershipService.getPartnerships({
+        orgType: 'pharmacy',
+        orgId: pharmacy.id,
+        status
+    });
+
+    res.json({ success: true, data: partnerships });
+}));
+
+router.post('/partnerships/invite', requireRole(ROLES.PHARMACY_OWNER, ROLES.PHARMACY_MANAGER), [
+    body('targetType').customSanitizer(val => {
+        if (!val) return val;
+        const v = String(val).toLowerCase().trim();
+        if (['diagnostic_center', 'diagnostic_lab', 'diagnostic', 'diagnostics', 'lab'].includes(v)) return 'diagnostic_center';
+        return v;
+    }).isIn(['hospital', 'clinic', 'diagnostic_center']).withMessage('Invalid target type'),
+    body('targetId').isUUID().withMessage('Valid target ID required'),
+    body('partnershipType').optional().isString(),
+    body('metadata').optional().isObject(),
+    validate
+], asyncHandler(async (req, res) => {
+    const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
+
+    const request = await organizationPartnershipService.createPartnershipRequest({
+        initiatorType: 'pharmacy',
+        initiatorId: pharmacy.id,
+        initiatorUserId: req.user.id,
+        targetType: req.body.targetType,
+        targetId: req.body.targetId,
+        partnershipType: req.body.partnershipType,
+        metadata: req.body.metadata || {}
+    });
+
+    res.status(201).json({ success: true, data: request, message: 'Partnership invitation sent successfully.' });
+}));
+
+router.post('/partnerships/:id/respond', requireRole(ROLES.PHARMACY_OWNER, ROLES.PHARMACY_MANAGER), [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    body('action').isIn(['accept', 'reject']).withMessage('Action must be accept or reject'),
+    validate
+], asyncHandler(async (req, res) => {
+    const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
+    const updated = await organizationPartnershipService.respondToPartnershipRequest(
+        req.params.id, 'pharmacy', pharmacy.id, req.body.action
+    );
+    res.json({ success: true, data: updated, message: `Partnership invitation ${req.body.action}ed successfully.` });
+}));
+
+router.post('/partnerships/:id/request-changes', requireRole(ROLES.PHARMACY_OWNER, ROLES.PHARMACY_MANAGER), [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    body('message').isString().notEmpty().withMessage('Message is required'),
+    body('metadataUpdates').optional().isObject(),
+    validate
+], asyncHandler(async (req, res) => {
+    const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
+    const updated = await organizationPartnershipService.requestChanges(
+        req.params.id, 'pharmacy', pharmacy.id, req.body.message, req.body.metadataUpdates
+    );
+    res.json({ success: true, data: updated, message: 'Changes requested successfully.' });
+}));
+
+router.post('/partnerships/:id/accept-changes', requireRole(ROLES.PHARMACY_OWNER, ROLES.PHARMACY_MANAGER), [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    validate
+], asyncHandler(async (req, res) => {
+    const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
+    const updated = await organizationPartnershipService.acceptChanges(req.params.id, 'pharmacy', pharmacy.id);
+    res.json({ success: true, data: updated, message: 'Changes accepted successfully.' });
+}));
+
+router.delete('/partnerships/:id', requireRole(ROLES.PHARMACY_OWNER, ROLES.PHARMACY_MANAGER), [
+    param('id').isUUID().withMessage('Valid partnership ID required'),
+    validate
+], asyncHandler(async (req, res) => {
+    const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
+    await organizationPartnershipService.terminatePartnership(req.params.id, 'pharmacy', pharmacy.id);
+    res.json({ success: true, message: 'Partnership terminated successfully.' });
 }));
 
 module.exports = router;

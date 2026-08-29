@@ -15,6 +15,7 @@ const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validate } = require('../middleware/validate');
+const { signStorageUrlsInPayload } = require('../config/minio');
 
 // Public routes
 router.get('/search', asyncHandler(async (req, res) => {
@@ -48,7 +49,22 @@ router.get('/nearby', asyncHandler(async (req, res) => {
 
 router.get('/:id([0-9a-fA-F-]{36})', asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicById(req.params.id);
-    res.json({ success: true, data: clinic });
+    const signedClinic = await signStorageUrlsInPayload(clinic);
+    res.json({ success: true, data: signedClinic });
+}));
+
+router.get('/:id([0-9a-fA-F-]{36})/departments', asyncHandler(async (req, res) => {
+    const departments = await clinicService.getClinicDepartments(req.params.id);
+    const signedData = await signStorageUrlsInPayload(departments);
+    res.json({ success: true, data: signedData });
+}));
+
+router.get('/:id([0-9a-fA-F-]{36})/doctors', asyncHandler(async (req, res) => {
+    const doctors = await clinicService.getClinicDoctorsPublic(req.params.id, {
+        department_id: req.query.department_id || req.query.departmentId,
+    });
+    const signedData = await signStorageUrlsInPayload(doctors);
+    res.json({ success: true, data: signedData });
 }));
 
 // Get reviews (public)
@@ -112,13 +128,35 @@ router.post('/register', requireRole(ROLES.CLINIC_OWNER), [
 // Clinic owner routes
 router.get('/owner/dashboard', requireRole(ROLES.CLINIC_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
-    const dashboard = await clinicService.getDashboard(clinic.id, req.user.id);
-    res.json({ success: true, ...dashboard });
+    const [dashboard, profileCompletion] = await Promise.all([
+        clinicService.getDashboard(clinic.id, req.user.id),
+        clinicService.getClinicProfileCompletion(clinic.id, req.user.id)
+    ]);
+    res.json({ success: true, ...dashboard, profileCompletion });
 }));
 
 router.get('/owner/profile', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
-    res.json({ success: true, data: clinic });
+    const profileCompletion = await clinicService.getClinicProfileCompletion(clinic.id, req.user.id);
+    res.json({ success: true, data: clinic, profileCompletion });
+}));
+
+router.get('/owner/completion', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const completion = await clinicService.getClinicProfileCompletion(clinic.id, req.user.id);
+    res.json({ success: true, data: completion });
+}));
+
+router.get('/owner/preferences', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const preferences = await clinicService.getClinicPreferences(clinic.id, req.user.id);
+    res.json({ success: true, data: preferences });
+}));
+
+router.put('/owner/preferences', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const preferences = await clinicService.updateClinicPreferences(clinic.id, req.user.id, req.body || {});
+    res.json({ success: true, data: preferences });
 }));
 
 router.put('/owner/profile', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
@@ -137,7 +175,8 @@ router.put('/owner/profile', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async
         if (req.body[key] !== undefined) safeUpdates[key] = req.body[key];
     }
     const updated = await clinicService.updateClinic(clinic.id, req.user.id, safeUpdates);
-    res.json({ success: true, data: updated });
+    const profileCompletion = await clinicService.getClinicProfileCompletion(clinic.id, req.user.id);
+    res.json({ success: true, data: updated, profileCompletion });
 }));
 
 router.use('/owner', requireRole(ROLES.CLINIC_OWNER), requireApproval);
@@ -162,10 +201,42 @@ router.get('/owner/doctors/lookup-by-email', requireRole(ROLES.CLINIC_OWNER), as
 
 router.get('/owner/doctors', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
-    const { page = 1, limit = 20, search } = req.query;
+    const { page = 1, limit = 20, search, status = 'active' } = req.query;
 
-    const result = await clinicService.getDoctors(clinic.id, req.user.id, parseInt(page), parseInt(limit), search);
-    res.json({ success: true, ...result });
+    const result = await clinicService.getDoctors(
+        clinic.id,
+        req.user.id,
+        parseInt(page),
+        parseInt(limit),
+        search,
+        status.toString()
+    );
+    const signedData = await signStorageUrlsInPayload(result.data);
+    res.json({ success: true, ...result, data: signedData });
+}));
+
+// Get specific doctor affiliation history & metrics
+router.get('/owner/doctors/:doctorId/history', requireRole(ROLES.CLINIC_OWNER), [
+    param('doctorId').isUUID().withMessage('Invalid doctor ID'),
+    validate
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const history = await clinicService.getDoctorAffiliationHistory(clinic.id, req.user.id, req.params.doctorId);
+    const signedData = await signStorageUrlsInPayload(history);
+    res.json({ success: true, data: signedData });
+}));
+
+// Reinvite a former doctor to rejoin clinic
+router.post('/owner/doctors/:doctorId/reinvite', requireRole(ROLES.CLINIC_OWNER), [
+    param('doctorId').isUUID().withMessage('Invalid doctor ID'),
+    body('departmentId').optional().isUUID().withMessage('Valid department ID required if provided'),
+    body('department_id').optional().isUUID().withMessage('Valid department ID required if provided'),
+    body('message').optional().isString(),
+    validate
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const result = await clinicService.reinviteDoctor(clinic.id, req.user.id, req.params.doctorId, req.body);
+    res.json(result);
 }));
 
 // Get specific doctor full profile
@@ -175,7 +246,8 @@ router.get('/owner/doctors/:doctorId/profile', requireRole(ROLES.CLINIC_OWNER), 
 ], asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     const profile = await clinicService.getClinicDoctorProfile(clinic.id, req.user.id, req.params.doctorId);
-    res.json({ success: true, data: profile });
+    const signedProfile = await signStorageUrlsInPayload(profile);
+    res.json({ success: true, data: signedProfile });
 }));
 
 // Add doctor by ID (path param) or by email (body)
@@ -216,10 +288,29 @@ router.post('/owner/doctors/:doctorId?', requireRole(ROLES.CLINIC_OWNER), asyncH
     res.json({ success: true, data: invite, message: 'Invitation sent. Doctor must accept before appearing in your clinic roster.' });
 }));
 
-router.delete('/owner/doctors/:doctorId', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+router.delete('/owner/doctors/:doctorId', requireRole(ROLES.CLINIC_OWNER), [
+    param('doctorId').isUUID().withMessage('Valid doctor ID is required'),
+    validate
+], asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
-    await clinicService.removeDoctor(clinic.id, req.user.id, req.params.doctorId);
-    res.json({ success: true });
+    const reason = (req.body?.reason || req.query?.reason || 'Doctor left the clinic').toString();
+    const note = req.body?.note || req.query?.note || null;
+    const result = await clinicService.removeDoctor(clinic.id, req.user.id, req.params.doctorId, { reason, note });
+    res.json(result);
+}));
+
+router.post('/owner/doctors/:doctorId/end-affiliation', requireRole(ROLES.CLINIC_OWNER), [
+    param('doctorId').isUUID().withMessage('Valid doctor ID is required'),
+    body('reason').isString().notEmpty().withMessage('Reason for ending affiliation is required'),
+    body('note').optional().isString(),
+    validate
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const result = await clinicService.removeDoctor(clinic.id, req.user.id, req.params.doctorId, {
+        reason: req.body.reason,
+        note: req.body.note,
+    });
+    res.json(result);
 }));
 
 router.get('/owner/pharmacies', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
@@ -332,7 +423,12 @@ router.get('/owner/partnerships', requireRole(ROLES.CLINIC_OWNER), asyncHandler(
 }));
 
 router.post('/owner/partnerships/invite', requireRole(ROLES.CLINIC_OWNER), [
-    body('targetType').isIn(['hospital', 'pharmacy', 'diagnostic_center']).withMessage('Invalid target type'),
+    body('targetType').customSanitizer(val => {
+        if (!val) return val;
+        const v = String(val).toLowerCase().trim();
+        if (['diagnostic_center', 'diagnostic_lab', 'diagnostic', 'diagnostics', 'lab'].includes(v)) return 'diagnostic_center';
+        return v;
+    }).isIn(['hospital', 'pharmacy', 'diagnostic_center']).withMessage('Invalid target type'),
     body('targetId').isUUID().withMessage('Valid target ID required'),
     body('partnershipType').optional().isString(),
     body('metadata').optional().isObject(),
@@ -874,7 +970,8 @@ router.delete('/owner/reels/:reelId', requireRole(ROLES.CLINIC_OWNER), [
 router.get('/owner/departments', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     const departments = await clinicService.getClinicDepartments(clinic.id);
-    res.json({ success: true, data: departments });
+    const signedData = await signStorageUrlsInPayload(departments);
+    res.json({ success: true, data: signedData });
 }));
 
 router.get('/owner/departments/meta', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
@@ -883,18 +980,31 @@ router.get('/owner/departments/meta', requireRole(ROLES.CLINIC_OWNER), asyncHand
     res.json({ success: true, data: meta });
 }));
 
+router.get('/owner/departments/:departmentId/available-doctors', requireRole(ROLES.CLINIC_OWNER), [
+    param('departmentId').isUUID().withMessage('Invalid department ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const available = await clinicService.getDepartmentAvailableDoctors(clinic.id, req.user.id, req.params.departmentId);
+    const signedData = await signStorageUrlsInPayload(available);
+    res.json({ success: true, data: signedData });
+}));
+
 router.get('/owner/departments/:departmentId', requireRole(ROLES.CLINIC_OWNER), [
     param('departmentId').isUUID().withMessage('Invalid department ID'),
     validate,
 ], asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     const department = await clinicService.getClinicDepartmentById(clinic.id, req.params.departmentId);
-    res.json({ success: true, data: department });
+    const signedData = await signStorageUrlsInPayload(department);
+    res.json({ success: true, data: signedData });
 }));
 
 router.post('/owner/departments', requireRole(ROLES.CLINIC_OWNER), [
     body('name').trim().notEmpty().withMessage('Department name is required'),
     body('description').optional().isString().trim(),
+    body('headDoctorId').optional({ nullable: true }).isUUID().withMessage('Invalid head doctor ID'),
+    body('head_doctor_id').optional({ nullable: true }).isUUID().withMessage('Invalid head doctor ID'),
     validate,
 ], asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
@@ -904,6 +1014,8 @@ router.post('/owner/departments', requireRole(ROLES.CLINIC_OWNER), [
 
 router.put('/owner/departments/:departmentId', requireRole(ROLES.CLINIC_OWNER), [
     param('departmentId').isUUID().withMessage('Invalid department ID'),
+    body('headDoctorId').optional({ nullable: true }).isUUID().withMessage('Invalid head doctor ID'),
+    body('head_doctor_id').optional({ nullable: true }).isUUID().withMessage('Invalid head doctor ID'),
     validate,
 ], asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
@@ -918,6 +1030,46 @@ router.delete('/owner/departments/:departmentId', requireRole(ROLES.CLINIC_OWNER
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     await clinicService.deleteDepartment(clinic.id, req.user.id, req.params.departmentId);
     res.json({ success: true });
+}));
+
+// Department doctor assignments
+router.post('/owner/departments/:departmentId/doctors', requireRole(ROLES.CLINIC_OWNER), [
+    param('departmentId').isUUID().withMessage('Invalid department ID'),
+    body('doctorId').optional().isUUID().withMessage('Invalid doctor ID'),
+    body('doctorIds').optional().isArray().withMessage('doctorIds must be an array'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    if (Array.isArray(req.body.doctorIds)) {
+        const result = await clinicService.setDepartmentDoctors(clinic.id, req.user.id, req.params.departmentId, req.body.doctorIds);
+        return res.json({ success: true, data: result });
+    }
+    const doctorId = req.body.doctorId;
+    if (!doctorId) {
+        return res.status(400).json({ success: false, message: 'doctorId or doctorIds is required' });
+    }
+    const result = await clinicService.assignDoctorToDepartment(clinic.id, req.user.id, req.params.departmentId, doctorId);
+    res.json({ success: true, data: result });
+}));
+
+router.put('/owner/departments/:departmentId/doctors', requireRole(ROLES.CLINIC_OWNER), [
+    param('departmentId').isUUID().withMessage('Invalid department ID'),
+    body('doctorIds').isArray().withMessage('doctorIds must be an array of doctor UUIDs'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const result = await clinicService.setDepartmentDoctors(clinic.id, req.user.id, req.params.departmentId, req.body.doctorIds);
+    res.json({ success: true, data: result });
+}));
+
+router.delete('/owner/departments/:departmentId/doctors/:doctorId', requireRole(ROLES.CLINIC_OWNER), [
+    param('departmentId').isUUID().withMessage('Invalid department ID'),
+    param('doctorId').isUUID().withMessage('Invalid doctor ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    await clinicService.unassignDoctorFromDepartment(clinic.id, req.user.id, req.params.departmentId, req.params.doctorId);
+    res.json({ success: true, message: 'Doctor unassigned from department successfully' });
 }));
 
 // Analytics

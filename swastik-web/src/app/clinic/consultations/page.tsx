@@ -78,6 +78,15 @@ export default function ClinicConsultationsPage() {
     // 2. Metrics derived strictly from clinic-scoped consultations
     const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
     const clinicMetrics = useMemo(() => {
+        if (consultationMetrics && (
+            consultationMetrics.todayConsultations > 0 ||
+            consultationMetrics.inProgress > 0 ||
+            consultationMetrics.completed > 0 ||
+            consultationMetrics.videoConsultations > 0 ||
+            consultationMetrics.inPersonConsultations > 0
+        )) {
+            return consultationMetrics;
+        }
         return {
             todayConsultations: clinicScopedConsultations.filter((c: Consultation) => {
                 const d = c.appointment?.date || (c.created_at ? c.created_at.split('T')[0] : null);
@@ -88,7 +97,7 @@ export default function ClinicConsultationsPage() {
             videoConsultations: clinicScopedConsultations.filter((c: Consultation) => c.type === 'video').length,
             inPersonConsultations: clinicScopedConsultations.filter((c: Consultation) => c.type === 'clinic' || c.type === 'in_person').length,
         };
-    }, [clinicScopedConsultations, todayIso]);
+    }, [clinicScopedConsultations, consultationMetrics, todayIso]);
 
     // 3. Displayed list with in-memory filters applied to clinic-scoped consultations
     const displayedConsultations = useMemo(() => {

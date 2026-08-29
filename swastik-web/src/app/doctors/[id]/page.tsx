@@ -27,12 +27,13 @@ export default function PublicDoctorProfile() {
   const doctorId = params.id as string;
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
     async function loadDoctor() {
       try {
         const res = await doctorApi.getPublicDoctorById(doctorId);
-        if (res.success) {
+        if (res.success && res.data) {
           setData(res.data);
         }
       } catch (err) {
@@ -56,7 +57,9 @@ export default function PublicDoctorProfile() {
     );
   }
 
-  if (!data || !data.doctor) {
+  const doctor = data?.doctor || (data?.id ? data : null);
+
+  if (!doctor) {
     return (
       <div className="min-h-screen bg-vd-cream flex flex-col">
         <Navbar />
@@ -68,7 +71,9 @@ export default function PublicDoctorProfile() {
     );
   }
 
-  const { doctor, reviews, clinics, hospitals } = data;
+  const reviews = data?.reviews || [];
+  const clinics = data?.clinics || data?.affiliatedClinics || [];
+  const hospitals = data?.hospitals || data?.affiliatedHospitals || [];
   const rating = doctor.rating || 0;
   const totalReviews = doctor.total_reviews || 0;
 
@@ -102,11 +107,16 @@ export default function PublicDoctorProfile() {
               {/* Profile Image */}
               <div className="relative">
                 <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-lg overflow-hidden bg-vd-beige">
-                  {doctor.profile_image_url ? (
-                    <img src={doctor.profile_image_url} alt={doctor.name} className="w-full h-full object-cover" />
+                  {doctor.profile_image_url && !imgError ? (
+                    <img 
+                      src={doctor.profile_image_url} 
+                      alt={doctor.name} 
+                      onError={() => setImgError(true)}
+                      className="w-full h-full object-cover" 
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-4xl text-vd-blue/50 font-bold">
-                      {doctor.name.charAt(0)}
+                      {doctor.name ? doctor.name.replace(/^(Dr\.|Dr)\s+/i, '').charAt(0) : 'D'}
                     </div>
                   )}
                 </div>
@@ -120,7 +130,9 @@ export default function PublicDoctorProfile() {
               {/* Doctor Basic Info */}
               <div className="flex-1 pt-2 md:pt-16">
                 <div className="flex flex-wrap items-center gap-3 mb-2">
-                  <h1 className="text-3xl font-bold text-vd-blue">Dr. {doctor.name}</h1>
+                  <h1 className="text-3xl font-bold text-vd-blue">
+                    {doctor.name?.startsWith('Dr.') || doctor.name?.startsWith('Dr ') ? doctor.name : `Dr. ${doctor.name}`}
+                  </h1>
                   {doctor.is_approved && (
                     <span className="bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 border border-green-200">
                       <ShieldCheck className="w-3.5 h-3.5" /> Verified

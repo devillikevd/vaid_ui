@@ -1,25 +1,20 @@
 'use client';
 
-import OrganizationPartnershipManager from '@/components/shared/OrganizationPartnershipManager';
-import { clinicApi } from '@/lib/api';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 
 export default function ClinicPartnershipsPage() {
+    const router = useRouter();
+
+    useEffect(() => {
+        router.replace('/clinic/network');
+    }, [router]);
+
     return (
-        <OrganizationPartnershipManager
-            title="Clinic Network Partnerships"
-            subtitle="Manage two-way organizational partnerships with Hospitals, Pharmacies, and Diagnostic Centers."
-            currentOrgType="clinic"
-            availableTargetTypes={[
-                { value: 'hospital', label: 'Hospital' },
-                { value: 'pharmacy', label: 'Pharmacy' },
-                { value: 'diagnostic_center', label: 'Diagnostic Center' }
-            ]}
-            fetchPartnerships={clinicApi.getPartnerships}
-            sendInvite={clinicApi.invitePartnership}
-            respondRequest={clinicApi.respondPartnership}
-            requestChanges={clinicApi.requestChangesPartnership}
-            acceptChanges={clinicApi.acceptChangesPartnership}
-            terminatePartnership={clinicApi.terminatePartnership}
-        />
+        <div className="py-20 flex flex-col items-center justify-center text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-pink-600 mb-3" />
+            <p className="text-sm font-bold text-gray-500">Redirecting to My Network...</p>
+        </div>
     );
 }

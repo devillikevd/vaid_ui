@@ -7,6 +7,7 @@ const { ApiError } = require('../middleware/errorHandler');
 const { cacheDel } = require('../config/redis');
 const eventEmitter = require('./eventEmitter');
 const notificationService = require('./notificationService');
+const { checkAppointmentStartEligibility } = require('../utils/appointmentTiming');
 
 const invalidateDashboardCaches = async (patientUserId, doctorUserId) => {
   await Promise.allSettled([
@@ -367,14 +368,12 @@ const bookAppointment = async (patientId, appointmentData) => {
     }
 
     // 4. Valid Schedule
-    const dayOfWeek = new Date(date).toLocaleString('en-US', { weekday: 'long' });
     let scheduleQuery = supabaseAdmin
-      .from('doctor_schedules')
+      .from('doctor_slots')
       .select('id')
       .eq('doctor_id', doctorId)
-      .eq('day_of_week', dayOfWeek)
-      .eq('is_active', true)
-      .eq('consultation_mode', 'in-person');
+      .eq('slot_date', date)
+      .eq('is_active', true);
 
     if (resolvedClinicId) {
       scheduleQuery = scheduleQuery.eq('clinic_id', resolvedClinicId);
@@ -384,7 +383,17 @@ const bookAppointment = async (patientId, appointmentData) => {
 
     const { data: schedules } = await scheduleQuery;
     if (!schedules || schedules.length === 0) {
-      throw new ApiError(400, `Doctor does not have a valid in-person schedule at the selected location on ${dayOfWeek}s`);
+      // Fallback: Check if there's any active slot on this date
+      const { data: generalSlots } = await supabaseAdmin
+        .from('doctor_slots')
+        .select('id')
+        .eq('doctor_id', doctorId)
+        .eq('slot_date', date)
+        .eq('is_active', true);
+
+      if (!generalSlots || generalSlots.length === 0) {
+        throw new ApiError(400, `Doctor does not have a valid schedule on ${date}`);
+      }
     }
   }
 
@@ -396,6 +405,25 @@ const bookAppointment = async (patientId, appointmentData) => {
   
   if (reqStartMins !== null) {
     const reqEndMins = reqStartMins + reqDuration;
+
+    // Check manual doctor blocks from doctor_schedule_blocks
+    try {
+      const timeSlotDb = `${ts}:00`;
+      const { data: manualBlock } = await supabaseAdmin
+        .from('doctor_schedule_blocks')
+        .select('id')
+        .eq('doctor_id', doctorId)
+        .eq('block_date', date)
+        .or(`time_slot.eq.${timeSlotDb},time_slot.eq.${ts}`)
+        .maybeSingle();
+
+      if (manualBlock) {
+        throw new ApiError(409, 'The doctor has blocked this time slot. Please choose another slot.');
+      }
+    } catch (blockErr) {
+      if (blockErr instanceof ApiError) throw blockErr;
+      console.warn('[AppointmentService] Error checking doctor_schedule_blocks:', blockErr.message);
+    }
     
     // Check doctor active leaves
     try {
@@ -431,7 +459,7 @@ const bookAppointment = async (patientId, appointmentData) => {
       }
     } catch (err) {
       if (err instanceof ApiError) throw err;
-      // Gracefully ignore if doctor_leaves table is not yet created
+      // Gracefully ignore if doctor_leaves table query error
     }
 
     const { data: existingAppts } = await supabaseAdmin
@@ -676,7 +704,7 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
   // Fetch current status first to validate transition
   const { data: current, error: currentError } = await supabaseAdmin
     .from('appointments')
-    .select('status, type')
+    .select('status, type, appointment_date, time_slot')
     .eq('id', appointmentId)
     .eq('doctor_id', doctor?.id)
     .single();
@@ -689,6 +717,14 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
   const allowed = VALID_TRANSITIONS[current.status];
   if (!allowed || !allowed.includes(status)) {
     throw new ApiError(400, `Cannot transition from '${current.status}' to '${status}'`);
+  }
+
+  // Enforce 10-minute early start eligibility if transitioning to in_progress
+  if (status === 'in_progress') {
+    const eligibility = checkAppointmentStartEligibility(current);
+    if (!eligibility.canStart) {
+      throw new ApiError(409, eligibility.reason);
+    }
   }
 
   let updateData = {

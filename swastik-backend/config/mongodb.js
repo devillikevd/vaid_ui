@@ -20,6 +20,7 @@ const connectMongoDB = async () => {
   try {
     await mongoose.connect(config.mongodb.uri, {
       dbName: config.mongodb.dbName,
+      serverSelectionTimeoutMS: 3000,
     });
 
     isConnected = true;

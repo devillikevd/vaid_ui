@@ -1,795 +1,413 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-    Building2, Search, Filter, Clock, User, Stethoscope, 
-    AlertCircle, CheckCircle2, XCircle, ArrowRight, ShieldCheck, 
-    FileText, Ban, Eye, RefreshCw, ChevronRight, ExternalLink,
-    Building, AlertTriangle, Activity
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+    Share2, Plus, Search, RefreshCw, AlertCircle, Loader2,
+    ChevronRight, CheckCircle, XCircle, ArrowRight, ArrowLeft,
+    Activity, Zap, Building2, User, Clock, Stethoscope, Filter
 } from 'lucide-react';
+import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { clinicApi } from '@/lib/api';
+import { api } from '@/lib/api';
+import { UniversalReferral, ReferralUrgency } from '@/types/referrals';
+import { ReferralDetailsDrawer } from '@/components/referrals/ReferralDetailsDrawer';
+import { CreateReferralModal } from '@/components/referrals/CreateReferralModal';
 import { useToast } from '@/components/ui/Toast';
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'next/navigation';
 
-export interface PatientReferral {
-    id: string;
-    patient_id: string;
-    referring_clinic_id: string;
-    target_hospital_id: string;
-    referring_doctor_id: string;
-    consultation_id?: string;
-    reason: string;
-    urgency: 'routine' | 'urgent' | 'emergency';
-    clinical_summary?: string;
-    consent_granted: boolean;
-    status: 'pending' | 'accepted' | 'admission_pending' | 'admitted' | 'discharged' | 'cancelled' | 'rejected';
-    created_at: string;
-    updated_at: string;
-    accepted_at?: string;
-    admitted_at?: string;
-    discharged_at?: string;
-    discharge_summary?: string;
-    rejection_reason?: string;
-    patient?: {
-        id?: string;
-        name: string;
-        gender?: string;
-        date_of_birth?: string;
-    };
-    hospital?: {
-        id: string;
-        name: string;
-    };
-    doctor?: {
-        id: string;
-        users?: {
-            name: string;
-        };
-    };
+type ViewTab = 'all' | 'incoming' | 'outgoing' | 'pending' | 'accepted' | 'in_progress' | 'completed' | 'rejected';
+
+const URGENCY_CONFIG: Record<ReferralUrgency, { label: string; cls: string }> = {
+    routine: { label: 'Routine', cls: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
+    urgent: { label: 'Urgent', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' },
+    emergency: { label: 'Emergency', cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 font-bold animate-pulse' },
+};
+
+const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
+    awaiting_consent: { label: 'Awaiting Consent', cls: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400' },
+    consent_declined: { label: 'Consent Declined', cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' },
+    pending: { label: 'Pending', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' },
+    accepted: { label: 'Accepted', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' },
+    in_progress: { label: 'In Progress', cls: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400' },
+    completed: { label: 'Completed', cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' },
+    rejected: { label: 'Rejected', cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' },
+    cancelled: { label: 'Cancelled', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
+};
+
+function formatDate(iso?: string | null) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHrs = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHrs / 24);
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHrs < 24) return `${diffHrs}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function LegacyClinicHospitalReferralsPage() {
-    const toast = useToast();
-    const router = useRouter();
+function shortId(id: string) {
+    return id?.slice(0, 8).toUpperCase() || '—';
+}
 
-    const [referrals, setReferrals] = useState<PatientReferral[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [partnerships, setPartnerships] = useState<any[]>([]);
-    const [loadingPartnerships, setLoadingPartnerships] = useState(true);
-
-    // Filters
-    const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [urgencyFilter, setUrgencyFilter] = useState<string>('all');
-
-    // Modals
-    const [selectedReferral, setSelectedReferral] = useState<PatientReferral | null>(null);
-    const [dischargeModalReferral, setDischargeModalReferral] = useState<PatientReferral | null>(null);
-    const [cancellingReferral, setCancellingReferral] = useState<PatientReferral | null>(null);
-    const [isCancelling, setIsCancelling] = useState(false);
-
-    // Load active hospital partnerships
-    const loadPartnerships = useCallback(async () => {
-        setLoadingPartnerships(true);
-        try {
-            const res = await clinicApi.getPartnerships('active');
-            if (res.success) {
-                const hospitalPartners = ((res.data as any[]) || []).filter(
-                    (p: any) => p.target_type === 'hospital' || p.targetType === 'hospital'
-                );
-                setPartnerships(hospitalPartners);
-            }
-        } catch (err) {
-            console.error('Failed to load clinic partnerships:', err);
-        } finally {
-            setLoadingPartnerships(false);
-        }
-    }, []);
-
-    // Load outgoing referrals
-    const loadReferrals = useCallback(async () => {
-        setLoading(true);
-        try {
-            const res = await clinicApi.getReferrals(statusFilter !== 'all' ? statusFilter : undefined);
-            if (res.success) {
-                setReferrals((res.data as PatientReferral[]) || []);
-            } else {
-                toast.error('Failed to load referrals', res.error || 'Please try again.');
-            }
-        } catch {
-            toast.error('Network error loading referrals');
-        } finally {
-            setLoading(false);
-        }
-    }, [statusFilter, toast]);
-
-    useEffect(() => {
-        loadPartnerships();
-    }, [loadPartnerships]);
-
-    useEffect(() => {
-        loadReferrals();
-    }, [loadReferrals]);
-
-    const handleCancelReferral = async () => {
-        if (!cancellingReferral) return;
-        setIsCancelling(true);
-        try {
-            const res = await clinicApi.cancelReferral(cancellingReferral.id);
-            if (res.success) {
-                toast.success('Referral cancelled successfully');
-                setCancellingReferral(null);
-                loadReferrals();
-            } else {
-                toast.error('Failed to cancel referral', res.error || 'Referral may already be processed.');
-            }
-        } catch {
-            toast.error('Error cancelling referral');
-        } finally {
-            setIsCancelling(false);
-        }
-    };
-
-    // Filter & Search computation
-    const filteredReferrals = useMemo(() => {
-        return referrals.filter(r => {
-            const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-            const matchesUrgency = urgencyFilter === 'all' || r.urgency === urgencyFilter;
-
-            const q = searchQuery.toLowerCase().trim();
-            const patientName = r.patient?.name?.toLowerCase() || '';
-            const hospitalName = r.hospital?.name?.toLowerCase() || '';
-            const doctorName = r.doctor?.users?.name?.toLowerCase() || '';
-            const referralId = r.id.toLowerCase();
-            const reason = r.reason?.toLowerCase() || '';
-
-            const matchesSearch = !q || 
-                patientName.includes(q) ||
-                hospitalName.includes(q) ||
-                doctorName.includes(q) ||
-                referralId.includes(q) ||
-                reason.includes(q);
-
-            return matchesStatus && matchesUrgency && matchesSearch;
-        });
-    }, [referrals, statusFilter, urgencyFilter, searchQuery]);
-
-    const getStatusBadge = (status: PatientReferral['status']) => {
-        switch (status) {
-            case 'pending':
-                return {
-                    label: 'Pending Review',
-                    bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900/40',
-                    dot: 'bg-amber-500'
-                };
-            case 'accepted':
-                return {
-                    label: 'Accepted by Hospital',
-                    bg: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-900/40',
-                    dot: 'bg-blue-500'
-                };
-            case 'admission_pending':
-                return {
-                    label: 'Admission Pending',
-                    bg: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-900/40',
-                    dot: 'bg-purple-500'
-                };
-            case 'admitted':
-                return {
-                    label: 'Patient Admitted',
-                    bg: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-900/40',
-                    dot: 'bg-indigo-500 animate-pulse'
-                };
-            case 'discharged':
-                return {
-                    label: 'Discharged / Care Completed',
-                    bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40',
-                    dot: 'bg-emerald-500'
-                };
-            case 'cancelled':
-                return {
-                    label: 'Cancelled by Clinic',
-                    bg: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700',
-                    dot: 'bg-gray-400'
-                };
-            case 'rejected':
-                return {
-                    label: 'Declined by Hospital',
-                    bg: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-900/40',
-                    dot: 'bg-red-500'
-                };
-            default:
-                return {
-                    label: status,
-                    bg: 'bg-gray-100 text-gray-700 border-gray-200',
-                    dot: 'bg-gray-400'
-                };
-        }
-    };
-
-    const getUrgencyBadge = (urgency: PatientReferral['urgency']) => {
-        switch (urgency) {
-            case 'emergency':
-                return 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/50 font-black';
-            case 'urgent':
-                return 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-900/50 font-bold';
-            case 'routine':
-            default:
-                return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 font-semibold';
-        }
-    };
-
+function UrgencyBadge({ urgency }: { urgency?: ReferralUrgency }) {
+    if (!urgency) return null;
+    const cfg = URGENCY_CONFIG[urgency] ?? { label: urgency, cls: 'bg-gray-100 text-gray-700' };
     return (
-        <div className="p-6 sm:p-8 max-w-7xl mx-auto space-y-8">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-pink-50 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300 border border-pink-200/50 dark:border-pink-800/40">
-                            Operations
-                        </span>
-                    </div>
-                    <h1 className="text-2xl sm:text-4xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
-                        <Building2 className="w-8 h-8 text-pink-600 dark:text-pink-400" />
-                        Hospital Referrals
-                    </h1>
-                    <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mt-1">
-                        Track patients referred to your active hospital partners.
-                    </p>
-                </div>
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${cfg.cls}`}>
+            {urgency === 'emergency' && <Zap className="h-3 w-3 text-red-500" />}
+            {cfg.label}
+        </span>
+    );
+}
 
-                <div className="flex items-center gap-3">
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={loadReferrals} 
-                        className="rounded-xl"
-                    >
-                        <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
-                    </Button>
-                    <Button 
-                        onClick={() => router.push('/clinic/patients')}
-                        className="bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold"
-                    >
-                        <User className="w-4 h-4 mr-1.5" /> Refer from Patients
-                    </Button>
-                </div>
-            </div>
+function StatusBadge({ status }: { status?: string }) {
+    if (!status) return null;
+    const cfg = STATUS_CONFIG[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600' };
+    return (
+        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${cfg.cls}`}>
+            {status === 'completed' && <CheckCircle className="h-3 w-3" />}
+            {status === 'in_progress' && <Activity className="h-3 w-3" />}
+            {status === 'rejected' && <XCircle className="h-3 w-3" />}
+            {cfg.label}
+        </span>
+    );
+}
 
-            {/* Warning Banner if No Active Hospital Partners */}
-            {!loadingPartnerships && partnerships.length === 0 && (
-                <div className="p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
-                            <AlertTriangle className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <h4 className="font-extrabold text-sm text-amber-900 dark:text-amber-200">
-                                No active hospital partners
-                            </h4>
-                            <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                                Establish an active hospital partnership in the Partnerships Hub before referring patients for hospital admission or inpatient care.
-                            </p>
-                        </div>
-                    </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push('/clinic/partnerships')}
-                        className="bg-white dark:bg-gray-900 border-amber-300 text-amber-800 dark:text-amber-300 font-bold rounded-xl text-xs shrink-0"
-                    >
-                        Manage Partnerships <ChevronRight className="w-4 h-4 ml-1" />
-                    </Button>
-                </div>
-            )}
-
-            {/* Filter & Search Bar */}
-            <div className="bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
-                    <div className="flex items-center gap-1.5 mr-2 text-xs font-bold text-gray-500">
-                        <Filter className="w-3.5 h-3.5" /> Status:
-                    </div>
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-gray-50 dark:bg-gray-800 border-none text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-pink-500"
-                    >
-                        <option value="all">All Statuses ({referrals.length})</option>
-                        <option value="pending">Pending</option>
-                        <option value="accepted">Accepted</option>
-                        <option value="admission_pending">Admission Pending</option>
-                        <option value="admitted">Admitted</option>
-                        <option value="discharged">Discharged</option>
-                        <option value="cancelled">Cancelled</option>
-                        <option value="rejected">Rejected</option>
-                    </select>
-
-                    <select
-                        value={urgencyFilter}
-                        onChange={(e) => setUrgencyFilter(e.target.value)}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-gray-50 dark:bg-gray-800 border-none text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-pink-500"
-                    >
-                        <option value="all">All Urgency</option>
-                        <option value="routine">Routine</option>
-                        <option value="urgent">Urgent</option>
-                        <option value="emergency">Emergency</option>
-                    </select>
-                </div>
-
-                <div className="relative w-full md:w-80">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="Search patient, hospital, doctor, referral ID..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 rounded-xl text-xs bg-gray-50 dark:bg-gray-800 border-none text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500"
-                    />
-                </div>
-            </div>
-
-            {/* Referral Cards Grid */}
-            {loading ? (
-                <div className="p-16 text-center bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
-                    <div className="animate-spin w-8 h-8 border-4 border-pink-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p className="text-gray-500 text-sm font-bold">Loading hospital referrals...</p>
-                </div>
-            ) : filteredReferrals.length === 0 ? (
-                <div className="p-16 text-center bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 space-y-4">
-                    <div className="w-16 h-16 rounded-3xl bg-pink-50 dark:bg-pink-950/30 text-pink-600 dark:text-pink-400 flex items-center justify-center mx-auto">
-                        <Building2 className="w-8 h-8" />
-                    </div>
-                    <div className="max-w-md mx-auto">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                            No hospital referrals yet
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-1">
-                            Patients you refer to active hospital partners will appear here.
-                        </p>
-                    </div>
-                    <div className="flex justify-center gap-3 pt-2">
-                        <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => router.push('/clinic/partnerships')}
-                            className="rounded-xl text-xs font-bold"
-                        >
-                            View Partnerships
-                        </Button>
-                        <Button 
-                            size="sm"
-                            onClick={() => router.push('/clinic/patients')}
-                            className="bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold"
-                        >
-                            View Patients
-                        </Button>
-                    </div>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredReferrals.map((referral) => {
-                        const statusBadge = getStatusBadge(referral.status);
-                        const patientName = referral.patient?.name || 'Patient';
-                        const hospitalName = referral.hospital?.name || 'Partner Hospital';
-                        const doctorName = referral.doctor?.users?.name || 'Clinic Physician';
-
-                        return (
-                            <motion.div
-                                key={referral.id}
-                                layout
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="bg-white dark:bg-gray-900 rounded-3xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-5"
-                            >
-                                <div className="space-y-4">
-                                    {/* Top Metadata Row */}
-                                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                                        <span className="font-mono text-[11px] font-bold text-gray-400 bg-gray-50 dark:bg-gray-800/80 px-2.5 py-1 rounded-lg">
-                                            REF-{referral.id.slice(0, 8).toUpperCase()}
-                                        </span>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase border ${getUrgencyBadge(referral.urgency)}`}>
-                                                {referral.urgency}
-                                            </span>
-                                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border flex items-center gap-1.5 ${statusBadge.bg}`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${statusBadge.dot}`} />
-                                                {statusBadge.label}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Patient & Hospital Info */}
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <User className="w-4 h-4 text-gray-400" />
-                                            <h3 className="font-extrabold text-base text-gray-900 dark:text-white truncate">
-                                                {patientName}
-                                            </h3>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-xs font-bold text-pink-600 dark:text-pink-400">
-                                            <Building className="w-3.5 h-3.5" />
-                                            <span className="truncate">{hospitalName}</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Reason */}
-                                    <div className="p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 text-xs text-gray-600 dark:text-gray-300 space-y-1">
-                                        <p className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">Reason for Referral</p>
-                                        <p className="line-clamp-2 font-medium">{referral.reason}</p>
-                                    </div>
-
-                                    {/* Referring Doctor & Timestamps */}
-                                    <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
-                                        <p className="flex items-center gap-1.5">
-                                            <Stethoscope className="w-3.5 h-3.5 text-gray-400" />
-                                            <span>Doctor: <strong className="text-gray-700 dark:text-gray-200">Dr. {doctorName}</strong></span>
-                                        </p>
-                                        <p className="flex items-center gap-1.5 text-[11px]">
-                                            <Clock className="w-3.5 h-3.5 text-gray-400" />
-                                            Created: {new Date(referral.created_at).toLocaleDateString()}
-                                        </p>
-                                        {referral.admitted_at && (
-                                            <p className="flex items-center gap-1.5 text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold">
-                                                <Activity className="w-3.5 h-3.5" />
-                                                Admitted: {new Date(referral.admitted_at).toLocaleDateString()}
-                                            </p>
-                                        )}
-                                        {referral.discharged_at && (
-                                            <p className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                                Discharged: {new Date(referral.discharged_at).toLocaleDateString()}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setSelectedReferral(referral)}
-                                        className="text-xs font-bold rounded-xl flex-1"
-                                    >
-                                        <Eye className="w-3.5 h-3.5 mr-1" /> View Details
-                                    </Button>
-
-                                    {referral.status === 'pending' && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setCancellingReferral(referral)}
-                                            className="text-xs font-bold rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                        >
-                                            <Ban className="w-3.5 h-3.5 mr-1" /> Cancel
-                                        </Button>
-                                    )}
-
-                                    {referral.status === 'discharged' && referral.discharge_summary && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setDischargeModalReferral(referral)}
-                                            className="text-xs font-bold rounded-xl text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
-                                        >
-                                            <FileText className="w-3.5 h-3.5 mr-1" /> Summary
-                                        </Button>
-                                    )}
-                                </div>
-                            </motion.div>
-                        );
-                    })}
-                </div>
-            )}
-
-            {/* Referral Details Modal */}
-            <AnimatePresence>
-                {selectedReferral && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden max-h-[90vh] flex flex-col"
-                        >
-                            <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gradient-to-r from-pink-50/50 to-purple-50/50 dark:from-pink-950/20 dark:to-purple-950/20">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="font-mono text-xs font-bold text-gray-500">
-                                            REF-{selectedReferral.id.slice(0, 8).toUpperCase()}
-                                        </span>
-                                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase border ${getUrgencyBadge(selectedReferral.urgency)}`}>
-                                            {selectedReferral.urgency}
-                                        </span>
-                                    </div>
-                                    <h3 className="font-black text-xl text-gray-900 dark:text-white">
-                                        Hospital Referral Details
-                                    </h3>
-                                </div>
-                                <button onClick={() => setSelectedReferral(null)} className="text-gray-400 hover:text-gray-600">
-                                    <XCircle className="w-6 h-6" />
-                                </button>
-                            </div>
-
-                            <div className="p-6 space-y-6 overflow-y-auto">
-                                {/* Care Partner Badges */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 space-y-1">
-                                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Patient</p>
-                                        <p className="text-base font-extrabold text-gray-900 dark:text-white">
-                                            {selectedReferral.patient?.name || 'Patient'}
-                                        </p>
-                                        {selectedReferral.patient?.gender && (
-                                            <p className="text-xs text-gray-500 capitalize">
-                                                {selectedReferral.patient.gender}
-                                                {selectedReferral.patient.date_of_birth ? ` • DOB: ${new Date(selectedReferral.patient.date_of_birth).toLocaleDateString()}` : ''}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 space-y-1">
-                                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Target Hospital</p>
-                                        <p className="text-base font-extrabold text-pink-600 dark:text-pink-400">
-                                            {selectedReferral.hospital?.name || 'Hospital Partner'}
-                                        </p>
-                                        <p className="text-xs text-gray-500">
-                                            Referring: Dr. {selectedReferral.doctor?.users?.name || 'Clinic Physician'}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Consent & Status Row */}
-                                <div className="flex items-center justify-between p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30">
-                                    <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 text-xs font-bold">
-                                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                                        Patient Consent: Granted & Verified
-                                    </div>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase border ${getStatusBadge(selectedReferral.status).bg}`}>
-                                        {getStatusBadge(selectedReferral.status).label}
-                                    </span>
-                                </div>
-
-                                {/* Reason & Summary */}
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
-                                            Reason for Referral
-                                        </label>
-                                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/50 p-3.5 rounded-2xl">
-                                            {selectedReferral.reason}
-                                        </p>
-                                    </div>
-
-                                    {selectedReferral.clinical_summary && (
-                                        <div>
-                                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
-                                                Clinical Summary & Vitals
-                                            </label>
-                                            <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/50 p-3.5 rounded-2xl whitespace-pre-wrap leading-relaxed">
-                                                {selectedReferral.clinical_summary}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedReferral.rejection_reason && (
-                                        <div>
-                                            <label className="block text-xs font-bold uppercase tracking-wider text-red-500 mb-1">
-                                                Hospital Decline Reason
-                                            </label>
-                                            <p className="text-sm font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/30 p-3.5 rounded-2xl border border-red-200/50">
-                                                {selectedReferral.rejection_reason}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Care Timeline */}
-                                <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">
-                                        Referral Timeline
-                                    </label>
-                                    <div className="space-y-2 border-l-2 border-pink-200 dark:border-pink-900/40 ml-3 pl-4 text-xs space-y-3">
-                                        <div>
-                                            <p className="font-bold text-gray-900 dark:text-white">Referral Initiated by Clinic</p>
-                                            <p className="text-gray-400">{new Date(selectedReferral.created_at).toLocaleString()}</p>
-                                        </div>
-                                        {selectedReferral.accepted_at && (
-                                            <div>
-                                                <p className="font-bold text-blue-600 dark:text-blue-400">Accepted by Hospital</p>
-                                                <p className="text-gray-400">{new Date(selectedReferral.accepted_at).toLocaleString()}</p>
-                                            </div>
-                                        )}
-                                        {selectedReferral.admitted_at && (
-                                            <div>
-                                                <p className="font-bold text-indigo-600 dark:text-indigo-400">Patient Admitted to Hospital</p>
-                                                <p className="text-gray-400">{new Date(selectedReferral.admitted_at).toLocaleString()}</p>
-                                            </div>
-                                        )}
-                                        {selectedReferral.discharged_at && (
-                                            <div>
-                                                <p className="font-bold text-emerald-600 dark:text-emerald-400">Patient Discharged</p>
-                                                <p className="text-gray-400">{new Date(selectedReferral.discharged_at).toLocaleString()}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-6 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-3 bg-gray-50 dark:bg-gray-800/40">
-                                {selectedReferral.status === 'discharged' && selectedReferral.discharge_summary && (
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => {
-                                            const ref = selectedReferral;
-                                            setSelectedReferral(null);
-                                            setDischargeModalReferral(ref);
-                                        }}
-                                        className="text-xs font-bold rounded-xl"
-                                    >
-                                        <FileText className="w-3.5 h-3.5 mr-1 text-emerald-600" /> View Discharge Summary
-                                    </Button>
-                                )}
-                                <Button onClick={() => setSelectedReferral(null)} className="rounded-xl text-xs font-bold">
-                                    Close
-                                </Button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Discharge Summary Modal */}
-            <AnimatePresence>
-                {dischargeModalReferral && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-lg shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden"
-                        >
-                            <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-emerald-50/50 dark:bg-emerald-950/20">
-                                <div className="flex items-center gap-2">
-                                    <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-                                    <div>
-                                        <h3 className="font-extrabold text-lg text-gray-900 dark:text-white">
-                                            Discharge Summary
-                                        </h3>
-                                        <p className="text-xs text-gray-500">
-                                            {dischargeModalReferral.patient?.name} • {dischargeModalReferral.hospital?.name}
-                                        </p>
-                                    </div>
-                                </div>
-                                <button onClick={() => setDischargeModalReferral(null)} className="text-gray-400 hover:text-gray-600">
-                                    <XCircle className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div className="p-6 space-y-4 text-sm">
-                                <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 space-y-2">
-                                    <div className="flex justify-between text-xs text-gray-500">
-                                        <span>Discharge Date:</span>
-                                        <span className="font-bold text-gray-700 dark:text-gray-200">
-                                            {dischargeModalReferral.discharged_at ? new Date(dischargeModalReferral.discharged_at).toLocaleString() : 'N/A'}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between text-xs text-gray-500">
-                                        <span>Admitting Hospital:</span>
-                                        <span className="font-bold text-gray-700 dark:text-gray-200">
-                                            {dischargeModalReferral.hospital?.name}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
-                                        Clinical Discharge Notes
-                                    </label>
-                                    <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
-                                        {dischargeModalReferral.discharge_summary || 'No discharge summary notes provided.'}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-6 border-t border-gray-100 dark:border-gray-800 flex justify-end">
-                                <Button onClick={() => setDischargeModalReferral(null)} className="rounded-xl text-xs font-bold">
-                                    Close Summary
-                                </Button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Cancel Confirmation Dialog */}
-            <AnimatePresence>
-                {cancellingReferral && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 p-6 space-y-4"
-                        >
-                            <div className="flex items-center gap-3 text-red-600">
-                                <div className="w-10 h-10 rounded-2xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center shrink-0">
-                                    <Ban className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-extrabold text-lg text-gray-900 dark:text-white">
-                                        Cancel Referral?
-                                    </h3>
-                                    <p className="text-xs text-gray-500">
-                                        REF-{cancellingReferral.id.slice(0, 8).toUpperCase()}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                                Are you sure you want to cancel the referral for <strong>{cancellingReferral.patient?.name}</strong> to <strong>{cancellingReferral.hospital?.name}</strong>? This action cannot be undone once confirmed.
-                            </p>
-
-                            <div className="flex justify-end gap-3 pt-2">
-                                <Button variant="outline" size="sm" onClick={() => setCancellingReferral(null)} disabled={isCancelling}>
-                                    Keep Referral
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    onClick={handleCancelReferral}
-                                    disabled={isCancelling}
-                                    className="bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold"
-                                >
-                                    {isCancelling ? 'Cancelling...' : 'Confirm Cancellation'}
-                                </Button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+function MetricCard({ label, value, color }: { label: string; value: number; color: string }) {
+    return (
+        <div className={`rounded-xl border p-3 text-center transition-all ${color}`}>
+            <p className="text-2xl font-bold">{value}</p>
+            <p className="mt-0.5 text-xs font-medium opacity-75">{label}</p>
         </div>
     );
 }
 
+function ClinicReferralsContent() {
+    const toast = useToast();
+    const searchParams = useSearchParams();
+    const initialSelectedId = searchParams.get('selectedId');
 
-import { ReferralInbox } from '@/components/referrals/ReferralInbox';
-import { ReferralSent } from '@/components/referrals/ReferralSent';
+    const [inbox, setInbox] = useState<UniversalReferral[]>([]);
+    const [sent, setSent] = useState<UniversalReferral[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-export default function ReferralsWrapperPage() {
-    const [activeTab, setActiveTab] = useState<'legacy' | 'universal_inbox' | 'universal_sent'>('universal_inbox');
+    const [activeTab, setActiveTab] = useState<ViewTab>('all');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
+    const [selectedIsSent, setSelectedIsSent] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const [inboxRes, sentRes] = await Promise.all([
+                api.universalReferrals.getReferralInbox({}),
+                api.universalReferrals.getSentReferrals({}),
+            ]);
+            setInbox((inboxRes.data as unknown as UniversalReferral[]) || []);
+            setSent((sentRes.data as unknown as UniversalReferral[]) || []);
+        } catch (err: any) {
+            setError(err.message || 'Failed to load referrals');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { loadData(); }, [loadData]);
+
+    useEffect(() => {
+        if (initialSelectedId) {
+            setSelectedId(initialSelectedId);
+        }
+    }, [initialSelectedId]);
+
+    const allReferrals = useMemo(() => {
+        const seenIds = new Set<string>();
+        const merged: (UniversalReferral & { _direction: 'incoming' | 'outgoing' })[] = [];
+        for (const r of [...inbox.map(r => ({ ...r, _direction: 'incoming' as const })), ...sent.map(r => ({ ...r, _direction: 'outgoing' as const }))]) {
+            if (!seenIds.has(r.id)) {
+                seenIds.add(r.id);
+                merged.push(r);
+            }
+        }
+        return merged.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    }, [inbox, sent]);
+
+    const stats = useMemo(() => ({
+        incoming: inbox.length,
+        outgoing: sent.length,
+        pending: allReferrals.filter(r => r.status === 'pending').length,
+        accepted: allReferrals.filter(r => r.status === 'accepted').length,
+        inProgress: allReferrals.filter(r => r.status === 'in_progress').length,
+        completed: allReferrals.filter(r => r.status === 'completed').length,
+        emergency: allReferrals.filter(r => r.urgency === 'emergency').length,
+    }), [allReferrals, inbox, sent]);
+
+    const displayedReferrals = useMemo(() => {
+        let list = allReferrals;
+        if (activeTab === 'incoming') list = allReferrals.filter(r => r._direction === 'incoming');
+        else if (activeTab === 'outgoing') list = allReferrals.filter(r => r._direction === 'outgoing');
+        else if (activeTab === 'pending') list = allReferrals.filter(r => r.status === 'pending');
+        else if (activeTab === 'accepted') list = allReferrals.filter(r => r.status === 'accepted');
+        else if (activeTab === 'in_progress') list = allReferrals.filter(r => r.status === 'in_progress');
+        else if (activeTab === 'completed') list = allReferrals.filter(r => r.status === 'completed');
+        else if (activeTab === 'rejected') list = allReferrals.filter(r => r.status === 'rejected' || r.status === 'cancelled');
+
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            list = list.filter(r =>
+                r.patient?.full_name?.toLowerCase().includes(q) ||
+                (r.patient as any)?.name?.toLowerCase().includes(q) ||
+                (r.sender_snapshot_name || r.sender_snapshot?.name || '')?.toLowerCase().includes(q) ||
+                (r.receiver_snapshot_name || r.receiver_snapshot?.name || '')?.toLowerCase().includes(q) ||
+                r.reason?.toLowerCase().includes(q) ||
+                r.clinical_summary?.toLowerCase().includes(q) ||
+                r.id?.toLowerCase().includes(q)
+            );
+        }
+        return list;
+    }, [allReferrals, activeTab, searchQuery]);
+
+    const tabs: { key: ViewTab; label: string; count?: number }[] = [
+        { key: 'all', label: 'All', count: allReferrals.length },
+        { key: 'incoming', label: 'Incoming', count: stats.incoming },
+        { key: 'outgoing', label: 'Outgoing', count: stats.outgoing },
+        { key: 'pending', label: 'Pending', count: stats.pending },
+        { key: 'accepted', label: 'Accepted', count: stats.accepted },
+        { key: 'in_progress', label: 'In Progress', count: stats.inProgress },
+        { key: 'completed', label: 'Completed', count: stats.completed },
+        { key: 'rejected', label: 'Rejected', count: allReferrals.filter(r => r.status === 'rejected' || r.status === 'cancelled').length },
+    ];
+
+    const openDetail = (ref: UniversalReferral & { _direction: 'incoming' | 'outgoing' }) => {
+        setSelectedId(ref.id);
+        setSelectedIsSent(ref._direction === 'outgoing');
+    };
 
     return (
-        <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Referrals Center</h1>
-                <div className="flex gap-4 mt-4">
-                    <button 
-                        onClick={() => setActiveTab('legacy')}
-                        className={`font-medium text-sm px-4 py-2 ${activeTab === 'legacy' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400'}`}
+        <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
+            {/* Header */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
+                        <Share2 className="h-7 w-7 text-emerald-600" />
+                        Clinic Referrals
+                    </h1>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Manage inbound specialist evaluations, diagnostic testing, hospital transfers, and outbound patient care pathways.
+                    </p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={loadData}
+                        disabled={loading}
+                        leftIcon={<RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />}
                     >
-                        Legacy Hospital Referrals
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('universal_inbox')}
-                        className={`font-medium text-sm px-4 py-2 ${activeTab === 'universal_inbox' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400'}`}
+                        Refresh
+                    </Button>
+                    <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => setShowCreateModal(true)}
+                        leftIcon={<Plus className="h-4 w-4" />}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
                     >
-                        Universal Inbox
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('universal_sent')}
-                        className={`font-medium text-sm px-4 py-2 ${activeTab === 'universal_sent' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400'}`}
-                    >
-                        Universal Sent
-                    </button>
+                        Create Referral
+                    </Button>
                 </div>
             </div>
 
-            <div className="flex-1 p-6 overflow-auto">
-                {activeTab === 'legacy' && <LegacyClinicHospitalReferralsPage />}
-                {activeTab === 'universal_inbox' && <ReferralInbox />}
-                {activeTab === 'universal_sent' && <ReferralSent />}
+            {/* Metrics */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <MetricCard label="Incoming" value={stats.incoming} color="border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-300" />
+                <MetricCard label="Outgoing" value={stats.outgoing} color="border-purple-200 bg-purple-50 text-purple-800 dark:border-purple-900/40 dark:bg-purple-950/30 dark:text-purple-300" />
+                <MetricCard label="Pending" value={stats.pending} color="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300" />
+                <MetricCard label="Accepted" value={stats.accepted} color="border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-300" />
+                <MetricCard label="In Progress" value={stats.inProgress} color="border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-900/40 dark:bg-indigo-950/30 dark:text-indigo-300" />
+                <MetricCard label="Completed" value={stats.completed} color="border-green-200 bg-green-50 text-green-800 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-300" />
             </div>
+
+            {/* Main Content Card */}
+            <Card className="overflow-hidden border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                {/* Tabs & Search */}
+                <div className="border-b border-gray-200 p-4 dark:border-gray-800 space-y-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-wrap gap-1.5">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => setActiveTab(tab.key)}
+                                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                                        activeTab === tab.key
+                                            ? 'bg-emerald-600 text-white shadow-sm'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                                    }`}
+                                >
+                                    <span>{tab.label}</span>
+                                    {typeof tab.count === 'number' && (
+                                        <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                                            activeTab === tab.key ? 'bg-emerald-700 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                        }`}>
+                                            {tab.count}
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Search clinic referrals..."
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                className="w-full rounded-lg border border-gray-300 bg-gray-50 py-1.5 pl-8 pr-3 text-xs text-gray-900 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Body */}
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center p-12 text-gray-500 dark:text-gray-400">
+                        <Loader2 className="h-8 w-8 animate-spin text-emerald-600 mb-3" />
+                        <p className="text-sm font-medium">Loading clinic referrals...</p>
+                    </div>
+                ) : error ? (
+                    <div className="flex flex-col items-center justify-center p-12 text-red-600 dark:text-red-400">
+                        <AlertCircle className="h-8 w-8 mb-3" />
+                        <p className="text-sm font-medium">{error}</p>
+                        <Button variant="outline" size="sm" onClick={loadData} className="mt-3">Try Again</Button>
+                    </div>
+                ) : displayedReferrals.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-12 text-center text-gray-500 dark:text-gray-400">
+                        <Share2 className="h-10 w-10 text-gray-400 mb-3 opacity-60" />
+                        <p className="text-base font-semibold text-gray-900 dark:text-white">No referrals found</p>
+                        <p className="mt-1 text-xs text-gray-500 max-w-sm">
+                            {searchQuery ? `No referrals matched "${searchQuery}".` : 'No referrals currently match this view.'}
+                        </p>
+                        {!searchQuery && (
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => setShowCreateModal(true)}
+                                leftIcon={<Plus className="h-3.5 w-3.5" />}
+                                className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                                Create First Referral
+                            </Button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {displayedReferrals.map(ref => {
+                            const isIncoming = ref._direction === 'incoming';
+                            const counterpart = isIncoming 
+                                ? (ref.sender_snapshot_name || ref.sender_snapshot?.name || ref.sender_type)
+                                : (ref.receiver_snapshot_name || ref.receiver_snapshot?.name || ref.receiver_type);
+
+                            return (
+                                <div
+                                    key={ref.id}
+                                    onClick={() => openDetail(ref)}
+                                    className="flex flex-col gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer sm:flex-row sm:items-center sm:justify-between transition-colors"
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${
+                                            isIncoming ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400'
+                                        }`}>
+                                            {isIncoming ? <ArrowLeft className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="font-semibold text-gray-900 dark:text-white text-sm">
+                                                    {ref.patient?.full_name || (ref.patient as any)?.name || 'Unknown Patient'}
+                                                </span>
+                                                <span className="font-mono text-xs text-gray-400">
+                                                    #{shortId(ref.id)}
+                                                </span>
+                                                <UrgencyBadge urgency={ref.urgency} />
+                                                <StatusBadge status={ref.status} />
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                                                <span className="flex items-center gap-1">
+                                                    <Building2 className="h-3 w-3 text-gray-400" />
+                                                    {isIncoming ? 'From:' : 'To:'} <strong className="text-gray-700 dark:text-gray-300">{counterpart}</strong>
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <Clock className="h-3 w-3 text-gray-400" />
+                                                    {formatDate(ref.created_at)}
+                                                </span>
+                                            </div>
+                                            {ref.reason && (
+                                                <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-1 mt-0.5">
+                                                    Reason: {ref.reason}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 self-end sm:self-center">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                openDetail(ref);
+                                            }}
+                                            rightIcon={<ChevronRight className="h-3.5 w-3.5" />}
+                                            className="text-xs"
+                                        >
+                                            View Details
+                                        </Button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </Card>
+
+            {/* Details Drawer */}
+            <ReferralDetailsDrawer
+                id={selectedId}
+                isOpen={!!selectedId}
+                onClose={() => setSelectedId(null)}
+                isSent={selectedIsSent}
+                onStatusUpdated={() => {
+                    loadData();
+                    toast.success('Referral updated successfully');
+                }}
+            />
+
+            {/* Create Referral Modal */}
+            <CreateReferralModal
+                isOpen={showCreateModal}
+                onClose={() => setShowCreateModal(false)}
+                onSuccess={() => {
+                    setShowCreateModal(false);
+                    loadData();
+                    toast.success('Referral created successfully');
+                }}
+            />
         </div>
+    );
+}
+
+export default function ClinicReferralsPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex h-64 items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+            </div>
+        }>
+            <ClinicReferralsContent />
+        </Suspense>
     );
 }

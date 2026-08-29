@@ -208,7 +208,11 @@ export interface DoctorProfile {
     approval_status?: string;
     approval_block_reason?: string;
     practice_setup_type?: string;
+    onboarding_completed?: boolean;
     onboarding_completed_at?: string;
+    clinic_affiliations?: any[];
+    hospital_affiliations?: any[];
+    affiliations?: any[];
     degree_certificate_url?: string;
     license_document_url?: string;
     government_id_url?: string;
@@ -271,6 +275,83 @@ export interface ReviewMetrics {
     };
 }
 
+export interface IpdAdmission {
+    id: string;
+    admission_number: string;
+    hospital_id: string;
+    patient_id: string;
+    attending_doctor_id?: string;
+    admitting_doctor_id?: string;
+    ward_id?: string;
+    bed_id?: string;
+    admitted_at: string;
+    discharged_at?: string | null;
+    admission_type?: string;
+    status: string;
+    provisional_diagnosis?: string;
+    discharge_summary?: Record<string, unknown>;
+    patient?: {
+        id: string;
+        name: string;
+        age?: number;
+        date_of_birth?: string;
+        gender?: string;
+        phone?: string;
+        blood_group?: string;
+    };
+    hospital?: {
+        id?: string;
+        name: string;
+        city?: string;
+        address?: string;
+    };
+    ward?: {
+        id?: string;
+        name: string;
+        ward_type?: string;
+    };
+    bed?: {
+        id?: string;
+        bed_number: string;
+        bed_type?: string;
+    };
+    latest_round?: {
+        id: string;
+        round_date: string;
+        clinical_notes: string;
+        treatment_orders?: string;
+        discharge_recommended?: boolean;
+    } | null;
+}
+
+export interface RoundRecord {
+    id: string;
+    admission_id?: string;
+    round_date: string;
+    clinical_notes: string;
+    treatment_orders?: string;
+    dietary_instructions?: string;
+    discharge_recommended?: boolean;
+    discharge_notes?: string;
+    vitals_snapshot?: {
+        bp?: string;
+        pulse?: string;
+        spo2?: string;
+        temperature?: string;
+        blood_sugar?: string;
+    };
+    medication_changes?: Array<{
+        medicine_name: string;
+        dosage: string;
+        action: string;
+    }>;
+    doctor?: {
+        id: string;
+        name: string;
+        specialization?: string;
+    };
+}
+
 export interface DoctorState {
     stats: DoctorDashboardStats | null;
     doctorProfile: DoctorProfile | null;
@@ -289,6 +370,8 @@ export interface DoctorState {
     leaves: DoctorLeave[];
     organizations: DoctorOrganization[];
     organizationsError: boolean;
+    ipdAdmissions: IpdAdmission[];
+    hasHospitalAffiliation: boolean;
     isLoading: boolean;
     loadingDashboard: boolean;
     loadingAppointments: boolean;
@@ -300,7 +383,9 @@ export interface DoctorState {
     loadingVitals: boolean;
     loadingReviews: boolean;
     loadingLeaves: boolean;
+    loadingIpd: boolean;
     error: string | null;
+    ipdError: string | null;
 
     // Pagination state
     appointmentsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
@@ -319,12 +404,15 @@ export interface DoctorState {
     fetchSchedule: () => Promise<void>;
     fetchOrganizations: () => Promise<void>;
     createSchedule: (data: Record<string, unknown>) => Promise<{ success: boolean; conflict?: ScheduleConflict[]; message?: string }>;
-    updateScheduleById: (scheduleId: string, data: Record<string, unknown>) => Promise<boolean>;
+    updateScheduleById: (scheduleId: string, data: Record<string, unknown>) => Promise<{ success: boolean; conflict?: ScheduleConflict[]; message?: string }>;
     disableSchedule: (scheduleId: string) => Promise<{ success: boolean; message?: string; disabled?: boolean; deleted?: boolean }>;
     fetchPrescriptions: (page?: number) => Promise<void>;
     fetchVitals: (page?: number, patientId?: string) => Promise<void>;
     fetchReviews: (page?: number) => Promise<void>;
     fetchLeaves: () => Promise<void>;
+    fetchIpdAdmissions: (filters?: Record<string, string>) => Promise<IpdAdmission[]>;
+    addDoctorIpdRound: (data: Record<string, unknown>) => Promise<{ success: boolean; round?: RoundRecord; error?: string }>;
+    fetchDoctorIpdRounds: (admissionId: string) => Promise<RoundRecord[]>;
     checkAffectedAppointments: (data: {
         start_date: string;
         end_date: string;
@@ -487,6 +575,8 @@ const doctorInitialState = {
     leaves: [] as DoctorLeave[],
     organizations: [] as DoctorOrganization[],
     organizationsError: false,
+    ipdAdmissions: [] as IpdAdmission[],
+    hasHospitalAffiliation: true,
     isLoading: false,
     loadingDashboard: false,
     loadingAppointments: false,
@@ -498,6 +588,8 @@ const doctorInitialState = {
     loadingVitals: false,
     loadingReviews: false,
     loadingLeaves: false,
+    loadingIpd: false,
+    ipdError: null as string | null,
     appointmentsPagination: { ...defaultPagination },
     prescriptionsPagination: { ...defaultPagination },
     vitalsPagination: { ...defaultPagination },
@@ -785,14 +877,19 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
             const response = await doctorApi.updateScheduleById(scheduleId, data);
             if (response.success) {
                 await get().fetchSchedule();
-                return true;
+                return { success: true };
+            }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const conflicts = (response as any)?.details?.conflicts as ScheduleConflict[] | undefined;
+            if (conflicts && conflicts.length > 0) {
+                return { success: false, conflict: conflicts, message: response.error };
             }
             set({ error: response.error || 'Failed to update schedule' });
-            return false;
+            return { success: false, message: response.error };
         } catch (error) {
             console.error('Error updating schedule:', error);
             set({ error: 'Failed to update schedule.' });
-            return false;
+            return { success: false, message: 'Failed to update schedule.' };
         }
     },
 
@@ -1157,6 +1254,66 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         } catch (error) {
             console.error('Error updating availability:', error);
             return false;
+        }
+    },
+
+    fetchIpdAdmissions: async (filters = {}) => {
+        set({ loadingIpd: true, ipdError: null });
+        try {
+            const response = await doctorApi.getDoctorIpdAdmissions(filters);
+            if (response.success) {
+                const admissions = (response.admissions || []) as IpdAdmission[];
+                const hasAffiliation = response.hasHospitalAffiliation !== undefined
+                    ? Boolean(response.hasHospitalAffiliation)
+                    : true;
+                set({
+                    ipdAdmissions: admissions,
+                    hasHospitalAffiliation: hasAffiliation,
+                    loadingIpd: false,
+                    ipdError: null,
+                });
+                return admissions;
+            } else {
+                set({
+                    loadingIpd: false,
+                    ipdError: response.error || 'Failed to load IPD admissions',
+                });
+                return [];
+            }
+        } catch (error: any) {
+            console.error('Error fetching IPD admissions:', error);
+            set({
+                loadingIpd: false,
+                ipdError: error?.message || 'Failed to connect to IPD service',
+            });
+            return [];
+        }
+    },
+
+    addDoctorIpdRound: async (data) => {
+        try {
+            const response = await doctorApi.addDoctorIpdRound(data);
+            if (response.success) {
+                // Refresh admissions list to update latest round
+                get().fetchIpdAdmissions();
+                return { success: true, round: response.round as RoundRecord };
+            }
+            return { success: false, error: response.error || 'Failed to log ward round' };
+        } catch (error: any) {
+            return { success: false, error: error?.message || 'Failed to log ward round' };
+        }
+    },
+
+    fetchDoctorIpdRounds: async (admissionId: string) => {
+        try {
+            const response = await doctorApi.getDoctorIpdRounds(admissionId);
+            if (response.success && response.rounds) {
+                return response.rounds as RoundRecord[];
+            }
+            return [];
+        } catch (error) {
+            console.error('Failed to fetch rounds history:', error);
+            return [];
         }
     },
 }));

@@ -28,8 +28,10 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAuthStore } from '@/stores/authStore';
+import { useClinicStore } from '@/stores/clinicStore';
 import { clinicApi } from '@/lib/api';
 import { getResubmissionSuccessMessage, refreshAuthenticatedUser } from '@/lib/authSession';
+import { ClinicProfileCompletionCard } from '@/components/clinic/ClinicProfileCompletionCard';
 import { ProfileSection } from './_components/ProfileSection';
 import { OrganizationSection } from './_components/OrganizationSection';
 import { LocationSection } from './_components/LocationSection';
@@ -160,11 +162,13 @@ export default function ClinicSettingsPage() {
     const [activeCategory, setActiveCategory] = useState<SettingsCategory>('overview');
     const [dirtySections, setDirtySections] = useState<Record<string, boolean>>({});
     const [pendingSwitchCategory, setPendingSwitchCategory] = useState<SettingsCategory | null>(null);
+    const { fetchProfileCompletion } = useClinicStore();
 
     const fetchProfile = useCallback(async () => {
         setIsLoading(true);
         setLoadError(null);
         try {
+            void fetchProfileCompletion();
             const res = await clinicApi.getProfile();
             if (!res.success) {
                 setLoadError(res.error || 'Failed to load clinic profile');
@@ -178,7 +182,7 @@ export default function ClinicSettingsPage() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [fetchProfileCompletion]);
 
     useEffect(() => {
         void fetchProfile();
@@ -201,6 +205,7 @@ export default function ClinicSettingsPage() {
                     : fallbackData?.clinic || fallbackData?.profile || fallbackData;
                 const next = normalizeClinicProfile(raw as Record<string, unknown> | null);
                 if (next) setClinic(next);
+                void fetchProfileCompletion();
                 return {
                     ok: true,
                     message: getResubmissionSuccessMessage(
@@ -427,20 +432,16 @@ export default function ClinicSettingsPage() {
                         {/* ── OVERVIEW HUB ── */}
                         {activeCategory === 'overview' && (
                             <div className="space-y-6">
-                                <div className="p-5 rounded-2xl bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-950/20 dark:to-purple-950/20 border border-pink-100 dark:border-pink-900/30 flex items-center justify-between">
-                                    <div className="space-y-1">
-                                        <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                            <Sparkles className="h-4 w-4 text-pink-600" />
-                                            Clinic Configuration Status
-                                        </h2>
-                                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                                            Select a category to view and customize specific operational preferences.
-                                        </p>
-                                    </div>
-                                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white dark:bg-gray-800 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-800/40 shadow-sm">
-                                        {clinic?.name || 'Clinic Account'}
-                                    </span>
-                                </div>
+                                <ClinicProfileCompletionCard
+                                    variant="settings"
+                                    clinicName={clinic?.name}
+                                    onSectionClick={(sectionId) => {
+                                        if (sectionId === 'general_profile') handleCategoryClick('general');
+                                        else if (sectionId === 'clinical_setup') handleCategoryClick('clinical');
+                                        else if (sectionId === 'working_hours') handleCategoryClick('schedule');
+                                        else if (sectionId === 'verification_legal') handleCategoryClick('security');
+                                    }}
+                                />
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {/* General Overview Card */}

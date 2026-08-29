@@ -253,26 +253,26 @@ const getConsultationHistory = async (userId, role, page = 1, limit = 10) => {
 };
 
 
-const checkTimeBounds = (appointmentDate, timeSlot) => {
-  if (!appointmentDate || !timeSlot) return true;
-  const slotDateStr = `${appointmentDate}T${timeSlot.padStart(5, '0')}:00+05:30`;
-  const slotTimeMs = Date.parse(slotDateStr);
-  if (isNaN(slotTimeMs)) return true;
-  
-  const diffMins = (Date.now() - slotTimeMs) / 60000;
-  return diffMins >= -15 && diffMins <= 60;
-};
+const { checkAppointmentStartEligibility } = require('../utils/appointmentTiming');
 
 // Start consultation (doctor) — C7 Fix: atomic via RPC
 const startConsultation = async (doctorUserId, appointmentId) => {
-  const { data: appointment } = await supabaseAdmin
+  const { data: appointment, error: aptError } = await supabaseAdmin
     .from('appointments')
-    .select('appointment_date, time_slot')
+    .select('id, appointment_date, time_slot, status')
     .eq('id', appointmentId)
     .single();
 
-  if (appointment && !checkTimeBounds(appointment.appointment_date, appointment.time_slot)) {
-    throw new ApiError(403, 'Consultation can only be started 15 minutes before and up to 1 hour after the scheduled time.');
+  if (aptError || !appointment) {
+    throw new ApiError(404, 'Appointment not found');
+  }
+
+  const eligibility = checkAppointmentStartEligibility(appointment);
+  if (!eligibility.canStart) {
+    if (eligibility.code === 'APPOINTMENT_COMPLETED' || eligibility.code === 'APPOINTMENT_CANCELLED') {
+      throw new ApiError(400, eligibility.reason);
+    }
+    throw new ApiError(409, eligibility.reason);
   }
 
   const { data: doctor } = await supabaseAdmin

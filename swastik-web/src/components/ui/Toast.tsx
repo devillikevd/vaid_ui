@@ -463,8 +463,17 @@ export function NotificationPanel({
                                                 return (
                                                     <div 
                                                         key={n.id || i}
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        aria-label={`Notification: ${n.title}`}
                                                         onClick={() => onNotificationClick?.(n)}
-                                                        className={`relative p-3 rounded-xl cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 border ${
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                                e.preventDefault();
+                                                                onNotificationClick?.(n);
+                                                            }
+                                                        }}
+                                                        className={`relative p-3 rounded-xl cursor-pointer group transition-all duration-200 hover:-translate-y-0.5 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 ${
                                                             isUnread 
                                                             ? 'bg-emerald-50 dark:bg-[#151B2E] hover:bg-emerald-100 dark:hover:bg-[#1A2136] border-emerald-100 dark:border-gray-800/80 shadow-md' 
                                                             : 'bg-transparent hover:bg-gray-50 dark:hover:bg-gray-900/50 border-transparent'

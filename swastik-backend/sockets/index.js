@@ -307,13 +307,20 @@ const initializeSocketIO = (io) => {
         return next(new Error('Query token authentication is not allowed'));
       }
       let token = socket.handshake.auth?.token;
+      if (token && typeof token === 'string') {
+        token = token.replace(/^Bearer\s+/i, '').replace(/^"|"$/g, '').trim();
+      }
       
       // Fallback to cookie authentication if HttpOnly cookies are used
       if (!token && socket.request.headers.cookie) {
           const cookieHeader = socket.request.headers.cookie;
-          const match = cookieHeader.match(/(?:^|;\s*)accessToken=([^;]*)/);
+          const match = cookieHeader.match(/(?:^|;\s*)(?:accessToken|swastik-token)=([^;]*)/);
           if (match && match[1]) {
-              token = match[1];
+              try {
+                token = decodeURIComponent(match[1]).replace(/^"|"$/g, '').trim();
+              } catch {
+                token = match[1].replace(/^"|"$/g, '').trim();
+              }
           }
       }
 

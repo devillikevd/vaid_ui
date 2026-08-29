@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { doctorApi } from '@/lib/api';
-import { formatDoctorName, formatCurrency } from '@/lib/utils';
+import { formatDoctorName, formatDoctorFirstName, formatCurrency } from '@/lib/utils';
 import { 
     Loader2, Heart, Users, CalendarCheck, TrendingUp, Star, ArrowLeft, 
     Stethoscope, Award, Trophy, UserPlus, Target, Activity, Flame 
@@ -152,7 +152,7 @@ export default function DoctorJourneyPage() {
                 >
                     <Heart className="h-16 w-16 text-emerald-500 mx-auto mb-6 filter drop-shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-pulse" />
                     <h1 className="text-4xl md:text-6xl font-black mb-6 tracking-tight text-gray-900 dark:text-white">
-                        Hello, <span className="text-emerald-600 dark:text-emerald-400">{formatDoctorName(user?.name) || 'Doctor'}</span>
+                        Hello, <span className="text-emerald-600 dark:text-emerald-400">{formatDoctorFirstName(user?.name) || 'Doctor'}</span>
                     </h1>
                     <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 font-light leading-relaxed mb-4">
                         Your incredible journey with Vaididea started in <strong className="font-semibold text-gray-900 dark:text-white">{joinDate}</strong>.

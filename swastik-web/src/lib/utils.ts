@@ -122,12 +122,126 @@ export const ROLE_THEME_COLORS: Record<string, { primary: string; bg: string; ho
     ambulance_operator: { primary: '#dc2626', bg: 'bg-red-600', hover: 'hover:bg-red-700' },
 };
 
-export function formatDoctorName(name: string | undefined | null): string {
+export function formatDoctorName(name: string | undefined | null, firstNameOnly: boolean = false): string {
     if (!name) return '';
-    const trimmed = name.trim();
-    const lower = trimmed.toLowerCase();
-    if (lower.startsWith('dr.') || lower.startsWith('dr ')) {
-        return trimmed;
+    let trimmed = name.trim();
+    if (/^dr\.?\s+/i.test(trimmed)) {
+        trimmed = trimmed.replace(/^dr\.?\s+/i, '').trim();
     }
+    if (firstNameOnly) {
+        trimmed = trimmed.split(/\s+/)[0] || '';
+    }
+    if (!trimmed) return '';
     return `Dr. ${trimmed}`;
+}
+
+export function formatDoctorFirstName(name: string | undefined | null): string {
+    return formatDoctorName(name, true);
+}
+
+export interface AppointmentStartTimingInfo {
+    canStart: boolean;
+    label: string;
+    isFarFuture: boolean;
+    isOverdue: boolean;
+    diffMinutes: number;
+    scheduledStartMs: number | null;
+}
+
+/**
+ * Parse an appointment date and time slot into milliseconds in IST (+05:30).
+ * Handles formats: 'YYYY-MM-DD', 'YYYY-MM-DDT...', 'HH:MM', 'HH:MM:SS', 'HH:MM - HH:MM'.
+ */
+export function parseAppointmentDateTimeMs(
+    dateStr?: string,
+    timeStr?: string
+): number | null {
+    if (!timeStr || !dateStr) return null;
+
+    const datePart = typeof dateStr === 'string' && dateStr.includes('T')
+        ? dateStr.split('T')[0]
+        : String(dateStr).trim();
+
+    // Extract HH:MM from start of timeStr string
+    const timeMatch = String(timeStr).match(/^(\d{1,2}):(\d{2})/);
+    if (!timeMatch) return null;
+
+    const hours = timeMatch[1].padStart(2, '0');
+    const minutes = timeMatch[2];
+    const formattedTime = `${hours}:${minutes}`;
+
+    const istIsoStr = `${datePart}T${formattedTime}:00+05:30`;
+    const ms = Date.parse(istIsoStr);
+    return Number.isNaN(ms) ? null : ms;
+}
+
+/**
+ * Check whether an appointment's scheduled time has already passed in IST (+05:30).
+ * Returns true ONLY when nowMs > scheduledStartMs.
+ * Returns false for future appointments, exact time, or when timing is unspecified.
+ */
+export function isAppointmentTimePast(
+    dateStr?: string,
+    timeStr?: string,
+    nowMs: number = Date.now()
+): boolean {
+    const scheduledStartMs = parseAppointmentDateTimeMs(dateStr, timeStr);
+    if (!scheduledStartMs) return false;
+    return nowMs > scheduledStartMs;
+}
+
+export function getAppointmentStartTimingInfo(
+    dateStr?: string,
+    timeStr?: string,
+    nowMs: number = Date.now()
+): AppointmentStartTimingInfo {
+    const scheduledStartMs = parseAppointmentDateTimeMs(dateStr, timeStr);
+    if (!scheduledStartMs) {
+        return { canStart: true, label: 'Start', isFarFuture: false, isOverdue: false, diffMinutes: 0, scheduledStartMs: null };
+    }
+
+    const tenMinutesBeforeMs = scheduledStartMs - 10 * 60 * 1000;
+    const sixtyMinutesAfterMs = scheduledStartMs + 60 * 60 * 1000;
+    const diffMinutes = Math.round((scheduledStartMs - nowMs) / (60 * 1000));
+
+    if (nowMs < tenMinutesBeforeMs) {
+        if (diffMinutes >= 60) {
+            const hours = Math.floor(diffMinutes / 60);
+            const mins = diffMinutes % 60;
+            return {
+                canStart: false,
+                label: `Starts in ${hours}h ${mins > 0 ? `${mins}m` : ''}`.trim(),
+                isFarFuture: true,
+                isOverdue: false,
+                diffMinutes,
+                scheduledStartMs,
+            };
+        }
+        return {
+            canStart: false,
+            label: `Starts in ${diffMinutes} min`,
+            isFarFuture: false,
+            isOverdue: false,
+            diffMinutes,
+            scheduledStartMs,
+        };
+    } else if (nowMs > sixtyMinutesAfterMs) {
+        return {
+            canStart: false,
+            label: 'Overdue',
+            isFarFuture: false,
+            isOverdue: true,
+            diffMinutes,
+            scheduledStartMs,
+        };
+    } else {
+        return {
+            canStart: true,
+            label: 'Ready to start',
+            isFarFuture: false,
+            isOverdue: false,
+            diffMinutes,
+            scheduledStartMs,
+        };
+    }
 }

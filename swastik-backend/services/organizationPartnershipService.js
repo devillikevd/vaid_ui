@@ -33,16 +33,22 @@ const buildOrgDetailsMap = async (orgsList) => {
     if (!ORG_TYPES[type] || ids.length === 0) continue;
     const uniqueIds = [...new Set(ids)];
     
-    // Depending on table, fetch standard identifying fields
-    // Hospitals/Clinics/Pharmacies/Diagnostics generally all have name, city, state, is_verified
+    let selectFields = 'id, name, city, state, address, image_url, phone, rating';
+    if (type === 'pharmacy') {
+      selectFields += ', is_verified, is_approved';
+    } else {
+      selectFields += ', is_approved';
+    }
+
     const { data } = await supabaseAdmin
       .from(ORG_TYPES[type].table)
-      .select('id, name, city, state, is_verified, address, image_url')
+      .select(selectFields)
       .in('id', uniqueIds);
       
     if (data) {
       data.forEach(item => {
-        map.set(`${type}_${item.id}`, { ...item, type, typeLabel: ORG_TYPES[type].label });
+        const isVerified = item.is_verified || item.is_approved || false;
+        map.set(`${type}_${item.id}`, { ...item, is_verified: isVerified, type, typeLabel: ORG_TYPES[type].label });
       });
     }
   }
@@ -85,7 +91,7 @@ const mapPartnershipRow = (row, orgId, orgType, orgDetailsMap) => {
 const getPartnerships = async ({ orgType, orgId, status }) => {
   assertOrgType(orgType);
   
-  // Query where the org is either org_a or org_b
+  // 1. Query organization_partnerships
   let query = supabaseAdmin
     .from('organization_partnerships')
     .select('*')
@@ -99,17 +105,80 @@ const getPartnerships = async ({ orgType, orgId, status }) => {
   const { data: rows, error } = await query;
   if (error) throw new ApiError(500, 'Error fetching partnerships');
 
-  // Collect partner IDs
-  const orgsToFetch = rows.map(r => {
+  // 2. Query facility_provider_invites where org is facility or provider
+  const inviteStatusFilter = status === 'active' ? ['accepted', 'active'] : status ? [status] : null;
+  let invitesQuery = supabaseAdmin
+    .from('facility_provider_invites')
+    .select('*')
+    .or(`and(facility_type.eq.${orgType},facility_id.eq.${orgId}),and(provider_type.eq.${orgType},provider_id.eq.${orgId})`)
+    .order('updated_at', { ascending: false });
+
+  if (inviteStatusFilter) {
+    invitesQuery = invitesQuery.in('status', inviteStatusFilter);
+  }
+
+  const { data: inviteRows } = await invitesQuery;
+
+  // Collect partner IDs to fetch from both tables
+  const orgsToFetch = [];
+  
+  (rows || []).forEach(r => {
     if (r.org_a_type === orgType && r.org_a_id === orgId) {
-      return { type: r.org_b_type, id: r.org_b_id };
+      orgsToFetch.push({ type: r.org_b_type, id: r.org_b_id });
+    } else {
+      orgsToFetch.push({ type: r.org_a_type, id: r.org_a_id });
     }
-    return { type: r.org_a_type, id: r.org_a_id };
+  });
+
+  (inviteRows || []).forEach(inv => {
+    if (inv.facility_type === orgType && inv.facility_id === orgId) {
+      orgsToFetch.push({ type: inv.provider_type, id: inv.provider_id });
+    } else {
+      orgsToFetch.push({ type: inv.facility_type, id: inv.facility_id });
+    }
   });
 
   const orgDetailsMap = await buildOrgDetailsMap(orgsToFetch);
   
-  return rows.map(row => mapPartnershipRow(row, orgId, orgType, orgDetailsMap));
+  const mappedOrgPartnerships = (rows || []).map(row => mapPartnershipRow(row, orgId, orgType, orgDetailsMap));
+
+  const mappedInvitePartnerships = (inviteRows || []).map(inv => {
+    const isFacility = inv.facility_type === orgType && inv.facility_id === orgId;
+    const partnerType = isFacility ? inv.provider_type : inv.facility_type;
+    const partnerId = isFacility ? inv.provider_id : inv.facility_id;
+    const partnerDetails = orgDetailsMap.get(`${partnerType}_${partnerId}`) || {
+      id: partnerId, type: partnerType, name: 'Unknown Organization'
+    };
+
+    return {
+      id: inv.id,
+      status: ['accepted', 'active'].includes(inv.status) ? 'active' : inv.status,
+      partnership_type: 'network_affiliation',
+      metadata: {},
+      created_at: inv.created_at,
+      updated_at: inv.updated_at,
+      accepted_at: inv.responded_at,
+      terminated_at: null,
+      is_initiator: isFacility,
+      initiator_type: inv.facility_type,
+      initiator_id: inv.facility_id,
+      partner: partnerDetails
+    };
+  });
+
+  // Merge and deduplicate by partner type & id
+  const merged = [];
+  const seenPartners = new Set();
+
+  for (const p of [...mappedOrgPartnerships, ...mappedInvitePartnerships]) {
+    const key = `${p.partner?.type}_${p.partner?.id}`;
+    if (!seenPartners.has(key)) {
+      seenPartners.add(key);
+      merged.push(p);
+    }
+  }
+
+  return merged;
 };
 
 const getPartnershipById = async (id, orgType, orgId) => {
@@ -161,31 +230,84 @@ const createPartnershipRequest = async ({ initiatorType, initiatorId, initiatorU
     }
   }
 
-  const { data: newRow, error: insertError } = await supabaseAdmin
-    .from('organization_partnerships')
-    .insert({
-      org_a_type: canonical.org_a_type,
-      org_a_id: canonical.org_a_id,
-      org_b_type: canonical.org_b_type,
-      org_b_id: canonical.org_b_id,
-      initiated_by_type: initiatorType,
-      initiated_by_id: initiatorId,
-      initiated_by_user_id: initiatorUserId,
-      status: 'pending',
-      partnership_type: partnershipType || null,
-      metadata
-    })
-    .select()
-    .single();
+  let finalRow;
+  const formerRow = existing && existing.find(e => ['terminated', 'rejected', 'cancelled'].includes(e.status));
 
-  if (insertError) {
-    console.error(insertError);
-    throw new ApiError(500, 'Failed to create partnership request');
+  if (formerRow) {
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('organization_partnerships')
+      .update({
+        status: 'pending',
+        initiated_by_type: initiatorType,
+        initiated_by_id: initiatorId,
+        initiated_by_user_id: initiatorUserId,
+        partnership_type: partnershipType || null,
+        metadata: { ...(formerRow.metadata || {}), ...metadata, reconnected_at: new Date().toISOString() },
+        updated_at: new Date().toISOString(),
+        accepted_at: null,
+        terminated_at: null
+      })
+      .eq('id', formerRow.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error(updateError);
+      throw new ApiError(500, 'Failed to request partnership reconnection');
+    }
+    finalRow = updated;
+  } else {
+    const { data: newRow, error: insertError } = await supabaseAdmin
+      .from('organization_partnerships')
+      .insert({
+        org_a_type: canonical.org_a_type,
+        org_a_id: canonical.org_a_id,
+        org_b_type: canonical.org_b_type,
+        org_b_id: canonical.org_b_id,
+        initiated_by_type: initiatorType,
+        initiated_by_id: initiatorId,
+        initiated_by_user_id: initiatorUserId,
+        status: 'pending',
+        partnership_type: partnershipType || null,
+        metadata
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error(insertError);
+      throw new ApiError(500, 'Failed to create partnership request');
+    }
+    finalRow = newRow;
   }
 
-  // TODO: Send Notification to target
+  // Notify target organization owner
+  try {
+    const { data: targetOrg } = await supabaseAdmin
+      .from(ORG_TYPES[targetType].table)
+      .select('owner_id, name')
+      .eq('id', targetId)
+      .maybeSingle();
+
+    if (targetOrg?.owner_id) {
+      const { data: initOrg } = await supabaseAdmin
+        .from(ORG_TYPES[initiatorType].table)
+        .select('name')
+        .eq('id', initiatorId)
+        .maybeSingle();
+
+      notificationService.notify(targetOrg.owner_id, {
+        type: 'PARTNERSHIP_INVITE_RECEIVED',
+        title: 'New Partnership Invitation',
+        message: `${initOrg?.name || 'A healthcare organization'} has invited you to connect for care coordination.`,
+        data: { partnershipId: finalRow.id, url: `/${targetType.replace('_', '-')}/network` }
+      }).catch(() => {});
+    }
+  } catch (notifErr) {
+    console.warn('[Partnership Invite Notification Failed]', notifErr.message);
+  }
   
-  return newRow;
+  return finalRow;
 };
 
 const updatePartnershipStatus = async (id, currentOrgType, currentOrgId, newStatus, additionalData = {}) => {
@@ -259,7 +381,7 @@ const terminatePartnership = async (id, currentOrgType, currentOrgId) => {
 const verifyActivePartnership = async (initiatorType, initiatorId, targetType, targetId) => {
   const canonical = getCanonicalOrder(initiatorType, initiatorId, targetType, targetId);
   
-  const { data, error } = await supabaseAdmin
+  const { data: orgPartnership } = await supabaseAdmin
     .from('organization_partnerships')
     .select('id, status, metadata')
     .eq('org_a_type', canonical.org_a_type)
@@ -267,13 +389,25 @@ const verifyActivePartnership = async (initiatorType, initiatorId, targetType, t
     .eq('org_b_type', canonical.org_b_type)
     .eq('org_b_id', canonical.org_b_id)
     .eq('status', 'active')
-    .single();
+    .maybeSingle();
     
-  if (error || !data) {
-    throw new ApiError(403, `Active partnership required between ${initiatorType} and ${targetType}`);
+  if (orgPartnership) {
+    return orgPartnership;
+  }
+
+  // Check facility_provider_invites (e.g. hospital/clinic with pharmacy/diagnostic)
+  const { data: facilityInvite } = await supabaseAdmin
+    .from('facility_provider_invites')
+    .select('id, status, facility_type, facility_id, provider_type, provider_id')
+    .or(`and(facility_type.eq.${initiatorType},facility_id.eq.${initiatorId},provider_type.eq.${targetType},provider_id.eq.${targetId}),and(facility_type.eq.${targetType},facility_id.eq.${targetId},provider_type.eq.${initiatorType},provider_id.eq.${initiatorId})`)
+    .in('status', ['accepted', 'active'])
+    .maybeSingle();
+
+  if (facilityInvite) {
+    return facilityInvite;
   }
   
-  return data;
+  throw new ApiError(403, `Active partnership required between ${initiatorType} and ${targetType}`);
 };
 
 module.exports = {

@@ -33,7 +33,7 @@ export default function PharmacyProfilePage() {
 
     useEffect(() => {
         if (user) loadProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
 
     if (isLoading) {
@@ -59,7 +59,7 @@ export default function PharmacyProfilePage() {
     const name = profile.name || user?.name || 'Unnamed Pharmacy';
     const email = profile.email || user?.email || 'No email provided';
     const profileImage = profile.profile_image_url || profile.image_url || null;
-    
+
     // Delivery & Operations mapping matching backend fields
     const is24Hours = Boolean(profile.is_24_hours || profile.is24Hours);
     const isOpen = profile.is_open !== false; // default true if not set
@@ -174,8 +174,8 @@ export default function PharmacyProfilePage() {
                                     <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Open 24 Hours</p>
                                 ) : (
                                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                        {profile.opening_time && profile.closing_time 
-                                            ? `${profile.opening_time} to ${profile.closing_time}` 
+                                        {profile.opening_time && profile.closing_time
+                                            ? `${profile.opening_time} to ${profile.closing_time}`
                                             : 'Hours not specified'}
                                     </p>
                                 )}
@@ -231,7 +231,7 @@ export default function PharmacyProfilePage() {
                                         )}
                                     </div>
                                 </div>
-                                
+
                                 <div className="p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
                                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Drug License (DL)</p>
                                     <div className="flex items-center justify-between">
@@ -245,13 +245,13 @@ export default function PharmacyProfilePage() {
                                         )}
                                     </div>
                                 </div>
-                                
+
                                 <div className="sm:col-span-2 p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
                                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">License Document</p>
                                     {profile.license_document_url || profile.licenseDocumentUrl ? (
-                                        <a 
-                                            href={profile.license_document_url || profile.licenseDocumentUrl} 
-                                            target="_blank" 
+                                        <a
+                                            href={profile.license_document_url || profile.licenseDocumentUrl}
+                                            target="_blank"
                                             rel="noreferrer"
                                             className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
                                         >

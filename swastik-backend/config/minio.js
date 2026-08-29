@@ -92,7 +92,6 @@ const getBucketAwarePublicBaseUrl = () => {
 
 const publicBaseUrl = getBucketAwarePublicBaseUrl();
 const buildObjectUrl = (objectName) => joinUrl(publicBaseUrl, objectName);
-
 const isAlreadySignedUrl = (fileUrl) => {
   try {
     const url = new URL(fileUrl);
@@ -107,7 +106,24 @@ const isAlreadySignedUrl = (fileUrl) => {
 };
 
 const isStorageObjectUrl = (fileUrl) => {
-  if (!fileUrl || typeof fileUrl !== 'string' || !/^https?:\/\//i.test(fileUrl)) {
+  if (!fileUrl || typeof fileUrl !== 'string') {
+    return false;
+  }
+
+  // Fast check: if already a signed URL, do not treat as raw unsigned object URL
+  if (isAlreadySignedUrl(fileUrl)) {
+    return false;
+  }
+
+  const knownPrefixes = Object.values(STORAGE_FOLDERS);
+  const trimmed = fileUrl.trim().replace(/^\/+/, '');
+  for (const prefix of knownPrefixes) {
+    if (trimmed.startsWith(`${prefix}/`)) {
+      return true;
+    }
+  }
+
+  if (!/^https?:\/\//i.test(fileUrl)) {
     return false;
   }
 
@@ -134,6 +150,23 @@ const isStorageObjectUrl = (fileUrl) => {
       return true;
     }
 
+    // Match S3 AWS domains or other storage providers
+    if (
+      url.hostname.includes('amazonaws.com') ||
+      url.hostname.includes('digitaloceanspaces.com') ||
+      url.hostname.includes('minio')
+    ) {
+      return true;
+    }
+
+    // Check if the URL path contains any known storage folder
+    const rawSegments = url.pathname.split('/').filter(Boolean);
+    for (const prefix of knownPrefixes) {
+      if (rawSegments.includes(prefix)) {
+        return true;
+      }
+    }
+
     return false;
   } catch {
     return false;
@@ -141,6 +174,18 @@ const isStorageObjectUrl = (fileUrl) => {
 };
 
 const extractObjectNameFromUrl = (fileUrl) => {
+  if (!fileUrl || typeof fileUrl !== 'string') return null;
+
+  const trimmed = fileUrl.trim().replace(/^\/+/, '');
+  const knownPrefixes = Object.values(STORAGE_FOLDERS);
+
+  // If already an object path (e.g. reports/uuid/file.webp)
+  for (const prefix of knownPrefixes) {
+    if (trimmed.startsWith(`${prefix}/`)) {
+      return trimmed.split('?')[0];
+    }
+  }
+
   if (!isStorageObjectUrl(fileUrl)) return null;
 
   try {
@@ -149,6 +194,14 @@ const extractObjectNameFromUrl = (fileUrl) => {
     const bucketName = storageConfig.bucketName;
 
     if (!rawSegments.length) return null;
+
+    // Check if any segment is a known storage folder (e.g. reports, prescriptions, etc.)
+    for (const prefix of knownPrefixes) {
+      const folderIndex = rawSegments.findIndex((segment) => segment === prefix);
+      if (folderIndex >= 0) {
+        return rawSegments.slice(folderIndex).join('/');
+      }
+    }
 
     if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
       const bucketIndex = rawSegments.findIndex((segment) => segment === bucketName);
@@ -528,9 +581,7 @@ const uploadVoiceNote = async (file, userId) => {
 };
 
 const getPresignedUrl = async (objectName, expiry = storageConfig.signedUrlExpirySeconds || 3600) => {
-  if (!isStorageAvailable()) throw new Error('File storage is not available');
-
-  if (storageProvider === 's3') {
+  if (storageProvider === 's3' && s3Client) {
     return getSignedUrl(
       s3Client,
       new GetObjectCommand({
@@ -541,7 +592,11 @@ const getPresignedUrl = async (objectName, expiry = storageConfig.signedUrlExpir
     );
   }
 
-  return minioClient.presignedGetObject(storageConfig.bucketName, objectName, expiry);
+  if (minioClient) {
+    return minioClient.presignedGetObject(storageConfig.bucketName, objectName, expiry);
+  }
+
+  throw new Error('File storage client is not configured');
 };
 
 // ==================== Global Signed URL Cache ====================

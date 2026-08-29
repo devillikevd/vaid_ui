@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { ClinicDoctor } from '@/stores/clinicStore';
 import { Button } from '@/components/ui/Button';
+import { DoctorAvatar } from '@/components/shared/DoctorAvatar';
+import { formatDoctorDisplayName } from '@/components/clinic/EndAffiliationModal';
 
 interface DoctorDetailModalProps {
     isOpen: boolean;
@@ -50,22 +52,17 @@ export function DoctorDetailModal({ isOpen, onClose, doctor, onEndAffiliation }:
                     </button>
 
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mt-2">
-                        {doctor.profile_image_url ? (
-                            <img
-                                src={doctor.profile_image_url}
-                                alt={doctor.name}
-                                className="w-20 h-20 rounded-2xl object-cover border-2 border-white/40 shadow-md shrink-0"
-                            />
-                        ) : (
-                            <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-extrabold text-2xl border-2 border-white/40 shadow-md shrink-0">
-                                {doctor.name.replace('Dr. ', '').slice(0, 2).toUpperCase()}
-                            </div>
-                        )}
+                        <DoctorAvatar
+                            src={doctor.profile_image_url}
+                            name={doctor.name}
+                            className="w-20 h-20 rounded-2xl object-cover border-2 border-white/40 shadow-md shrink-0"
+                            fallbackClassName="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-extrabold text-2xl border-2 border-white/40 shadow-md shrink-0"
+                        />
 
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
                                 <h2 className="text-2xl font-extrabold tracking-tight text-white truncate">
-                                    {doctor.name.startsWith('Dr.') ? doctor.name : `Dr. ${doctor.name}`}
+                                    {formatDoctorDisplayName(doctor.name)}
                                 </h2>
                                 {doctor.is_approved && (
                                     <span className="inline-flex items-center gap-1 text-[11px] font-extrabold bg-emerald-500/30 text-white border border-white/30 px-2.5 py-0.5 rounded-full shadow-sm">
@@ -75,7 +72,7 @@ export function DoctorDetailModal({ isOpen, onClose, doctor, onEndAffiliation }:
                             </div>
 
                             <p className="text-emerald-100 font-medium text-sm flex items-center gap-2 flex-wrap">
-                                <span>{doctor.specialization}</span>
+                                <span>{doctor.specialization || 'Specialization not provided'}</span>
                                 {doctor.sub_specialization && <span>• {doctor.sub_specialization}</span>}
                                 {Boolean(doctor.experience_years && doctor.experience_years > 0) && <span>• {doctor.experience_years} yrs exp</span>}
                             </p>
@@ -149,12 +146,14 @@ export function DoctorDetailModal({ isOpen, onClose, doctor, onEndAffiliation }:
                                 <span className="ml-2 font-bold text-gray-900 dark:text-gray-100">{practiceTypeLabel}</span>
                             </div>
 
-                            {doctor.department && (
-                                <div>
-                                    <span className="text-gray-500 dark:text-gray-400">Department:</span>
-                                    <span className="ml-2 font-bold text-gray-900 dark:text-gray-100">{doctor.department}</span>
-                                </div>
-                            )}
+                            <div>
+                                <span className="text-gray-500 dark:text-gray-400">Departments:</span>
+                                <span className="ml-2 font-bold text-gray-900 dark:text-gray-100">
+                                    {Array.isArray(doctor.departments) && doctor.departments.length > 0
+                                        ? doctor.departments.map((d) => d.is_head ? `${d.name} (Head)` : d.name).join(', ')
+                                        : doctor.department || 'General / Unassigned'}
+                                </span>
+                            </div>
 
                             <div>
                                 <span className="text-gray-500 dark:text-gray-400">Consultation Modes:</span>

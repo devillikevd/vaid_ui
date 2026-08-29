@@ -30,6 +30,8 @@ export interface UniversalReferral {
     receiver_id: string;
     sender_snapshot: any;
     receiver_snapshot: any;
+    sender_snapshot_name?: string;
+    receiver_snapshot_name?: string;
     sender_user_id: string;
     sender_user_name_snapshot: string;
     reason: string;

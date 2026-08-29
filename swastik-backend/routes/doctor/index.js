@@ -64,7 +64,7 @@ router.get('/me/profile',
 // ── In-Patient (IPD) Admissions for Doctor ──
 const doctorIpdService = require('../../services/doctorIpdService');
 
-router.get('/me/ipd/admissions',
+router.get(['/me/ipd', '/me/ipd/admissions', '/me/ipd/patients'],
   authenticate,
   authorize('doctor'),
   asyncHandler(async (req, res) => {
@@ -95,7 +95,7 @@ router.get('/me/ipd/rounds/:admissionId',
     validate,
   ],
   asyncHandler(async (req, res) => {
-    const rounds = await doctorIpdService.getDoctorRounds(req.params.admissionId);
+    const rounds = await doctorIpdService.getDoctorRounds(req.user.id, req.params.admissionId);
     res.json({ success: true, rounds });
   })
 );
@@ -563,107 +563,6 @@ router.put('/me/availability',
   })
 );
 
-// Get schedule / slots
-router.get('/me/slots',
-  authenticate,
-  authorize('doctor'),
-  asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
-    const { data: doctor } = await supabaseAdmin
-      .from('doctors')
-      .select('id')
-      .eq('user_id', req.user.id)
-      .single();
-
-    if (!doctor) {
-      return res.status(404).json({ success: false, message: 'Doctor profile not found' });
-    }
-
-    const { data: slots, error } = await supabaseAdmin
-      .from('doctor_slots')
-      .select('*')
-      .eq('doctor_id', doctor.id)
-      .order('slot_date', { ascending: true });
-
-    if (error) throw error;
-
-    const { data: allAppointments, error: aptError } = await supabaseAdmin
-      .from('appointments')
-      .select('appointment_date, time_slot, patient_notes')
-      .eq('doctor_id', doctor.id)
-      .in('status', ['scheduled', 'confirmed', 'in_progress']);
-
-    if (aptError) throw aptError;
-
-    const blocked = [];
-    const booked = [];
-
-    (allAppointments || []).forEach(a => {
-      const time = a.time_slot.length > 5 ? a.time_slot.slice(0, 5) : a.time_slot;
-      const apt = { date: a.appointment_date, time };
-      if (a.patient_notes === 'BLOCKED_BY_DOCTOR') {
-        blocked.push(apt);
-      } else {
-        booked.push(apt);
-      }
-    });
-
-    res.json({ success: true, data: slots || [], blocked, booked });
-  })
-);
-
-// Toggle blocked slot
-router.post('/me/slots/block',
-  authenticate,
-  authorize('doctor'),
-  [
-    body('date').isDate().withMessage('Valid date is required'),
-    body('timeSlot').matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('Valid time slot (HH:MM) is required'),
-    body('action').isIn(['block', 'unblock']).withMessage('Action must be block or unblock'),
-  ],
-  validate,
-  asyncHandler(async (req, res) => {
-    const { date, timeSlot, action } = req.body;
-    const { supabaseAdmin } = require('../../config/supabase');
-    const { data: doctor } = await supabaseAdmin
-      .from('doctors')
-      .select('id')
-      .eq('user_id', req.user.id)
-      .single();
-
-    if (!doctor) {
-      return res.status(404).json({ success: false, message: 'Doctor profile not found' });
-    }
-
-    if (action === 'block') {
-      const { error } = await supabaseAdmin
-        .from('appointments')
-        .insert({
-          doctor_id: doctor.id,
-          patient_id: null,
-          appointment_date: date,
-          time_slot: timeSlot + ':00',
-          status: 'scheduled',
-          type: 'clinic',
-          patient_notes: 'BLOCKED_BY_DOCTOR'
-        });
-      if (error) throw error;
-    } else {
-      const { error } = await supabaseAdmin
-        .from('appointments')
-        .delete()
-        .eq('doctor_id', doctor.id)
-        .eq('appointment_date', date)
-        .eq('time_slot', timeSlot + ':00')
-        .eq('status', 'scheduled')
-        .eq('patient_notes', 'BLOCKED_BY_DOCTOR');
-      if (error) throw error;
-    }
-
-    res.json({ success: true, message: `Slot successfully ${action}ed` });
-  })
-);
-
 // Update slots
 router.put('/me/slots',
   authenticate,
@@ -694,6 +593,32 @@ router.get('/me/organizations',
   asyncHandler(async (req, res) => {
     const organizations = await doctorService.getMyOrganizations(req.user.id);
     res.json({ success: true, data: organizations });
+  })
+);
+
+// Get doctor schedule slots, blocked slots, and booked appointments
+router.get(['/me/slots', '/me/schedule'],
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.getSlots(req.user.id);
+    res.json({ success: true, ...result, data: result });
+  })
+);
+
+// Toggle manual slot block (block / unblock)
+router.post('/me/slots/block',
+  authenticate,
+  authorize('doctor'),
+  [
+    body('date').isString().withMessage('Valid date is required'),
+    body('timeSlot').isString().withMessage('Valid timeSlot is required'),
+    body('action').optional().isIn(['block', 'unblock']),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.toggleSlotBlock(req.user.id, req.body);
+    res.json({ success: true, ...result, data: result });
   })
 );
 
@@ -738,6 +663,9 @@ router.put('/me/schedules/:scheduleId',
     body('endTime').optional().isString(),
     body('slotDuration').optional().isInt(),
     body('bufferTime').optional().isInt(),
+    body('edit_series').optional().isBoolean(),
+    body('series_dates').optional().isArray(),
+    body('series_slot_ids').optional().isArray(),
   ],
   validate,
   asyncHandler(async (req, res) => {
@@ -1179,51 +1107,16 @@ router.get('/me/prescriptions',
   })
 );
 
-// Get active pharmacy partners for a prescription's organization (clinic or hospital)
+// Prescription Partner & Referral Endpoints
+const doctorPartnerService = require('../../services/doctorPartnerService');
+
+// Get active pharmacy partners for a prescription
 router.get('/prescriptions/:id/pharmacy-partners',
   authenticate,
   authorize('doctor'),
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
-    const organizationPartnershipService = require('../../services/organizationPartnershipService');
-    
-    // Validate doctor
-    const { data: doctor } = await supabaseAdmin
-      .from('doctors')
-      .select('id')
-      .eq('user_id', req.user.id)
-      .single();
-    if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found' });
-
-    // Find prescription and its org context
-    const { data: prescription, error } = await supabaseAdmin
-      .from('prescriptions')
-      .select(`
-        id, doctor_id,
-        consultations (
-          appointments ( clinic_id, hospital_id )
-        )
-      `)
-      .eq('id', req.params.id)
-      .single();
-    if (error || !prescription) return res.status(404).json({ success: false, message: 'Prescription not found' });
-    if (prescription.doctor_id !== doctor.id) return res.status(403).json({ success: false, message: 'Prescription does not belong to you' });
-
-    const clinicId = prescription.consultations?.appointments?.clinic_id;
-    const hospitalId = prescription.consultations?.appointments?.hospital_id;
-
-    let orgType, orgId;
-    if (clinicId) { orgType = 'clinic'; orgId = clinicId; }
-    else if (hospitalId) { orgType = 'hospital'; orgId = hospitalId; }
-    else return res.status(400).json({ success: false, message: 'Prescription has no clinic or hospital context' });
-
-    const partnerships = await organizationPartnershipService.getPartnerships({
-      orgType, orgId, status: 'active'
-    });
-    
-    // Filter only pharmacy partners
-    const pharmacyPartners = (partnerships || []).filter(p => p.partner?.type === 'pharmacy');
-    res.json({ success: true, data: pharmacyPartners });
+    const partners = await doctorPartnerService.getPrescriptionPharmacyPartners(req.user.id, req.params.id);
+    res.json({ success: true, data: partners, partners });
   })
 );
 
@@ -1232,57 +1125,87 @@ router.post('/prescriptions/:id/route-to-pharmacy',
   authenticate,
   authorize('doctor'),
   [
-    require('express-validator').body('pharmacyId').isUUID(),
-    require('express-validator').body('items').isArray(),
+    require('express-validator').body('pharmacyId').isUUID().withMessage('Valid pharmacyId is required'),
+    require('express-validator').body('items').isArray().withMessage('Items array is required'),
     require('../../middleware/validate').validate
   ],
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
-    const pharmacyService = require('../../services/pharmacyService');
-    
-    // Validate doctor
-    const { data: doctor } = await supabaseAdmin
-      .from('doctors')
-      .select('id')
-      .eq('user_id', req.user.id)
-      .single();
-    if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found' });
-
-    // Find prescription and its org context
-    const { data: prescription, error } = await supabaseAdmin
-      .from('prescriptions')
-      .select(`
-        id, doctor_id, patient_id,
-        consultations (
-          appointments ( clinic_id, hospital_id )
-        )
-      `)
-      .eq('id', req.params.id)
-      .single();
-      
-    if (error || !prescription) return res.status(404).json({ success: false, message: 'Prescription not found' });
-    if (prescription.doctor_id !== doctor.id) return res.status(403).json({ success: false, message: 'Prescription does not belong to you' });
-
-    const clinicId = prescription.consultations?.appointments?.clinic_id;
-    const hospitalId = prescription.consultations?.appointments?.hospital_id;
-
     const orderData = {
-      prescriptionId: req.params.id,
       pharmacyId: req.body.pharmacyId,
       items: req.body.items,
-      deliveryType: req.body.deliveryType || 'pickup'
+      deliveryType: req.body.deliveryType || 'pickup',
+      deliveryAddress: req.body.deliveryAddress
     };
 
-    let order;
-    if (hospitalId) {
-      order = await pharmacyService.createHospitalPharmacyOrder(hospitalId, doctor.id, orderData);
-    } else if (clinicId) {
-      order = await pharmacyService.createClinicPharmacyOrder(clinicId, doctor.id, orderData);
-    } else {
-      return res.status(400).json({ success: false, message: 'Prescription has no clinic or hospital context' });
-    }
-
+    const order = await doctorPartnerService.routePrescriptionToPharmacy(req.user.id, req.params.id, orderData);
     res.status(201).json({ success: true, data: order });
+  })
+);
+
+// Get active diagnostic partners for a prescription
+router.get('/prescriptions/:id/diagnostic-partners',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const partners = await doctorPartnerService.getPrescriptionDiagnosticPartners(req.user.id, req.params.id);
+    res.json({ success: true, data: partners, partners });
+  })
+);
+
+// Route a prescription to a partner diagnostic center
+router.post('/prescriptions/:id/route-to-diagnostic',
+  authenticate,
+  authorize('doctor'),
+  [
+    require('express-validator').body('centerId').isUUID().withMessage('Valid centerId is required'),
+    require('../../middleware/validate').validate
+  ],
+  asyncHandler(async (req, res) => {
+    const bookingData = {
+      centerId: req.body.centerId,
+      testId: req.body.testId,
+      bookingDate: req.body.bookingDate,
+      bookingTime: req.body.bookingTime,
+      collectionType: req.body.collectionType || 'walk_in',
+      collectionAddress: req.body.collectionAddress,
+      notes: req.body.notes
+    };
+
+    const booking = await doctorPartnerService.routePrescriptionToDiagnostic(req.user.id, req.params.id, bookingData);
+    res.status(201).json({ success: true, data: booking });
+  })
+);
+
+// Get active hospital referral partners for a prescription
+router.get('/prescriptions/:id/hospital-partners',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const partners = await doctorPartnerService.getPrescriptionHospitalPartners(req.user.id, req.params.id);
+    res.json({ success: true, data: partners, partners });
+  })
+);
+
+// Refer a prescription patient to an affiliated/partnered hospital
+router.post('/prescriptions/:id/refer-to-hospital',
+  authenticate,
+  authorize('doctor'),
+  [
+    require('express-validator').body('hospitalId').isUUID().withMessage('Valid hospitalId is required'),
+    require('express-validator').body('reason').isString().notEmpty().withMessage('Reason for referral is required'),
+    require('../../middleware/validate').validate
+  ],
+  asyncHandler(async (req, res) => {
+    const referralData = {
+      hospitalId: req.body.hospitalId,
+      urgency: req.body.urgency || 'routine',
+      reason: req.body.reason,
+      clinicalSummary: req.body.clinicalSummary,
+      consentGranted: req.body.consentGranted
+    };
+
+    const referral = await doctorPartnerService.referPrescriptionToHospital(req.user.id, req.params.id, referralData);
+    res.status(201).json({ success: true, data: referral });
   })
 );
 
@@ -1593,8 +1516,9 @@ router.get('/:id/queue-stats',
         .eq('appointment_date', today),
       supabaseAdmin
         .from('doctor_slots')
-        .select('start_time, end_time, slot_duration, day_of_week')
+        .select('start_time, end_time, slot_duration, slot_date')
         .eq('doctor_id', id)
+        .eq('slot_date', today)
         .eq('is_active', true)
     ]);
 
@@ -1614,8 +1538,7 @@ router.get('/:id/queue-stats',
 
     // Calculate next available slot by checking which time slots are not yet booked
     let nextAvailableSlot = null;
-    const todayDow = now.getDay(); // 0=Sun, 1=Mon, ...
-    const todaySchedule = slots.find(s => s.day_of_week === todayDow);
+    const todaySchedule = slots[0];
 
     if (todaySchedule) {
       const bookedSlots = new Set(

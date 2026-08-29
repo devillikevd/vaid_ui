@@ -11,6 +11,7 @@ const { sanitizeSearch } = require('../utils/sanitize');
 const { buildProviderResubmissionFields } = require('../utils/providerApproval');
 const eventEmitter = require('./eventEmitter');
 const notificationService = require('./notificationService');
+const { logAudit } = require('../utils/auditLogger');
 
 const enrichMissingPhonesFromOwners = async (rows = []) => {
   if (!Array.isArray(rows) || rows.length === 0) return rows;
@@ -78,13 +79,14 @@ const getActiveClinicDoctorIds = async (clinicId) => {
 const mapClinicDoctorAssociation = (association, userContactMap = new Map()) => {
   const doctor = association?.doctor || {};
   const user = doctor?.user_id ? userContactMap.get(doctor.user_id) : null;
+  const primarySpec = doctor.specialization || (Array.isArray(doctor.specializations) && doctor.specializations[0]) || '';
 
   return {
     id: doctor.id || association?.doctor_id || association?.id || '',
     doctorId: doctor.id || association?.doctor_id || '',
     associationId: association?.id || null,
     name: doctor.name || 'Doctor',
-    specialization: doctor.specialization || '',
+    specialization: primarySpec || '',
     email: user?.email || '',
     phone: user?.phone || '',
     status: association?.is_active === false ? 'inactive' : doctor?.is_available === false ? 'on-leave' : 'active',
@@ -367,10 +369,8 @@ const getClinicById = async (id) => {
     throw new ApiError(404, 'Clinic not found');
   }
 
-  // Filter inactive departments
-  if (data && data.departments) {
-    data.departments = data.departments.filter(d => d.is_active !== false);
-  }
+  // Filter inactive departments & calculate doctor count
+  const activeDepts = (data.departments || []).filter((d) => d.is_active !== false);
 
   // Filter and enrich doctors
   if (Array.isArray(data.doctors)) {
@@ -382,10 +382,35 @@ const getClinicById = async (id) => {
         const rating = parseFloat(doctor.rating) || 0;
         const reviews = parseInt(doctor.total_reviews) || 0;
         const score = (rating * 10) + (Math.log10(reviews + 1) * 5);
-        return { ...entry, doctor: { ...doctor, smart_score: score } };
+
+        const sched = entry.schedule && typeof entry.schedule === 'object' && !Array.isArray(entry.schedule) ? entry.schedule : {};
+        const deptIds = new Set(Array.isArray(sched.department_ids) ? sched.department_ids : []);
+        const docDepts = activeDepts
+          .filter((d) => deptIds.has(d.id) || d.head_doctor_id === doctor.id)
+          .map((d) => ({ id: d.id, name: d.name, is_head: d.head_doctor_id === doctor.id }));
+
+        return {
+          ...entry,
+          doctor: {
+            ...doctor,
+            departments: docDepts,
+            smart_score: score,
+          },
+        };
       })
       .sort((a, b) => (b.doctor?.smart_score || 0) - (a.doctor?.smart_score || 0));
   }
+
+  // Set doctor_count on departments
+  data.departments = activeDepts.map((d) => {
+    const assignedCount = (data.doctors || []).filter((entry) =>
+      entry.doctor?.departments?.some((dept) => dept.id === d.id)
+    ).length;
+    return {
+      ...d,
+      doctor_count: assignedCount,
+    };
+  });
 
   // Attach Associated Facilities
   if (associationsRes.data && associationsRes.data.length > 0) {
@@ -775,7 +800,7 @@ const getDashboard = async (clinicId, userId) => {
   const teamSnapshot = activeDoctorsList.slice(0, 5).map((doc) => ({
     id: doc.id,
     name: doc.name,
-    specialization: doc.specialization || 'General Physician',
+    specialization: doc.specialization || (Array.isArray(doc.specializations) && doc.specializations[0]) || 'Specialization not provided',
     profileImageUrl: doc.profile_image_url || null,
     rating: doc.rating ? parseFloat(Number(doc.rating).toFixed(1)) : 5.0,
     totalReviews: doc.total_reviews || 0,
@@ -1022,24 +1047,30 @@ const updateSchedule = async (clinicId, userId, schedule) => {
   return parseOpeningHours(data.opening_hours);
 };
 
-// Get doctors in clinic
-const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') => {
+// Get doctors in clinic (active, former, or all)
+const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '', status = 'active') => {
   const offset = (page - 1) * limit;
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('clinic_doctors')
     .select(`
       id, doctor_id, is_active, joined_at, schedule, consultation_fee,
       doctor:doctors(
-        id, user_id, name, specialization, sub_specialization, profile_image_url,
+        id, user_id, name, specialization, specializations, sub_specialization, profile_image_url,
         consultation_fee, video_consultation_fee, is_available, is_approved,
         rating, total_reviews, experience_years, qualifications, education,
         languages, bio, total_consultations, available_days, available_hours,
         registration_number
       )
     `)
-    .eq('clinic_id', clinicId)
-    .eq('is_active', true);
+    .eq('clinic_id', clinicId);
 
+  if (status === 'active') {
+    query = query.eq('is_active', true);
+  } else if (status === 'former') {
+    query = query.eq('is_active', false);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
 
   const associations = data || [];
@@ -1050,17 +1081,23 @@ const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') =
   const todayCounts = new Map();
   const upcomingCounts = new Map();
   const completedCounts = new Map();
+  const totalAppointmentCounts = new Map();
+  const pendingInviteMap = new Map();
 
   // Fetch practice terms from latest invites or join requests
   const inviteTermsMap = new Map();
+  let activeClinicDepts = [];
 
   if (doctorIds.length > 0) {
     const [
       { data: todayRows },
       { data: upcomingRows },
       { data: completedRows },
+      { data: allApptRows },
+      { data: pendingInvites },
       { data: acceptedInvites },
-      { data: acceptedJoinRequests }
+      { data: acceptedJoinRequests },
+      { data: clinicDepts }
     ] = await Promise.all([
       supabaseAdmin
         .from('appointments')
@@ -1083,11 +1120,18 @@ const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') =
         .in('doctor_id', doctorIds)
         .eq('status', 'completed'),
       supabaseAdmin
+        .from('appointments')
+        .select('doctor_id')
+        .eq('clinic_id', clinicId)
+        .in('doctor_id', doctorIds),
+      supabaseAdmin
         .from('clinic_doctor_invites')
-        // NOTE: clinic_doctor_invites has no `department` column (only
-        // doctor_clinic_join_requests does). Selecting it made this query
-        // fail intermittently with "column does not exist" on a stale
-        // PostgREST schema cache.
+        .select('id, doctor_id, status, created_at, expires_at, schedule')
+        .eq('clinic_id', clinicId)
+        .in('doctor_id', doctorIds)
+        .eq('status', 'pending'),
+      supabaseAdmin
+        .from('clinic_doctor_invites')
         .select('doctor_id, practice_type, consultation_modes, fee_amount, payout_terms, schedule')
         .eq('clinic_id', clinicId)
         .in('doctor_id', doctorIds)
@@ -1100,6 +1144,11 @@ const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') =
         .in('doctor_id', doctorIds)
         .eq('status', 'accepted')
         .order('created_at', { ascending: false }),
+      supabaseAdmin
+        .from('clinic_departments')
+        .select('id, name, head_doctor_id, is_active')
+        .eq('clinic_id', clinicId)
+        .eq('is_active', true),
     ]);
 
     for (const row of todayRows || []) {
@@ -1110,6 +1159,12 @@ const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') =
     }
     for (const row of completedRows || []) {
       completedCounts.set(row.doctor_id, (completedCounts.get(row.doctor_id) || 0) + 1);
+    }
+    for (const row of allApptRows || []) {
+      totalAppointmentCounts.set(row.doctor_id, (totalAppointmentCounts.get(row.doctor_id) || 0) + 1);
+    }
+    for (const inv of pendingInvites || []) {
+      pendingInviteMap.set(inv.doctor_id, inv);
     }
 
     // Populate terms from join requests first, then accepted invites override
@@ -1127,9 +1182,6 @@ const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') =
     }
     for (const inv of (acceptedInvites || [])) {
       const existingTerms = inviteTermsMap.get(inv.doctor_id) || {};
-      // Accepted invites override join-request terms, but only with fields
-      // they actually carry (invites have no `department` column, so it must
-      // not be nulled out here).
       inviteTermsMap.set(inv.doctor_id, {
         practice_type: inv.practice_type ?? existingTerms.practice_type,
         consultation_modes: Array.isArray(inv.consultation_modes) && inv.consultation_modes.length > 0
@@ -1141,6 +1193,15 @@ const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') =
         schedule: inv.schedule,
       });
     }
+
+    activeClinicDepts = clinicDepts || [];
+  } else {
+    const { data: clinicDepts } = await supabaseAdmin
+      .from('clinic_departments')
+      .select('id, name, head_doctor_id, is_active')
+      .eq('clinic_id', clinicId)
+      .eq('is_active', true);
+    activeClinicDepts = clinicDepts || [];
   }
 
   const userContactMap = await buildUserContactMap(
@@ -1153,9 +1214,14 @@ const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') =
     const isAvailable = doctor.is_available !== false && association.is_active !== false;
     const terms = inviteTermsMap.get(doctor.id) || {};
 
-    const rawSchedule = association.schedule && Object.keys(association.schedule).length > 0
+    const rawSchedule = association.schedule && typeof association.schedule === 'object'
       ? association.schedule
       : terms.schedule || doctor.available_hours || {};
+
+    const assignedDeptIds = new Set(Array.isArray(rawSchedule.department_ids) ? rawSchedule.department_ids : []);
+    const docDepts = (activeClinicDepts || [])
+      .filter((d) => assignedDeptIds.has(d.id) || d.head_doctor_id === doctor.id)
+      .map((d) => ({ id: d.id, name: d.name, is_head: d.head_doctor_id === doctor.id }));
 
     return {
       ...mapClinicDoctorAssociation(association, userContactMap),
@@ -1171,11 +1237,17 @@ const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') =
       total_reviews: parseInt(doctor.total_reviews) || 0,
       total_consultations: parseInt(doctor.total_consultations) || 0,
       completed_consultations: completedCounts.get(doctor.id) || 0,
+      total_appointments: totalAppointmentCounts.get(doctor.id) || 0,
       experience_years: parseInt(doctor.experience_years) || 0,
       consultation_fee: association.consultation_fee ?? doctor.consultation_fee ?? terms.fee_amount ?? null,
       video_consultation_fee: doctor.video_consultation_fee ?? null,
       profile_image_url: doctor.profile_image_url || null,
       joined_at: association.joined_at || null,
+      ended_at: association.is_active ? null : rawSchedule.terminated_at || null,
+      termination_reason: association.is_active ? null : rawSchedule.termination_reason || null,
+      termination_note: association.is_active ? null : rawSchedule.termination_note || null,
+      affiliation_history: Array.isArray(rawSchedule.affiliation_history) ? rawSchedule.affiliation_history : [],
+      pending_invite: pendingInviteMap.get(doctor.id) || null,
       is_available: isAvailable,
       todayAppointments: todayCounts.get(doctor.id) || 0,
       upcomingAppointments: upcomingCounts.get(doctor.id) || 0,
@@ -1183,7 +1255,8 @@ const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') =
       consultation_modes: Array.isArray(terms.consultation_modes) && terms.consultation_modes.length > 0
         ? terms.consultation_modes
         : ['in_clinic', 'video'],
-      department: terms.department || null,
+      departments: docDepts,
+      department: docDepts[0]?.name || terms.department || null,
       schedule: rawSchedule,
       available_days: Array.isArray(doctor.available_days) ? doctor.available_days : terms.preferred_days || [],
       available_hours: doctor.available_hours || (terms.preferred_start_time ? `${terms.preferred_start_time} - ${terms.preferred_end_time}` : 'Standard Hours'),
@@ -1208,6 +1281,253 @@ const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') =
   };
 };
 
+// Get doctor affiliation history & historical records summary
+const getDoctorAffiliationHistory = async (clinicId, userId, doctorId) => {
+  await assertClinicOwner(clinicId, userId);
+
+  // 1. Fetch affiliation record
+  const { data: association, error: assocError } = await supabaseAdmin
+    .from('clinic_doctors')
+    .select(`
+      id, is_active, joined_at, schedule, consultation_fee,
+      doctor:doctors(
+        id, user_id, name, specialization, specializations, sub_specialization, profile_image_url,
+        consultation_fee, video_consultation_fee, is_available, is_approved,
+        rating, total_reviews, experience_years, qualifications, education,
+        languages, bio, registration_number
+      )
+    `)
+    .eq('clinic_id', clinicId)
+    .eq('doctor_id', doctorId)
+    .maybeSingle();
+
+  if (assocError || !association) {
+    throw new ApiError(404, 'Doctor has no affiliation record with this clinic');
+  }
+
+  const doctor = association.doctor || {};
+  const rawSchedule = association.schedule && typeof association.schedule === 'object' ? association.schedule : {};
+
+  // 2. Metrics for this doctor specifically within this clinic
+  const [
+    { count: apptCount },
+    { count: consultCount },
+    { count: prescriptionCount },
+    { data: pendingInvite }
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('appointments')
+      .select('id', { count: 'exact', head: true })
+      .eq('clinic_id', clinicId)
+      .eq('doctor_id', doctorId),
+    supabaseAdmin
+      .from('consultations')
+      .select('id', { count: 'exact', head: true })
+      .eq('clinic_id', clinicId)
+      .eq('doctor_id', doctorId)
+      .eq('status', 'completed'),
+    supabaseAdmin
+      .from('prescriptions')
+      .select('id', { count: 'exact', head: true })
+      .eq('doctor_id', doctorId),
+    supabaseAdmin
+      .from('clinic_doctor_invites')
+      .select('id, status, created_at, expires_at, schedule')
+      .eq('clinic_id', clinicId)
+      .eq('doctor_id', doctorId)
+      .eq('status', 'pending')
+      .maybeSingle()
+  ]);
+
+  // Construct affiliation history list
+  const historyList = Array.isArray(rawSchedule.affiliation_history) ? [...rawSchedule.affiliation_history] : [];
+  if (association.is_active === false && rawSchedule.terminated_at) {
+    const alreadyRecorded = historyList.some((h) => h.ended_at === rawSchedule.terminated_at);
+    if (!alreadyRecorded) {
+      historyList.unshift({
+        joined_at: association.joined_at,
+        ended_at: rawSchedule.terminated_at,
+        termination_reason: rawSchedule.termination_reason || 'Doctor affiliation ended by clinic',
+        termination_note: rawSchedule.termination_note || null,
+        terminated_by: rawSchedule.terminated_by || null,
+      });
+    }
+  }
+
+  return {
+    doctor: {
+      id: doctor.id,
+      name: doctor.name || 'Doctor',
+      specialization: doctor.specialization || '',
+      profile_image_url: doctor.profile_image_url || null,
+      qualifications: doctor.qualifications || null,
+      experience_years: doctor.experience_years || 0,
+      registration_number: doctor.registration_number || null,
+    },
+    current_status: association.is_active ? 'active' : 'former',
+    is_active: association.is_active === true,
+    joined_at: association.joined_at || null,
+    ended_at: association.is_active ? null : rawSchedule.terminated_at || null,
+    termination_reason: association.is_active ? null : rawSchedule.termination_reason || null,
+    termination_note: association.is_active ? null : rawSchedule.termination_note || null,
+    affiliation_history: historyList,
+    metrics: {
+      totalAppointments: apptCount || 0,
+      completedConsultations: consultCount || 0,
+      totalPrescriptions: prescriptionCount || 0,
+    },
+    pendingInvite: pendingInvite || null,
+  };
+};
+
+// Reinvite a former doctor to rejoin the clinic
+const reinviteDoctor = async (clinicId, userId, doctorId, options = {}) => {
+  const clinic = await getClinicByOwner(userId);
+  if (!clinic || clinic.id !== clinicId) {
+    throw new ApiError(403, 'Unauthorized to manage doctors for this clinic');
+  }
+
+  // 1. Verify doctor
+  const { data: doctor, error: docError } = await supabaseAdmin
+    .from('doctors')
+    .select('id, user_id, name, specialization')
+    .eq('id', doctorId)
+    .single();
+
+  if (docError || !doctor) {
+    throw new ApiError(404, 'Doctor not found');
+  }
+
+  // 2. Check current affiliation
+  const { data: existingAffiliation } = await supabaseAdmin
+    .from('clinic_doctors')
+    .select('id, is_active')
+    .eq('clinic_id', clinicId)
+    .eq('doctor_id', doctorId)
+    .maybeSingle();
+
+  if (existingAffiliation?.is_active === true) {
+    throw new ApiError(400, 'Doctor is already an active member of your clinic roster.');
+  }
+
+  // 3. Check existing pending invite
+  const nowIso = new Date().toISOString();
+  const { data: pendingInvites } = await supabaseAdmin
+    .from('clinic_doctor_invites')
+    .select('id, status, expires_at, created_at')
+    .eq('clinic_id', clinicId)
+    .eq('doctor_id', doctorId)
+    .eq('status', 'pending');
+
+  if (pendingInvites && pendingInvites.length > 0) {
+    const activePending = [];
+    for (const inv of pendingInvites) {
+      if (inv.expires_at && new Date(inv.expires_at).getTime() < Date.now()) {
+        await supabaseAdmin
+          .from('clinic_doctor_invites')
+          .update({ status: 'expired', responded_at: nowIso })
+          .eq('id', inv.id);
+      } else {
+        activePending.push(inv);
+      }
+    }
+
+    if (activePending.length > 0) {
+      // If multiple duplicates existed from past race conditions, keep newest and cancel older ones
+      if (activePending.length > 1) {
+        activePending.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        const staleIds = activePending.slice(1).map((i) => i.id);
+        await supabaseAdmin
+          .from('clinic_doctor_invites')
+          .update({ status: 'cancelled', responded_at: nowIso })
+          .in('id', staleIds);
+      }
+
+      const err = new ApiError(409, 'A rejoin invitation has already been sent to this doctor.');
+      err.code = 'REJOIN_INVITATION_ALREADY_PENDING';
+      err.details = {
+        pending_invite: activePending[0],
+      };
+      throw err;
+    }
+  }
+
+  const departmentId = options.departmentId || options.department_id || null;
+  const message = options.message ? options.message.trim() : null;
+
+  // 4. Create new invitation record
+  const { data: newInvite, error: insertError } = await supabaseAdmin
+    .from('clinic_doctor_invites')
+    .insert({
+      clinic_id: clinicId,
+      doctor_id: doctorId,
+      invited_by: userId,
+      status: 'pending',
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      practice_type: options.practiceType || 'full_time',
+      consultation_modes: options.consultationModes || ['in_clinic', 'video'],
+      schedule: departmentId ? { department_ids: [departmentId] } : {},
+      fee_amount: options.feeAmount || null,
+      payout_terms: options.payoutTerms || null,
+      start_date: options.startDate || null,
+    })
+    .select('*')
+    .single();
+
+  if (insertError) throw insertError;
+
+  // 5. Audit Log
+  await logAudit({
+    userId,
+    userRole: 'clinic_owner',
+    action: 'doctor_reinvite_sent',
+    entityType: 'clinic_doctor_invites',
+    entityId: newInvite.id,
+    newData: {
+      clinic_id: clinicId,
+      doctor_id: doctorId,
+      department_id: departmentId,
+      message,
+    },
+    metadata: {
+      clinicId,
+      clinicName: clinic.name,
+      doctorId,
+      doctorName: doctor.name,
+      departmentId,
+      message,
+    },
+  });
+
+  // 6. Notify doctor
+  if (doctor.user_id) {
+    try {
+      await notificationService.sendNotification(doctor.user_id, {
+        title: 'Clinic Rejoin Invitation',
+        message: `${clinic.name} has invited you to rejoin their clinic.${message ? ` Message: "${message}"` : ''}`,
+        type: 'clinic_reinvite',
+        category: 'clinic',
+        data: {
+          inviteId: newInvite.id,
+          clinicId,
+          clinicName: clinic.name,
+          departmentId,
+          message,
+        },
+        action_url: '/doctor/care-networks?tab=invitations',
+      });
+    } catch (notifErr) {
+      console.warn('[ClinicService] Failed to notify doctor of rejoin invite:', notifErr.message);
+    }
+  }
+
+  return {
+    success: true,
+    data: newInvite,
+    message: 'Rejoin invitation sent successfully.',
+  };
+};
+
 // Get full clinic-scoped profile for a doctor
 const getClinicDoctorProfile = async (clinicId, userId, doctorId) => {
   // 1. Verify Clinic Ownership
@@ -1219,7 +1539,7 @@ const getClinicDoctorProfile = async (clinicId, userId, doctorId) => {
     .select(`
       id, is_active, joined_at, schedule, consultation_fee,
       doctor:doctors(
-        id, user_id, name, specialization, sub_specialization, profile_image_url,
+        id, user_id, name, specialization, specializations, sub_specialization, profile_image_url,
         consultation_fee, video_consultation_fee, is_available, is_approved,
         rating, total_reviews, experience_years, qualifications, education,
         languages, bio, available_days, available_hours, registration_number
@@ -1235,18 +1555,33 @@ const getClinicDoctorProfile = async (clinicId, userId, doctorId) => {
 
   const doctor = association.doctor;
 
-  // 3. Get practice terms (if accepted invite exists)
-  const { data: invite } = await supabaseAdmin
-    .from('clinic_doctor_invites')
-    .select('practice_type, consultation_modes, fee_amount, payout_terms, schedule')
-    .eq('clinic_id', clinicId)
-    .eq('doctor_id', doctorId)
-    .eq('status', 'accepted')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // 3. Get practice terms and clinic departments
+  const [
+    { data: invite },
+    { data: clinicDepts }
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('clinic_doctor_invites')
+      .select('practice_type, consultation_modes, fee_amount, payout_terms, schedule')
+      .eq('clinic_id', clinicId)
+      .eq('doctor_id', doctorId)
+      .eq('status', 'accepted')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('clinic_departments')
+      .select('id, name, head_doctor_id, is_active')
+      .eq('clinic_id', clinicId)
+      .eq('is_active', true),
+  ]);
 
   const terms = invite || {};
+  const rawSched = association.schedule && typeof association.schedule === 'object' && !Array.isArray(association.schedule) ? association.schedule : {};
+  const assignedDeptIds = new Set(Array.isArray(rawSched.department_ids) ? rawSched.department_ids : []);
+  const docDepts = (clinicDepts || [])
+    .filter((d) => assignedDeptIds.has(d.id) || d.head_doctor_id === doctor.id)
+    .map((d) => ({ id: d.id, name: d.name, is_head: d.head_doctor_id === doctor.id }));
 
   // 4. Appointment Summary scoped strictly to this clinic
   const today = todayIsoDate();
@@ -1267,11 +1602,11 @@ const getClinicDoctorProfile = async (clinicId, userId, doctorId) => {
       .eq('clinic_id', clinicId).eq('doctor_id', doctorId).eq('status', 'completed'),
     
     supabaseAdmin.from('appointments').select('id, appointment_date, time_slot, status, type, fee, patient:patients(id, name, user_id)')
-      .eq('clinic_id', clinicId).eq('doctor_id', doctorId).eq('appointment_date', today).not('status', 'in', '(cancelled)').order('time_slot').limit(10),
+      .eq('clinic_id', clinicId).eq('doctor_id', doctorId).eq('appointment_date', today).not('status', 'in', '(cancelled)').order('time_slot', { ascending: true }),
     supabaseAdmin.from('appointments').select('id, appointment_date, time_slot, status, type, fee, patient:patients(id, name, user_id)')
-      .eq('clinic_id', clinicId).eq('doctor_id', doctorId).gte('appointment_date', today).not('status', 'in', '(cancelled,completed)').order('appointment_date').order('time_slot').limit(10),
+      .eq('clinic_id', clinicId).eq('doctor_id', doctorId).gte('appointment_date', today).not('status', 'in', '(cancelled,completed)').order('appointment_date', { ascending: true }).limit(5),
     supabaseAdmin.from('appointments').select('id, appointment_date, time_slot, status, type, fee, patient:patients(id, name, user_id)')
-      .eq('clinic_id', clinicId).eq('doctor_id', doctorId).eq('status', 'completed').order('appointment_date', { ascending: false }).order('time_slot', { ascending: false }).limit(10)
+      .eq('clinic_id', clinicId).eq('doctor_id', doctorId).eq('status', 'completed').order('appointment_date', { ascending: false }).limit(5)
   ]);
 
   // 5. Leave / Availability
@@ -1316,7 +1651,8 @@ const getClinicDoctorProfile = async (clinicId, userId, doctorId) => {
     consultation_modes: Array.isArray(terms.consultation_modes) && terms.consultation_modes.length > 0 
       ? terms.consultation_modes 
       : ['in_clinic', 'video'],
-    department: terms.department || null,
+    departments: docDepts,
+    department: docDepts[0]?.name || terms.department || null,
     
     // Fees
     in_person_fee: association.consultation_fee ?? doctor.consultation_fee ?? terms.fee_amount,
@@ -1441,15 +1777,159 @@ const addDoctor = async (clinicId, userId, doctorId, options = {}) => {
   return data;
 };
 
-// Remove doctor from clinic
-const removeDoctor = async (clinicId, userId, doctorId) => {
-  const { error } = await supabaseAdmin
+// Remove doctor from clinic (End Affiliation with audit & notification)
+const removeDoctor = async (clinicId, userId, doctorId, options = {}) => {
+  const reason = (options.reason || options.termination_reason || 'Doctor affiliation ended by clinic').trim();
+  const note = options.note ? options.note.trim() : null;
+
+  // 1. Verify clinic ownership
+  const { data: clinic, error: clinicError } = await supabaseAdmin
+    .from('clinics')
+    .select('id, name, owner_id')
+    .eq('id', clinicId)
+    .single();
+
+  if (clinicError || !clinic) {
+    throw new ApiError(404, 'Clinic not found');
+  }
+
+  if (clinic.owner_id !== userId) {
+    throw new ApiError(403, 'Unauthorized to manage doctors for this clinic');
+  }
+
+  // 2. Fetch existing affiliation record
+  const { data: affiliation, error: affError } = await supabaseAdmin
     .from('clinic_doctors')
-    .update({ is_active: false })
+    .select('*, doctor:doctors(id, name, user_id, email, phone, specialization)')
+    .eq('clinic_id', clinicId)
+    .eq('doctor_id', doctorId)
+    .single();
+
+  if (affError || !affiliation) {
+    throw new ApiError(404, 'Doctor is not affiliated with this clinic');
+  }
+
+  const previousStatus = affiliation.is_active ? 'active' : 'inactive';
+  const now = new Date().toISOString();
+
+  // 3. Update affiliation to inactive, clear departments, record termination metadata
+  const currentSchedule = affiliation.schedule && typeof affiliation.schedule === 'object' ? affiliation.schedule : {};
+  const updatedSchedule = {
+    ...currentSchedule,
+    department_ids: [],
+    termination_reason: reason,
+    termination_note: note,
+    terminated_at: now,
+    terminated_by: userId,
+  };
+
+  const { error: updateError } = await supabaseAdmin
+    .from('clinic_doctors')
+    .update({
+      is_active: false,
+      schedule: updatedSchedule,
+    })
     .eq('clinic_id', clinicId)
     .eq('doctor_id', doctorId);
 
-  if (error) throw error;
+  if (updateError) throw updateError;
+
+  // 4. Department cleanup: If doctor is head_doctor_id in any department of this clinic, clear head_doctor_id
+  const { data: headDepts } = await supabaseAdmin
+    .from('clinic_departments')
+    .select('id, name')
+    .eq('clinic_id', clinicId)
+    .eq('head_doctor_id', doctorId);
+
+  if (headDepts && headDepts.length > 0) {
+    await supabaseAdmin
+      .from('clinic_departments')
+      .update({ head_doctor_id: null })
+      .eq('clinic_id', clinicId)
+      .eq('head_doctor_id', doctorId);
+  }
+
+  // 4.5. Invalidate prior active/pending invites in clinic_doctor_invites
+  try {
+    await supabaseAdmin
+      .from('clinic_doctor_invites')
+      .update({ status: 'cancelled', responded_at: now })
+      .eq('clinic_id', clinicId)
+      .eq('doctor_id', doctorId)
+      .in('status', ['accepted', 'pending', 'changes_requested']);
+  } catch (invErr) {
+    console.warn('[ClinicService] Invalidate invites warning:', invErr.message);
+  }
+
+  // 5. Audit Logging
+  await logAudit({
+    userId,
+    userRole: 'clinic_owner',
+    action: 'doctor_affiliation_ended',
+    entityType: 'clinic_doctors',
+    entityId: `${clinicId}:${doctorId}`,
+    oldData: {
+      is_active: affiliation.is_active,
+      status: previousStatus,
+    },
+    newData: {
+      is_active: false,
+      status: 'inactive',
+      termination_reason: reason,
+      termination_note: note,
+      terminated_at: now,
+    },
+    metadata: {
+      clinicId,
+      clinicName: clinic.name,
+      doctorId,
+      doctorName: affiliation.doctor?.name,
+      reason,
+      note: note || undefined,
+    },
+  });
+
+  // 6. Notify Doctor (In-App notification)
+  let notified = false;
+  let docUserId = affiliation.doctor?.user_id;
+  if (!docUserId) {
+    const { data: d } = await supabaseAdmin.from('doctors').select('user_id').eq('id', doctorId).single();
+    docUserId = d?.user_id;
+  }
+
+  if (docUserId) {
+    try {
+      const reasonText = reason ? ` Reason: ${reason}.` : '';
+      const noteText = note ? ` Note: ${note}` : '';
+      await notificationService.sendNotification(docUserId, {
+        title: 'Clinic Affiliation Ended',
+        message: `Your affiliation with ${clinic.name} has ended.${reasonText}${noteText}`,
+        type: 'clinic_affiliation_ended',
+        category: 'clinic',
+        action_url: '/doctor/care-networks',
+        data: {
+          clinicId,
+          clinicName: clinic.name,
+          doctorId,
+          doctorName: affiliation.doctor?.name,
+          reason: reason || 'Affiliation ended by clinic',
+          note: note || undefined,
+          endedAt: now,
+          affiliationId: affiliation.id,
+        },
+      });
+      notified = true;
+    } catch (notifErr) {
+      console.warn('[ClinicService] Failed to notify doctor of ended affiliation:', notifErr.message);
+    }
+  }
+
+  return {
+    success: true,
+    message: 'Doctor affiliation ended successfully.',
+    notified,
+    endedAt: now,
+  };
 };
 
 // Get appointments for clinic
@@ -1589,7 +2069,7 @@ const getConsultations = async (userId, page = 1, limit = 20, filters = {}) => {
   const clinic = await getClinicByOwner(userId);
   if (!clinic) throw new ApiError(404, 'Clinic not found');
 
-  // Get all doctor IDs affiliated with this clinic
+  // Get all doctor IDs actively affiliated with this clinic
   const activeDoctorIds = await getActiveClinicDoctorIds(clinic.id);
   if (activeDoctorIds.length === 0) {
     return {
@@ -1605,56 +2085,48 @@ const getConsultations = async (userId, page = 1, limit = 20, filters = {}) => {
     };
   }
 
-  // ── ISOLATION FIX (Bug 3) ────────────────────────────────────────────────
-  // Pre-fetch appointment IDs that are strictly scoped to this clinic.
-  // Filtering by doctor_id alone would expose direct-doctor and hospital
-  // consultations for the same affiliated doctors — a cross-tenant data leak.
-  // The source of truth is: appointment.clinic_id = this clinic.
-  const { data: clinicApptRows, error: clinicApptError } = await supabaseAdmin
-    .from('appointments')
-    .select('id')
-    .eq('clinic_id', clinic.id)
-    .in('doctor_id', activeDoctorIds);
-
-  if (clinicApptError) throw clinicApptError;
-
-  const clinicAppointmentIds = (clinicApptRows || []).map((a) => a.id).filter(Boolean);
-
-  if (clinicAppointmentIds.length === 0) {
-    return {
-      data: [],
-      metrics: {
-        todayConsultations: 0,
-        inProgress: 0,
-        completed: 0,
-        videoConsultations: 0,
-        inPersonConsultations: 0,
-      },
-      pagination: { page, limit, total: 0, totalPages: 1 },
-    };
-  }
-  // ────────────────────────────────────────────────────────────────────────
-
-  const offset = (page - 1) * limit;
+  // ── CANONICAL CLINIC CONSULTATION FLOW ────────────────────────────────────
+  // Consultations for actively affiliated clinic doctors.
+  // We query all consultations for active doctors and enforce clinic context isolation:
+  // 1. Exclude consultations / appointments explicitly belonging to a hospital.
+  // 2. Exclude consultations / appointments explicitly assigned to a different clinic.
+  // 3. Keep consultations where appointment.clinic_id === clinic.id OR
+  //    (appointment.clinic_id is null AND appointment.hospital_id is null) for active affiliated doctors.
   const { data, error } = await supabaseAdmin
     .from('consultations')
     .select(`
       *,
       doctor:doctors(id, name, specialization, profile_image_url),
       patient:patients(id, name, user_id, gender, date_of_birth, profile_image_url),
-      appointment:appointments(id, appointment_date, time_slot, type, clinic_id, fee, consultation_fee, payment_status, reason, symptoms, notes),
+      appointment:appointments(id, appointment_date, time_slot, type, clinic_id, hospital_id, fee, consultation_fee, payment_status, reason, symptoms, notes),
       prescriptions(*, prescription_medicines(*))
     `)
-    .in('appointment_id', clinicAppointmentIds)
+    .in('doctor_id', activeDoctorIds)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
 
+  const clinicScopedRaw = (data || []).filter((consultation) => {
+    const appt = consultation.appointment;
+    // Exclude if explicitly marked as hospital consultation or appointment
+    if (consultation.hospital_id || appt?.hospital_id || consultation.organization_type === 'hospital') {
+      return false;
+    }
+    // Exclude if explicitly assigned to a DIFFERENT clinic
+    if (consultation.clinic_id && consultation.clinic_id !== clinic.id) {
+      return false;
+    }
+    if (appt?.clinic_id && appt.clinic_id !== clinic.id) {
+      return false;
+    }
+    return true;
+  });
+
   const patientContactMap = await buildUserContactMap(
-    (data || []).map((consultation) => consultation?.patient?.user_id)
+    clinicScopedRaw.map((consultation) => consultation?.patient?.user_id)
   );
 
-  const allConsultations = (data || []).map((consultation) => mapClinicConsultation(consultation, patientContactMap));
+  const allConsultations = clinicScopedRaw.map((consultation) => mapClinicConsultation(consultation, patientContactMap));
 
   const today = new Date().toISOString().split('T')[0];
   const startOfWeek = new Date();
@@ -1750,6 +2222,7 @@ const getConsultations = async (userId, page = 1, limit = 20, filters = {}) => {
     );
   }
 
+  const offset = (page - 1) * limit;
   const total = filtered.length;
   const paginated = filtered.slice(offset, offset + limit);
 
@@ -1761,7 +2234,9 @@ const getConsultations = async (userId, page = 1, limit = 20, filters = {}) => {
 };
 
 // Get clinic doctors (public — for patient discovery)
-const getClinicDoctorsPublic = async (clinicId) => {
+const getClinicDoctorsPublic = async (clinicId, options = {}) => {
+  const { department_id } = options;
+
   const { data: clinic, error: clinicError } = await supabaseAdmin
     .from('clinics')
     .select('id')
@@ -1773,22 +2248,65 @@ const getClinicDoctorsPublic = async (clinicId) => {
   if (clinicError) throw clinicError;
   if (!clinic) throw new ApiError(404, 'Clinic not found');
 
+  // Fetch active departments for this clinic
+  const { data: clinicDepts } = await supabaseAdmin
+    .from('clinic_departments')
+    .select('id, name, head_doctor_id, is_active')
+    .eq('clinic_id', clinicId)
+    .eq('is_active', true);
+
+  const deptMap = new Map((clinicDepts || []).map((d) => [d.id, d]));
+
+  // If department_id is specified, verify it exists and is active
+  if (department_id && !deptMap.has(department_id)) {
+    return [];
+  }
+
   const { data, error } = await supabaseAdmin
     .from('clinic_doctors')
-    .select('*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee, experience_years, is_approved)')
+    .select(`
+      id, is_active, schedule, consultation_fee,
+      doctor:doctors(
+        id, name, specialization, sub_specialization, profile_image_url, consultation_fee,
+        video_consultation_fee, experience_years, is_approved, rating, total_reviews,
+        bio, qualifications, languages
+      )
+    `)
     .eq('clinic_id', clinicId)
     .eq('is_active', true);
 
   if (error) throw error;
+
   let doctors = (data || [])
-    .map(cd => cd.doctor)
-    .filter((doctor) => doctor?.is_approved === true)
-    .map(({ is_approved: _ignored, ...doctor }) => {
+    .filter((cd) => cd.doctor && cd.doctor.is_approved === true)
+    .map((cd) => {
+      const doctor = cd.doctor;
+      const sched = cd.schedule && typeof cd.schedule === 'object' && !Array.isArray(cd.schedule) ? cd.schedule : {};
+      const deptIds = new Set(Array.isArray(sched.department_ids) ? sched.department_ids : []);
+
+      const docDepts = (clinicDepts || [])
+        .filter((d) => deptIds.has(d.id) || d.head_doctor_id === doctor.id)
+        .map((d) => ({ id: d.id, name: d.name, is_head: d.head_doctor_id === doctor.id }));
+
       const rating = parseFloat(doctor.rating) || 0;
       const reviews = parseInt(doctor.total_reviews) || 0;
       const score = (rating * 10) + (Math.log10(reviews + 1) * 5);
-      return { ...doctor, smart_score: score };
+
+      const { is_approved: _ignored, ...docClean } = doctor;
+
+      return {
+        ...docClean,
+        clinic_doctor_id: cd.id,
+        consultation_fee: cd.consultation_fee ?? doctor.consultation_fee ?? null,
+        departments: docDepts,
+        smart_score: score,
+      };
     });
+
+  // Server-side filtering by department_id
+  if (department_id) {
+    doctors = doctors.filter((doc) => doc.departments.some((d) => d.id === department_id));
+  }
 
   doctors.sort((a, b) => b.smart_score - a.smart_score);
   return doctors;
@@ -1824,20 +2342,16 @@ const deleteReel = async (clinicId, userId, reelId) => {
 
 // ── Clinic Departments ──
 
-// Build the real doctor→department context for a clinic. Department members
-// are derived from:
-//   1. accepted doctor_clinic_join_requests whose `department` text matches a
-//      department name (the only real doctor→department link in the schema),
-//   2. the department's head_doctor_id.
-// A doctor is only counted as a member when the clinic_doctors affiliation is
-// active. Appointment links flow through Appointment → Doctor → Department.
+// Build the real doctor→department context for a clinic.
+// Canonical department members are derived exclusively from:
+//   1. Explicit active assignment (clinic_doctors.schedule.department_ids),
+//   2. Active department head doctor (clinic_departments.head_doctor_id).
+// A doctor is only counted as a member when the clinic_doctors affiliation is active (is_active = true).
 const getClinicDepartmentContext = async (clinicId) => {
   const today = todayIsoDate();
   const [
     { data: departments, error: departmentsError },
     { data: associations, error: associationsError },
-    { data: joinRequests, error: joinRequestsError },
-    { data: invites, error: invitesError },
     { data: todayAppointments, error: todayError },
   ] = await Promise.all([
     supabaseAdmin
@@ -1847,19 +2361,9 @@ const getClinicDepartmentContext = async (clinicId) => {
       .order('name', { ascending: true }),
     supabaseAdmin
       .from('clinic_doctors')
-      .select('doctor_id')
+      .select('id, doctor_id, schedule, is_active')
       .eq('clinic_id', clinicId)
       .eq('is_active', true),
-    supabaseAdmin
-      .from('doctor_clinic_join_requests')
-      .select('doctor_id, department, practice_type, consultation_modes')
-      .eq('clinic_id', clinicId)
-      .eq('status', 'accepted'),
-    supabaseAdmin
-      .from('clinic_doctor_invites')
-      .select('doctor_id, practice_type, consultation_modes')
-      .eq('clinic_id', clinicId)
-      .eq('status', 'accepted'),
     supabaseAdmin
       .from('appointments')
       .select('doctor_id')
@@ -1868,73 +2372,37 @@ const getClinicDepartmentContext = async (clinicId) => {
       .not('status', 'in', '(cancelled)'),
   ]);
 
-  const results = [departmentsError, associationsError, joinRequestsError, invitesError, todayError];
-  for (const result of results) {
-    if (result) throw result;
-  }
+  if (departmentsError) throw departmentsError;
+  if (associationsError) throw associationsError;
+  if (todayError) throw todayError;
 
-  const activeDoctorIds = new Set((associations || []).map((a) => a.doctor_id));
-
-  const deptByNormalizedName = new Map();
-  for (const dept of departments || []) {
-    deptByNormalizedName.set(String(dept.name || '').trim().toLowerCase(), dept);
-  }
-
+  const activeDoctorIds = new Set((associations || []).map((a) => a.doctor_id).filter(Boolean));
   const memberIdsByDept = new Map();
   const modesByDept = new Map();
   const termsByDoctor = new Map();
 
-  const registerTerm = (doctorId, term) => {
-    const existing = termsByDoctor.get(doctorId) || {};
-    termsByDoctor.set(doctorId, {
-      practice_type: term.practice_type ?? existing.practice_type,
-      consultation_modes:
-        Array.isArray(term.consultation_modes) && term.consultation_modes.length > 0
-          ? term.consultation_modes
-          : existing.consultation_modes,
-      department: term.department ?? existing.department,
-    });
-  };
-
-  for (const req of joinRequests || []) {
-    registerTerm(req.doctor_id, {
-      practice_type: req.practice_type,
-      consultation_modes: req.consultation_modes,
-      department: req.department,
-    });
-  }
-  for (const inv of invites || []) {
-    registerTerm(inv.doctor_id, {
-      practice_type: inv.practice_type,
-      consultation_modes: inv.consultation_modes,
-    });
-  }
-
-  const addMember = (dept, doctorId) => {
-    if (!activeDoctorIds.has(doctorId)) return;
-    if (!memberIdsByDept.has(dept.id)) memberIdsByDept.set(dept.id, new Set());
-    memberIdsByDept.get(dept.id).add(doctorId);
-  };
-
-  for (const req of joinRequests || []) {
-    const key = String(req.department || '').trim().toLowerCase();
-    const dept = key && deptByNormalizedName.get(key);
-    if (dept) addMember(dept, req.doctor_id);
-  }
   for (const dept of departments || []) {
-    if (dept.head_doctor_id) addMember(dept, dept.head_doctor_id);
+    memberIdsByDept.set(dept.id, new Set());
+    modesByDept.set(dept.id, new Set(['in_clinic', 'video']));
   }
 
+  // 1. Explicit department assignments from active clinic_doctors.schedule.department_ids
+  for (const assoc of associations || []) {
+    const doctorId = assoc.doctor_id;
+    if (!doctorId) continue;
+    const schedule = assoc.schedule && typeof assoc.schedule === 'object' && !Array.isArray(assoc.schedule) ? assoc.schedule : {};
+    const deptIds = Array.isArray(schedule.department_ids) ? schedule.department_ids : [];
+    for (const dId of deptIds) {
+      if (memberIdsByDept.has(dId)) {
+        memberIdsByDept.get(dId).add(doctorId);
+      }
+    }
+  }
+
+  // 2. Department head doctor (must be an active affiliated clinic doctor)
   for (const dept of departments || []) {
-    const memberIds = memberIdsByDept.get(dept.id);
-    if (!memberIds) continue;
-    for (const doctorId of memberIds) {
-      const term = termsByDoctor.get(doctorId);
-      const modes = Array.isArray(term?.consultation_modes) && term.consultation_modes.length > 0
-        ? term.consultation_modes
-        : ['in_clinic', 'video'];
-      if (!modesByDept.has(dept.id)) modesByDept.set(dept.id, new Set());
-      for (const mode of modes) modesByDept.get(dept.id).add(mode);
+    if (dept.head_doctor_id && activeDoctorIds.has(dept.head_doctor_id)) {
+      memberIdsByDept.get(dept.id).add(dept.head_doctor_id);
     }
   }
 
@@ -1972,24 +2440,31 @@ const fetchDoctorsById = async (ids) => {
 const getClinicDepartments = async (clinicId) => {
   const ctx = await getClinicDepartmentContext(clinicId);
 
-  const headIds = ctx.departments.map((dept) => dept.head_doctor_id).filter(Boolean);
+  const headIds = ctx.departments
+    .map((dept) => (dept.head_doctor_id && ctx.activeDoctorIds.has(dept.head_doctor_id) ? dept.head_doctor_id : null))
+    .filter(Boolean);
   const headsById = await fetchDoctorsById(headIds);
 
-  return ctx.departments.map((dept) => ({
-    id: dept.id,
-    name: dept.name,
-    description: dept.description || '',
-    head_doctor_id: dept.head_doctor_id || null,
-    head_doctor_name: headsById.get(dept.head_doctor_id)?.name || null,
-    head_doctor_specialization: headsById.get(dept.head_doctor_id)?.specialization || null,
-    head_doctor_profile_image_url: headsById.get(dept.head_doctor_id)?.profile_image_url || null,
-    contact_extension: dept.contact_extension || '',
-    is_active: dept.is_active !== false,
-    created_at: dept.created_at,
-    doctor_count: ctx.memberIdsByDept.get(dept.id)?.size || 0,
-    today_appointments: ctx.todayByDept.get(dept.id) || 0,
-    consultation_modes: Array.from(ctx.modesByDept.get(dept.id) || []),
-  }));
+  return ctx.departments.map((dept) => {
+    const isHeadActive = dept.head_doctor_id && ctx.activeDoctorIds.has(dept.head_doctor_id);
+    const head = isHeadActive ? headsById.get(dept.head_doctor_id) : null;
+
+    return {
+      id: dept.id,
+      name: dept.name,
+      description: dept.description || '',
+      head_doctor_id: isHeadActive ? dept.head_doctor_id : null,
+      head_doctor_name: head?.name || null,
+      head_doctor_specialization: head?.specialization || null,
+      head_doctor_profile_image_url: head?.profile_image_url || null,
+      contact_extension: dept.contact_extension || '',
+      is_active: dept.is_active !== false,
+      created_at: dept.created_at,
+      doctor_count: ctx.memberIdsByDept.get(dept.id)?.size || 0,
+      today_appointments: ctx.todayByDept.get(dept.id) || 0,
+      consultation_modes: Array.from(ctx.modesByDept.get(dept.id) || []),
+    };
+  });
 };
 
 const getClinicDepartmentMeta = async (clinicId) => {
@@ -2051,8 +2526,7 @@ const getClinicDepartmentById = async (clinicId, departmentId) => {
 
   const doctorMembers = memberIds.map((doctorId) => {
     const doctor = doctorsById.get(doctorId) || {};
-    const term = ctx.termsByDoctor.get(doctorId) || {};
-    const isHead = department.head_doctor_id === doctorId;
+    const isHead = department.head_doctor_id === doctorId && ctx.activeDoctorIds.has(doctorId);
     return {
       doctor_id: doctorId,
       name: doctor.name || 'Doctor',
@@ -2064,16 +2538,15 @@ const getClinicDepartmentById = async (clinicId, departmentId) => {
       rating: doctor.rating != null ? Number(doctor.rating) : null,
       total_reviews: Number(doctor.total_reviews || 0),
       experience_years: Number(doctor.experience_years || 0),
-      practice_type: term.practice_type || 'full_time',
-      consultation_modes: Array.isArray(term.consultation_modes) && term.consultation_modes.length > 0
-        ? term.consultation_modes
-        : ['in_clinic', 'video'],
+      practice_type: 'full_time',
+      consultation_modes: ['in_clinic', 'video'],
       affiliation: isHead ? 'head' : 'member',
       is_head: isHead,
     };
   });
 
-  const headDoctor = department.head_doctor_id
+  const isHeadActive = department.head_doctor_id && ctx.activeDoctorIds.has(department.head_doctor_id);
+  const headDoctor = isHeadActive
     ? (() => {
       const doctor = doctorsById.get(department.head_doctor_id);
       if (!doctor) return null;
@@ -2090,6 +2563,7 @@ const getClinicDepartmentById = async (clinicId, departmentId) => {
 
   return {
     ...department,
+    head_doctor_id: isHeadActive ? department.head_doctor_id : null,
     is_active: department.is_active !== false,
     head_doctor_name: headDoctor?.name || null,
     head_doctor_specialization: headDoctor?.specialization || null,
@@ -2100,8 +2574,6 @@ const getClinicDepartmentById = async (clinicId, departmentId) => {
     consultation_modes: Array.from(ctx.modesByDept.get(department.id) || []),
     today_appointments: ctx.todayByDept.get(department.id) || 0,
     schedule: {
-      // Scheduling is doctor-specific, not department-level (see schema).
-      // Department availability is therefore derived from assigned doctors.
       doctor_count: doctorMembers.length,
     },
     appointments: {
@@ -2113,7 +2585,58 @@ const getClinicDepartmentById = async (clinicId, departmentId) => {
   };
 };
 
+const getDepartmentAvailableDoctors = async (clinicId, userId, departmentId) => {
+  await assertClinicOwner(clinicId, userId);
+
+  const { data: dept, error: deptError } = await supabaseAdmin
+    .from('clinic_departments')
+    .select('*')
+    .eq('id', departmentId)
+    .eq('clinic_id', clinicId)
+    .maybeSingle();
+
+  if (deptError) throw deptError;
+  if (!dept) throw new ApiError(404, 'Department not found for this clinic');
+
+  const ctx = await getClinicDepartmentContext(clinicId);
+  const assignedSet = ctx.memberIdsByDept.get(departmentId) || new Set();
+
+  const { data: associations, error: assocError } = await supabaseAdmin
+    .from('clinic_doctors')
+    .select(`
+      id, doctor_id, is_active, joined_at,
+      doctor:doctors(
+        id, name, specialization, profile_image_url, is_approved, rating, total_reviews, experience_years
+      )
+    `)
+    .eq('clinic_id', clinicId)
+    .eq('is_active', true);
+
+  if (assocError) throw assocError;
+
+  return (associations || []).map((assoc) => {
+    const doc = assoc.doctor || {};
+    const isHead = dept.head_doctor_id === doc.id;
+    const isAssigned = assignedSet.has(doc.id);
+    return {
+      doctor_id: doc.id || assoc.doctor_id,
+      name: doc.name || 'Doctor',
+      specialization: doc.specialization || 'General Medicine',
+      profile_image_url: doc.profile_image_url || null,
+      is_approved: doc.is_approved === true,
+      verification: doc.is_approved === true ? 'verified' : 'pending',
+      rating: doc.rating != null ? Number(doc.rating) : null,
+      total_reviews: Number(doc.total_reviews || 0),
+      experience_years: Number(doc.experience_years || 0),
+      joined_at: assoc.joined_at || null,
+      is_assigned: isAssigned,
+      is_head: isHead,
+    };
+  });
+};
+
 const addDepartment = async (clinicId, userId, deptData) => {
+  await assertClinicOwner(clinicId, userId);
   const name = String(deptData.name || '').trim();
   if (!name) throw new ApiError(400, 'Department name is required');
 
@@ -2128,23 +2651,62 @@ const addDepartment = async (clinicId, userId, deptData) => {
     throw new ApiError(409, 'A department with this name already exists');
   }
 
+  const headDoctorId = deptData.head_doctor_id || deptData.headDoctorId || null;
+  if (headDoctorId) {
+    const { data: assoc } = await supabaseAdmin
+      .from('clinic_doctors')
+      .select('id, is_active')
+      .eq('clinic_id', clinicId)
+      .eq('doctor_id', headDoctorId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!assoc) {
+      throw new ApiError(400, 'Department head must be an active doctor affiliated with this clinic');
+    }
+  }
+
   const { data, error } = await supabaseAdmin
     .from('clinic_departments')
     .insert({
       clinic_id: clinicId,
       name,
       description: deptData.description || null,
-      head_doctor_id: deptData.head_doctor_id || deptData.headDoctorId || null,
+      head_doctor_id: headDoctorId,
       contact_extension: deptData.contact_extension || null,
     })
     .select('*')
     .single();
 
   if (error) throw error;
+
+  // If head doctor was set, ensure department is in their schedule.department_ids
+  if (headDoctorId && data?.id) {
+    const { data: headAssoc } = await supabaseAdmin
+      .from('clinic_doctors')
+      .select('id, schedule')
+      .eq('clinic_id', clinicId)
+      .eq('doctor_id', headDoctorId)
+      .maybeSingle();
+
+    if (headAssoc) {
+      const curSched = headAssoc.schedule && typeof headAssoc.schedule === 'object' && !Array.isArray(headAssoc.schedule) ? headAssoc.schedule : {};
+      const curDeptIds = Array.isArray(curSched.department_ids) ? [...curSched.department_ids] : [];
+      if (!curDeptIds.includes(data.id)) {
+        curDeptIds.push(data.id);
+        await supabaseAdmin
+          .from('clinic_doctors')
+          .update({ schedule: { ...curSched, department_ids: curDeptIds } })
+          .eq('id', headAssoc.id);
+      }
+    }
+  }
+
   return data;
 };
 
 const updateDepartment = async (clinicId, userId, departmentId, updates) => {
+  await assertClinicOwner(clinicId, userId);
   const allowed = ['name', 'description', 'head_doctor_id', 'contact_extension', 'is_active'];
   const safeUpdates = {};
   for (const key of allowed) {
@@ -2170,6 +2732,20 @@ const updateDepartment = async (clinicId, userId, departmentId, updates) => {
     }
   }
 
+  if (safeUpdates.head_doctor_id !== undefined && safeUpdates.head_doctor_id !== null) {
+    const { data: assoc } = await supabaseAdmin
+      .from('clinic_doctors')
+      .select('id, is_active')
+      .eq('clinic_id', clinicId)
+      .eq('doctor_id', safeUpdates.head_doctor_id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!assoc) {
+      throw new ApiError(400, 'Department head must be an active doctor affiliated with this clinic');
+    }
+  }
+
   const { data, error } = await supabaseAdmin
     .from('clinic_departments')
     .update(safeUpdates)
@@ -2179,10 +2755,202 @@ const updateDepartment = async (clinicId, userId, departmentId, updates) => {
     .single();
 
   if (error) throw error;
+
+  // If head doctor was assigned, ensure department is in their schedule.department_ids
+  if (safeUpdates.head_doctor_id) {
+    const { data: headAssoc } = await supabaseAdmin
+      .from('clinic_doctors')
+      .select('id, schedule')
+      .eq('clinic_id', clinicId)
+      .eq('doctor_id', safeUpdates.head_doctor_id)
+      .maybeSingle();
+
+    if (headAssoc) {
+      const curSched = headAssoc.schedule && typeof headAssoc.schedule === 'object' && !Array.isArray(headAssoc.schedule) ? headAssoc.schedule : {};
+      const curDeptIds = Array.isArray(curSched.department_ids) ? [...curSched.department_ids] : [];
+      if (!curDeptIds.includes(departmentId)) {
+        curDeptIds.push(departmentId);
+        await supabaseAdmin
+          .from('clinic_doctors')
+          .update({ schedule: { ...curSched, department_ids: curDeptIds } })
+          .eq('id', headAssoc.id);
+      }
+    }
+  }
+
   return data;
 };
 
+const assignDoctorToDepartment = async (clinicId, userId, departmentId, doctorId) => {
+  await assertClinicOwner(clinicId, userId);
+
+  const { data: dept, error: deptErr } = await supabaseAdmin
+    .from('clinic_departments')
+    .select('id, name, is_active')
+    .eq('id', departmentId)
+    .eq('clinic_id', clinicId)
+    .maybeSingle();
+
+  if (deptErr || !dept) throw new ApiError(404, 'Department not found for this clinic');
+  if (dept.is_active === false) throw new ApiError(400, 'Cannot assign doctor to an inactive department');
+
+  const { data: assoc, error: assocErr } = await supabaseAdmin
+    .from('clinic_doctors')
+    .select('id, doctor_id, schedule, is_active')
+    .eq('clinic_id', clinicId)
+    .eq('doctor_id', doctorId)
+    .maybeSingle();
+
+  if (assocErr || !assoc || assoc.is_active === false) {
+    throw new ApiError(400, 'Only active doctors affiliated with this clinic can be assigned to departments');
+  }
+
+  const currentSchedule = assoc.schedule && typeof assoc.schedule === 'object' && !Array.isArray(assoc.schedule) ? assoc.schedule : {};
+  const existingDeptIds = Array.isArray(currentSchedule.department_ids) ? [...currentSchedule.department_ids] : [];
+  if (!existingDeptIds.includes(departmentId)) {
+    existingDeptIds.push(departmentId);
+  }
+
+  const { error: updateErr } = await supabaseAdmin
+    .from('clinic_doctors')
+    .update({
+      schedule: {
+        ...currentSchedule,
+        department_ids: existingDeptIds,
+      },
+    })
+    .eq('id', assoc.id);
+
+  if (updateErr) throw updateErr;
+  return { success: true, department_id: departmentId, doctor_id: doctorId };
+};
+
+const unassignDoctorFromDepartment = async (clinicId, userId, departmentId, doctorId) => {
+  await assertClinicOwner(clinicId, userId);
+
+  const { data: dept, error: deptErr } = await supabaseAdmin
+    .from('clinic_departments')
+    .select('id, head_doctor_id')
+    .eq('id', departmentId)
+    .eq('clinic_id', clinicId)
+    .maybeSingle();
+
+  if (deptErr || !dept) throw new ApiError(404, 'Department not found for this clinic');
+
+  const { data: assoc } = await supabaseAdmin
+    .from('clinic_doctors')
+    .select('id, schedule')
+    .eq('clinic_id', clinicId)
+    .eq('doctor_id', doctorId)
+    .maybeSingle();
+
+  if (assoc) {
+    const currentSchedule = assoc.schedule && typeof assoc.schedule === 'object' && !Array.isArray(assoc.schedule) ? assoc.schedule : {};
+    const existingDeptIds = Array.isArray(currentSchedule.department_ids) ? currentSchedule.department_ids : [];
+    const nextDeptIds = existingDeptIds.filter((id) => id !== departmentId);
+
+    await supabaseAdmin
+      .from('clinic_doctors')
+      .update({
+        schedule: {
+          ...currentSchedule,
+          department_ids: nextDeptIds,
+        },
+      })
+      .eq('id', assoc.id);
+  }
+
+  if (dept.head_doctor_id === doctorId) {
+    await supabaseAdmin
+      .from('clinic_departments')
+      .update({ head_doctor_id: null })
+      .eq('id', departmentId)
+      .eq('clinic_id', clinicId);
+  }
+
+  return { success: true };
+};
+
+const setDepartmentDoctors = async (clinicId, userId, departmentId, doctorIds = []) => {
+  await assertClinicOwner(clinicId, userId);
+
+  const { data: dept, error: deptErr } = await supabaseAdmin
+    .from('clinic_departments')
+    .select('id, name, head_doctor_id, is_active')
+    .eq('id', departmentId)
+    .eq('clinic_id', clinicId)
+    .maybeSingle();
+
+  if (deptErr || !dept) throw new ApiError(404, 'Department not found for this clinic');
+
+  const { data: activeAssocs, error: assocErr } = await supabaseAdmin
+    .from('clinic_doctors')
+    .select('id, doctor_id, schedule, is_active')
+    .eq('clinic_id', clinicId)
+    .eq('is_active', true);
+
+  if (assocErr) throw assocErr;
+
+  const activeDoctorMap = new Map((activeAssocs || []).map((a) => [a.doctor_id, a]));
+  const targetSet = new Set(doctorIds);
+
+  for (const docId of targetSet) {
+    if (!activeDoctorMap.has(docId)) {
+      throw new ApiError(400, `Doctor ${docId} is not an active member of this clinic.`);
+    }
+  }
+
+  for (const assoc of activeAssocs || []) {
+    const curSched = assoc.schedule && typeof assoc.schedule === 'object' && !Array.isArray(assoc.schedule) ? assoc.schedule : {};
+    const curDeptIds = Array.isArray(curSched.department_ids) ? [...curSched.department_ids] : [];
+    const isTarget = targetSet.has(assoc.doctor_id);
+    const hasDept = curDeptIds.includes(departmentId);
+
+    if (isTarget && !hasDept) {
+      curDeptIds.push(departmentId);
+      await supabaseAdmin
+        .from('clinic_doctors')
+        .update({ schedule: { ...curSched, department_ids: curDeptIds } })
+        .eq('id', assoc.id);
+    } else if (!isTarget && hasDept) {
+      const nextDeptIds = curDeptIds.filter((id) => id !== departmentId);
+      await supabaseAdmin
+        .from('clinic_doctors')
+        .update({ schedule: { ...curSched, department_ids: nextDeptIds } })
+        .eq('id', assoc.id);
+    }
+  }
+
+  if (dept.head_doctor_id && !targetSet.has(dept.head_doctor_id)) {
+    await supabaseAdmin
+      .from('clinic_departments')
+      .update({ head_doctor_id: null })
+      .eq('id', departmentId)
+      .eq('clinic_id', clinicId);
+  }
+
+  return { success: true, count: doctorIds.length };
+};
+
 const deleteDepartment = async (clinicId, userId, departmentId) => {
+  await assertClinicOwner(clinicId, userId);
+
+  const { data: assocs } = await supabaseAdmin
+    .from('clinic_doctors')
+    .select('id, schedule')
+    .eq('clinic_id', clinicId);
+
+  for (const assoc of assocs || []) {
+    const schedule = assoc.schedule && typeof assoc.schedule === 'object' && !Array.isArray(assoc.schedule) ? assoc.schedule : {};
+    if (Array.isArray(schedule.department_ids) && schedule.department_ids.includes(departmentId)) {
+      const nextDeptIds = schedule.department_ids.filter((id) => id !== departmentId);
+      await supabaseAdmin
+        .from('clinic_doctors')
+        .update({ schedule: { ...schedule, department_ids: nextDeptIds } })
+        .eq('id', assoc.id);
+    }
+  }
+
   const { error } = await supabaseAdmin
     .from('clinic_departments')
     .delete()
@@ -3807,6 +4575,266 @@ const getHealthAlerts = async (clinicId, userId) => {
   };
 };
 
+/**
+ * Canonical Clinic Profile Completion calculation from real database state.
+ */
+const getClinicProfileCompletion = async (clinicId, userId) => {
+  // 1. Fetch clinic entity
+  const { data: clinic, error: clinicError } = await supabaseAdmin
+    .from('clinics')
+    .select('*')
+    .eq('id', clinicId)
+    .maybeSingle();
+
+  if (clinicError || !clinic) {
+    throw new ApiError(404, 'Clinic not found');
+  }
+
+  // 2. Fetch active doctors count
+  const { count: activeDoctorsCount } = await supabaseAdmin
+    .from('clinic_doctors')
+    .select('id', { count: 'exact', head: true })
+    .eq('clinic_id', clinicId)
+    .eq('is_active', true);
+
+  // 3. Fetch departments count
+  const { count: departmentsCount } = await supabaseAdmin
+    .from('clinic_departments')
+    .select('id', { count: 'exact', head: true })
+    .eq('clinic_id', clinicId);
+
+  // ── Milestone 1: General Profile (25%) ──────────────────────────────
+  const hasName = Boolean(clinic.name && clinic.name.trim().length > 0);
+  const hasContact = Boolean((clinic.phone && clinic.phone.trim().length > 0) || (clinic.email && clinic.email.trim().length > 0));
+  const hasAddress = Boolean((clinic.address && clinic.address.trim().length > 0) || (clinic.city && clinic.city.trim().length > 0));
+  const hasLogo = Boolean(clinic.profile_image_url || clinic.image_url || (Array.isArray(clinic.images) && clinic.images.length > 0));
+
+  const generalTasks = [
+    { id: 'name', label: 'Clinic Name & Details', completed: hasName, route: '/clinic/settings?section=general' },
+    { id: 'contact', label: 'Contact Phone & Email', completed: hasContact, route: '/clinic/settings?section=general' },
+    { id: 'address', label: 'Clinic Address & Location', completed: hasAddress, route: '/clinic/settings?section=general' },
+    { id: 'logo', label: 'Clinic Logo or Photo', completed: hasLogo, route: '/clinic/settings?section=general' }
+  ];
+  const generalCompletedCount = generalTasks.filter(t => t.completed).length;
+  const generalPct = (generalCompletedCount / generalTasks.length) * 25;
+  const generalSectionComplete = generalCompletedCount === generalTasks.length;
+
+  // ── Milestone 2: Clinical Setup (25%) ───────────────────────────────
+  const hasDoctors = (activeDoctorsCount || 0) > 0;
+  const hasDepartments = (departmentsCount || 0) > 0;
+  const hasServices = Boolean(
+    (Array.isArray(clinic.specializations) && clinic.specializations.length > 0) ||
+    (Array.isArray(clinic.facilities) && clinic.facilities.length > 0) ||
+    (clinic.description && clinic.description.trim().length > 0)
+  );
+
+  const clinicalTasks = [
+    { id: 'doctors', label: 'Affiliated Doctors', completed: hasDoctors, route: '/clinic/doctors', description: hasDoctors ? `${activeDoctorsCount} active doctor(s) affiliated` : 'Affiliate at least one doctor' },
+    { id: 'departments', label: 'Clinical Departments', completed: hasDepartments, route: '/clinic/departments', description: hasDepartments ? `${departmentsCount} department(s) created` : 'Organize specialties into departments' },
+    { id: 'services', label: 'Specializations & Services', completed: hasServices, route: '/clinic/settings?section=clinical-services', description: 'Configure clinic specializations and facilities' }
+  ];
+  const clinicalCompletedCount = clinicalTasks.filter(t => t.completed).length;
+  const clinicalPct = (clinicalCompletedCount / clinicalTasks.length) * 25;
+  const clinicalSectionComplete = clinicalCompletedCount === clinicalTasks.length;
+
+  // ── Milestone 3: Working Hours (25%) ────────────────────────────────
+  let hasWorkingHours = Boolean(clinic.is_24_hours);
+  if (!hasWorkingHours && clinic.opening_hours) {
+    if (Array.isArray(clinic.opening_hours)) {
+      hasWorkingHours = clinic.opening_hours.some(d => d.isOpen === true);
+    } else if (typeof clinic.opening_hours === 'string') {
+      try {
+        const parsed = JSON.parse(clinic.opening_hours);
+        if (Array.isArray(parsed)) {
+          hasWorkingHours = parsed.some(d => d.isOpen === true);
+        } else {
+          hasWorkingHours = clinic.opening_hours.includes('"isOpen":true');
+        }
+      } catch {
+        hasWorkingHours = clinic.opening_hours.length > 5;
+      }
+    }
+  }
+
+  const hoursTasks = [
+    { id: 'working_hours', label: 'Operating & Working Hours', completed: hasWorkingHours, route: '/clinic/settings?section=working-hours', description: hasWorkingHours ? 'Working schedule is active' : 'Set daily operating hours or 24/7 availability' }
+  ];
+  const hoursCompletedCount = hoursTasks.filter(t => t.completed).length;
+  const hoursPct = (hoursCompletedCount / hoursTasks.length) * 25;
+  const hoursSectionComplete = hoursCompletedCount === hoursTasks.length;
+
+  // ── Milestone 4: Verification & Legal (25%) ─────────────────────────
+  const hasRegNumber = Boolean((clinic.license_number && clinic.license_number.trim().length > 0) || (clinic.registration_number && clinic.registration_number.trim().length > 0));
+  const hasVerification = Boolean(clinic.is_approved === true || clinic.is_verified === true || clinic.approval_status === 'approved' || clinic.license_document_url);
+
+  const legalTasks = [
+    { id: 'license_number', label: 'Registration & License Number', completed: hasRegNumber, route: '/clinic/settings?section=security-verification' },
+    { id: 'verification_status', label: 'Clinic Verification & Approval', completed: hasVerification, route: '/clinic/settings?section=security-verification' }
+  ];
+  const legalCompletedCount = legalTasks.filter(t => t.completed).length;
+  const legalPct = (legalCompletedCount / legalTasks.length) * 25;
+  const legalSectionComplete = legalCompletedCount === legalTasks.length;
+
+  // ── Calculate Grand Totals ──────────────────────────────────────────
+  const totalPercentage = Math.min(100, Math.round(generalPct + clinicalPct + hoursPct + legalPct));
+  const sections = [
+    {
+      id: 'general_profile',
+      label: 'General Profile',
+      completed: generalSectionComplete,
+      percentage: Math.round(generalPct),
+      weight: 25,
+      tasks: generalTasks,
+      route: '/clinic/settings?section=general'
+    },
+    {
+      id: 'clinical_setup',
+      label: 'Clinical Setup',
+      completed: clinicalSectionComplete,
+      percentage: Math.round(clinicalPct),
+      weight: 25,
+      tasks: clinicalTasks,
+      route: !hasDoctors ? '/clinic/doctors' : (!hasDepartments ? '/clinic/departments' : '/clinic/settings?section=clinical-services')
+    },
+    {
+      id: 'working_hours',
+      label: 'Working Hours',
+      completed: hoursSectionComplete,
+      percentage: Math.round(hoursPct),
+      weight: 25,
+      tasks: hoursTasks,
+      route: '/clinic/settings?section=working-hours'
+    },
+    {
+      id: 'verification_legal',
+      label: 'Verification & Legal',
+      completed: legalSectionComplete,
+      percentage: Math.round(legalPct),
+      weight: 25,
+      tasks: legalTasks,
+      route: '/clinic/settings?section=security-verification'
+    }
+  ];
+
+  const allTasks = [...generalTasks, ...clinicalTasks, ...hoursTasks, ...legalTasks];
+  const completedTasksCount = allTasks.filter(t => t.completed).length;
+  const totalTasksCount = allTasks.length;
+
+  const completedSectionsCount = sections.filter(s => s.completed).length;
+  const totalSectionsCount = sections.length;
+
+  // Determine next actionable step
+  let nextStep = null;
+  if (totalPercentage < 100) {
+    if (!generalSectionComplete) {
+      const firstMissing = generalTasks.find(t => !t.completed);
+      nextStep = {
+        id: firstMissing.id,
+        label: `Complete ${firstMissing.label}`,
+        description: 'Update your clinic profile information to help patients find you.',
+        route: firstMissing.route,
+        sectionId: 'general_profile'
+      };
+    } else if (!hoursSectionComplete) {
+      nextStep = {
+        id: 'working_hours',
+        label: 'Set Clinic Working Hours',
+        description: 'Configure your weekly consultation schedule so appointments can be booked.',
+        route: '/clinic/settings?section=working-hours',
+        sectionId: 'working_hours'
+      };
+    } else if (!clinicalSectionComplete) {
+      if (!hasDoctors) {
+        nextStep = {
+          id: 'doctors',
+          label: 'Affiliate Clinic Doctors',
+          description: 'Invite medical practitioners to your clinic team.',
+          route: '/clinic/doctors',
+          sectionId: 'clinical_setup'
+        };
+      } else if (!hasDepartments) {
+        nextStep = {
+          id: 'departments',
+          label: 'Create Clinic Departments',
+          description: 'Organize your doctors into specialty departments.',
+          route: '/clinic/departments',
+          sectionId: 'clinical_setup'
+        };
+      } else {
+        nextStep = {
+          id: 'services',
+          label: 'Configure Specializations',
+          description: 'Add clinical specialties and facilities offered by your clinic.',
+          route: '/clinic/settings?section=clinical-services',
+          sectionId: 'clinical_setup'
+        };
+      }
+    } else if (!legalSectionComplete) {
+      nextStep = {
+        id: 'verification',
+        label: 'Complete Verification & Legal',
+        description: 'Submit your registration and license details for verification.',
+        route: '/clinic/settings?section=security-verification',
+        sectionId: 'verification_legal'
+      };
+    }
+  }
+
+  return {
+    percentage: totalPercentage,
+    completedSectionsCount,
+    totalSectionsCount,
+    completedTasksCount,
+    totalTasksCount,
+    isComplete: totalPercentage === 100,
+    status: totalPercentage === 100 ? 'completed' : (totalPercentage > 0 ? 'in_progress' : 'not_started'),
+    nextStep,
+    sections,
+    summary: `${completedSectionsCount} of ${totalSectionsCount} setup milestones completed`
+  };
+};
+
+/**
+ * Get dashboard visibility and onboarding preferences for clinic owner.
+ */
+const getClinicPreferences = async (clinicId, userId) => {
+  const { data: userRecord } = await supabaseAdmin.auth.admin.getUserById(userId);
+  const metadata = userRecord?.user?.user_metadata || {};
+  const clinicPrefs = metadata.clinic_dashboard_preferences || {};
+
+  return {
+    show_profile_completion: clinicPrefs.show_profile_completion !== false,
+    onboarding_completed: clinicPrefs.onboarding_completed === true,
+  };
+};
+
+/**
+ * Update dashboard visibility and onboarding preferences for clinic owner.
+ */
+const updateClinicPreferences = async (clinicId, userId, preferences = {}) => {
+  const { data: userRecord } = await supabaseAdmin.auth.admin.getUserById(userId);
+  const currentMetadata = userRecord?.user?.user_metadata || {};
+  const currentClinicPrefs = currentMetadata.clinic_dashboard_preferences || {};
+
+  const updatedPrefs = {
+    ...currentClinicPrefs,
+    ...(preferences.show_profile_completion !== undefined ? { show_profile_completion: preferences.show_profile_completion } : {}),
+    ...(preferences.onboarding_completed !== undefined ? { onboarding_completed: preferences.onboarding_completed } : {}),
+  };
+
+  await supabaseAdmin.auth.admin.updateUserById(userId, {
+    user_metadata: {
+      ...currentMetadata,
+      clinic_dashboard_preferences: updatedPrefs
+    }
+  });
+
+  return {
+    show_profile_completion: updatedPrefs.show_profile_completion !== false,
+    onboarding_completed: updatedPrefs.onboarding_completed === true,
+  };
+};
+
 module.exports = {
   searchClinics,
   findNearby,
@@ -3819,6 +4847,8 @@ module.exports = {
   updateClinic,
   getDoctors,
   getClinicDoctorProfile,
+  getDoctorAffiliationHistory,
+  reinviteDoctor,
   addDoctor,
   removeDoctor,
   getAppointments,
@@ -3829,9 +4859,13 @@ module.exports = {
   getClinicDepartments,
   getClinicDepartmentMeta,
   getClinicDepartmentById,
+  getDepartmentAvailableDoctors,
   addDepartment,
   updateDepartment,
   deleteDepartment,
+  assignDoctorToDepartment,
+  unassignDoctorFromDepartment,
+  setDepartmentDoctors,
   getAnalytics,
   getHealthAlerts,
   getClinicInvites,
@@ -3843,4 +4877,7 @@ module.exports = {
   updateAppointmentStatusForClinic,
   rescheduleClinicAppointment,
   checkInAppointment,
+  getClinicProfileCompletion,
+  getClinicPreferences,
+  updateClinicPreferences,
 };

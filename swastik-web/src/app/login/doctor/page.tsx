@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import VaidideaLogo from '@/components/shared/VaidideaLogo';
+import { ProviderSelectionLink } from '@/components/shared/ProviderSelectionLink';
 import {
     Activity,
     ShieldCheck,
@@ -18,10 +19,12 @@ import {
     Lock
 } from 'lucide-react';
 import { useAuthStore, ROLE_HOME_ROUTES } from '@/stores/authStore';
+import { doesRoleMatchPortal } from '@/lib/roles';
 
-export default function DoctorLoginPage() {
+function DoctorLoginForm() {
     const router = useRouter();
-    const { login } = useAuthStore();
+    const searchParams = useSearchParams();
+    const { login, isAuthenticated, user, _hasHydrated } = useAuthStore();
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -31,6 +34,14 @@ export default function DoctorLoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
+    React.useEffect(() => {
+        if (_hasHydrated && isAuthenticated && doesRoleMatchPortal(user?.role, 'doctor')) {
+            const redirectParam = searchParams.get('redirect');
+            const target = (redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('/login')) ? redirectParam : ROLE_HOME_ROUTES['doctor'];
+            router.replace(target);
+        }
+    }, [_hasHydrated, isAuthenticated, user, searchParams, router]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
@@ -39,11 +50,13 @@ export default function DoctorLoginPage() {
         try {
             const result = await login(email.trim(), password, 'doctor', rememberMe);
             if (result.success) {
-                router.push(ROLE_HOME_ROUTES['doctor']);
+                const redirectParam = searchParams.get('redirect');
+                const target = (redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('/login')) ? redirectParam : ROLE_HOME_ROUTES['doctor'];
+                router.replace(target);
             } else {
                 setError(result.error || 'Login failed');
             }
-        } catch (err) {
+        } catch {
             setError('An unexpected error occurred');
         } finally {
             setIsLoading(false);
@@ -61,9 +74,12 @@ export default function DoctorLoginPage() {
                 </div>
 
                 <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-12">
-                        <VaidideaLogo className="w-10 h-10" />
-                        <span className="text-2xl font-bold text-white tracking-tight">Vaididea</span>
+                    <div className="flex items-center justify-between mb-12">
+                        <div className="flex items-center gap-3">
+                            <VaidideaLogo className="w-10 h-10" />
+                            <span className="text-2xl font-bold text-white tracking-tight">Vaididea</span>
+                        </div>
+                        <ProviderSelectionLink />
                     </div>
 
                     <motion.div
@@ -124,9 +140,12 @@ export default function DoctorLoginPage() {
                     className="w-full max-w-[440px] relative z-10"
                 >
                     {/* Mobile Logo */}
-                    <div className="md:hidden flex items-center gap-3 mb-6 justify-center">
-                        <VaidideaLogo className="w-10 h-10" />
-                        <span className="text-2xl font-bold text-white tracking-tight">Vaididea</span>
+                    <div className="md:hidden flex flex-col items-center gap-2 mb-6">
+                        <div className="flex items-center gap-3">
+                            <VaidideaLogo className="w-10 h-10" />
+                            <span className="text-2xl font-bold text-white tracking-tight">Vaididea</span>
+                        </div>
+                        <ProviderSelectionLink />
                     </div>
 
                     <div className="bg-[rgba(255,255,255,0.02)] backdrop-blur-xl border border-[rgba(255,255,255,0.05)] p-6 sm:p-8 rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
@@ -260,5 +279,13 @@ export default function DoctorLoginPage() {
                 </motion.div>
             </div>
         </div>
+    );
+}
+
+export default function DoctorLoginPage() {
+    return (
+        <Suspense fallback={<div className="h-screen w-full bg-[#09090B]" />}>
+            <DoctorLoginForm />
+        </Suspense>
     );
 }

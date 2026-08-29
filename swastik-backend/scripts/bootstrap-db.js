@@ -5,16 +5,19 @@
  * Disease collection is empty and running the JSON seed migration if needed.
  */
 
-const { connectMongoDB } = require("../config/mongodb");
+const { connectMongoDB, mongoose } = require("../config/mongodb");
 const { Disease } = require("../database/models");
 const logger = require("../utils/logger");
 
 async function bootstrapHealthDatabase() {
-  logger.info("🚀 Starting database bootstrap for health library (MongoDB)...");
-
   try {
     // ── Step 1: Connect to MongoDB ──
     await connectMongoDB();
+
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+      logger.info("ℹ️ MongoDB not connected. Skipping health database bootstrap.");
+      return;
+    }
 
     // ── Step 2: Seed data if empty ──
     const diseaseCount = await Disease.countDocuments();

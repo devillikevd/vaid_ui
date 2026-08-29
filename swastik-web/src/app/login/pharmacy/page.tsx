@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import VaidideaLogo from '@/components/shared/VaidideaLogo';
+import { ProviderSelectionLink } from '@/components/shared/ProviderSelectionLink';
 import {
     Pill,
     ShieldCheck,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore, ROLE_HOME_ROUTES } from '@/stores/authStore';
 import { authApi } from '@/lib/api';
+import { doesRoleMatchPortal } from '@/lib/roles';
 
 const FEATURES = [
     { icon: Package, text: 'Manage Inventory' },
@@ -53,11 +55,12 @@ export default function PharmacyLoginPage() {
     const [verificationComplete, setVerificationComplete] = useState(false);
 
     useEffect(() => {
-        if (_hasHydrated && isAuthenticated && user?.role &&
-            ['pharmacy_owner', 'pharmacy_manager', 'pharmacy_staff'].includes(user.role)) {
-            router.replace(ROLE_HOME_ROUTES['pharmacy_owner']);
+        if (_hasHydrated && isAuthenticated && doesRoleMatchPortal(user?.role, 'pharmacy')) {
+            const redirectParam = searchParams.get('redirect');
+            const target = (redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('/login')) ? redirectParam : ROLE_HOME_ROUTES['pharmacy_owner'];
+            router.replace(target);
         }
-    }, [_hasHydrated, isAuthenticated, user, router]);
+    }, [_hasHydrated, isAuthenticated, user, searchParams, router]);
 
     useEffect(() => {
         if (resendCooldown <= 0) return;
@@ -74,9 +77,6 @@ export default function PharmacyLoginPage() {
         setIsLoading(true);
         try {
             // Try pharmacy_owner first (most common); if role mismatch, fall back to member roles.
-            // The auth store's login() validates the returned role matches the expected role.
-            // For pharmacy members, the backend returns 'pharmacy_manager' or 'pharmacy_staff',
-            // but we must try each accepted role so the role check in login() passes.
             let result = await login(email.trim(), password, 'pharmacy_owner', rememberMe);
 
             if (!result.success && result.error?.includes('role')) {
@@ -89,7 +89,9 @@ export default function PharmacyLoginPage() {
             }
 
             if (result.success) {
-                router.push(ROLE_HOME_ROUTES['pharmacy_owner']);
+                const redirectParam = searchParams.get('redirect');
+                const target = (redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('/login')) ? redirectParam : ROLE_HOME_ROUTES['pharmacy_owner'];
+                router.replace(target);
             } else {
                 if (result.code === 'EMAIL_NOT_VERIFIED') setEmailNotVerified(true);
                 setError(result.error || 'Login failed');
@@ -156,7 +158,16 @@ export default function PharmacyLoginPage() {
                 </div>
 
                 <div className="relative z-10 flex flex-col justify-between h-full p-8 lg:p-12 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-                    <div className="flex-1 flex flex-col justify-center max-w-[420px] mx-auto w-full pt-12">
+                    <div>
+                        {/* Logo row */}
+                        <div className="flex items-center justify-between mb-8 lg:mb-10">
+                            <div className="flex items-center gap-2.5">
+                                <VaidideaLogo className="w-9 h-9" />
+                                <span className="text-xl font-bold text-white tracking-tight">Vaididea</span>
+                            </div>
+                            <ProviderSelectionLink />
+                        </div>
+
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}>
                             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-semibold mb-6">
                                 <Pill className="w-3.5 h-3.5" />
@@ -191,13 +202,9 @@ export default function PharmacyLoginPage() {
                         </motion.div>
                     </div>
 
-                    <div className="mt-12 flex items-center gap-6 text-sm font-medium text-[#A1A1AA]">
-                        <Link href="/" className="hover:text-white transition-colors inline-flex items-center gap-1.5">
-                            <ArrowLeft className="w-4 h-4" /> Back to Home
-                        </Link>
-                        <span className="text-white/20">•</span>
-                        <Link href="/contact" className="hover:text-white transition-colors">Support</Link>
-                    </div>
+                    <p className="text-xs text-[#A1A1AA]/40 mt-6 shrink-0">
+                        &copy; {new Date().getFullYear()} Vaididea Healthcare Pvt. Ltd.
+                    </p>
                 </div>
             </div>
 
@@ -207,15 +214,12 @@ export default function PharmacyLoginPage() {
                     <div className="absolute top-[-10%] left-[-10%] w-[70%] h-[40%] rounded-full bg-orange-500/[0.06] blur-[100px]" />
                 </div>
 
-                <div className="p-6 flex justify-between items-center relative z-20 md:hidden">
+                <div className="p-6 flex flex-col items-center gap-2 relative z-20 md:hidden">
                     <div className="flex items-center gap-2.5">
                         <VaidideaLogo className="w-8 h-8" />
                         <span className="text-xl font-bold text-white tracking-tight">Vaididea</span>
                     </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[11px] font-semibold">
-                        <Pill className="w-3 h-3" />
-                        <span>Pharmacy</span>
-                    </div>
+                    <ProviderSelectionLink />
                 </div>
 
                 <div className="flex-1 flex items-center justify-center p-6 lg:p-12 relative z-10">

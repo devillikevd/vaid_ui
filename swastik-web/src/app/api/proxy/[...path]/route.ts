@@ -17,15 +17,21 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
     // Forward relevant headers
     const contentType = req.headers.get('content-type');
     if (contentType) headers.set('content-type', contentType);
-    
-    // Extract tokens from HttpOnly cookies
-    const accessToken = req.cookies.get('accessToken')?.value;
-    if (accessToken) {
-        headers.set('authorization', `Bearer ${accessToken}`);
+
+    // Forward incoming Authorization header directly if present
+    const authHeader = req.headers.get('authorization');
+    if (authHeader) {
+        headers.set('authorization', authHeader);
+    } else {
+        // Fallback: extract tokens from cookies (accessToken or swastik-token)
+        const accessToken = req.cookies.get('accessToken')?.value || req.cookies.get('swastik-token')?.value;
+        if (accessToken) {
+            headers.set('authorization', `Bearer ${accessToken}`);
+        }
     }
     
     // Forward the refreshToken cookie using the name the backend expects
-    const refreshToken = req.cookies.get('refreshToken')?.value;
+    const refreshToken = req.cookies.get('refreshToken')?.value || req.cookies.get('swastik-refresh-token')?.value;
     if (refreshToken) {
         headers.append('cookie', `swastik-refresh-token=${refreshToken}`);
     }

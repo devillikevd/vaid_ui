@@ -73,7 +73,7 @@ function normalizeStoredToken(token: string | null | undefined): string | null {
     return token;
 }
 
-function syncCookie(name: 'swastik-role' | 'swastik-token' | 'swastik-ai-token', value: string | null, maxAge: number = DEFAULT_AUTH_COOKIE_MAX_AGE) {
+function syncCookie(name: string, value: string | null, maxAge: number = DEFAULT_AUTH_COOKIE_MAX_AGE) {
     if (typeof document === 'undefined') {
         return;
     }
@@ -107,6 +107,11 @@ export const setTokens = (
 
     if (typeof window !== 'undefined') {
         syncCookie('swastik-token', accessToken, options.cookieMaxAge);
+        syncCookie('accessToken', accessToken, options.cookieMaxAge);
+        if (refreshToken) {
+            syncCookie('refreshToken', refreshToken, options.cookieMaxAge);
+            syncCookie('swastik-refresh-token', refreshToken, options.cookieMaxAge);
+        }
         if (options.aiServiceToken) {
             syncCookie('swastik-ai-token', aiServiceToken, 60 * 15);
         } else {
@@ -115,13 +120,26 @@ export const setTokens = (
         if (options.role) {
             syncCookie('swastik-role', options.role, options.cookieMaxAge);
         }
+        try {
+            if (accessToken) {
+                localStorage.setItem('swastik-token', accessToken);
+            } else {
+                localStorage.removeItem('swastik-token');
+            }
+        } catch { /* ignore */ }
     }
 };
 
 export const getTokens = () => {
     if (typeof window !== 'undefined') {
         if (!accessToken) {
-            const match = document.cookie.match(new RegExp('(^| )swastik-token=([^;]+)'));
+            try {
+                accessToken = localStorage.getItem('swastik-token');
+            } catch { /* ignore */ }
+        }
+        if (!accessToken) {
+            const match = document.cookie.match(new RegExp('(^| )swastik-token=([^;]+)')) ||
+                          document.cookie.match(new RegExp('(^| )accessToken=([^;]+)'));
             if (match) accessToken = match[2];
         }
         if (!aiServiceToken) {
@@ -147,7 +165,13 @@ export const clearTokens = () => {
     if (typeof window !== 'undefined') {
         syncCookie('swastik-role', null);
         syncCookie('swastik-token', null);
+        syncCookie('accessToken', null);
+        syncCookie('refreshToken', null);
+        syncCookie('swastik-refresh-token', null);
         syncCookie('swastik-ai-token', null);
+        try {
+            localStorage.removeItem('swastik-token');
+        } catch { /* ignore */ }
     }
 };
 
@@ -186,15 +210,14 @@ export async function fetchWithAuth<T>(
         ...(options.headers as Record<string, string> || {}),
     };
 
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     // Only set Content-Type for non-FormData bodies (FormData needs browser to set boundary)
     if (!(options.body instanceof FormData)) {
         headers['Content-Type'] = headers['Content-Type'] || 'application/json';
     }
-
-    // We no longer manually attach Authorization header. 
-    // The browser attaches the HttpOnly 'accessToken' cookie automatically 
-    // because the request goes to the Next.js proxy (/api/proxy/...), 
-    // and the proxy server extracts it and adds the Authorization header before forwarding to the backend.
 
     try {
         // Abort the request after the (configurable) timeout to prevent hanging calls.
@@ -246,7 +269,14 @@ export async function fetchWithAuth<T>(
             // Return server message if present, otherwise a human-readable fallback
             const serverMsg = data?.message || data?.error;
             const friendlyError = serverMsg || getHttpErrorMessage(response.status);
-            return { success: false, error: friendlyError };
+            return {
+                success: false,
+                error: friendlyError,
+                message: serverMsg || friendlyError,
+                code: data?.code,
+                status: response.status,
+                details: data?.details,
+            };
         }
 
         // Unwrap: backend often returns { success, data: [...], pagination: {...} }
@@ -816,12 +846,12 @@ export const doctorApi = {
     // ── Doctor IPD In-Patient Care & Rounds ──
     getDoctorIpdAdmissions: (params: Record<string, string> = {}) => {
         const p = new URLSearchParams(params);
-        return fetchWithAuth(`/doctor/me/ipd/admissions?${p}`);
+        return fetchWithAuth(`/doctors/me/ipd/admissions?${p}`);
     },
     addDoctorIpdRound: (data: Record<string, unknown>) =>
-        fetchWithAuth('/doctor/me/ipd/rounds', { method: 'POST', body: JSON.stringify(data) }),
+        fetchWithAuth('/doctors/me/ipd/rounds', { method: 'POST', body: JSON.stringify(data) }),
     getDoctorIpdRounds: (admissionId: string) =>
-        fetchWithAuth(`/doctor/me/ipd/rounds/${admissionId}`),
+        fetchWithAuth(`/doctors/me/ipd/rounds/${admissionId}`),
 
     updateVerificationDocuments: (data: Record<string, unknown>) =>
         fetchWithAuth('/doctors/me/verification-documents', {
@@ -1047,6 +1077,34 @@ export const doctorApi = {
 
     recordDirectVisit: (data: Record<string, unknown>) =>
         fetchWithAuth<{ appointment: any; prescription: any; vitals?: any }>('/doctors/me/direct-visits', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    // Prescription Partner Routing & Referrals
+    getPrescriptionPharmacyPartners: (prescriptionId: string) =>
+        fetchWithAuth<{ success: boolean; data: any[]; partners: any[] }>(`/doctors/prescriptions/${prescriptionId}/pharmacy-partners`),
+
+    routePrescriptionToPharmacy: (prescriptionId: string, data: { pharmacyId: string; items: any[]; deliveryType?: string; deliveryAddress?: string }) =>
+        fetchWithAuth<{ success: boolean; data: any }>(`/doctors/prescriptions/${prescriptionId}/route-to-pharmacy`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    getPrescriptionDiagnosticPartners: (prescriptionId: string) =>
+        fetchWithAuth<{ success: boolean; data: any[]; partners: any[] }>(`/doctors/prescriptions/${prescriptionId}/diagnostic-partners`),
+
+    routePrescriptionToDiagnostic: (prescriptionId: string, data: { centerId: string; bookingDate?: string; bookingTime?: string; testId?: string; collectionType?: string; collectionAddress?: string; notes?: string }) =>
+        fetchWithAuth<{ success: boolean; data: any }>(`/doctors/prescriptions/${prescriptionId}/route-to-diagnostic`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    getPrescriptionHospitalPartners: (prescriptionId: string) =>
+        fetchWithAuth<{ success: boolean; data: any[]; partners: any[] }>(`/doctors/prescriptions/${prescriptionId}/hospital-partners`),
+
+    referPrescriptionToHospital: (prescriptionId: string, data: { hospitalId: string; urgency?: string; reason: string; clinicalSummary?: string; consentGranted?: boolean }) =>
+        fetchWithAuth<{ success: boolean; data: any }>(`/doctors/prescriptions/${prescriptionId}/refer-to-hospital`, {
             method: 'POST',
             body: JSON.stringify(data),
         }),
@@ -1567,8 +1625,69 @@ export const hospitalApi = {
 // ==================== PHARMACY API ====================
 // Backend: routes/pharmacy.js
 
+export interface PharmacyProfileTask {
+    id: string;
+    label: string;
+    completed: boolean;
+    route?: string;
+    description?: string;
+}
+
+export interface PharmacyProfileSection {
+    id: string;
+    title: string;
+    description: string;
+    weight: number;
+    percentage: number;
+    completed: boolean;
+    tasks: PharmacyProfileTask[];
+}
+
+export interface PharmacyProfileNextStep {
+    id: string;
+    label: string;
+    description: string;
+    route: string;
+    sectionId: string;
+}
+
+export interface PharmacyProfileCompletion {
+    percentage: number;
+    completedSectionsCount: number;
+    totalSectionsCount: number;
+    completedTasksCount: number;
+    totalTasksCount: number;
+    isComplete: boolean;
+    status: 'not_started' | 'in_progress' | 'completed';
+    nextStep: PharmacyProfileNextStep | null;
+    sections: PharmacyProfileSection[];
+    summary: string;
+}
+
+export interface QuickOperationConfig {
+    key: string;
+    enabled: boolean;
+    order: number;
+}
+
+export interface PharmacyDashboardPreferences {
+    show_profile_completion: boolean;
+    onboarding_completed: boolean;
+    quick_operations?: QuickOperationConfig[];
+}
+
 export const pharmacyApi = {
     getDashboard: () => fetchWithAuth('/pharmacy/dashboard'),
+
+    getProfileCompletion: () => fetchWithAuth<PharmacyProfileCompletion>('/pharmacy/completion'),
+
+    getPreferences: () => fetchWithAuth<PharmacyDashboardPreferences>('/pharmacy/preferences'),
+
+    updatePreferences: (prefs: Partial<PharmacyDashboardPreferences>) =>
+        fetchWithAuth<PharmacyDashboardPreferences>('/pharmacy/preferences', {
+            method: 'PUT',
+            body: JSON.stringify(prefs),
+        }),
 
     getReviews: (page: number = 1, limit: number = 10) =>
         fetchWithAuth(`/pharmacy/reviews?page=${page}&limit=${limit}`),
@@ -1792,12 +1911,54 @@ export const pharmacyApi = {
 // ==================== CLINIC API ====================
 // Backend: routes/clinic.js
 
+export interface ClinicCompletionTask {
+    id: string;
+    label: string;
+    completed: boolean;
+    route: string;
+    description?: string;
+}
+
+export interface ClinicCompletionSection {
+    id: string;
+    label: string;
+    completed: boolean;
+    percentage: number;
+    weight: number;
+    tasks: ClinicCompletionTask[];
+    route: string;
+}
+
+export interface ClinicProfileCompletion {
+    percentage: number;
+    completedSectionsCount: number;
+    totalSectionsCount: number;
+    completedTasksCount: number;
+    totalTasksCount: number;
+    isComplete: boolean;
+    status: 'completed' | 'in_progress' | 'not_started';
+    nextStep: {
+        id: string;
+        label: string;
+        description: string;
+        route: string;
+        sectionId?: string;
+    } | null;
+    sections: ClinicCompletionSection[];
+    summary: string;
+}
+
+export interface ClinicDashboardPreferences {
+    show_profile_completion: boolean;
+    onboarding_completed: boolean;
+}
+
 export const clinicApi = {
     // Operational Routing
     routePharmacyOrder: (data: { pharmacyId: string; prescriptionId: string; items: any[]; deliveryType?: string; deliveryAddress?: string }) =>
         fetchWithAuth('/clinics/owner/partnerships/pharmacy-orders', { method: 'POST', body: JSON.stringify(data) }),
         
-    routeDiagnosticBooking: (data: { centerId: string; prescriptionId?: string; patientId?: string; consultationId?: string; testId?: string; bookingDate: string; bookingTime?: string; collectionType: string; collectionAddress?: string }) =>
+    routeDiagnosticBooking: (data: { centerId: string; prescriptionId?: string; patientId?: string; consultationId?: string; testId?: string; testName?: string; reason?: string; notes?: string; urgency?: string; bookingDate: string; bookingTime?: string; collectionType: string; collectionAddress?: string }) =>
         fetchWithAuth('/clinics/owner/partnerships/diagnostic-bookings', { method: 'POST', body: JSON.stringify(data) }),
         
     getRoutedPharmacyOrders: () => fetchWithAuth('/clinics/owner/partnerships/pharmacy-orders'),
@@ -1844,20 +2005,40 @@ export const clinicApi = {
 
     getProfile: () => fetchWithAuth('/clinics/owner/profile'),
 
+    getProfileCompletion: () => fetchWithAuth<ClinicProfileCompletion>('/clinics/owner/completion'),
+
+    getPreferences: () => fetchWithAuth<ClinicDashboardPreferences>('/clinics/owner/preferences'),
+
+    updatePreferences: (data: Partial<ClinicDashboardPreferences>) =>
+        fetchWithAuth<ClinicDashboardPreferences>('/clinics/owner/preferences', {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+
     updateProfile: (data: Record<string, unknown>) =>
         fetchWithAuth('/clinics/owner/profile', {
             method: 'PUT',
             body: JSON.stringify(data),
         }),
 
-    getDoctors: (params: { page?: number; limit?: number; search?: string } = {}) => {
+    getDoctors: (params: { page?: number; limit?: number; search?: string; status?: 'active' | 'former' | 'all' } = {}) => {
         const query = new URLSearchParams({
             page: String(params.page ?? 1),
             limit: String(params.limit ?? 20),
         });
         if (params.search) query.set('search', params.search);
+        if (params.status) query.set('status', params.status);
         return fetchWithAuth(`/clinics/owner/doctors?${query}`);
     },
+
+    getDoctorAffiliationHistory: (doctorId: string) =>
+        fetchWithAuth<{ success: boolean; data: any }>(`/clinics/owner/doctors/${doctorId}/history`),
+
+    reinviteDoctor: (doctorId: string, payload?: { departmentId?: string; department_id?: string; message?: string }) =>
+        fetchWithAuth<{ success: boolean; data: any; message: string }>(`/clinics/owner/doctors/${doctorId}/reinvite`, {
+            method: 'POST',
+            body: payload ? JSON.stringify(payload) : undefined,
+        }),
 
     getDoctorProfile: (doctorId: string) =>
         fetchWithAuth(`/clinics/owner/doctors/${doctorId}/profile`),
@@ -1873,8 +2054,11 @@ export const clinicApi = {
     lookupDoctorByEmail: (email: string) =>
         fetchWithAuth<{ doctor: any, relationship: 'ACTIVE' | 'INVITATION_PENDING' | 'NOT_CONNECTED' }>(`/clinics/owner/doctors/lookup-by-email?email=${encodeURIComponent(email)}`),
 
-    removeDoctor: (doctorId: string) =>
-        fetchWithAuth(`/clinics/owner/doctors/${doctorId}`, { method: 'DELETE' }),
+    removeDoctor: (doctorId: string, payload?: { reason: string; note?: string }) =>
+        fetchWithAuth<{ success: boolean; message: string; notified?: boolean }>(`/clinics/owner/doctors/${doctorId}`, {
+            method: 'DELETE',
+            body: payload ? JSON.stringify(payload) : undefined,
+        }),
 
     getAssociatedPharmacies: () => fetchWithAuth('/clinics/owner/pharmacies'),
 
@@ -1970,6 +2154,9 @@ export const clinicApi = {
     getDepartmentDetail: (departmentId: string) =>
         fetchWithAuth(`/clinics/owner/departments/${departmentId}`),
 
+    getDepartmentAvailableDoctors: (departmentId: string) =>
+        fetchWithAuth(`/clinics/owner/departments/${departmentId}/available-doctors`),
+
     addDepartment: (data: Record<string, unknown>) =>
         fetchWithAuth('/clinics/owner/departments', {
             method: 'POST',
@@ -1984,6 +2171,23 @@ export const clinicApi = {
 
     deleteDepartment: (departmentId: string) =>
         fetchWithAuth(`/clinics/owner/departments/${departmentId}`, { method: 'DELETE' }),
+
+    assignDoctorToDepartment: (departmentId: string, doctorId: string) =>
+        fetchWithAuth(`/clinics/owner/departments/${departmentId}/doctors`, {
+            method: 'POST',
+            body: JSON.stringify({ doctorId }),
+        }),
+
+    setDepartmentDoctors: (departmentId: string, doctorIds: string[]) =>
+        fetchWithAuth(`/clinics/owner/departments/${departmentId}/doctors`, {
+            method: 'PUT',
+            body: JSON.stringify({ doctorIds }),
+        }),
+
+    unassignDoctorFromDepartment: (departmentId: string, doctorId: string) =>
+        fetchWithAuth(`/clinics/owner/departments/${departmentId}/doctors/${doctorId}`, {
+            method: 'DELETE',
+        }),
 
     // ── Analytics ──
     getAnalytics: (period: string = '30d') => fetchWithAuth(`/clinics/owner/analytics?period=${encodeURIComponent(period)}`),
@@ -2207,6 +2411,9 @@ export const diagnosticCenterApi = {
             method: 'PATCH',
             body: data,
         }),
+
+    getBookingReportUrl: (bookingId: string) =>
+        fetchWithAuth<{ url: string; objectName?: string; result_status?: string; test_name?: string; patient_name?: string }>(`/diagnostic-centers/owner/bookings/${bookingId}/report`),
 
     getAnalytics: (period: number = 30) => fetchWithAuth(`/diagnostic-centers/owner/analytics?period=${period}`),
 
@@ -2902,18 +3109,53 @@ export const feedbackApi = {
     getMyFeedback: () => fetchWithAuth('/feedback/my-feedback'),
 };
 
+export interface DiscoveredOrganization {
+    id: string;
+    name: string;
+    type: 'hospital' | 'diagnostic_center' | 'pharmacy' | 'clinic';
+    typeLabel: string;
+    city: string;
+    state?: string;
+    address: string;
+    phone?: string;
+    email?: string;
+    rating?: number;
+    image_url?: string;
+    is_verified: boolean;
+    relationship_status: 'not_connected' | 'invitation_sent' | 'invitation_received' | 'connected' | 'former' | 'changes_requested';
+    partnership_id?: string | null;
+    can_request_partnership: boolean;
+    can_reconnect: boolean;
+    is_connected: boolean;
+    is_pending: boolean;
+}
+
+export const discoveryApi = {
+    discoverOrganizations: (params: { type?: string; query?: string; page?: number; limit?: number }) => {
+        const queryParams = new URLSearchParams();
+        if (params.type) queryParams.set('type', params.type);
+        if (params.query !== undefined) queryParams.set('query', params.query);
+        if (params.page) queryParams.set('page', String(params.page));
+        if (params.limit) queryParams.set('limit', String(params.limit));
+        return fetchWithAuth<DiscoveredOrganization[]>(`/discovery/organizations?${queryParams.toString()}`);
+    },
+    getOrganizationDetails: (orgType: string, orgId: string) =>
+        fetchWithAuth<DiscoveredOrganization>(`/discovery/organizations/${orgType}/${orgId}`),
+};
+
 export const publicDiscoveryApi = {
     searchHospitals: (query: string = '') => fetchWithAuth(`/hospitals/search?q=${encodeURIComponent(query)}`),
     searchPharmacies: (query: string = '') => fetchWithAuth(`/pharmacy/search?search=${encodeURIComponent(query)}`),
     searchDiagnosticCenters: (query: string = '') => fetchWithAuth(`/diagnostic-centers/search?search=${encodeURIComponent(query)}`),
     searchClinics: (query: string = '') => fetchWithAuth(`/clinics/search?search=${encodeURIComponent(query)}`),
+    ...discoveryApi
 };
 
 // ==================== Universal Referrals API ====================
 // Single unified client — works identically across all sender portal contexts:
 // Clinic, Hospital, Diagnostic Center, Pharmacy (and Doctor-via-Clinic/Hospital).
 
-const universalReferralsApi = {
+export const universalReferralsApi = {
     createReferral: (data: any) =>
         fetchWithAuth('/referrals', {
             method: 'POST',

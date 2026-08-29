@@ -1560,7 +1560,7 @@ const createClinicPharmacyOrder = async (clinicId, doctorId, orderData) => {
   }
 
   const presClinicId = prescription.consultations?.appointments?.clinic_id;
-  if (presClinicId !== clinicId) {
+  if (presClinicId && presClinicId !== clinicId) {
     throw new ApiError(403, 'Prescription does not belong to your clinic');
   }
 
@@ -1604,6 +1604,31 @@ const createClinicPharmacyOrder = async (clinicId, doctorId, orderData) => {
       deliveryFee = pharmacyConfig.delivery_fee || 0;
   }
   
+  let items = Array.isArray(orderData.items) && orderData.items.length > 0 ? orderData.items : [];
+  if (items.length === 0 && orderData.prescriptionId) {
+    const { data: presItems } = await supabaseAdmin
+      .from('prescription_items')
+      .select('*')
+      .eq('prescription_id', orderData.prescriptionId);
+    if (presItems && presItems.length > 0) {
+      items = presItems.map(pi => ({
+        name: pi.medicine_name || pi.name || 'Prescribed Medicine',
+        dosage: pi.dosage,
+        frequency: pi.frequency,
+        duration: pi.duration,
+        quantity: pi.quantity || 1,
+        price: 0
+      }));
+    } else {
+      items = [{
+        name: prescription.diagnosis ? `Prescribed Medication (${prescription.diagnosis})` : 'Prescribed Medications',
+        quantity: 1,
+        price: 0
+      }];
+    }
+  }
+
+  orderData.items = items;
   orderData.deliveryFee = deliveryFee;
   orderData.clinicId = clinicId;
 
@@ -1650,7 +1675,7 @@ const createHospitalPharmacyOrder = async (hospitalId, doctorId, orderData) => {
   }
 
   const presHospitalId = prescription.consultations?.appointments?.hospital_id;
-  if (presHospitalId !== hospitalId) {
+  if (presHospitalId && presHospitalId !== hospitalId) {
     throw new ApiError(403, 'Prescription does not belong to your hospital');
   }
 
@@ -2051,6 +2076,298 @@ const deleteReel = async (userId, reelId) => {
   return { success: true };
 };
 
+/**
+ * Calculate dynamic profile completion percentage and actionable milestones for a pharmacy.
+ * Real DB calculation from pharmacies, pharmacy_inventory, and partnerships/associations.
+ */
+const getPharmacyProfileCompletion = async (pharmacyId, userId) => {
+  // 1. Fetch pharmacy entity
+  const { data: pharmacy, error: pharmacyError } = await supabaseAdmin
+    .from('pharmacies')
+    .select('*')
+    .eq('id', pharmacyId)
+    .maybeSingle();
+
+  if (pharmacyError || !pharmacy) {
+    throw new ApiError(404, 'Pharmacy not found');
+  }
+
+  // 2. Fetch inventory counts
+  const { count: inventoryCount } = await supabaseAdmin
+    .from('pharmacy_inventory')
+    .select('id', { count: 'exact', head: true })
+    .eq('pharmacy_id', pharmacyId);
+
+  const { count: inStockCount } = await supabaseAdmin
+    .from('pharmacy_inventory')
+    .select('id', { count: 'exact', head: true })
+    .eq('pharmacy_id', pharmacyId)
+    .gt('quantity', 0);
+
+  // 3. Fetch partnerships & associations count
+  const [{ count: partnershipsCount }, { count: associationsCount }] = await Promise.all([
+    supabaseAdmin
+      .from('organization_partnerships')
+      .select('id', { count: 'exact', head: true })
+      .or(`and(initiator_type.eq.pharmacy,initiator_id.eq.${pharmacyId}),and(target_type.eq.pharmacy,target_id.eq.${pharmacyId})`)
+      .in('status', ['active', 'pending']),
+    supabaseAdmin
+      .from('facility_provider_associations')
+      .select('id', { count: 'exact', head: true })
+      .eq('provider_id', pharmacyId)
+      .eq('provider_type', 'pharmacy')
+  ]);
+
+  // ── Milestone 1: Pharmacy Profile (20%) ──────────────────────────────
+  const hasName = Boolean(pharmacy.name && pharmacy.name.trim().length > 0);
+  const hasContact = Boolean((pharmacy.phone && pharmacy.phone.trim().length > 0) || (pharmacy.email && pharmacy.email.trim().length > 0));
+  const hasAddress = Boolean((pharmacy.address && pharmacy.address.trim().length > 0) && (pharmacy.city && pharmacy.city.trim().length > 0));
+  const hasLogo = Boolean(pharmacy.profile_image_url || pharmacy.image_url || (Array.isArray(pharmacy.images) && pharmacy.images.length > 0));
+
+  const profileTasks = [
+    { id: 'name', label: 'Pharmacy Name & Details', completed: hasName, route: '/pharmacy/settings?category=profile' },
+    { id: 'contact', label: 'Contact Phone & Email', completed: hasContact, route: '/pharmacy/settings?category=profile' },
+    { id: 'address', label: 'Address & Location', completed: hasAddress, route: '/pharmacy/settings?category=profile' },
+    { id: 'logo', label: 'Storefront Logo or Photo', completed: hasLogo, route: '/pharmacy/settings?category=profile' },
+  ];
+  const profileCompletedCount = profileTasks.filter(t => t.completed).length;
+  const profilePct = (profileCompletedCount / profileTasks.length) * 20;
+  const profileSectionComplete = profileCompletedCount === profileTasks.length;
+
+  // ── Milestone 2: License & Compliance (20%) ─────────────────────────
+  const hasLicenseNumber = Boolean((pharmacy.license_number && pharmacy.license_number.trim().length > 0) || (pharmacy.drug_license_number && pharmacy.drug_license_number.trim().length > 0));
+  const hasGst = Boolean(pharmacy.gst_number && pharmacy.gst_number.trim().length > 0);
+  const hasVerification = Boolean(pharmacy.is_approved === true || pharmacy.is_verified === true || pharmacy.approval_status === 'approved');
+  const hasLicenseDoc = Boolean(pharmacy.license_document_url && pharmacy.license_document_url.trim().length > 0);
+
+  const complianceTasks = [
+    { id: 'drug_license', label: 'Drug / Retail License Number', completed: hasLicenseNumber, route: '/pharmacy/settings?category=compliance' },
+    { id: 'gst_number', label: 'GST / Tax Business Registration', completed: hasGst, route: '/pharmacy/settings?category=compliance' },
+    { id: 'verification_status', label: 'Pharmacy Verification & Approval', completed: hasVerification, route: '/pharmacy/settings?category=compliance' },
+    { id: 'license_document', label: 'License Document Upload', completed: hasLicenseDoc, route: '/pharmacy/settings?category=compliance' },
+  ];
+  const complianceCompletedCount = complianceTasks.filter(t => t.completed).length;
+  const compliancePct = (complianceCompletedCount / complianceTasks.length) * 20;
+  const complianceSectionComplete = complianceCompletedCount === complianceTasks.length;
+
+  // ── Milestone 3: Operations & Delivery (20%) ─────────────────────────
+  let hasWorkingHours = Boolean(pharmacy.is_24_hours);
+  if (!hasWorkingHours && (pharmacy.opening_time || pharmacy.opening_hours)) {
+    hasWorkingHours = true;
+  }
+  const hasDeliveryConfig = Boolean(pharmacy.offers_delivery || pharmacy.delivery_available || (pharmacy.delivery_radius_km && Number(pharmacy.delivery_radius_km) > 0));
+
+  const operationsTasks = [
+    { id: 'working_hours', label: 'Operating & Working Hours', completed: hasWorkingHours, route: '/pharmacy/settings?category=operations', description: hasWorkingHours ? 'Operating schedule is active' : 'Set daily store hours or 24/7 availability' },
+    { id: 'delivery_fulfillment', label: 'Delivery & Home Fulfillment Setup', completed: hasDeliveryConfig, route: '/pharmacy/settings?category=operations', description: hasDeliveryConfig ? 'Delivery radius and options configured' : 'Configure home delivery radius and minimum order' },
+  ];
+  const operationsCompletedCount = operationsTasks.filter(t => t.completed).length;
+  const operationsPct = (operationsCompletedCount / operationsTasks.length) * 20;
+  const operationsSectionComplete = operationsCompletedCount === operationsTasks.length;
+
+  // ── Milestone 4: Inventory & Catalog (20%) ──────────────────────────
+  const hasCatalogItems = (inventoryCount || 0) > 0;
+  const hasActiveStock = (inStockCount || 0) > 0;
+
+  const inventoryTasks = [
+    { id: 'catalog_medicines', label: 'Add Medicines to Inventory Catalog', completed: hasCatalogItems, route: '/pharmacy/inventory', description: hasCatalogItems ? `${inventoryCount} item(s) in catalog` : 'Add at least one medicine or OTC product' },
+    { id: 'stock_management', label: 'Active Stock & Reorder Levels', completed: hasActiveStock, route: '/pharmacy/inventory', description: hasActiveStock ? `${inStockCount} active in-stock item(s)` : 'Maintain active stock with reorder levels' },
+  ];
+  const inventoryCompletedCount = inventoryTasks.filter(t => t.completed).length;
+  const inventoryPct = (inventoryCompletedCount / inventoryTasks.length) * 20;
+  const inventorySectionComplete = inventoryCompletedCount === inventoryTasks.length;
+
+  // ── Milestone 5: Network & Services (20%) ───────────────────────────
+  const hasServices = Boolean(
+    (Array.isArray(pharmacy.facilities) && pharmacy.facilities.length > 0) ||
+    (Array.isArray(pharmacy.accreditations) && pharmacy.accreditations.length > 0) ||
+    (pharmacy.description && pharmacy.description.trim().length > 0)
+  );
+  const totalNetworkCount = (partnershipsCount || 0) + (associationsCount || 0);
+  const hasNetwork = totalNetworkCount > 0;
+
+  const networkTasks = [
+    { id: 'store_services', label: 'Pharmacy Services & Facilities', completed: hasServices, route: '/pharmacy/settings?category=profile', description: 'Configure specialized pharmacy services and counseling' },
+    { id: 'care_network', label: 'Care Network & Hospital/Clinic Partners', completed: hasNetwork, route: '/pharmacy/network', description: hasNetwork ? `${totalNetworkCount} connected partner(s)` : 'Connect with hospitals, clinics and diagnostic labs' },
+  ];
+  const networkCompletedCount = networkTasks.filter(t => t.completed).length;
+  const networkPct = (networkCompletedCount / networkTasks.length) * 20;
+  const networkSectionComplete = networkCompletedCount === networkTasks.length;
+
+  // ── Grand Totals ────────────────────────────────────────────────────
+  const totalPercentage = Math.min(100, Math.round(profilePct + compliancePct + operationsPct + inventoryPct + networkPct));
+  const sections = [
+    {
+      id: 'pharmacy_profile',
+      title: 'Pharmacy Information',
+      description: 'Storefront identity, contact numbers and location',
+      weight: 20,
+      percentage: Math.round((profilePct / 20) * 100),
+      completed: profileSectionComplete,
+      tasks: profileTasks,
+    },
+    {
+      id: 'license_compliance',
+      title: 'License & Compliance',
+      description: 'Drug license, GST registration and official verification',
+      weight: 20,
+      percentage: Math.round((compliancePct / 20) * 100),
+      completed: complianceSectionComplete,
+      tasks: complianceTasks,
+    },
+    {
+      id: 'operations_fulfillment',
+      title: 'Operating Hours & Delivery',
+      description: 'Daily opening/closing schedule and delivery radius',
+      weight: 20,
+      percentage: Math.round((operationsPct / 20) * 100),
+      completed: operationsSectionComplete,
+      tasks: operationsTasks,
+    },
+    {
+      id: 'inventory_catalog',
+      title: 'Inventory & Catalog',
+      description: 'Medicine catalog, batch stock and reorder thresholds',
+      weight: 20,
+      percentage: Math.round((inventoryPct / 20) * 100),
+      completed: inventorySectionComplete,
+      tasks: inventoryTasks,
+    },
+    {
+      id: 'network_services',
+      title: 'Services & Care Network',
+      description: 'Pharmacy services and healthcare provider partnerships',
+      weight: 20,
+      percentage: Math.round((networkPct / 20) * 100),
+      completed: networkSectionComplete,
+      tasks: networkTasks,
+    },
+  ];
+
+  const allTasks = [...profileTasks, ...complianceTasks, ...operationsTasks, ...inventoryTasks, ...networkTasks];
+  const completedTasksCount = allTasks.filter(t => t.completed).length;
+  const totalTasksCount = allTasks.length;
+  const completedSectionsCount = sections.filter(s => s.completed).length;
+  const totalSectionsCount = sections.length;
+
+  // Determine next actionable step
+  let nextStep = null;
+  if (totalPercentage < 100) {
+    if (!profileSectionComplete) {
+      const firstMissing = profileTasks.find(t => !t.completed);
+      nextStep = {
+        id: firstMissing.id,
+        label: `Complete ${firstMissing.label}`,
+        description: 'Update your pharmacy profile details to help customers find you.',
+        route: firstMissing.route,
+        sectionId: 'pharmacy_profile',
+      };
+    } else if (!complianceSectionComplete) {
+      const firstMissing = complianceTasks.find(t => !t.completed);
+      nextStep = {
+        id: firstMissing.id,
+        label: `Add ${firstMissing.label}`,
+        description: 'Provide licensing details and tax registration for regulatory compliance.',
+        route: firstMissing.route,
+        sectionId: 'license_compliance',
+      };
+    } else if (!operationsSectionComplete) {
+      const firstMissing = operationsTasks.find(t => !t.completed);
+      nextStep = {
+        id: firstMissing.id,
+        label: `Configure ${firstMissing.label}`,
+        description: 'Set operating schedule and delivery boundaries to process orders smoothly.',
+        route: firstMissing.route,
+        sectionId: 'operations_fulfillment',
+      };
+    } else if (!inventorySectionComplete) {
+      const firstMissing = inventoryTasks.find(t => !t.completed);
+      nextStep = {
+        id: firstMissing.id,
+        label: `Add ${firstMissing.label}`,
+        description: 'Stock your inventory catalog with medicines and wellness items.',
+        route: firstMissing.route,
+        sectionId: 'inventory_catalog',
+      };
+    } else if (!networkSectionComplete) {
+      const firstMissing = networkTasks.find(t => !t.completed);
+      nextStep = {
+        id: firstMissing.id,
+        label: `Connect ${firstMissing.label}`,
+        description: 'Connect with local clinics and hospital networks for prescription referrals.',
+        route: firstMissing.route,
+        sectionId: 'network_services',
+      };
+    }
+  }
+
+  return {
+    percentage: totalPercentage,
+    completedSectionsCount,
+    totalSectionsCount,
+    completedTasksCount,
+    totalTasksCount,
+    isComplete: totalPercentage === 100,
+    status: totalPercentage === 100 ? 'completed' : (totalPercentage > 0 ? 'in_progress' : 'not_started'),
+    nextStep,
+    sections,
+    summary: `${completedSectionsCount} of ${totalSectionsCount} setup milestones completed`,
+  };
+};
+
+/**
+ * Get dashboard visibility and preferences for pharmacy owner.
+ */
+const DEFAULT_QUICK_OPERATIONS = [
+  { key: 'orders', enabled: true, order: 1 },
+  { key: 'inventory', enabled: true, order: 2 },
+  { key: 'requests', enabled: true, order: 3 },
+  { key: 'referrals', enabled: true, order: 4 },
+];
+
+const getPharmacyPreferences = async (pharmacyId, userId) => {
+  const { data: userRecord } = await supabaseAdmin.auth.admin.getUserById(userId);
+  const metadata = userRecord?.user?.user_metadata || {};
+  const pharmacyPrefs = metadata.pharmacy_dashboard_preferences || {};
+
+  return {
+    show_profile_completion: pharmacyPrefs.show_profile_completion !== false,
+    onboarding_completed: pharmacyPrefs.onboarding_completed === true,
+    quick_operations: Array.isArray(pharmacyPrefs.quick_operations) && pharmacyPrefs.quick_operations.length > 0
+      ? pharmacyPrefs.quick_operations
+      : DEFAULT_QUICK_OPERATIONS,
+  };
+};
+
+/**
+ * Update dashboard visibility and preferences for pharmacy owner.
+ */
+const updatePharmacyPreferences = async (pharmacyId, userId, preferences = {}) => {
+  const { data: userRecord } = await supabaseAdmin.auth.admin.getUserById(userId);
+  const currentMetadata = userRecord?.user?.user_metadata || {};
+  const currentPharmacyPrefs = currentMetadata.pharmacy_dashboard_preferences || {};
+
+  const updatedPrefs = {
+    ...currentPharmacyPrefs,
+    ...(preferences.show_profile_completion !== undefined ? { show_profile_completion: preferences.show_profile_completion } : {}),
+    ...(preferences.onboarding_completed !== undefined ? { onboarding_completed: preferences.onboarding_completed } : {}),
+    ...(preferences.quick_operations !== undefined ? { quick_operations: preferences.quick_operations } : {}),
+  };
+
+  await supabaseAdmin.auth.admin.updateUserById(userId, {
+    user_metadata: {
+      ...currentMetadata,
+      pharmacy_dashboard_preferences: updatedPrefs,
+    },
+  });
+
+  return {
+    show_profile_completion: updatedPrefs.show_profile_completion !== false,
+    onboarding_completed: updatedPrefs.onboarding_completed === true,
+    quick_operations: updatedPrefs.quick_operations || DEFAULT_QUICK_OPERATIONS,
+  };
+};
+
 module.exports = {
   addReel,
   deleteReel,
@@ -2078,4 +2395,8 @@ module.exports = {
   invitePharmacyMember,
   updatePharmacyMemberRole,
   removePharmacyMember,
+  getPharmacyProfileCompletion,
+  getPharmacyPreferences,
+  updatePharmacyPreferences,
 };
+

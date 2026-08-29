@@ -59,15 +59,17 @@ class AppointmentViewModel @Inject constructor(
     private fun listenForSlotUpdates() {
         viewModelScope.launch {
             socketManager.doctorSlotsUpdates.collectLatest { update ->
-                // When someone books a slot, it triggers this update
-                val date = update.optString("appointment_date") ?: update.optString("date")
-                val timeSlotStr = update.optString("time_slot") ?: update.optString("timeSlot")
+                val timeSlotRaw = if (update.has("time_slot")) update.optString("time_slot") else update.optString("timeSlot")
+                val timeSlotStr = timeSlotRaw.orEmpty()
+                val isAvailable = if (update.has("isAvailable")) update.optBoolean("isAvailable", false) else false
                 
-                // If we are currently viewing slots for this date, mark it as unavailable
+                // If we are currently viewing slots, update the matching slot availability
                 val currentSlots = uiState.timeSlots
                 if (currentSlots.isNotEmpty()) {
-                    val updatedSlots = currentSlots.map { 
-                        if (it.time == timeSlotStr) it.copy(isAvailable = false) else it 
+                    val normalizedTarget = if (timeSlotStr.length > 5) timeSlotStr.substring(0, 5) else timeSlotStr
+                    val updatedSlots = currentSlots.map { slot ->
+                        val slotTime = if (slot.time.length > 5) slot.time.substring(0, 5) else slot.time
+                        if (slotTime == normalizedTarget) slot.copy(isAvailable = isAvailable) else slot 
                     }
                     uiState = uiState.copy(timeSlots = updatedSlots)
                 }

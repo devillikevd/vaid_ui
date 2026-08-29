@@ -337,6 +337,9 @@ const createNotification = async (userId, notification) => {
     title: notification.title,
     message: notification.message,
     type: notification.type || 'info',
+    category: notification.category || 'general',
+    action_url: notification.action_url || notification.data?.action_url || null,
+    action_data: notification.action_data || notification.data?.action_data || {},
     data: notification.data || {},
     is_read: false,
   };
@@ -391,8 +394,11 @@ const sendNotification = async (userId, notification) => {
       io.to(`user:${userId}`).emit('notification:new', {
         id: data.id,
         type: notification.type || 'info',
+        category: data.category || notification.category || 'general',
         title: notification.title,
         message: notification.message,
+        action_url: data.action_url || notification.action_url || null,
+        action_data: data.action_data || notification.action_data || {},
         data: notification.data || {},
         timestamp: data.created_at,
       });

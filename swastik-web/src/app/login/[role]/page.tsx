@@ -172,7 +172,9 @@ export default function LoginPage({ params }: LoginPageProps) {
             const result = await login(email.trim(), password, config.role, rememberMe);
 
             if (result.success) {
-                router.push(ROLE_HOME_ROUTES[config.role]);
+                const redirectParam = searchParams.get('redirect');
+                const target = (redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('/login')) ? redirectParam : ROLE_HOME_ROUTES[config.role];
+                router.replace(target);
             } else {
                 if (result.code === 'EMAIL_NOT_VERIFIED') {
                     setEmailNotVerified(true);

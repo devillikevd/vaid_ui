@@ -188,14 +188,14 @@ router.get('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHa
 
 router.put('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
-    // Whitelist allowed fields to prevent arbitrary column writes
     const allowed = [
         'name', 'phone', 'email', 'website', 'website_url', 'emergency_phone', 'address', 'city', 'state', 'pincode',
         'latitude', 'longitude', 'registration_number', 'license_number', 'license_document_url',
-        'nabl_accreditation', 'accreditations',
+        'nabl_accreditation', 'accreditations', 'description', 'opening_hours',
         'sample_collection_available', 'home_collection_available',
         'home_collection_fee', 'is_24_hours', 'profile_image', 'profile_image_url', 'image_url',
-        'established_year', 'virtual_tour_url', 'floor_guide_map_url'
+        'established_year', 'virtual_tour_url', 'floor_guide_map_url',
+        'test_categories', 'images', 'gallery_urls'
     ];
     const safeUpdates = {};
     for (const key of allowed) {
@@ -351,6 +351,91 @@ router.get('/owner/bookings/:bookingId', requireRole(ROLES.DIAGNOSTIC_CENTER_OWN
     res.json({ success: true, data: booking });
 }));
 
+// Report Secure Access (supports both /bookings/:bookingId/report and /results/:bookingId/report)
+const handleGetBookingReport = asyncHandler(async (req, res) => {
+    let center;
+    try {
+        center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+    } catch {
+        const { supabaseAdmin } = require('../config/supabase');
+        const { data: member } = await supabaseAdmin
+            .from('diagnostic_members')
+            .select('diagnostic_center_id, status')
+            .eq('user_id', req.user.id)
+            .eq('status', 'active')
+            .single();
+        if (member) {
+            center = { id: member.diagnostic_center_id };
+        }
+    }
+
+    if (!center) {
+        throw new ApiError(403, "You don't have permission to view this report");
+    }
+
+    const { supabaseAdmin } = require('../config/supabase');
+    const { data: booking, error } = await supabaseAdmin
+        .from('diagnostic_bookings')
+        .select('id, center_id, result_url, result_status, status, test:diagnostic_tests(name), patient:patients(name)')
+        .eq('id', req.params.bookingId)
+        .eq('center_id', center.id)
+        .single();
+
+    if (error || !booking) {
+        throw new ApiError(404, 'Report not found or you do not have permission to view it');
+    }
+
+    if (!booking.result_url) {
+        throw new ApiError(404, 'Report not found');
+    }
+
+    const { getPresignedUrl, extractObjectNameFromUrl } = require('../config/minio');
+    const objectName = extractObjectNameFromUrl(booking.result_url);
+    let presignedUrl = null;
+
+    if (objectName) {
+        try {
+            presignedUrl = await getPresignedUrl(objectName, 3600); // 1 hour validity
+        } catch (storageError) {
+            console.warn('[DiagnosticReport] Storage presigning failed, falling back to direct result_url:', storageError.message);
+            presignedUrl = booking.result_url;
+        }
+    } else {
+        presignedUrl = booking.result_url;
+    }
+
+    if (!presignedUrl) {
+        throw new ApiError(500, 'Unable to load report. Please try again.');
+    }
+
+    if (req.query.redirect === 'true' || req.headers.accept?.includes('text/html')) {
+        return res.redirect(302, presignedUrl);
+    }
+
+    res.json({
+        success: true,
+        data: {
+            url: presignedUrl,
+            objectName,
+            result_status: booking.result_status,
+            test_name: booking.test?.name,
+            patient_name: booking.patient?.name,
+        },
+    });
+});
+
+router.get('/owner/bookings/:bookingId/report',
+    requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER, ROLES.DIAGNOSTIC_MANAGER, ROLES.LAB_TECHNICIAN),
+    requireApproval,
+    handleGetBookingReport
+);
+
+router.get('/owner/results/:bookingId/report',
+    requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER, ROLES.DIAGNOSTIC_MANAGER, ROLES.LAB_TECHNICIAN),
+    requireApproval,
+    handleGetBookingReport
+);
+
 router.patch('/owner/bookings/:bookingId/status',
   requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER),
   requireApproval,
@@ -389,7 +474,7 @@ router.patch('/owner/bookings/:bookingId/result', requireRole(ROLES.DIAGNOSTIC_C
     if (req.file) {
         // Upload to Minio
         const uploadResult = await uploadReport(req.file, req.user.id);
-        resultUrl = uploadResult.url;
+        resultUrl = uploadResult.objectName || uploadResult.url;
         fileSize = uploadResult.size;
     }
 

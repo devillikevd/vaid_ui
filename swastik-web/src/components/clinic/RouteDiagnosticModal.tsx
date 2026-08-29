@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { clinicApi } from '@/lib/api';
-import { Stethoscope, X, Loader2, Send } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { clinicApi, doctorApi } from '@/lib/api';
+import { Stethoscope, X, Loader2, Send, Network } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
 interface Props {
@@ -14,29 +15,43 @@ interface Props {
 
 export function RouteDiagnosticModal({ prescriptionId, patientId, onClose, onSuccess }: Props) {
     const toast = useToast();
+    const router = useRouter();
     const [partnerships, setPartnerships] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [selectedCenterId, setSelectedCenterId] = useState<string>('');
     const [bookingDate, setBookingDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [notes, setNotes] = useState<string>('');
+
+    const isDoctorContext = typeof window !== 'undefined' && window.location.pathname.includes('/doctor');
 
     useEffect(() => {
         const fetchPartners = async () => {
             try {
-                const { fetchWithAuth } = await import('@/lib/api');
-                const res = await fetchWithAuth('/clinics/owner/partnerships?status=active');
-                if (res.success && Array.isArray(res.data)) {
-                    const diagnosticPartners = res.data.filter((p: any) => p.partner.type === 'diagnostic_center');
-                    setPartnerships(diagnosticPartners);
+                if (isDoctorContext) {
+                    const res = await doctorApi.getPrescriptionDiagnosticPartners(prescriptionId);
+                    if (res.success && Array.isArray(res.data || (res as any).partners)) {
+                        setPartnerships((res.data || (res as any).partners) as any[]);
+                    } else {
+                        setPartnerships([]);
+                    }
+                } else {
+                    const { fetchWithAuth } = await import('@/lib/api');
+                    const res = await fetchWithAuth<{ success: boolean; data: any[] }>('/clinics/owner/partnerships?status=active');
+                    if (res.success && Array.isArray(res.data)) {
+                        const diagnosticPartners = res.data.filter((p: any) => p.partner?.type === 'diagnostic_center' || p.target_type === 'diagnostic_center');
+                        setPartnerships(diagnosticPartners);
+                    }
                 }
-            } catch (err) {
-                toast.error('Error', 'Failed to load active diagnostic partners');
+            } catch (err: any) {
+                toast.error('Error', err?.message || 'Failed to load active diagnostic partners');
+                setPartnerships([]);
             } finally {
                 setLoading(false);
             }
         };
         fetchPartners();
-    }, []);
+    }, [prescriptionId, isDoctorContext]);
 
     const handleRoute = async () => {
         if (!selectedCenterId) {
@@ -52,15 +67,22 @@ export function RouteDiagnosticModal({ prescriptionId, patientId, onClose, onSuc
                 patientId,
                 bookingDate,
                 collectionType: 'walk_in',
+                notes: notes.trim() || undefined
             };
 
-            const res = await clinicApi.routeDiagnosticBooking(payload);
+            let res;
+            if (isDoctorContext) {
+                res = await doctorApi.routePrescriptionToDiagnostic(prescriptionId, payload);
+            } else {
+                res = await clinicApi.routeDiagnosticBooking(payload);
+            }
+
             if (res.success) {
                 toast.success('Success', 'Diagnostic booking routed successfully!');
                 onSuccess?.();
                 onClose();
             } else {
-                toast.error('Error', res.message || 'Failed to route booking');
+                toast.error('Error', (res as any).message || 'Failed to route booking');
             }
         } catch (err: any) {
             toast.error('Error', err.message || 'Error routing booking');
@@ -88,8 +110,21 @@ export function RouteDiagnosticModal({ prescriptionId, patientId, onClose, onSuc
                             <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                         </div>
                     ) : partnerships.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                            No active diagnostic partners found.
+                        <div className="text-center py-8 space-y-4">
+                            <p className="text-gray-500 dark:text-gray-400">
+                                No active diagnostic center partners found.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onClose();
+                                    router.push(isDoctorContext ? '/doctor/care-networks' : '/clinic/care-networks');
+                                }}
+                                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 dark:text-blue-300 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 rounded-xl transition-colors"
+                            >
+                                <Network className="w-4 h-4" />
+                                Manage Care Networks
+                            </button>
                         </div>
                     ) : (
                         <div className="space-y-4">
@@ -101,7 +136,7 @@ export function RouteDiagnosticModal({ prescriptionId, patientId, onClose, onSuc
                                     <label
                                         key={p.id}
                                         className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${
-                                            selectedCenterId === p.partner.id
+                                            selectedCenterId === p.partner?.id
                                                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                                                 : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
                                         }`}
@@ -109,18 +144,28 @@ export function RouteDiagnosticModal({ prescriptionId, patientId, onClose, onSuc
                                         <input
                                             type="radio"
                                             name="diagnostic_center"
-                                            value={p.partner.id}
-                                            checked={selectedCenterId === p.partner.id}
-                                            onChange={() => setSelectedCenterId(p.partner.id)}
+                                            value={p.partner?.id}
+                                            checked={selectedCenterId === p.partner?.id}
+                                            onChange={() => setSelectedCenterId(p.partner?.id)}
                                             className="sr-only"
                                         />
                                         <div className="flex-1">
-                                            <div className="font-medium text-gray-900 dark:text-white">
-                                                {p.partner.name}
+                                            <div className="font-medium text-gray-900 dark:text-white flex items-center justify-between">
+                                                <span>{p.partner?.name}</span>
+                                                {p.partner?.is_verified && (
+                                                    <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
+                                                        Verified
+                                                    </span>
+                                                )}
                                             </div>
-                                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                                                {p.partner.city || p.partner.address || 'Location unavailable'}
+                                            <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                                {p.partner?.city || p.partner?.address || 'Location available'}
                                             </div>
+                                            {p.partner?.phone && (
+                                                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                                    Phone: {p.partner.phone}
+                                                </div>
+                                            )}
                                         </div>
                                     </label>
                                 ))}
@@ -128,13 +173,26 @@ export function RouteDiagnosticModal({ prescriptionId, patientId, onClose, onSuc
                             
                             <div className="mt-4">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Date
+                                    Preferred Date
                                 </label>
                                 <input
                                     type="date"
                                     value={bookingDate}
                                     onChange={(e) => setBookingDate(e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-xl focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm"
+                                />
+                            </div>
+
+                            <div className="mt-3">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Notes / Clinical Instructions (Optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    placeholder="e.g. Fasting blood sugar, CBC, lipid profile"
+                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm"
                                 />
                             </div>
                         </div>

@@ -36,6 +36,8 @@ import LocationPicker from '@/components/shared/LocationPickerDynamic';
 import { pharmacyApi, authApi } from '@/lib/api';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useTheme } from '@/components/shared/ThemeProvider';
+import { PharmacyProfileCompletionCard } from '@/components/pharmacy/PharmacyProfileCompletionCard';
+import { usePharmacyStore } from '@/stores/pharmacyStore';
 
 interface PharmacyProfileState {
     name: string;
@@ -98,6 +100,13 @@ function SettingsContent() {
     const isOwner = user?.role === 'pharmacy_owner';
     const { theme, setTheme } = useTheme();
 
+    const {
+        dashboardPreferences,
+        updateDashboardPreferences,
+        fetchDashboardPreferences,
+        fetchProfileCompletion,
+    } = usePharmacyStore();
+
     const [mounted, setMounted] = useState(false);
     const [activeCategory, setActiveCategory] = useState(searchParams.get('category') || 'profile');
     const [searchQuery, setSearchQuery] = useState('');
@@ -126,7 +135,9 @@ function SettingsContent() {
 
     useEffect(() => {
         setMounted(true);
-    }, []);
+        void fetchDashboardPreferences();
+        void fetchProfileCompletion();
+    }, [fetchDashboardPreferences, fetchProfileCompletion]);
 
     useEffect(() => {
         const cat = searchParams.get('category');
@@ -389,11 +400,10 @@ function SettingsContent() {
             {/* Feedback Alert */}
             {feedback && (
                 <div
-                    className={`fixed bottom-6 right-6 z-50 rounded-xl px-4 py-3 shadow-lg border flex items-center gap-2.5 text-sm font-medium animate-in slide-in-from-bottom-3 ${
-                        feedback.type === 'success'
+                    className={`fixed bottom-6 right-6 z-50 rounded-xl px-4 py-3 shadow-lg border flex items-center gap-2.5 text-sm font-medium animate-in slide-in-from-bottom-3 ${feedback.type === 'success'
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
                             : 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800'
-                    }`}
+                        }`}
                 >
                     {feedback.type === 'success' ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-red-600" />}
                     <span>{feedback.message}</span>
@@ -432,19 +442,17 @@ function SettingsContent() {
                             <button
                                 key={cat.id}
                                 onClick={() => handleCategorySelect(cat.id)}
-                                className={`w-full flex items-center justify-between px-3 py-3 rounded-xl text-sm font-medium transition-all group ${
-                                    activeCategory === cat.id
+                                className={`w-full flex items-center justify-between px-3 py-3 rounded-xl text-sm font-medium transition-all group ${activeCategory === cat.id
                                         ? 'bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 font-semibold'
                                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                                }`}
+                                    }`}
                             >
                                 <div className="flex items-start gap-3">
                                     <div
-                                        className={`mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                                            activeCategory === cat.id
+                                        className={`mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${activeCategory === cat.id
                                                 ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400'
                                                 : 'bg-gray-100 dark:bg-gray-800 text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300'
-                                        }`}
+                                            }`}
                                     >
                                         <cat.icon className="w-4 h-4 shrink-0" />
                                     </div>
@@ -951,8 +959,8 @@ function SettingsContent() {
                                                     {profile.is24Hours
                                                         ? 'Continuous 24 Hours'
                                                         : profile.openingTime && profile.closingTime
-                                                        ? `${profile.openingTime} - ${profile.closingTime}`
-                                                        : profile.openingHours || <span className="text-gray-400 italic">Not set</span>}
+                                                            ? `${profile.openingTime} - ${profile.closingTime}`
+                                                            : profile.openingHours || <span className="text-gray-400 italic">Not set</span>}
                                                 </p>
                                             </div>
                                         </div>
@@ -1300,10 +1308,77 @@ function SettingsContent() {
                     )}
 
                     {/* ========================================================================= */}
-                    {/* CATEGORY 5: APPEARANCE                                                    */}
+                    {/* CATEGORY 5: APPEARANCE & DASHBOARD PREFERENCES                            */}
                     {/* ========================================================================= */}
                     {activeCategory === 'appearance' && (
                         <div className="space-y-6">
+                            {/* Dashboard Preferences & Setup Card */}
+                            <Card className="border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900">
+                                <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Store className="w-4 h-4 text-orange-500" />
+                                        <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                                            Dashboard Preferences
+                                        </h3>
+                                    </div>
+                                </div>
+
+                                <CardContent className="p-6 space-y-6">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                                                Show Profile Completion on Dashboard
+                                            </p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 max-w-lg">
+                                                Display the setup progress card and next actionable step near the top of the Pharmacy Fulfillment Console.
+                                            </p>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 shrink-0">
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={dashboardPreferences?.show_profile_completion !== false}
+                                                onClick={async () => {
+                                                    const current = dashboardPreferences?.show_profile_completion !== false;
+                                                    await updateDashboardPreferences({ show_profile_completion: !current });
+                                                    setFeedback({
+                                                        type: 'success',
+                                                        message: !current
+                                                            ? 'Profile completion card restored to dashboard.'
+                                                            : 'Profile completion card hidden from dashboard.',
+                                                    });
+                                                    setTimeout(() => setFeedback(null), 3000);
+                                                }}
+                                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${dashboardPreferences?.show_profile_completion !== false
+                                                        ? 'bg-orange-600'
+                                                        : 'bg-gray-300 dark:bg-gray-700'
+                                                    }`}
+                                            >
+                                                <span
+                                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${dashboardPreferences?.show_profile_completion !== false
+                                                            ? 'translate-x-5'
+                                                            : 'translate-x-0'
+                                                        }`}
+                                                />
+                                            </button>
+                                            <span className="text-xs font-bold text-gray-700 dark:text-gray-300 w-8">
+                                                {dashboardPreferences?.show_profile_completion !== false ? 'ON' : 'OFF'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Full Profile Completion Breakdown */}
+                                    <div className="pt-2">
+                                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-3">
+                                            Detailed Setup Progress
+                                        </p>
+                                        <PharmacyProfileCompletionCard variant="settings" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Theme Selection */}
                             <Card className="border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900">
                                 <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
                                     <div className="flex items-center gap-2">
@@ -1320,19 +1395,18 @@ function SettingsContent() {
                                             <button
                                                 key={t}
                                                 onClick={() => setTheme(t)}
-                                                className={`p-4 rounded-xl border text-left transition-all ${
-                                                    theme === t
+                                                className={`p-4 rounded-xl border text-left transition-all ${theme === t
                                                         ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-950/30 text-orange-900 dark:text-orange-200 ring-2 ring-orange-500/20'
                                                         : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                                                }`}
+                                                    }`}
                                             >
                                                 <p className="text-xs font-bold capitalize">{t} Mode</p>
                                                 <p className="text-[10px] text-gray-400 mt-1">
                                                     {t === 'light'
                                                         ? 'Clean bright interface'
                                                         : t === 'dark'
-                                                        ? 'Low-glare dark console'
-                                                        : 'Follows operating system'}
+                                                            ? 'Low-glare dark console'
+                                                            : 'Follows operating system'}
                                                 </p>
                                             </button>
                                         ))}

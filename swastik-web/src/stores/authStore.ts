@@ -15,6 +15,7 @@ import { useClinicStore } from './clinicStore';
 import { usePharmacyStore } from './pharmacyStore';
 import { useDiagnosticCenterStore } from './diagnosticCenterStore';
 import { useAdminStore } from './adminStore';
+import { doesRoleMatchPortal } from '@/lib/roles';
 
 /** Decode JWT payload and check if it's expired (H12 fix) */
 function isJwtExpired(token: string): boolean {
@@ -180,10 +181,7 @@ export const useAuthStore = create<AuthState>()(
                         };
                     }
 
-                    const roleMatches =
-                        user.role === expectedRole ||
-                        (expectedRole === 'admin' && user.role === 'super_admin') ||
-                        (expectedRole === 'hospital_owner' && user.role === 'hospital_manager');
+                    const roleMatches = doesRoleMatchPortal(user.role, expectedRole);
 
                     if (!roleMatches) {
                         return {
@@ -204,6 +202,15 @@ export const useAuthStore = create<AuthState>()(
 
                     // Sync tokens/cookies to api.ts + localStorage for fetchWithAuth and route guards
                     syncTokens(accessTk, refreshTk, { cookieMaxAge: maxAge, role: user.role });
+
+                    if (typeof window !== 'undefined') {
+                        try {
+                            localStorage.setItem('swastik-auth-storage', JSON.stringify({
+                                state: { user, isAuthenticated: true },
+                                version: 0,
+                            }));
+                        } catch { /* ignore */ }
+                    }
 
                     set({
                         user,
@@ -341,7 +348,7 @@ export const useAuthStore = create<AuthState>()(
         }),
         {
             name: 'swastik-auth-storage',
-            storage: createJSONStorage(() => sessionStorage),
+            storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : sessionStorage)),
             partialize: (state) => ({
                 user: state.user,
                 isAuthenticated: state.isAuthenticated,
@@ -502,13 +509,14 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
 // Global listener for 401 Unauthorized API responses to clear zombie sessions
 if (typeof window !== 'undefined') {
     window.addEventListener('swastik-unauthorized', () => {
-        // Prevent infinite loops if already logged out
         const state = useAuthStore.getState();
-        if (state.isAuthenticated) {
+        if (state.isAuthenticated && !state.isLoggingOut) {
             const role = state.user?.role as UserRole | undefined;
             const targetPath = (role && ROLE_LOGIN_ROUTES[role]) ? ROLE_LOGIN_ROUTES[role] : '/';
             state.logout();
-            window.location.replace(targetPath); // Authoritative fallback for 401s
+            if (!window.location.pathname.startsWith('/login')) {
+                window.location.replace(targetPath);
+            }
         }
     });
 }

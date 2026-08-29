@@ -343,7 +343,7 @@ export default function OrganizationPartnershipManager({
                         <button 
                             onClick={loadPartnerships}
                             disabled={loading}
-                            className="px-4 py-2 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-[10px] border border-slate-200 transition-all font-medium text-sm flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                            className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 rounded-[10px] border border-slate-200 dark:border-slate-700 transition-all font-medium text-sm flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
                         >
                             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                             <span className="hidden sm:inline">Refresh</span>
@@ -361,46 +361,73 @@ export default function OrganizationPartnershipManager({
 
             {/* 2. KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <DashboardCard noPadding><div className="p-5 flex items-center gap-4">
-                    <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
-                        <Network className="h-5 w-5" />
+                <DashboardCard noPadding className="border-slate-200 dark:border-slate-800">
+                    <div className="p-5 flex items-center justify-between gap-4 h-full">
+                        <div className="flex flex-col min-w-0">
+                            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                                Total Partners
+                            </p>
+                            <p className="text-[28px] lg:text-3xl font-bold text-slate-900 dark:text-white mt-1 leading-none tracking-tight">
+                                {loading ? '...' : (counts.total ?? 0)}
+                            </p>
+                        </div>
+                        <div className="p-3 bg-purple-50 dark:bg-purple-950/50 rounded-xl text-purple-600 dark:text-purple-400 shrink-0">
+                            <Network className="h-5 w-5" />
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Partners</p>
-                        <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : counts.total}</p>
+                </DashboardCard>
+
+                <DashboardCard noPadding className="border-slate-200 dark:border-slate-800">
+                    <div className="p-5 flex items-center justify-between gap-4 h-full">
+                        <div className="flex flex-col min-w-0">
+                            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                                Active
+                            </p>
+                            <p className="text-[28px] lg:text-3xl font-bold text-slate-900 dark:text-white mt-1 leading-none tracking-tight">
+                                {loading ? '...' : (counts.active ?? 0)}
+                            </p>
+                        </div>
+                        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 rounded-xl text-emerald-600 dark:text-emerald-400 shrink-0">
+                            <CheckCircle2 className="h-5 w-5" />
+                        </div>
                     </div>
-                </div></DashboardCard>
-                <DashboardCard noPadding><div className="p-5 flex items-center gap-4">
-                    <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
-                        <CheckCircle2 className="h-5 w-5" />
+                </DashboardCard>
+
+                <DashboardCard noPadding className="border-slate-200 dark:border-slate-800">
+                    <div className="p-5 flex items-center justify-between gap-4 h-full">
+                        <div className="flex flex-col min-w-0">
+                            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                                Invitations
+                            </p>
+                            <p className="text-[28px] lg:text-3xl font-bold text-slate-900 dark:text-white mt-1 leading-none tracking-tight">
+                                {loading ? '...' : (counts.invitations ?? 0)}
+                            </p>
+                        </div>
+                        <div className="p-3 bg-amber-50 dark:bg-amber-950/50 rounded-xl text-amber-600 dark:text-amber-400 shrink-0">
+                            <Clock className="h-5 w-5" />
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Active</p>
-                        <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : counts.active}</p>
+                </DashboardCard>
+
+                <DashboardCard noPadding className="border-slate-200 dark:border-slate-800">
+                    <div className="p-5 flex items-center justify-between gap-4 h-full">
+                        <div className="flex flex-col min-w-0">
+                            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                                Action Required
+                            </p>
+                            <p className="text-[28px] lg:text-3xl font-bold text-slate-900 dark:text-white mt-1 leading-none tracking-tight">
+                                {loading ? '...' : (counts.requests ?? 0)}
+                            </p>
+                        </div>
+                        <div className="p-3 bg-rose-50 dark:bg-rose-950/50 rounded-xl text-rose-600 dark:text-rose-400 shrink-0">
+                            <AlertCircle className="h-5 w-5" />
+                        </div>
                     </div>
-                </div></DashboardCard>
-                <DashboardCard noPadding><div className="p-5 flex items-center gap-4">
-                    <div className="p-3 bg-amber-50 rounded-xl text-amber-600">
-                        <Clock className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Invitations</p>
-                        <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : counts.invitations}</p>
-                    </div>
-                </div></DashboardCard>
-                <DashboardCard noPadding><div className="p-5 flex items-center gap-4">
-                    <div className="p-3 bg-red-50 rounded-xl text-red-600">
-                        <AlertCircle className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Action Required</p>
-                        <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : counts.requests}</p>
-                    </div>
-                </div></DashboardCard>
+                </DashboardCard>
             </div>
 
             {/* 3. Filters */}
-            <DashboardCard noPadding><div className="p-2 sm:p-3">
+            <DashboardCard noPadding className="border-slate-200 dark:border-slate-800"><div className="p-2 sm:p-3">
                 <div className="flex flex-col sm:flex-row gap-3">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -409,14 +436,14 @@ export default function OrganizationPartnershipManager({
                             placeholder="Search by partner name, city, state..." 
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border-transparent focus:bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 transition-all"
+                            className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 transition-all placeholder:text-slate-400"
                         />
                     </div>
                     <div className="flex gap-2">
                         <select 
                             value={activeTab}
                             onChange={(e) => setActiveTab(e.target.value as any)}
-                            className="px-3 py-2 text-sm bg-slate-50 border-transparent focus:bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 font-medium text-slate-700"
+                            className="px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 font-medium text-slate-700 dark:text-slate-200"
                         >
                             <option value="all">All Types</option>
                             {availableTargetTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -424,7 +451,7 @@ export default function OrganizationPartnershipManager({
                         <select 
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value as any)}
-                            className="px-3 py-2 text-sm bg-slate-50 border-transparent focus:bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 font-medium text-slate-700"
+                            className="px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 font-medium text-slate-700 dark:text-slate-200"
                         >
                             <option value="active">Active</option>
                             <option value="requests">Action Required</option>
@@ -437,40 +464,40 @@ export default function OrganizationPartnershipManager({
 
             {/* 4. Main Content */}
             {error ? (
-                <DashboardCard noPadding><div className="py-16 text-center flex flex-col items-center">
+                <DashboardCard noPadding className="border-slate-200 dark:border-slate-800"><div className="py-16 text-center flex flex-col items-center">
                     <AlertCircle className="h-10 w-10 text-red-400 mb-3" />
-                    <h3 className="text-sm font-medium text-slate-900">{error}</h3>
-                    <button onClick={loadPartnerships} className="mt-4 px-4 py-2 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
+                    <h3 className="text-sm font-medium text-slate-900 dark:text-white">{error}</h3>
+                    <button onClick={loadPartnerships} className="mt-4 px-4 py-2 text-sm font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors">
                         Try Again
                     </button>
                 </div></DashboardCard>
             ) : loading ? (
-                <DashboardCard noPadding><div className="p-0 overflow-hidden divide-y divide-slate-100">
+                <DashboardCard noPadding className="border-slate-200 dark:border-slate-800"><div className="p-0 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
                     {[1, 2, 3, 4].map(i => (
                         <div key={i} className="p-5 flex flex-col sm:flex-row gap-4">
-                            <div className="h-16 w-16 bg-slate-100 rounded-xl animate-pulse shrink-0" />
+                            <div className="h-16 w-16 bg-slate-100 dark:bg-slate-800 rounded-xl animate-pulse shrink-0" />
                             <div className="space-y-3 flex-1 w-full">
-                                <div className="h-5 bg-slate-100 rounded animate-pulse w-1/3" />
-                                <div className="h-4 bg-slate-100 rounded animate-pulse w-1/4" />
+                                <div className="h-5 bg-slate-100 dark:bg-slate-800 rounded animate-pulse w-1/3" />
+                                <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded animate-pulse w-1/4" />
                                 <div className="flex gap-2">
-                                    <div className="h-6 bg-slate-100 rounded-full animate-pulse w-16" />
-                                    <div className="h-6 bg-slate-100 rounded-full animate-pulse w-20" />
+                                    <div className="h-6 bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse w-16" />
+                                    <div className="h-6 bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse w-20" />
                                 </div>
                             </div>
                         </div>
                     ))}
                 </div></DashboardCard>
             ) : filteredPartnerships.length === 0 ? (
-                <DashboardCard noPadding><div className="py-16 text-center flex flex-col items-center">
-                    <Building className="h-10 w-10 text-slate-300 mb-3" />
-                    <h3 className="text-sm font-medium text-slate-900">No partnerships found.</h3>
-                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                <DashboardCard noPadding className="border-slate-200 dark:border-slate-800"><div className="py-16 text-center flex flex-col items-center">
+                    <Building className="h-10 w-10 text-slate-300 dark:text-slate-600 mb-3" />
+                    <h3 className="text-sm font-medium text-slate-900 dark:text-white">No partnerships found.</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
                         {searchQuery ? "No partners match your search." : "Build your network to streamline patient referrals and care coordination."}
                     </p>
                     {!searchQuery && (
                         <button 
                             onClick={() => setIsAddDrawerOpen(true)}
-                            className="mt-5 px-5 py-2 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors inline-flex items-center gap-2"
+                            className="mt-5 px-5 py-2 text-sm font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors inline-flex items-center gap-2"
                         >
                             <Plus className="h-4 w-4" />
                             Find Partners
@@ -478,11 +505,11 @@ export default function OrganizationPartnershipManager({
                     )}
                 </div></DashboardCard>
             ) : (
-                <DashboardCard noPadding><div className="p-0 overflow-hidden">
+                <DashboardCard noPadding className="border-slate-200 dark:border-slate-800"><div className="p-0 overflow-hidden">
                     {/* Desktop Table */}
                     <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full text-left text-sm text-[#1a202c]">
-                            <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100">
+                        <table className="w-full text-left text-sm text-[#1a202c] dark:text-slate-200">
+                            <thead className="bg-slate-50/80 dark:bg-slate-800/80 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
                                 <tr>
                                     <th className="px-5 py-4 font-medium">Partner</th>
                                     <th className="px-5 py-4 font-medium">Type</th>
@@ -491,27 +518,27 @@ export default function OrganizationPartnershipManager({
                                     <th className="px-5 py-4 font-medium text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {filteredPartnerships.map((p) => {
                                     const { label, classes } = getStatusInfo(p.status, p.is_initiator);
                                     return (
-                                        <tr key={p.id} onClick={() => { setSelectedPartnership(p); setIsDetailsDrawerOpen(true); }} className="hover:bg-slate-50 transition-colors cursor-pointer group">
+                                        <tr key={p.id} onClick={() => { setSelectedPartnership(p); setIsDetailsDrawerOpen(true); }} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group">
                                             <td className="px-5 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="h-10 w-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                                                    <div className="h-10 w-10 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
                                                         <Building2 className="h-5 w-5" />
                                                     </div>
                                                     <div>
-                                                        <div className="font-semibold text-slate-900 flex items-center gap-2">
+                                                        <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                                                             {p.partner.name}
                                                             {p.partner.is_verified && <CheckCircle2 className="h-3 w-3 text-blue-500" />}
                                                         </div>
-                                                        <div className="text-[12px] text-slate-500 mt-0.5">{p.partner.city || 'Unknown'}, {p.partner.state || ''}</div>
+                                                        <div className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">{p.partner.city || 'Unknown'}, {p.partner.state || ''}</div>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-5 py-4">
-                                                <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-slate-700 text-[11px] font-bold uppercase tracking-wider">
+                                                <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-bold uppercase tracking-wider">
                                                     {p.partner.typeLabel || p.partner.type}
                                                 </span>
                                             </td>
@@ -520,12 +547,12 @@ export default function OrganizationPartnershipManager({
                                                     {label}
                                                 </span>
                                             </td>
-                                            <td className="px-5 py-4 text-slate-500">
-                                                {new Date(p.created_at).toLocaleDateString()}
+                                            <td className="px-5 py-4 text-slate-500 dark:text-slate-400 text-xs">
+                                                {new Date(p.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
                                             </td>
                                             <td className="px-5 py-4 text-right">
-                                                <button onClick={(e) => { e.stopPropagation(); setSelectedPartnership(p); setIsDetailsDrawerOpen(true); }} className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded hover:bg-slate-50 transition-colors shadow-sm opacity-0 group-hover:opacity-100 focus:opacity-100">
-                                                    Manage
+                                                <button className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg transition-colors">
+                                                    <ChevronRight className="h-4 w-4" />
                                                 </button>
                                             </td>
                                         </tr>
@@ -535,36 +562,33 @@ export default function OrganizationPartnershipManager({
                         </table>
                     </div>
 
-                    {/* Mobile View */}
-                    <div className="md:hidden divide-y divide-slate-100">
+                    {/* Mobile Card View */}
+                    <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
                         {filteredPartnerships.map((p) => {
                             const { label, classes } = getStatusInfo(p.status, p.is_initiator);
                             return (
-                                <div key={p.id} className="p-4 hover:bg-slate-50 cursor-pointer" onClick={() => { setSelectedPartnership(p); setIsDetailsDrawerOpen(true); }}>
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-                                                <Building2 className="h-5 w-5" />
+                                <div key={p.id} onClick={() => { setSelectedPartnership(p); setIsDetailsDrawerOpen(true); }} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                                            <Building2 className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <div className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                                                {p.partner.name}
+                                                {p.partner.is_verified && <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />}
                                             </div>
-                                            <div>
-                                                <div className="font-semibold text-slate-900 text-sm flex items-center gap-1.5">
-                                                    {p.partner.name}
-                                                    {p.partner.is_verified && <CheckCircle2 className="h-3 w-3 text-blue-500" />}
-                                                </div>
-                                                <div className="text-[11px] text-slate-500">{p.partner.city || 'Unknown'}, {p.partner.state || ''}</div>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                                    {p.partner.typeLabel || p.partner.type}
+                                                </span>
+                                                <span className="text-slate-300 dark:text-slate-600">•</span>
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${classes}`}>
+                                                    {label}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center justify-between pl-13">
-                                        <div className="flex gap-2">
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
-                                                {p.partner.typeLabel || p.partner.type}
-                                            </span>
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${classes}`}>
-                                                {label}
-                                            </span>
-                                        </div>
-                                    </div>
+                                    <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
                                 </div>
                             );
                         })}
@@ -575,42 +599,42 @@ export default function OrganizationPartnershipManager({
             {/* 5. Add Partnership Drawer */}
             {isAddDrawerOpen && (
                 <div className="fixed inset-0 z-[100] flex justify-end" onKeyDown={(e) => e.key === 'Escape' && handleCloseAddDrawer()}>
-                    <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity" onClick={handleCloseAddDrawer} />
-                    <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 focus:outline-none" tabIndex={-1}>
-                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white">
-                            <h2 className="text-lg font-semibold text-slate-900">Add Partnership</h2>
-                            <button onClick={handleCloseAddDrawer} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 transition-colors" aria-label="Close drawer">
+                    <div className="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm transition-opacity" onClick={handleCloseAddDrawer} />
+                    <div className="relative w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 focus:outline-none border-l border-slate-200 dark:border-slate-800" tabIndex={-1}>
+                        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
+                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Add Partnership</h2>
+                            <button onClick={handleCloseAddDrawer} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" aria-label="Close drawer">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
 
                         {inviteSuccess ? (
-                            <div className="flex-1 overflow-y-auto bg-slate-50/50 p-6 flex flex-col items-center justify-center text-center">
-                                <div className="h-16 w-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+                            <div className="flex-1 overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50 p-6 flex flex-col items-center justify-center text-center">
+                                <div className="h-16 w-16 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mb-4">
                                     <CheckCircle2 className="h-8 w-8" />
                                 </div>
-                                <h3 className="text-lg font-semibold text-slate-900">Request Sent Successfully</h3>
-                                <p className="text-sm text-slate-500 mt-2 max-w-xs">Your partnership request has been dispatched. The organization will be notified immediately.</p>
-                                <button onClick={handleCloseAddDrawer} className="mt-6 px-6 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-xl transition-all shadow-sm">
+                                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Request Sent Successfully</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-xs">Your partnership request has been dispatched. The organization will be notified immediately.</p>
+                                <button onClick={handleCloseAddDrawer} className="mt-6 px-6 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl transition-all shadow-sm">
                                     Close
                                 </button>
                             </div>
                         ) : (
                             <>
                                 {/* Progress Indicator */}
-                                <div className="px-6 pt-5 pb-3 bg-slate-50/50 border-b border-slate-100">
+                                <div className="px-6 pt-5 pb-3 bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
                                     <div className="flex items-center justify-between relative">
-                                        <div className="absolute left-0 right-0 top-1/2 h-[2px] bg-slate-200 -z-10" />
+                                        <div className="absolute left-0 right-0 top-1/2 h-[2px] bg-slate-200 dark:bg-slate-700 -z-10" />
                                         {[1, 2, 3].map(step => (
-                                            <div key={step} className="flex flex-col items-center gap-1.5 bg-slate-50">
-                                                <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[11px] font-bold transition-colors shadow-[0_0_0_4px_rgb(248,250,252)] ${
-                                                    inviteStep === step ? 'bg-purple-600 text-white' :
-                                                    inviteStep > step ? 'bg-purple-100 text-purple-600' : 'bg-slate-100 text-slate-400'
+                                            <div key={step} className="flex flex-col items-center gap-1.5 bg-slate-50 dark:bg-slate-900 shadow-[0_0_0_4px_rgb(248,250,252)] dark:shadow-[0_0_0_4px_#0f172a] rounded-full px-1">
+                                                <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[11px] font-bold transition-colors ${
+                                                    inviteStep === step ? 'bg-purple-600 text-white shadow-sm' :
+                                                    inviteStep > step ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
                                                 }`}>
                                                     {inviteStep > step ? <CheckCircle2 className="h-3.5 w-3.5" /> : step}
                                                 </div>
                                                 <span className={`text-[10px] font-semibold uppercase tracking-wider ${
-                                                    inviteStep >= step ? 'text-purple-600' : 'text-slate-400'
+                                                    inviteStep >= step ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400 dark:text-slate-500'
                                                 }`}>
                                                     {step === 1 ? 'Type' : step === 2 ? 'Find' : 'Review'}
                                                 </span>
@@ -619,16 +643,18 @@ export default function OrganizationPartnershipManager({
                                     </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto bg-slate-50/50 p-6 space-y-6">
+                                <div className="flex-1 overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50 p-6 space-y-6">
                                     {inviteStep === 1 && (
                                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                                            <h3 className="text-sm font-medium text-slate-700">Select Organization Type</h3>
+                                            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">Select Organization Type</h3>
                                             <div className="space-y-3">
                                                 {availableTargetTypes.map(type => (
                                                     <label 
                                                         key={type.value}
                                                         className={`flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all ${
-                                                            inviteType === type.value ? 'border-purple-600 bg-purple-50/50 ring-1 ring-purple-600/20' : 'border-slate-200 bg-white hover:border-purple-300'
+                                                            inviteType === type.value 
+                                                                ? 'border-purple-600 bg-purple-50/50 dark:bg-purple-950/40 ring-1 ring-purple-600/20' 
+                                                                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-purple-300 dark:hover:border-purple-700'
                                                         }`}
                                                     >
                                                         <input 
@@ -639,8 +665,8 @@ export default function OrganizationPartnershipManager({
                                                             className="mt-1 h-4 w-4 accent-purple-600 border-slate-300 text-purple-600 focus:ring-purple-600" 
                                                         />
                                                         <div>
-                                                            <div className="text-sm font-semibold text-slate-900">{type.label}</div>
-                                                            <div className="text-xs text-slate-500 mt-1">Connect with a verified {type.label.toLowerCase()} in your network.</div>
+                                                            <div className="text-sm font-semibold text-slate-900 dark:text-white">{type.label}</div>
+                                                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">Connect with a verified {type.label.toLowerCase()} in your network.</div>
                                                         </div>
                                                     </label>
                                                 ))}
@@ -650,9 +676,9 @@ export default function OrganizationPartnershipManager({
 
                                     {inviteStep === 2 && (
                                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                                            <h3 className="text-sm font-medium text-slate-700 flex justify-between items-center">
+                                            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 flex justify-between items-center">
                                                 Find Partner
-                                                <span className="text-[10px] font-bold uppercase text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                                                <span className="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
                                                     {availableTargetTypes.find(t => t.value === inviteType)?.label}
                                                 </span>
                                             </h3>
@@ -663,18 +689,18 @@ export default function OrganizationPartnershipManager({
                                                     placeholder="Search by name, city, state..."
                                                     value={inviteSearch}
                                                     onChange={(e) => setInviteSearch(e.target.value)}
-                                                    className="w-full pl-9 pr-4 py-3 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 shadow-sm transition-all"
+                                                    className="w-full pl-9 pr-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 shadow-sm transition-all"
                                                     autoFocus
                                                 />
                                             </div>
-                                            <div className="bg-white border border-slate-100 rounded-xl max-h-[400px] overflow-y-auto shadow-sm divide-y divide-slate-100">
+                                            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl max-h-[400px] overflow-y-auto shadow-sm divide-y divide-slate-100 dark:divide-slate-800">
                                                 {isDiscovering && discoveryResults.length === 0 ? (
-                                                    <div className="p-8 text-center text-sm text-slate-500 flex flex-col items-center">
+                                                    <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400 flex flex-col items-center">
                                                         <Loader2 className="h-5 w-5 animate-spin text-purple-600 mb-3" />
                                                         Searching organizations...
                                                     </div>
                                                 ) : discoveryError ? (
-                                                    <div className="p-8 text-center text-sm text-red-500 flex flex-col items-center">
+                                                    <div className="p-8 text-center text-sm text-red-500 dark:text-red-400 flex flex-col items-center">
                                                         <AlertCircle className="h-5 w-5 mb-2 text-red-400" />
                                                         {discoveryError}
                                                     </div>
@@ -683,7 +709,9 @@ export default function OrganizationPartnershipManager({
                                                         <label 
                                                             key={org.id || org._id || index}
                                                             className={`flex items-start gap-4 p-4 cursor-pointer transition-colors ${
-                                                                (selectedPartnerId === (org.id || org._id)) ? 'bg-purple-50/50' : 'hover:bg-slate-50'
+                                                                (selectedPartnerId === (org.id || org._id)) 
+                                                                    ? 'bg-purple-50/50 dark:bg-purple-950/40' 
+                                                                    : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
                                                             }`}
                                                         >
                                                             <input 
@@ -694,12 +722,12 @@ export default function OrganizationPartnershipManager({
                                                                 className="mt-1 h-4 w-4 accent-purple-600 border-slate-300 text-purple-600 focus:ring-purple-600"
                                                             />
                                                             <div>
-                                                                <div className="font-semibold text-sm text-slate-900 flex items-center gap-1.5">
+                                                                <div className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
                                                                     {org.name}
                                                                     {org.is_verified && <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />}
                                                                 </div>
                                                                 {(org.city || org.state) && (
-                                                                    <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                                                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
                                                                         <Building className="h-3 w-3" />
                                                                         {org.city}{org.city && org.state ? ', ' : ''}{org.state}
                                                                     </div>
@@ -709,14 +737,14 @@ export default function OrganizationPartnershipManager({
                                                     ))
                                                 ) : inviteSearch.trim() === '' ? (
                                                     <div className="p-10 flex flex-col items-center text-center">
-                                                        <Search className="h-8 w-8 text-slate-200 mb-3" />
-                                                        <span className="text-sm font-medium text-slate-900">Type to search</span>
-                                                        <span className="text-xs text-slate-500 mt-1">Search for verified organizations</span>
+                                                        <Search className="h-8 w-8 text-slate-200 dark:text-slate-700 mb-3" />
+                                                        <span className="text-sm font-medium text-slate-900 dark:text-white">Type to search</span>
+                                                        <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">Search for verified organizations</span>
                                                     </div>
                                                 ) : (
                                                     <div className="p-10 flex flex-col items-center text-center">
-                                                        <span className="text-sm font-medium text-slate-900">No organizations found</span>
-                                                        <span className="text-xs text-slate-500 mt-1">We couldn't find anything matching '{inviteSearch}'</span>
+                                                        <span className="text-sm font-medium text-slate-900 dark:text-white">No organizations found</span>
+                                                        <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">We couldn't find anything matching '{inviteSearch}'</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -725,19 +753,19 @@ export default function OrganizationPartnershipManager({
 
                                     {inviteStep === 3 && selectedPartner && (
                                         <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                                            <div className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm">
-                                                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Selected Partner</div>
+                                            <div className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-sm">
+                                                <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Selected Partner</div>
                                                 <div className="flex items-start gap-3">
-                                                    <div className="h-10 w-10 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
+                                                    <div className="h-10 w-10 bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 rounded-lg flex items-center justify-center">
                                                         <Building2 className="h-5 w-5" />
                                                     </div>
                                                     <div>
-                                                        <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                                                        <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
                                                             {selectedPartner.name}
                                                             {selectedPartner.is_verified && <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />}
                                                         </div>
                                                         {(selectedPartner.city || selectedPartner.state) && (
-                                                            <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                                                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
                                                                 <Building className="h-3 w-3" />
                                                                 {selectedPartner.city}{selectedPartner.city && selectedPartner.state ? ', ' : ''}{selectedPartner.state}
                                                             </div>
@@ -747,24 +775,24 @@ export default function OrganizationPartnershipManager({
                                             </div>
 
                                             <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-2">Message (Optional)</label>
+                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Message (Optional)</label>
                                                 <textarea 
                                                     value={inviteMessage}
                                                     onChange={(e) => setInviteMessage(e.target.value)}
                                                     placeholder="Include a message with your partnership request..."
-                                                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 shadow-sm min-h-[100px] resize-none transition-all"
+                                                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 shadow-sm min-h-[100px] resize-none transition-all"
                                                 />
                                             </div>
                                         </div>
                                     )}
                                 </div>
-                                <div className="p-5 border-t border-slate-100 bg-white flex justify-between gap-3 shrink-0">
+                                <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-between gap-3 shrink-0">
                                     {inviteStep > 1 ? (
-                                        <button onClick={() => setInviteStep(s => (s - 1) as any)} className="px-4 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-center">
+                                        <button onClick={() => setInviteStep(s => (s - 1) as any)} className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center">
                                             Back
                                         </button>
                                     ) : (
-                                        <button onClick={handleCloseAddDrawer} className="px-4 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-center">
+                                        <button onClick={handleCloseAddDrawer} className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center">
                                             Cancel
                                         </button>
                                     )}
@@ -800,27 +828,27 @@ export default function OrganizationPartnershipManager({
             {/* 6. Details Drawer */}
             {isDetailsDrawerOpen && selectedPartnership && (
                 <div className="fixed inset-0 z-[100] flex justify-end">
-                    <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity" onClick={() => setIsDetailsDrawerOpen(false)} />
-                    <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white">
-                            <h2 className="text-lg font-semibold text-slate-900">Partnership Details</h2>
-                            <button onClick={() => setIsDetailsDrawerOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                    <div className="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsDetailsDrawerOpen(false)} />
+                    <div className="relative w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 border-l border-slate-200 dark:border-slate-800">
+                        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
+                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Partnership Details</h2>
+                            <button onClick={() => setIsDetailsDrawerOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
-                        <div className="flex-1 overflow-y-auto bg-slate-50/50 p-6 space-y-6">
+                        <div className="flex-1 overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50 p-6 space-y-6">
                             
-                            <div className="flex flex-col items-center text-center p-6 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                                <div className="h-16 w-16 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mb-3">
+                            <div className="flex flex-col items-center text-center p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm">
+                                <div className="h-16 w-16 rounded-full bg-purple-100 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3">
                                     <Building2 className="h-8 w-8" />
                                 </div>
-                                <h3 className="text-lg font-bold text-slate-900 flex items-center justify-center gap-2">
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center justify-center gap-2">
                                     {selectedPartnership.partner.name}
                                     {selectedPartnership.partner.is_verified && <CheckCircle2 className="h-4 w-4 text-blue-500" />}
                                 </h3>
-                                <p className="text-sm text-slate-500 mt-1">{selectedPartnership.partner.city || 'Unknown'}, {selectedPartnership.partner.state || ''}</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{selectedPartnership.partner.city || 'Unknown'}, {selectedPartnership.partner.state || ''}</p>
                                 <div className="flex items-center gap-2 mt-4">
-                                    <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded text-[10px] font-bold uppercase tracking-wider">
+                                    <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded text-[10px] font-bold uppercase tracking-wider">
                                         {selectedPartnership.partner.typeLabel || selectedPartnership.partner.type}
                                     </span>
                                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusInfo(selectedPartnership.status, selectedPartnership.is_initiator).classes}`}>
@@ -829,37 +857,37 @@ export default function OrganizationPartnershipManager({
                                 </div>
                             </div>
 
-                            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
-                                <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+                                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center gap-2">
                                     <FileText className="h-4 w-4 text-slate-400" />
-                                    <h4 className="text-sm font-semibold text-slate-900">Partnership Agreement</h4>
+                                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Partnership Agreement</h4>
                                 </div>
                                 <div className="p-5 space-y-4">
                                     <div>
-                                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Capabilities Supported</p>
+                                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Capabilities Supported</p>
                                         <div className="flex flex-wrap gap-2 mt-2">
                                             {selectedPartnership.metadata?.capabilities?.length ? (
                                                 selectedPartnership.metadata.capabilities.map((c: string) => (
-                                                    <span key={c} className="px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-100 rounded-full text-xs font-medium">
+                                                    <span key={c} className="px-2.5 py-1 bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-100 dark:border-purple-800/50 rounded-full text-xs font-medium">
                                                         {c}
                                                     </span>
                                                 ))
                                             ) : (
-                                                <span className="text-sm text-slate-500">None specified</span>
+                                                <span className="text-sm text-slate-500 dark:text-slate-400">None specified</span>
                                             )}
                                         </div>
                                     </div>
                                     <div>
-                                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Initiated</p>
-                                        <p className="text-sm font-medium text-slate-900 flex items-center gap-2">
+                                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Initiated</p>
+                                        <p className="text-sm font-medium text-slate-900 dark:text-white flex items-center gap-2">
                                             <Calendar className="h-4 w-4 text-slate-400" />
                                             {new Date(selectedPartnership.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                                         </p>
                                     </div>
                                     {selectedPartnership.metadata?.message && (
                                         <div>
-                                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Original Message</p>
-                                            <p className="text-sm text-slate-700 italic bg-slate-50 p-3 rounded-lg">"{selectedPartnership.metadata.message}"</p>
+                                            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Original Message</p>
+                                            <p className="text-sm text-slate-700 dark:text-slate-300 italic bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg border border-slate-100 dark:border-slate-800">"{selectedPartnership.metadata.message}"</p>
                                         </div>
                                     )}
                                 </div>
@@ -867,26 +895,26 @@ export default function OrganizationPartnershipManager({
                         </div>
 
                         {/* Actions Footer */}
-                        <div className="p-5 border-t border-slate-100 bg-white grid gap-2">
+                        <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 grid gap-2">
                             {selectedPartnership.status === 'pending' && !selectedPartnership.is_initiator && (
                                 <div className="flex gap-2">
                                     <button onClick={() => handleRespond(selectedPartnership.id, 'accept')} disabled={!!actionLoading} className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-all shadow-sm">
                                         Accept Request
                                     </button>
-                                    <button onClick={() => handleRespond(selectedPartnership.id, 'reject')} disabled={!!actionLoading} className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-sm font-medium transition-all shadow-sm">
+                                    <button onClick={() => handleRespond(selectedPartnership.id, 'reject')} disabled={!!actionLoading} className="flex-1 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl text-sm font-medium transition-all shadow-sm">
                                         Reject
                                     </button>
                                 </div>
                             )}
 
                             {selectedPartnership.status === 'active' && (
-                                <button onClick={() => handleTerminate(selectedPartnership.id)} disabled={!!actionLoading} className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 rounded-xl text-sm font-medium transition-all shadow-sm">
+                                <button onClick={() => handleTerminate(selectedPartnership.id)} disabled={!!actionLoading} className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl text-sm font-medium transition-all shadow-sm">
                                     <Trash2 className="h-4 w-4" /> Terminate Partnership
                                 </button>
                             )}
 
                             {(selectedPartnership.status === 'rejected' || selectedPartnership.status === 'terminated' || selectedPartnership.status === 'cancelled') && (
-                                <div className="text-center text-sm text-slate-500 py-2">
+                                <div className="text-center text-sm text-slate-500 dark:text-slate-400 py-2">
                                     This partnership is no longer active.
                                 </div>
                             )}

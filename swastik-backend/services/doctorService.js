@@ -8,6 +8,7 @@ const { buildProviderResubmissionFields } = require('../utils/providerApproval')
 const { calculateAge } = require('../utils/patientProfile');
 const eventEmitter = require('./eventEmitter');
 const notificationService = require('./notificationService');
+const { logAudit } = require('../utils/auditLogger');
 
 // Cap on how many already-past slots to surface on a given day's booking view.
 // Without this, a full day of elapsed slots floods the UI as "booked".
@@ -251,13 +252,15 @@ class DoctorService {
     const { data: doctor, error } = await supabaseAdmin
       .from('doctors')
       .select(`
-        id, name, specialization, experience_years, qualifications, bio,
+        id, name, specialization, specializations, sub_specialization, experience_years, qualifications, bio,
         consultation_fee, video_consultation_fee, profile_image_url, intro_video_url,
-        languages, awards, registration_number, license_number,
+        languages, awards, registration_number, license_number, medical_council,
         consultation_types, education, certifications, rating, total_reviews,
         is_available, is_approved, approval_status,
-        degree_certificate_url, license_document_url, government_id_url, live_selfie_url, compliance_documents,
+        degree_certificate_url, license_document_url,
         hospital_id, is_public_profile, show_phone_number,
+        practice_setup_type, onboarding_completed,
+        clinic_name, clinic_address, clinic_city, clinic_state, clinic_pincode,
         user:users!doctors_user_id_fkey(email, phone, is_verified, created_at),
         hospital:hospitals(id, name, address, city)
       `)
@@ -268,21 +271,25 @@ class DoctorService {
       throw new ApiError(404, 'Doctor profile not found');
     }
 
-    // Get stats
+    // Get stats & affiliations
     const [
       appointmentPatientsResult,
       consultationPatientsResult,
       { count: totalAppointments },
       { count: completedConsultations },
       allReviewsResult,
-      recentReviewsResult
+      recentReviewsResult,
+      clinicAffiliationsResult,
+      hospitalAffiliationsResult
     ] = await Promise.all([
       supabaseAdmin.from('appointments').select('patient_id').eq('doctor_id', doctor.id).not('patient_id', 'is', null),
       supabaseAdmin.from('consultations').select('patient_id').eq('doctor_id', doctor.id).not('patient_id', 'is', null),
-      supabaseAdmin.from('appointments').select('id', { count: 'exact', head: true }).eq('doctor_id', doctor.id),
+      supabaseAdmin.from('appointments').select('id', { count: 'exact', head: true }).eq('doctor_id', doctor.id).or('patient_notes.neq.BLOCKED_BY_DOCTOR,patient_notes.is.null'),
       supabaseAdmin.from('consultations').select('id', { count: 'exact', head: true }).eq('doctor_id', doctor.id).eq('status', 'completed'),
       supabaseAdmin.from('reviews').select('rating, is_verified').eq('reviewable_type', 'doctor').eq('reviewable_id', doctor.id).eq('is_visible', true).eq('is_approved', true),
       supabaseAdmin.from('reviews').select('id, rating, comment, created_at, is_verified').eq('reviewable_type', 'doctor').eq('reviewable_id', doctor.id).eq('is_visible', true).eq('is_approved', true).order('created_at', { ascending: false }).limit(5),
+      supabaseAdmin.from('clinic_doctors').select('id, clinic_id, is_active, clinic:clinics(id, name, address, city)').eq('doctor_id', doctor.id).eq('is_active', true),
+      supabaseAdmin.from('hospital_doctors').select('id, hospital_id, is_active, department, designation, hospital:hospitals(id, name, address, city)').eq('doctor_id', doctor.id).eq('is_active', true),
     ]);
 
     const patientIdSet = new Set();
@@ -305,6 +312,8 @@ class DoctorService {
       rating: averageRating,
       total_reviews: totalReviews,
       verified_reviews: verifiedReviewsCount,
+      clinic_affiliations: clinicAffiliationsResult.data || [],
+      hospital_affiliations: hospitalAffiliationsResult.data || [],
       stats: {
         totalPatients: uniquePatients,
         totalAppointments: totalAppointments || 0,
@@ -337,7 +346,18 @@ class DoctorService {
     // This prevents Web frontend from accidentally nulling out fields set by Android
     const updatePayload = { updated_at: new Date().toISOString() };
     if (updateData.name !== undefined) updatePayload.name = updateData.name;
-    if (updateData.specialization !== undefined) updatePayload.specialization = updateData.specialization;
+    if (updateData.specialization !== undefined) {
+      updatePayload.specialization = updateData.specialization;
+      if (!updateData.specializations && updateData.specialization) {
+        updatePayload.specializations = [updateData.specialization];
+      }
+    }
+    if (updateData.specializations !== undefined) {
+      updatePayload.specializations = updateData.specializations;
+      if (!updatePayload.specialization && Array.isArray(updateData.specializations) && updateData.specializations.length > 0) {
+        updatePayload.specialization = updateData.specializations[0];
+      }
+    }
     if (updateData.experience !== undefined || updateData.experienceYears !== undefined) {
       updatePayload.experience_years = updateData.experience ?? updateData.experienceYears;
     }
@@ -470,8 +490,6 @@ class DoctorService {
     addWeight(mergedDoctor.live_selfie_url, 10);
     
     updatePayload.profile_completion_percentage = Math.round((score / totalWeights) * 100);
-    // Backward compatibility if needed:
-    updatePayload.profile_completion_score = updatePayload.profile_completion_percentage;
 
     const { data: updatedDoctor, error } = await supabaseAdmin
       .from('doctors')
@@ -481,7 +499,8 @@ class DoctorService {
       .single();
 
     if (error) {
-      throw new ApiError(400, 'Failed to update profile');
+      logger.error('doctorService.updateProfile error:', error);
+      throw new ApiError(400, `Failed to update profile: ${error.message}`);
     }
 
     await cacheDel(`auth_user:${userId}`);
@@ -2353,68 +2372,85 @@ class DoctorService {
       .eq('status', 'pending')
       .lt('expires_at', nowIso);
 
-    const { data: invites, error } = await supabaseAdmin
-      .from('clinic_doctor_invites')
-      .select(`
-        id,
-        clinic_id,
-        doctor_id,
-        status,
-        created_at,
-        responded_at,
-        expires_at,
-        practice_type,
-        consultation_modes,
-        schedule,
-        fee_amount,
-        payout_terms,
-        start_date,
-        clinic:clinics(id, name, city, address),
-        invitedBy:users!clinic_doctor_invites_invited_by_fkey(id, name, email)
-      `)
-      .eq('doctor_id', doctor.id)
-      .order('created_at', { ascending: false });
+    const [{ data: invites, error }, { data: activeDoctors, error: adError }] = await Promise.all([
+      supabaseAdmin
+        .from('clinic_doctor_invites')
+        .select(`
+          id,
+          clinic_id,
+          doctor_id,
+          status,
+          created_at,
+          responded_at,
+          expires_at,
+          practice_type,
+          consultation_modes,
+          schedule,
+          fee_amount,
+          payout_terms,
+          start_date,
+          clinic:clinics(id, name, city, address),
+          invitedBy:users!clinic_doctor_invites_invited_by_fkey(id, name, email)
+        `)
+        .eq('doctor_id', doctor.id)
+        .order('created_at', { ascending: false }),
+      supabaseAdmin
+        .from('clinic_doctors')
+        .select(`
+          id,
+          clinic_id,
+          doctor_id,
+          schedule,
+          joined_at,
+          consultation_fee,
+          clinic:clinics(id, name, city, address)
+        `)
+        .eq('doctor_id', doctor.id)
+        .eq('is_active', true)
+    ]);
 
     if (error) throw error;
-
-    const { data: activeDoctors, error: adError } = await supabaseAdmin
-      .from('clinic_doctors')
-      .select(`
-        id,
-        clinic_id,
-        doctor_id,
-        schedule,
-        joined_at,
-        consultation_fee,
-        clinic:clinics(id, name, city, address)
-      `)
-      .eq('doctor_id', doctor.id)
-      .eq('is_active', true);
-
     if (adError) throw adError;
 
-    const synthesizedInvites = (activeDoctors || []).map(cd => ({
-      id: cd.id,
-      clinic_id: cd.clinic_id,
-      doctor_id: cd.doctor_id,
-      schedule: cd.schedule,
-      status: 'accepted',
-      created_at: cd.joined_at,
-      responded_at: cd.joined_at,
-      expires_at: null,
-      practice_type: 'visiting',
-      consultation_modes: ['in_clinic'],
-      fee_amount: cd.consultation_fee,
-      payout_terms: null,
-      start_date: cd.joined_at,
-      clinic: cd.clinic,
-      invitedBy: null
-    }));
+    const activeClinicIdSet = new Set((activeDoctors || []).map(cd => cd.clinic_id));
 
-    const result = [...(invites || [])];
-    for (const s of synthesizedInvites) {
-      if (!result.find(r => r.clinic_id === s.clinic_id && r.status === 'accepted')) {
-        result.push(s);
+    // Deduplicate and sanitize invite records:
+    // 1. Only ONE invite per clinic can be 'accepted' (the latest one).
+    // 2. An invite cannot be 'accepted' if the doctor is not active in clinic_doctors for that clinic.
+    const seenAcceptedClinics = new Set();
+    const sanitizedInvites = (invites || []).map(inv => {
+      if (inv.status === 'accepted') {
+        const isClinicActive = activeClinicIdSet.has(inv.clinic_id);
+        if (!isClinicActive || seenAcceptedClinics.has(inv.clinic_id)) {
+          return { ...inv, status: 'cancelled' };
+        }
+        seenAcceptedClinics.add(inv.clinic_id);
+      }
+      return inv;
+    });
+
+    // Synthesize invites for active clinics without an accepted invite row
+    const result = [...sanitizedInvites];
+    for (const cd of (activeDoctors || [])) {
+      if (!seenAcceptedClinics.has(cd.clinic_id)) {
+        seenAcceptedClinics.add(cd.clinic_id);
+        result.push({
+          id: cd.id,
+          clinic_id: cd.clinic_id,
+          doctor_id: cd.doctor_id,
+          schedule: cd.schedule,
+          status: 'accepted',
+          created_at: cd.joined_at,
+          responded_at: cd.joined_at,
+          expires_at: null,
+          practice_type: 'visiting',
+          consultation_modes: ['in_clinic'],
+          fee_amount: cd.consultation_fee,
+          payout_terms: null,
+          start_date: cd.joined_at,
+          clinic: cd.clinic,
+          invitedBy: null
+        });
       }
     }
 
@@ -2448,6 +2484,11 @@ class DoctorService {
       throw new ApiError(404, 'Invite not found');
     }
 
+    // Idempotent success if invite already accepted
+    if (invite.status === 'accepted' && action === 'accept') {
+      return { message: 'Invite already accepted. Clinic assigned successfully.' };
+    }
+
     if (invite.status !== 'pending') {
       throw new ApiError(409, `Invite already ${invite.status}`);
     }
@@ -2468,6 +2509,17 @@ class DoctorService {
         .eq('id', invite.id);
 
       if (error) throw error;
+
+      await logAudit({
+        userId,
+        userRole: 'doctor',
+        action: 'doctor_reinvite_declined',
+        entityType: 'clinic_doctor_invites',
+        entityId: invite.id,
+        newData: { status: 'rejected', responded_at: nowIso },
+        metadata: { clinicId: invite.clinic_id, doctorId: doctor.id, inviteId: invite.id },
+      });
+
       await this.notifyClinicOwnerOfResponse(invite.clinic_id, invite.id, 'rejected', doctor.id);
       return { message: 'Invite rejected successfully' };
     }
@@ -2487,33 +2539,96 @@ class DoctorService {
       return { message: 'Changes requested successfully' };
     }
 
-    const { data: existingAssoc } = await supabaseAdmin
+    // Invalidate/cancel any other prior active or pending invites for this (clinic_id, doctor_id)
+    try {
+      await supabaseAdmin
+        .from('clinic_doctor_invites')
+        .update({ status: 'cancelled', responded_at: nowIso })
+        .eq('clinic_id', invite.clinic_id)
+        .eq('doctor_id', doctor.id)
+        .neq('id', invite.id)
+        .in('status', ['accepted', 'pending', 'changes_requested']);
+    } catch (invErr) {
+      console.warn('[DoctorService] Invalidate prior invites warning:', invErr.message);
+    }
+
+    // Determine target department assignment from invite
+    let targetDeptIds = [];
+    if (invite.department_id) {
+      targetDeptIds = [invite.department_id];
+    } else if (Array.isArray(invite.schedule?.department_ids)) {
+      targetDeptIds = invite.schedule.department_ids;
+    }
+
+    const { data: existingAssocs } = await supabaseAdmin
       .from('clinic_doctors')
-      .select('id, is_active')
+      .select('*')
       .eq('clinic_id', invite.clinic_id)
       .eq('doctor_id', doctor.id)
-      .maybeSingle();
+      .order('joined_at', { ascending: false });
 
-    if (!existingAssoc) {
+    const primaryAssoc = existingAssocs && existingAssocs.length > 0 ? existingAssocs[0] : null;
+
+    if (!primaryAssoc) {
       const { error: assocError } = await supabaseAdmin
         .from('clinic_doctors')
         .insert({
           clinic_id: invite.clinic_id,
           doctor_id: doctor.id,
           is_active: true,
+          joined_at: nowIso,
+          schedule: targetDeptIds.length > 0 ? { department_ids: targetDeptIds } : {},
         });
 
       if (assocError) throw assocError;
-    } else if (existingAssoc.is_active === false) {
+    } else {
+      const prevSchedule = primaryAssoc.schedule && typeof primaryAssoc.schedule === 'object' ? primaryAssoc.schedule : {};
+      const prevHistory = Array.isArray(prevSchedule.affiliation_history) ? [...prevSchedule.affiliation_history] : [];
+      
+      // If there was a previous ended period not yet recorded in history, append it
+      if (primaryAssoc.is_active === false && (prevSchedule.terminated_at || primaryAssoc.joined_at)) {
+        const endedAt = prevSchedule.terminated_at || nowIso;
+        const alreadyInHistory = prevHistory.some((h) => h.ended_at === endedAt);
+        if (!alreadyInHistory) {
+          prevHistory.unshift({
+            joined_at: primaryAssoc.joined_at,
+            ended_at: endedAt,
+            termination_reason: prevSchedule.termination_reason || 'Doctor affiliation ended',
+            termination_note: prevSchedule.termination_note || null,
+            terminated_by: prevSchedule.terminated_by || null,
+          });
+        }
+      }
+
+      const updatedSchedule = {
+        ...prevSchedule,
+        department_ids: targetDeptIds,
+        affiliation_history: prevHistory,
+      };
+      delete updatedSchedule.termination_reason;
+      delete updatedSchedule.termination_note;
+      delete updatedSchedule.terminated_at;
+      delete updatedSchedule.terminated_by;
+
       const { error: assocError } = await supabaseAdmin
         .from('clinic_doctors')
         .update({
           is_active: true,
           joined_at: nowIso,
+          schedule: updatedSchedule,
         })
-        .eq('id', existingAssoc.id);
+        .eq('id', primaryAssoc.id);
 
       if (assocError) throw assocError;
+
+      // Clean up any extraneous duplicate rows if they ever exist
+      if (existingAssocs.length > 1) {
+        const extraIds = existingAssocs.slice(1).map(a => a.id);
+        await supabaseAdmin
+          .from('clinic_doctors')
+          .update({ is_active: false })
+          .in('id', extraIds);
+      }
     }
 
     const { error: inviteUpdateError } = await supabaseAdmin
@@ -2522,6 +2637,16 @@ class DoctorService {
       .eq('id', invite.id);
 
     if (inviteUpdateError) throw inviteUpdateError;
+
+    await logAudit({
+      userId,
+      userRole: 'doctor',
+      action: 'doctor_reinvite_accepted',
+      entityType: 'clinic_doctor_invites',
+      entityId: invite.id,
+      newData: { status: 'accepted', is_active: true, joined_at: nowIso, department_ids: targetDeptIds },
+      metadata: { clinicId: invite.clinic_id, doctorId: doctor.id, inviteId: invite.id },
+    });
 
     await this.notifyClinicOwnerOfResponse(invite.clinic_id, invite.id, 'accepted', doctor.id);
 
@@ -2541,17 +2666,19 @@ class DoctorService {
       const ownerId = clinic?.owner_id;
       if (!ownerId) return;
 
-      const doctorName = doctor?.name || 'A doctor';
+      const doctorName = doctor?.name ? (doctor.name.startsWith('Dr.') ? doctor.name : `Dr. ${doctor.name}`) : 'Doctor';
       const payload = { inviteId, clinicId, decision, doctorId };
 
       eventEmitter.notifyUser(ownerId, 'clinic:invite-updated', payload);
 
       await notificationService.sendNotification(ownerId, {
-        title: decision === 'accepted' ? '✅ Doctor Joined Your Clinic' : '😔 Doctor Declined Invitation',
+        title: decision === 'accepted' ? 'Doctor Rejoined Clinic' : 'Rejoin Invitation Declined',
         message: decision === 'accepted'
-          ? `${doctorName} accepted your invitation and joined ${clinic.name}.`
-          : `${doctorName} declined your invitation to ${clinic.name}.`,
+          ? `${doctorName} accepted your invitation and rejoined ${clinic?.name || 'your clinic'}.`
+          : `${doctorName} declined your clinic rejoin invitation.`,
         type: 'clinic_invite_response',
+        category: 'clinic',
+        action_url: '/clinic/doctors',
         data: { ...payload, clinicName: clinic?.name },
       });
     } catch (err) {
@@ -3838,6 +3965,168 @@ class DoctorService {
    * Create a single schedule (video or organization-specific in-person).
    * Runs conflict detection across ALL of the doctor's active schedules before persisting.
    */
+  /**
+   * Get all schedule slots, active blocks, and booked appointments for a doctor.
+   */
+  async getSlots(userId) {
+    const doctor = await this._resolveDoctor(userId);
+
+    // 1. Fetch schedules
+    const { data: schedules, error: scheduleError } = await supabaseAdmin
+      .from('doctor_slots')
+      .select('*')
+      .eq('doctor_id', doctor.id)
+      .order('slot_date', { ascending: true })
+      .order('start_time', { ascending: true });
+
+    if (scheduleError) {
+      throw new ApiError(500, 'Failed to fetch doctor schedules');
+    }
+
+    const activeSchedules = (schedules || []).filter((s) => s.is_active !== false);
+
+    // 2. Fetch manual slot blocks from doctor_schedule_blocks
+    const { data: blocks, error: blockError } = await supabaseAdmin
+      .from('doctor_schedule_blocks')
+      .select('id, block_date, time_slot')
+      .eq('doctor_id', doctor.id);
+
+    if (blockError) {
+      console.warn('[DoctorService] Could not fetch doctor_schedule_blocks:', blockError.message);
+    }
+
+    // Filter blocks: only return blocks covered by currently active schedules (ignore orphaned blocks)
+    const validBlocked = [];
+    const orphanedBlockIds = [];
+
+    for (const b of (blocks || [])) {
+      const bDate = b.block_date;
+      const bTime = (b.time_slot || '').slice(0, 5);
+      const bMinutes = toMinutes(bTime);
+
+      if (bMinutes === null) continue;
+
+      const isCoveredByActiveSchedule = activeSchedules.some((s) => {
+        if (s.slot_date !== bDate) return false;
+        const sStart = toMinutes(s.start_time);
+        const sEnd = toMinutes(s.end_time);
+        return sStart !== null && sEnd !== null && bMinutes >= sStart && bMinutes < sEnd;
+      });
+
+      if (isCoveredByActiveSchedule) {
+        validBlocked.push({ date: bDate, time: bTime });
+      } else {
+        if (b.id) orphanedBlockIds.push(b.id);
+      }
+    }
+
+    // Clean up orphaned blocks in background if any exist
+    if (orphanedBlockIds.length > 0) {
+      supabaseAdmin
+        .from('doctor_schedule_blocks')
+        .delete()
+        .in('id', orphanedBlockIds)
+        .then(({ error }) => {
+          if (error) console.warn('[DoctorService] Cleanup orphaned blocks failed:', error.message);
+        })
+        .catch(() => {});
+    }
+
+    // 3. Fetch booked appointments for active schedules
+    const { data: appointments, error: apptError } = await supabaseAdmin
+      .from('appointments')
+      .select('appointment_date, time_slot, status')
+      .eq('doctor_id', doctor.id)
+      .in('status', ['scheduled', 'confirmed', 'in_progress']);
+
+    if (apptError) {
+      console.warn('[DoctorService] Could not fetch appointments for slots:', apptError.message);
+    }
+
+    const validBooked = [];
+    for (const a of (appointments || [])) {
+      if (!a.appointment_date || !a.time_slot) continue;
+      const aTime = a.time_slot.slice(0, 5);
+      validBooked.push({ date: a.appointment_date, time: aTime });
+    }
+
+    return {
+      slots: schedules || [],
+      blocked: validBlocked,
+      booked: validBooked,
+    };
+  }
+
+  /**
+   * Toggle manual slot blocking (block or unblock).
+   * A manual block is NOT an appointment.
+   */
+  async toggleSlotBlock(userId, payload) {
+    const doctor = await this._resolveDoctor(userId);
+    const { date, timeSlot, action = 'block' } = payload;
+
+    if (!date || !timeSlot) {
+      throw new ApiError(400, 'date and timeSlot are required');
+    }
+
+    const timeSlotShort = timeSlot.length > 5 ? timeSlot.slice(0, 5) : timeSlot;
+    const timeSlotDb = `${timeSlotShort}:00`;
+
+    // Past-slot protection: Prevent blocking/unblocking slots that have already started in IST (+05:30)
+    const now = new Date();
+    const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+    const nowTimeIST = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
+
+    if (date < todayIST || (date === todayIST && timeSlotShort <= nowTimeIST)) {
+      throw new ApiError(409, 'This time slot has already started and can no longer be blocked or unblocked.');
+    }
+
+    if (action === 'block') {
+      const { data: existing } = await supabaseAdmin
+        .from('doctor_schedule_blocks')
+        .select('id')
+        .eq('doctor_id', doctor.id)
+        .eq('block_date', date)
+        .or(`time_slot.eq.${timeSlotDb},time_slot.eq.${timeSlotShort}`)
+        .maybeSingle();
+
+      if (!existing) {
+        const { error: insertError } = await supabaseAdmin
+          .from('doctor_schedule_blocks')
+          .insert({
+            doctor_id: doctor.id,
+            block_date: date,
+            time_slot: timeSlotDb,
+          });
+
+        if (insertError && insertError.code !== '23505') {
+          throw new ApiError(400, `Failed to block slot: ${insertError.message}`);
+        }
+      }
+
+      eventEmitter.emitSlotUpdate(doctor.id, date, timeSlotShort, false);
+      return { success: true, action: 'block', date, timeSlot: timeSlotShort, isAvailable: false };
+    } else {
+      const { error: deleteError } = await supabaseAdmin
+        .from('doctor_schedule_blocks')
+        .delete()
+        .eq('doctor_id', doctor.id)
+        .eq('block_date', date)
+        .or(`time_slot.eq.${timeSlotDb},time_slot.eq.${timeSlotShort}`);
+
+      if (deleteError) {
+        throw new ApiError(400, `Failed to unblock slot: ${deleteError.message}`);
+      }
+
+      eventEmitter.emitSlotUpdate(doctor.id, date, timeSlotShort, true);
+      return { success: true, action: 'unblock', date, timeSlot: timeSlotShort, isAvailable: true };
+    }
+  }
+
+  /**
+   * Create a single schedule or recurring schedule (video or organization-specific in-person).
+   * Runs conflict detection across ALL of the doctor's active schedules before persisting.
+   */
   async createSchedule(userId, payload) {
     const doctor = await this._resolveDoctor(userId);
 
@@ -3876,14 +4165,16 @@ class DoctorService {
       }
     }
 
-    // Build dates (recurring = N consecutive weeks)
+    // Build dates (recurring = N consecutive weeks, pure UTC date math to avoid local timezone drift)
     const dates = [];
     if (recurringWeeks > 0) {
-      const start = new Date(`${slotDate}T00:00:00`);
+      const [year, month, day] = slotDate.split('-').map(Number);
       for (let i = 0; i < recurringWeeks; i++) {
-        const d = new Date(start);
-        d.setDate(start.getDate() + i * 7);
-        dates.push(d.toISOString().split('T')[0]);
+        const d = new Date(Date.UTC(year, month - 1, day + i * 7));
+        const yyyy = d.getUTCFullYear();
+        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(d.getUTCDate()).padStart(2, '0');
+        dates.push(`${yyyy}-${mm}-${dd}`);
       }
     } else {
       dates.push(slotDate);
@@ -3920,7 +4211,7 @@ class DoctorService {
 
   /**
    * Update an existing schedule (edit times/date or pause/resume).
-   * Changing the organization is blocked when appointments exist for that schedule.
+   * Supports editing a single date or an entire recurring series.
    */
   async updateSchedule(userId, scheduleId, payload) {
     const doctor = await this._resolveDoctor(userId);
@@ -3944,7 +4235,6 @@ class DoctorService {
       return { ...existing, is_active: payload.is_active };
     }
 
-    const slotDate = payload.slot_date || existing.slot_date;
     const startTime = normalizeTime24(payload.startTime ?? payload.start_time ?? existing.start_time);
     const endTime = normalizeTime24(payload.endTime ?? payload.end_time ?? existing.end_time);
     const slotDuration = parseInt(payload.slotDuration ?? payload.slot_duration ?? existing.slot_duration ?? 15, 10);
@@ -3956,18 +4246,40 @@ class DoctorService {
       throw new ApiError(400, 'Invalid schedule times provided (end must be after start).');
     }
 
-    // Organization change guard: if appointments exist, changing the org would
-    // invalidate historical appointments → require a new schedule instead.
-    const orgChanged = (payload.organization_type && payload.organization_id) && (
-      existing.organization_type !== payload.organization_type || existing.organization_id !== payload.organization_id
-    );
-    if (orgChanged) {
-      const hasAppointments = await this._hasAppointmentsForSchedule(doctor.id, existing.slot_date, existing.start_time, existing.end_time);
-      if (hasAppointments) {
-        throw new ApiError(400, 'This schedule has existing appointments. Create a new schedule instead of changing its organization.');
+    // Check if updating entire series or single date
+    if (payload.edit_series === true && Array.isArray(payload.series_dates) && payload.series_dates.length > 0) {
+      // Series update: check conflicts on each date except existing series schedules
+      const seriesSlotIds = new Set(Array.isArray(payload.series_slot_ids) ? payload.series_slot_ids : [scheduleId]);
+      for (const sDate of payload.series_dates) {
+        const conflicts = await this._findScheduleConflicts(doctor.id, sDate, startM, endM);
+        const realConflicts = conflicts.filter((c) => !seriesSlotIds.has(c.id));
+        if (realConflicts.length > 0) {
+          const names = await this._resolveOrganizationNames(realConflicts);
+          const enriched = realConflicts.map((c) => ({
+            ...c,
+            organization_name: c.organization_id ? (names[`${c.organization_type}:${c.organization_id}`] || null) : null,
+          }));
+          throw new ApiError(409, 'Schedule conflict detected in series update', { conflicts: enriched });
+        }
       }
+
+      // Update all schedules matching series dates with the same mode/times
+      await supabaseAdmin
+        .from('doctor_slots')
+        .update({
+          start_time: startTime,
+          end_time: endTime,
+          slot_duration: slotDuration,
+          buffer_time: bufferTime,
+        })
+        .eq('doctor_id', doctor.id)
+        .in('slot_date', payload.series_dates);
+
+      return { ...existing, start_time: startTime, end_time: endTime, slot_duration: slotDuration };
     }
 
+    // Single date update:
+    const slotDate = payload.slot_date || existing.slot_date;
     const conflicts = await this._findScheduleConflicts(doctor.id, slotDate, startM, endM, scheduleId);
     if (conflicts.length > 0) {
       const names = await this._resolveOrganizationNames(conflicts);
@@ -3991,6 +4303,7 @@ class DoctorService {
       .update(updatePayload)
       .eq('id', scheduleId)
       .eq('doctor_id', doctor.id);
+
     if (updateError) {
       if (updateError.code === '42703' || updateError.code === 'PGRST204') {
         delete updatePayload.buffer_time;
@@ -4012,6 +4325,7 @@ class DoctorService {
    * Disable/end a schedule. If appointments exist for the schedule, it is disabled
    * (is_active=false) so historical/future bookings stay intact. If no appointments
    * exist it may be removed entirely.
+   * Also cleans up orphaned manual blocks for this slot window.
    */
   async disableSchedule(userId, scheduleId) {
     const doctor = await this._resolveDoctor(userId);
@@ -4027,22 +4341,68 @@ class DoctorService {
 
     const hasAppointments = await this._hasAppointmentsForSchedule(doctor.id, existing.slot_date, existing.start_time, existing.end_time);
 
+    let result;
     if (hasAppointments) {
       const { error } = await supabaseAdmin
         .from('doctor_slots')
         .update({ is_active: false })
         .eq('id', scheduleId);
       if (error) throw new ApiError(400, 'Failed to disable schedule.');
-      return { id: scheduleId, disabled: true, message: 'Schedule ended. Existing appointments remain intact.' };
+      result = { id: scheduleId, disabled: true, message: 'Schedule ended. Existing appointments remain intact.' };
+    } else {
+      const { error } = await supabaseAdmin
+        .from('doctor_slots')
+        .delete()
+        .eq('id', scheduleId)
+        .eq('doctor_id', doctor.id);
+      if (error) throw new ApiError(400, 'Failed to remove schedule.');
+      result = { id: scheduleId, deleted: true, message: 'Schedule removed.' };
     }
 
-    const { error } = await supabaseAdmin
-      .from('doctor_slots')
-      .delete()
-      .eq('id', scheduleId)
-      .eq('doctor_id', doctor.id);
-    if (error) throw new ApiError(400, 'Failed to remove schedule.');
-    return { id: scheduleId, deleted: true, message: 'Schedule removed.' };
+    // Clean up orphaned blocks for this removed window if no other active schedule covers it
+    try {
+      const startTime = (existing.start_time || '').slice(0, 5);
+      const endTime = (existing.end_time || '').slice(0, 5);
+      const startM = toMinutes(startTime);
+      const endM = toMinutes(endTime);
+
+      const { data: otherActive } = await supabaseAdmin
+        .from('doctor_slots')
+        .select('start_time, end_time')
+        .eq('doctor_id', doctor.id)
+        .eq('slot_date', existing.slot_date)
+        .eq('is_active', true)
+        .neq('id', scheduleId);
+
+      const { data: blocksOnDate } = await supabaseAdmin
+        .from('doctor_schedule_blocks')
+        .select('id, time_slot')
+        .eq('doctor_id', doctor.id)
+        .eq('block_date', existing.slot_date);
+
+      const orphanIds = [];
+      for (const b of (blocksOnDate || [])) {
+        const bM = toMinutes((b.time_slot || '').slice(0, 5));
+        if (bM !== null && bM >= startM && bM < endM) {
+          const covered = (otherActive || []).some((s) => {
+            const sM = toMinutes((s.start_time || '').slice(0, 5));
+            const eM = toMinutes((s.end_time || '').slice(0, 5));
+            return sM !== null && eM !== null && bM >= sM && bM < eM;
+          });
+          if (!covered) {
+            orphanIds.push(b.id);
+          }
+        }
+      }
+
+      if (orphanIds.length > 0) {
+        await supabaseAdmin.from('doctor_schedule_blocks').delete().in('id', orphanIds);
+      }
+    } catch (cleanErr) {
+      console.warn('[DoctorService] Orphan blocks cleanup error:', cleanErr.message);
+    }
+
+    return result;
   }
 
   async _hasAppointmentsForSchedule(doctorId, slotDate, startTime, endTime) {

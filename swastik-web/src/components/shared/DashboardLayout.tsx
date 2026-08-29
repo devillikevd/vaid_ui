@@ -12,6 +12,7 @@ import {
     X,
     Search,
     User as UserIcon,
+    Settings,
     Settings2,
     Sun,
     Moon,
@@ -23,6 +24,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useDoctorStore } from '@/stores/doctorStore';
+import { doesRoleMatchPortal } from '@/lib/roles';
 import { cn, getInitials, formatDoctorName } from '@/lib/utils';
 import { ApprovalBanner } from '@/components/shared/ApprovalBanner';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
@@ -32,6 +34,7 @@ import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { useTheme } from '@/components/shared/ThemeProvider';
 import GlobalSocketToasts from '@/components/shared/GlobalSocketToasts';
 import { type Notification, useNotifications } from '@/hooks/useSocket';
+import { NotificationDetailModal } from '@/components/shared/NotificationDetailModal';
 import VaidideaLogo from '@/components/shared/VaidideaLogo';
 
 // ----- Types -----
@@ -311,6 +314,7 @@ function resolveNotificationRoute(notification: Notification, role?: string): st
     const orderId = stringValue(data.orderId) || stringValue(data.order_id);
     const bookingId = stringValue(data.bookingId) || stringValue(data.booking_id) || stringValue(data.diagnosticBookingId) || stringValue(data.diagnostic_booking_id);
     const emergencyId = stringValue(data.requestId) || stringValue(data.request_id) || stringValue(data.emergencyId) || stringValue(data.emergency_id);
+    const referralId = stringValue(data.referralId) || stringValue(data.referral_id);
     const providerType = stringValue(data.providerType) || stringValue(data.provider_type) || stringValue(data.type);
     const providerId = stringValue(data.providerId) || stringValue(data.provider_id) || stringValue(data.reviewableId) || stringValue(data.reviewable_id);
 
@@ -318,6 +322,7 @@ function resolveNotificationRoute(notification: Notification, role?: string): st
 
     switch (role) {
         case 'doctor':
+            if (type.includes('referral')) return `/doctor/referrals${referralId ? `?selectedId=${referralId}` : ''}`;
             if (appointmentId) return '/doctor/appointments';
             if (prescriptionId) return '/doctor/prescriptions';
             if (type.includes('review')) return '/doctor/reviews';
@@ -325,6 +330,7 @@ function resolveNotificationRoute(notification: Notification, role?: string): st
             return '/doctor';
         case 'hospital_owner':
         case 'hospital_manager':
+            if (type.includes('referral')) return `/hospital/referrals${referralId ? `?selectedId=${referralId}` : ''}`;
             if (emergencyId || type.includes('ambulance') || type.includes('emergency')) return '/hospital/emergency';
             if (appointmentId) return '/hospital/appointments';
             if (type.includes('doctor')) return '/hospital/doctors';
@@ -334,6 +340,7 @@ function resolveNotificationRoute(notification: Notification, role?: string): st
             if (type.includes('outbreak') || type.includes('health')) return '/hospital/health-alerts';
             return '/hospital';
         case 'clinic_owner':
+            if (type.includes('referral')) return `/clinic/referrals${referralId ? `?selectedId=${referralId}` : ''}`;
             if (appointmentId) return '/clinic/appointments';
             if (type.includes('consultation')) return '/clinic/consultations';
             if (type.includes('pharmacy')) return '/clinic/pharmacies';
@@ -342,16 +349,21 @@ function resolveNotificationRoute(notification: Notification, role?: string): st
             if (type.includes('outbreak') || type.includes('health')) return '/clinic/health-alerts';
             return '/clinic';
         case 'pharmacy_owner':
+            if (type.includes('referral')) return `/pharmacy/referrals${referralId ? `?selectedId=${referralId}` : ''}`;
             if (orderId || type.includes('order')) return '/pharmacy/orders';
             if (prescriptionId || type.includes('prescription')) return '/pharmacy/prescriptions';
             if (type.includes('inventory') || type.includes('medicine')) return '/pharmacy/inventory';
             if (type.includes('review')) return '/pharmacy/reviews';
             return '/pharmacy';
         case 'diagnostic_center_owner':
+            if (type.includes('referral')) return `/diagnostic-center/referrals${referralId ? `?selectedId=${referralId}` : ''}`;
             if (bookingId || type.includes('booking')) return '/diagnostic-center/bookings';
             if (type.includes('result')) return '/diagnostic-center/results';
             if (type.includes('review')) return '/diagnostic-center/reviews';
             return '/diagnostic-center';
+        case 'patient':
+            if (type.includes('referral')) return `/patient/referrals${referralId ? `?selectedId=${referralId}` : ''}`;
+            return '/patient';
         case 'wellness_coach':
             if (type.includes('session') || type.includes('booking')) return '/wellness#sessions';
             if (type.includes('review')) return '/wellness#reviews';
@@ -365,6 +377,7 @@ function resolveNotificationRoute(notification: Notification, role?: string): st
             if (type.includes('outbreak')) return '/admin/outbreaks';
             return '/admin';
         default:
+            if (type.includes('referral') && referralId) return `?selectedId=${referralId}`;
             if (type.includes('consultation') && consultationId) return `/consultation/${consultationId}`;
             return null;
     }
@@ -392,6 +405,45 @@ export function BaseDashboardLayout({
     const searchRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const { notifications, unreadCount, clearNotifications, markRead, markAllRead } = useNotifications();
+    const [selectedModalNotification, setSelectedModalNotification] = useState<Notification | null>(null);
+
+    const handleNotificationClick = useCallback((notification: any) => {
+        if (!notification) return;
+
+        // 1. Automatically mark as read
+        if (notification.id) {
+            markRead(notification.id);
+        }
+
+        const type = notification.type || '';
+
+        // 2. Direct interactive modals for affiliations and invites
+        if (type === 'clinic_reinvite' || type === 'clinic_invite' || type === 'clinic_affiliation_ended') {
+            setNotifOpen(false);
+            setSelectedModalNotification(notification);
+            return;
+        }
+
+        // 3. Direct action URL / explicit route
+        const actionUrl = notification.action_url || notification.data?.action_url || notification.data?.route || notification.data?.href || notification.data?.url;
+        if (actionUrl && typeof actionUrl === 'string' && actionUrl.startsWith('/')) {
+            setNotifOpen(false);
+            router.push(actionUrl);
+            return;
+        }
+
+        // 4. Resolve Route by role / type
+        const resolvedRoute = resolveNotificationRoute(notification, user?.role);
+        if (resolvedRoute && !['/doctor', '/clinic', '/hospital', '/pharmacy', '/diagnostic-center', '/wellness'].includes(resolvedRoute)) {
+            setNotifOpen(false);
+            router.push(resolvedRoute);
+            return;
+        }
+
+        // 5. Fallback: Open details modal
+        setNotifOpen(false);
+        setSelectedModalNotification(notification);
+    }, [markRead, router, user?.role]);
 
     // Close search on outside click
     useEffect(() => {
@@ -510,13 +562,13 @@ export function BaseDashboardLayout({
     // Calculate dynamic stats for doctor dropdown
     const rawRating = doctorStore.doctorProfile?.rating ?? doctorStore.stats?.averageRating ?? 0;
     const averageRating = rawRating > 0 ? rawRating.toFixed(1) : '5.0';
-    
+
     const totalPatients = doctorStore.doctorProfile?.stats?.totalPatients ?? doctorStore.stats?.totalPatients ?? doctorStore.patientsPagination?.total ?? 0;
     const formattedPatients = totalPatients >= 1000 ? `${(totalPatients / 1000).toFixed(1)}k` : totalPatients.toString();
-    
+
     // The backend provides 'todaysAppointments' in the stats object (which is the length of today's appointments).
     const todaysCount = doctorStore.stats?.todaysAppointments ?? doctorStore.todaysAppointments?.length ?? 0;
-    
+
     // The backend provides 'experience_years' in the profile.
     const yearsExp = doctorStore.doctorProfile?.experience_years ?? 0;
 
@@ -535,7 +587,7 @@ export function BaseDashboardLayout({
                 doctorStore.fetchDoctorProfile();
             }
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.role]);
 
 
@@ -559,20 +611,12 @@ export function BaseDashboardLayout({
         router.replace(targetPath);
     };
 
-    const handleNotificationClick = (notification: Notification) => {
-        if (notification.id) {
-            markRead(notification.id);
-        }
-        setNotifOpen(false);
-
-        const route = resolveNotificationRoute(notification, user?.role);
-        if (route) {
-            router.push(route);
-        }
-    };
-
     const PortalIcon = config.portalIcon;
     const rawName = user?.name || config.userDisplayName || 'User';
+    const cleanName = rawName.trim().replace(/^Dr\.\s*|^Dr\s+/i, '');
+    const firstName = cleanName.split(' ')[0] || cleanName;
+    const isDoctor = user?.role === 'doctor' || rawName.trim().toLowerCase().startsWith('dr');
+    const shortDisplayName = isDoctor ? `Dr. ${firstName}` : firstName;
     const displayName = user?.role === 'doctor' ? formatDoctorName(rawName) : rawName;
 
     const baseRoleStr = Array.isArray(config.role) ? config.role[0] : config.role;
@@ -717,8 +761,8 @@ export function BaseDashboardLayout({
                                             )}
                                             <Icon className={cn(
                                                 'h-[18px] w-[18px] shrink-0 transition-colors duration-150',
-                                                isActive 
-                                                    ? (colors.activeIcon) 
+                                                isActive
+                                                    ? (colors.activeIcon)
                                                     : cn('text-gray-500 dark:text-gray-400', colors.hoverIcon)
                                             )} />
                                             <span className={cn("whitespace-nowrap font-medium", desktopCollapsed ? "lg:hidden" : "")}>{item.name}</span>
@@ -902,7 +946,7 @@ export function BaseDashboardLayout({
                                 </div>
                                 {config.showFullDropdown && (
                                     <span className="hidden sm:block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        {displayName}
+                                        {shortDisplayName}
                                     </span>
                                 )}
                                 <ChevronDown className="hidden h-4 w-4 text-gray-500 dark:text-gray-400 sm:block" />
@@ -944,7 +988,7 @@ export function BaseDashboardLayout({
                                                                     <span className="text-xs font-bold text-emerald-500">{doctorStore.doctorProfile?.is_approved ? 'Verified Doctor' : 'Doctor'}</span>
                                                                 </div>
                                                                 <p className="text-[13px] font-medium text-gray-400 mt-1.5 whitespace-normal break-words leading-tight">
-                                                                    {doctorStore.doctorProfile?.specialization || 'General Physician'}
+                                                                    {doctorStore.doctorProfile?.specialization || 'Specialization not provided'}
                                                                     {doctorStore.doctorProfile?.hospital_id ? ' • Hospital Affiliated' : ''}
                                                                 </p>
                                                                 <div className="flex items-center gap-1.5 mt-2 shrink-0">
@@ -1001,17 +1045,13 @@ export function BaseDashboardLayout({
                                                     {/* Menu Sections */}
                                                     <div className="p-3 space-y-1 border-b border-gray-200 dark:border-gray-800">
                                                         <div className="px-4 py-2 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Profile</div>
-                                                        <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
+                                                        <Link href="/doctor/profile" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
                                                             <UserIcon className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
                                                             <span className="truncate">View Profile</span>
                                                         </Link>
                                                         <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <Edit2 className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
-                                                            <span className="truncate">Edit Profile</span>
-                                                        </Link>
-                                                        <Link href="/doctor/settings" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 min-h-[56px] rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#131A2B] transition-all group active:bg-gray-100 dark:active:bg-gray-800 w-full">
-                                                            <FileText className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
-                                                            <span className="truncate">Professional Details</span>
+                                                            <Settings className={cn("w-5 h-5 text-gray-700 dark:text-gray-400 transition-colors shrink-0", colors.dropdownIconHover)} />
+                                                            <span className="truncate">Settings</span>
                                                         </Link>
                                                     </div>
 
@@ -1216,10 +1256,10 @@ export function BaseDashboardLayout({
                                                                 config.theme.color === 'purple'
                                                                     ? 'bg-purple-100 dark:bg-purple-900/40'
                                                                     : config.theme.color === 'pink'
-                                                                    ? 'bg-pink-100 dark:bg-pink-900/40'
-                                                                    : config.theme.color === 'orange'
-                                                                    ? 'bg-orange-100 dark:bg-orange-900/40'
-                                                                    : 'bg-emerald-100 dark:bg-emerald-900/40'
+                                                                        ? 'bg-pink-100 dark:bg-pink-900/40'
+                                                                        : config.theme.color === 'orange'
+                                                                            ? 'bg-orange-100 dark:bg-orange-900/40'
+                                                                            : 'bg-emerald-100 dark:bg-emerald-900/40'
                                                             )}>
                                                                 {user?.role?.replace(/_/g, ' ')}
                                                             </span>
@@ -1228,40 +1268,68 @@ export function BaseDashboardLayout({
                                                 </div>
 
                                                 {/* Navigation Links */}
-                                                {config.showFullDropdown && (
-                                                    <div className="p-3 space-y-1 border-b border-gray-100 dark:border-gray-700">
-                                                        <Link
-                                                            href={config.profileHref || `/${user?.role?.replace(/_owner|_manager/, '')}/settings`}
-                                                            onClick={() => setDropdownOpen(false)}
-                                                            className={cn(
-                                                                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 transition-all duration-150 group w-full",
-                                                                "hover:bg-purple-50 dark:hover:bg-purple-900/10 hover:text-purple-900 dark:hover:text-purple-100"
-                                                            )}
-                                                        >
-                                                            <span className="flex items-center justify-center h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-800 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/30 transition-colors shrink-0">
-                                                                <UserIcon className="h-4 w-4 text-gray-500 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
-                                                            </span>
-                                                            <span className="flex-1">View Profile</span>
-                                                            <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600 group-hover:text-purple-400 dark:group-hover:text-purple-500 group-hover:translate-x-0.5 transition-all shrink-0" />
-                                                        </Link>
-                                                        {config.settingsHref && (
+                                                {config.showFullDropdown && (() => {
+                                                    const resolvedProfileHref = config.profileHref || (
+                                                        user?.role?.includes('pharmacy') ? '/pharmacy/profile' :
+                                                            user?.role?.includes('clinic') ? '/clinic/profile' :
+                                                                (user?.role?.includes('diagnostic') || user?.role === 'lab_technician') ? '/diagnosis/profile' :
+                                                                    user?.role?.includes('hospital') ? '/hospital/profile' :
+                                                                        `/${user?.role?.replace(/_owner|_manager|_staff/, '')}/profile`
+                                                    );
+                                                    const resolvedSettingsHref = config.settingsHref || (
+                                                        user?.role?.includes('pharmacy') ? '/pharmacy/settings' :
+                                                            user?.role?.includes('clinic') ? '/clinic/settings' :
+                                                                (user?.role?.includes('diagnostic') || user?.role === 'lab_technician') ? '/diagnosis/settings' :
+                                                                    user?.role?.includes('hospital') ? '/hospital/settings' :
+                                                                        `/${user?.role?.replace(/_owner|_manager|_staff/, '')}/settings`
+                                                    );
+                                                    return (
+                                                        <div className="p-3 space-y-1 border-b border-gray-100 dark:border-gray-700">
                                                             <Link
-                                                                href={config.settingsHref}
+                                                                href={resolvedProfileHref}
                                                                 onClick={() => setDropdownOpen(false)}
                                                                 className={cn(
-                                                                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 transition-all duration-150 group w-full",
-                                                                    "hover:bg-purple-50 dark:hover:bg-purple-900/10 hover:text-purple-900 dark:hover:text-purple-100"
+                                                                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 transition-all duration-150 group w-full cursor-pointer",
+                                                                    "hover:bg-gray-100 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
                                                                 )}
                                                             >
-                                                                <span className="flex items-center justify-center h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-800 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/30 transition-colors shrink-0">
-                                                                    <Settings2 className="h-4 w-4 text-gray-500 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
+                                                                <span className={cn(
+                                                                    "flex items-center justify-center h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-800 transition-colors shrink-0",
+                                                                    config.theme.color === 'purple' ? "group-hover:bg-purple-100 dark:group-hover:bg-purple-950/40" : "group-hover:bg-emerald-100 dark:group-hover:bg-emerald-950/40"
+                                                                )}>
+                                                                    <UserIcon className={cn(
+                                                                        "h-4 w-4 text-gray-500 dark:text-gray-400 transition-colors",
+                                                                        config.theme.color === 'purple' ? "group-hover:text-purple-600 dark:group-hover:text-purple-400" : "group-hover:text-emerald-600 dark:group-hover:text-emerald-400"
+                                                                    )} />
                                                                 </span>
-                                                                <span className="flex-1">Account &amp; Settings</span>
-                                                                <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600 group-hover:text-purple-400 dark:group-hover:text-purple-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                                                                <span className="flex-1">View Profile</span>
+                                                                <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600 group-hover:text-purple-500 dark:group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all shrink-0" />
                                                             </Link>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                            {resolvedSettingsHref && (
+                                                                <Link
+                                                                    href={resolvedSettingsHref}
+                                                                    onClick={() => setDropdownOpen(false)}
+                                                                    className={cn(
+                                                                        "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 transition-all duration-150 group w-full cursor-pointer",
+                                                                        "hover:bg-gray-100 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
+                                                                    )}
+                                                                >
+                                                                    <span className={cn(
+                                                                        "flex items-center justify-center h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-800 transition-colors shrink-0",
+                                                                        config.theme.color === 'purple' ? "group-hover:bg-purple-100 dark:group-hover:bg-purple-950/40" : "group-hover:bg-emerald-100 dark:group-hover:bg-emerald-950/40"
+                                                                    )}>
+                                                                        <Settings className={cn(
+                                                                            "h-4 w-4 text-gray-500 dark:text-gray-400 transition-colors",
+                                                                            config.theme.color === 'purple' ? "group-hover:text-purple-600 dark:group-hover:text-purple-400" : "group-hover:text-emerald-600 dark:group-hover:text-emerald-400"
+                                                                        )} />
+                                                                    </span>
+                                                                    <span className="flex-1">Settings</span>
+                                                                    <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600 group-hover:text-purple-500 dark:group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+                                                                </Link>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
 
                                                 {/* Theme Toggle Row */}
                                                 <div className="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700">
@@ -1351,6 +1419,13 @@ export function BaseDashboardLayout({
                     </ErrorBoundary>
                 </main>
             </div>
+
+            {/* Centralized Actionable Notification Detail Modal */}
+            <NotificationDetailModal
+                notification={selectedModalNotification as any}
+                isOpen={!!selectedModalNotification}
+                onClose={() => setSelectedModalNotification(null)}
+            />
         </div>
     );
 }
@@ -1371,28 +1446,27 @@ export default function DashboardLayout({
         setIsMounted(true);
     }, []);
 
-    const allowedRoles = Array.isArray(config.role) ? config.role : [config.role];
-    const roleMatches = user?.role != null && (
-        allowedRoles.includes(user.role) ||
-        (allowedRoles.includes('admin') && user.role === 'super_admin') ||
-        (allowedRoles.includes('hospital_owner') && user.role === 'hospital_manager') ||
-        // Pharmacy member roles: match if any pharmacy role is in allowedRoles
-        ((allowedRoles.includes('pharmacy_owner') || allowedRoles.includes('pharmacy_manager') || allowedRoles.includes('pharmacy_staff')) &&
-            (user.role === 'pharmacy_manager' || user.role === 'pharmacy_staff'))
-    );
+    const userRole = user?.role ? String(user.role) : '';
+    const roleMatches = doesRoleMatchPortal(userRole, config.role);
 
     useEffect(() => {
-        if (isMounted && _hasHydrated && (!isAuthenticated || !roleMatches) && !isLoggingOut) {
+        if (!isMounted || !_hasHydrated || isLoggingOut) return;
+
+        if (!isAuthenticated || !roleMatches) {
             router.replace(config.loginPath);
         }
     }, [isMounted, _hasHydrated, isAuthenticated, roleMatches, router, config.loginPath, isLoggingOut]);
 
     if (!isMounted || !_hasHydrated) {
-        return null;
+        return (
+            <div className="min-h-screen w-full bg-[#09090b] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+            </div>
+        );
     }
 
     if (!isAuthenticated || !roleMatches) {
-        return null;
+        return <div className="min-h-screen w-full bg-[#09090b]" />;
     }
 
     return <BaseDashboardLayout config={config}>{children}</BaseDashboardLayout>;

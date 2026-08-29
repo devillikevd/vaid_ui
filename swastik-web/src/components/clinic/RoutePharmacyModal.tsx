@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { clinicApi } from '@/lib/api';
-import { Pill, X, Loader2, Send } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { clinicApi, doctorApi } from '@/lib/api';
+import { Pill, X, Loader2, Send, Network } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
 interface Props {
@@ -14,36 +15,41 @@ interface Props {
 
 export function RoutePharmacyModal({ prescriptionId, items, onClose, onSuccess }: Props) {
     const toast = useToast();
+    const router = useRouter();
     const [partnerships, setPartnerships] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [selectedPharmacyId, setSelectedPharmacyId] = useState<string>('');
 
+    const isDoctorContext = typeof window !== 'undefined' && window.location.pathname.includes('/doctor');
+
     useEffect(() => {
         const fetchPartners = async () => {
             try {
-                const { fetchWithAuth } = await import('@/lib/api');
-                const isDoctorContext = window.location.pathname.includes('/doctor');
-                const endpoint = isDoctorContext 
-                    ? `/doctors/prescriptions/${prescriptionId}/pharmacy-partners`
-                    : '/clinics/owner/partnerships?status=active';
-                
-                const res = await fetchWithAuth(endpoint);
-                
-                if (res.success && Array.isArray(res.data)) {
-                    const pharmacyPartners = isDoctorContext 
-                        ? res.data 
-                        : res.data.filter((p: any) => p.partner?.type === 'pharmacy' || p.target_type === 'pharmacy');
-                    setPartnerships(pharmacyPartners);
+                if (isDoctorContext) {
+                    const res = await doctorApi.getPrescriptionPharmacyPartners(prescriptionId);
+                    if (res.success && Array.isArray(res.data || (res as any).partners)) {
+                        setPartnerships((res.data || (res as any).partners) as any[]);
+                    } else {
+                        setPartnerships([]);
+                    }
+                } else {
+                    const { fetchWithAuth } = await import('@/lib/api');
+                    const res = await fetchWithAuth<{ success: boolean; data: any[] }>('/clinics/owner/partnerships?status=active');
+                    if (res.success && Array.isArray(res.data)) {
+                        const pharmacyPartners = res.data.filter((p: any) => p.partner?.type === 'pharmacy' || p.target_type === 'pharmacy');
+                        setPartnerships(pharmacyPartners);
+                    }
                 }
-            } catch (err) {
-                toast.error('Error', 'Failed to load active pharmacy partners');
+            } catch (err: any) {
+                toast.error('Error', err?.message || 'Failed to load active pharmacy partners');
+                setPartnerships([]);
             } finally {
                 setLoading(false);
             }
         };
         fetchPartners();
-    }, [prescriptionId]);
+    }, [prescriptionId, isDoctorContext]);
 
     const handleRoute = async () => {
         if (!selectedPharmacyId) {
@@ -56,22 +62,17 @@ export function RoutePharmacyModal({ prescriptionId, items, onClose, onSuccess }
             const payload = {
                 pharmacyId: selectedPharmacyId,
                 prescriptionId,
-                items: items.map(item => ({
+                items: (items || []).map(item => ({
                     name: item.medicineName || item.name,
                     quantity: item.quantity || 1,
-                    requiresPrescription: true, // It's from a prescription
+                    requiresPrescription: true,
                 })),
-                deliveryType: 'pickup', // Default to pickup
+                deliveryType: 'pickup',
             };
 
-            const isDoctorContext = window.location.pathname.includes('/doctor');
             let res;
             if (isDoctorContext) {
-                const { fetchWithAuth } = await import('@/lib/api');
-                res = await fetchWithAuth(`/doctors/prescriptions/${prescriptionId}/route-to-pharmacy`, {
-                    method: 'POST',
-                    body: JSON.stringify(payload),
-                });
+                res = await doctorApi.routePrescriptionToPharmacy(prescriptionId, payload);
             } else {
                 res = await clinicApi.routePharmacyOrder(payload);
             }
@@ -81,7 +82,7 @@ export function RoutePharmacyModal({ prescriptionId, items, onClose, onSuccess }
                 onSuccess?.();
                 onClose();
             } else {
-                toast.error('Error', res.message || 'Failed to route prescription');
+                toast.error('Error', (res as any).message || 'Failed to route prescription');
             }
         } catch (err: any) {
             toast.error('Error', err.message || 'Error routing prescription');
@@ -109,8 +110,21 @@ export function RoutePharmacyModal({ prescriptionId, items, onClose, onSuccess }
                             <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
                         </div>
                     ) : partnerships.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                            No active pharmacy partners found.
+                        <div className="text-center py-8 space-y-4">
+                            <p className="text-gray-500 dark:text-gray-400">
+                                No active pharmacy partners found.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onClose();
+                                    router.push(isDoctorContext ? '/doctor/care-networks' : '/clinic/care-networks');
+                                }}
+                                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 rounded-xl transition-colors"
+                            >
+                                <Network className="w-4 h-4" />
+                                Manage Care Networks
+                            </button>
                         </div>
                     ) : (
                         <div className="space-y-4">
@@ -122,7 +136,7 @@ export function RoutePharmacyModal({ prescriptionId, items, onClose, onSuccess }
                                     <label
                                         key={p.id}
                                         className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${
-                                            selectedPharmacyId === p.partner.id
+                                            selectedPharmacyId === p.partner?.id
                                                 ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
                                                 : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
                                         }`}
@@ -130,18 +144,28 @@ export function RoutePharmacyModal({ prescriptionId, items, onClose, onSuccess }
                                         <input
                                             type="radio"
                                             name="pharmacy"
-                                            value={p.partner.id}
-                                            checked={selectedPharmacyId === p.partner.id}
-                                            onChange={() => setSelectedPharmacyId(p.partner.id)}
+                                            value={p.partner?.id}
+                                            checked={selectedPharmacyId === p.partner?.id}
+                                            onChange={() => setSelectedPharmacyId(p.partner?.id)}
                                             className="sr-only"
                                         />
                                         <div className="flex-1">
-                                            <div className="font-medium text-gray-900 dark:text-white">
-                                                {p.partner.name}
+                                            <div className="font-medium text-gray-900 dark:text-white flex items-center justify-between">
+                                                <span>{p.partner?.name}</span>
+                                                {p.partner?.is_verified && (
+                                                    <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
+                                                        Verified
+                                                    </span>
+                                                )}
                                             </div>
-                                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                                                {p.partner.city || p.partner.address || 'Location unavailable'}
+                                            <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                                {p.partner?.city || p.partner?.address || 'Location available'}
                                             </div>
+                                            {p.partner?.phone && (
+                                                <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                                    Phone: {p.partner.phone}
+                                                </div>
+                                            )}
                                         </div>
                                     </label>
                                 ))}

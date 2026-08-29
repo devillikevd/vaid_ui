@@ -529,7 +529,7 @@ export default function PharmacyInventoryPage() {
 
             {!loadingInventory && displayInventory.length > 0 ? (
                 <>
-                    <div className="hidden md:block overflow-x-auto bg-white dark:bg-[#111] rounded-xl border border-gray-200 dark:border-gray-800">
+                    <div className="hidden md:block overflow-x-auto bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
                         <table className="w-full text-left text-sm whitespace-nowrap">
                             <thead className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400">
                                 <tr>
@@ -740,30 +740,30 @@ export default function PharmacyInventoryPage() {
 
             {selectedItem && !showAdd && (
                 <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm transition-opacity">
-                    <div className="w-full max-w-md bg-white dark:bg-[#111] h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                    <div className="w-full max-w-md bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
-                            <h2 className="text-lg font-semibold">Medicine Details</h2>
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Medicine Details</h2>
                             <button onClick={() => setSelectedItem(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
-                                <X className="h-5 w-5 text-gray-500" />
+                                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                             </button>
                         </div>
                         <div className="p-6 flex-1 overflow-y-auto space-y-6">
                             <div>
                                 {selectedItem.medicine?.image_url && (
-                                    <div className="mb-4 bg-gray-50 border border-gray-100 rounded-xl p-2 flex justify-center">
+                                    <div className="mb-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 rounded-xl p-2 flex justify-center">
                                         <img src={selectedItem.medicine.image_url} alt={selectedItem.name} className="h-32 object-contain" />
                                     </div>
                                 )}
                                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{selectedItem.name}</h1>
-                                {selectedItem.generic_name && <p className="text-gray-500 mt-1">{selectedItem.generic_name}</p>}
+                                {selectedItem.generic_name && <p className="text-gray-500 dark:text-gray-400 mt-1">{selectedItem.generic_name}</p>}
                                 
                                 {selectedItem.medicine && (
                                     <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                                        {selectedItem.medicine.category && <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-md">{selectedItem.medicine.category}</span>}
-                                        {selectedItem.medicine.dosage_form && <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-md">{selectedItem.medicine.dosage_form}</span>}
-                                        {selectedItem.medicine.strength && <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-md">{selectedItem.medicine.strength}</span>}
-                                        {selectedItem.medicine.pack_size && <span className="bg-purple-50 text-purple-700 px-2 py-1 rounded-md">Pack: {selectedItem.medicine.pack_size}</span>}
-                                        {selectedItem.requires_prescription && <span className="bg-red-50 text-red-700 px-2 py-1 rounded-md font-medium">Rx</span>}
+                                        {selectedItem.medicine.category && <span className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-md">{selectedItem.medicine.category}</span>}
+                                        {selectedItem.medicine.dosage_form && <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-md">{selectedItem.medicine.dosage_form}</span>}
+                                        {selectedItem.medicine.strength && <span className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded-md">{selectedItem.medicine.strength}</span>}
+                                        {selectedItem.medicine.pack_size && <span className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-md">Pack: {selectedItem.medicine.pack_size}</span>}
+                                        {selectedItem.requires_prescription && <span className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-1 rounded-md font-medium">Rx</span>}
                                     </div>
                                 )}
                                 
@@ -773,48 +773,48 @@ export default function PharmacyInventoryPage() {
                                     </span>
                                 </div>
                                 {selectedItem.medicine?.description && (
-                                    <p className="mt-4 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">{selectedItem.medicine.description}</p>
+                                    <p className="mt-4 text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">{selectedItem.medicine.description}</p>
                                 )}
                             </div>
                             
                             <div className="grid grid-cols-3 gap-3">
                                 <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
-                                    <div className="text-xs text-gray-500 mb-1">Available</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Available</div>
                                     <div className="text-xl font-bold text-gray-900 dark:text-gray-100">{(selectedItem.quantity || 0) - (selectedItem.reserved_quantity || selectedItem.reserved || 0)}</div>
                                 </div>
                                 <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-900/30">
-                                    <div className="text-xs text-blue-600/70 mb-1">Reserved</div>
-                                    <div className="text-xl font-bold text-blue-600">{selectedItem.reserved_quantity || selectedItem.reserved || 0}</div>
+                                    <div className="text-xs text-blue-600/70 dark:text-blue-400/70 mb-1">Reserved</div>
+                                    <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{selectedItem.reserved_quantity || selectedItem.reserved || 0}</div>
                                 </div>
                                 <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
-                                    <div className="text-xs text-gray-500 mb-1">Total Stock</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Stock</div>
                                     <div className="text-xl font-bold text-gray-900 dark:text-gray-100">{selectedItem.quantity || 0}</div>
                                 </div>
                             </div>
 
                             <div className="space-y-3">
                                 <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                                    <span className="text-gray-500 text-sm">Minimum Stock</span>
-                                    <span className="font-medium">{selectedItem.reorder_level || selectedItem.minimum_stock || selectedItem.minQuantity || 10}</span>
+                                    <span className="text-gray-500 dark:text-gray-400 text-sm">Minimum Stock</span>
+                                    <span className="font-medium text-gray-900 dark:text-gray-100">{selectedItem.reorder_level || selectedItem.minimum_stock || selectedItem.minQuantity || 10}</span>
                                 </div>
                                 <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                                    <span className="text-gray-500 text-sm">Selling Price</span>
-                                    <span className="font-bold text-green-600">₹{selectedItem.price}</span>
+                                    <span className="text-gray-500 dark:text-gray-400 text-sm">Selling Price</span>
+                                    <span className="font-bold text-green-600 dark:text-green-400">₹{selectedItem.price}</span>
                                 </div>
                                 <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                                    <span className="text-gray-500 text-sm">MRP</span>
+                                    <span className="text-gray-500 dark:text-gray-400 text-sm">MRP</span>
                                     <span className="font-medium text-gray-900 dark:text-gray-100">₹{selectedItem.mrp || selectedItem.price}</span>
                                 </div>
                                 <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                                    <span className="text-gray-500 text-sm">Batch Number</span>
+                                    <span className="text-gray-500 dark:text-gray-400 text-sm">Batch Number</span>
                                     <span className="font-medium text-gray-900 dark:text-gray-100">{selectedItem.batch_number || selectedItem.batchNumber || '-'}</span>
                                 </div>
                                 <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                                    <span className="text-gray-500 text-sm">Expiry Date</span>
+                                    <span className="text-gray-500 dark:text-gray-400 text-sm">Expiry Date</span>
                                     <span className="font-medium text-gray-900 dark:text-gray-100">{selectedItem.expiry_date || selectedItem.expiryDate ? new Date(selectedItem.expiry_date || selectedItem.expiryDate).toLocaleDateString() : '-'}</span>
                                 </div>
                                 <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                                    <span className="text-gray-500 text-sm">Barcode</span>
+                                    <span className="text-gray-500 dark:text-gray-400 text-sm">Barcode</span>
                                     <span className="font-medium font-mono text-gray-900 dark:text-gray-100">{selectedItem.barcode || '-'}</span>
                                 </div>
                             </div>
@@ -830,14 +830,14 @@ export default function PharmacyInventoryPage() {
 
             {showAdd && (
                 <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm transition-opacity">
-                    <div className="w-full max-w-md bg-white dark:bg-[#111] h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                    <div className="w-full max-w-md bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
                             <div>
                                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{editItem ? 'Edit Medicine' : 'Add Medicine'}</h2>
-                                {!editItem && <p className="text-xs text-gray-500 mt-0.5">Add a medicine to your pharmacy inventory.</p>}
+                                {!editItem && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Add a medicine to your pharmacy inventory.</p>}
                             </div>
                             <button onClick={resetForm} aria-label="Close form" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
-                                <X className="h-5 w-5 text-gray-500" />
+                                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                             </button>
                         </div>
                         
@@ -922,7 +922,7 @@ export default function PharmacyInventoryPage() {
                                 <div>
                                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2"><Tag className="h-3 w-3 text-orange-600" /> Compliance</h3>
                                     <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700 opacity-70 pointer-events-none">
-                                        <input type="checkbox" id="rx" checked={form.requiresPrescription} readOnly className="w-5 h-5 rounded border-gray-300 text-orange-600 bg-gray-100" />
+                                        <input type="checkbox" id="rx" checked={form.requiresPrescription} readOnly className="w-5 h-5 rounded border-gray-300 dark:border-gray-600 text-orange-600 bg-gray-100 dark:bg-gray-700" />
                                         <label htmlFor="rx" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-not-allowed">
                                             Prescription Required (Rx)
                                             <p className="text-xs text-gray-500 font-normal mt-0.5">This is strictly enforced by the Vaididea Master Catalog.</p>
@@ -972,15 +972,15 @@ export default function PharmacyInventoryPage() {
                             <h2 className="text-lg font-semibold">Map CSV Columns</h2>
                             <button onClick={() => setShowCsvMapping(false)}><X className="h-5 w-5 text-gray-400" /></button>
                         </div>
-                        <p className="text-sm text-gray-600 mb-6">Match your CSV columns to the inventory fields.</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Match your CSV columns to the inventory fields.</p>
                         
                         <div className="space-y-4">
                             {csvHeaders.map(header => (
-                                <div key={header} className="flex items-center gap-4">
-                                    <div className="w-1/3 font-medium text-sm truncate bg-gray-50 dark:bg-gray-800 p-2 rounded">{header}</div>
+                                 <div key={header} className="flex items-center gap-4">
+                                    <div className="w-1/3 font-medium text-sm truncate bg-gray-50 dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-gray-100">{header}</div>
                                     <div className="w-8 flex justify-center"><ChevronRight className="h-4 w-4 text-gray-400" /></div>
                                     <select
-                                        className="w-flex-1 p-2 border rounded-lg text-sm bg-white dark:bg-gray-800"
+                                        className="flex-1 p-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
                                         value={csvMapping[header] || ''}
                                         onChange={(e) => setCsvMapping(prev => ({ ...prev, [header]: e.target.value }))}
                                     >
@@ -995,7 +995,7 @@ export default function PharmacyInventoryPage() {
                             ))}
                         </div>
                         
-                        <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
+                        <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
                             <Button variant="outline" onClick={() => setShowCsvMapping(false)}>Cancel</Button>
                             <Button onClick={handleConfirmCSVImport} disabled={actionLoading === 'import'} className="bg-orange-600 hover:bg-orange-700 text-white">
                                 {actionLoading === 'import' ? 'Importing...' : 'Confirm Import'}

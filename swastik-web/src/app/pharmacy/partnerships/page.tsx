@@ -1,25 +1,10 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import OrganizationPartnershipManager from '@/components/shared/OrganizationPartnershipManager';
-import { api } from '@/lib/api';
-
-export default function PharmacyPartnershipsPage() {
-    return (
-        <OrganizationPartnershipManager
-            title="Pharmacy Network Partnerships"
-            subtitle="Manage organizational partnerships with Clinics and Hospitals."
-            currentOrgType="pharmacy"
-            availableTargetTypes={[
-                { value: 'clinic', label: 'Clinic' },
-                { value: 'hospital', label: 'Hospital' },
-                { value: 'diagnostic_center', label: 'Diagnostic Center' }
-            ]}
-            fetchPartnerships={api.pharmacy.getPartnerships}
-            sendInvite={api.pharmacy.invitePartnership}
-            respondRequest={api.pharmacy.respondPartnership}
-            requestChanges={api.pharmacy.requestChangesPartnership}
-            acceptChanges={api.pharmacy.acceptChangesPartnership}
-            terminatePartnership={api.pharmacy.terminatePartnership}
-        />
-    );
+/**
+ * Legacy route: /pharmacy/partnerships
+ * Redirected to the unified My Network hub.
+ * Existing bookmarks and direct links continue to work.
+ */
+export default function PharmacyPartnershipsLegacyPage() {
+    redirect('/pharmacy/network');
 }

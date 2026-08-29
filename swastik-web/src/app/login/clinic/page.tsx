@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import VaidideaLogo from '@/components/shared/VaidideaLogo';
+import { ProviderSelectionLink } from '@/components/shared/ProviderSelectionLink';
 import {
     Building2,
     Users,
@@ -23,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore, ROLE_HOME_ROUTES } from '@/stores/authStore';
 import { authApi } from '@/lib/api';
+import { doesRoleMatchPortal } from '@/lib/roles';
 
 const FEATURES = [
     { icon: Users, text: 'Doctor & Staff Management' },
@@ -55,10 +57,12 @@ export default function ClinicLoginPage() {
     const [verificationComplete, setVerificationComplete] = useState(false);
 
     useEffect(() => {
-        if (_hasHydrated && isAuthenticated && user?.role === 'clinic_owner') {
-            router.replace(ROLE_HOME_ROUTES['clinic_owner']);
+        if (_hasHydrated && isAuthenticated && doesRoleMatchPortal(user?.role, 'clinic')) {
+            const redirectParam = searchParams.get('redirect');
+            const target = (redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('/login')) ? redirectParam : ROLE_HOME_ROUTES['clinic_owner'];
+            router.replace(target);
         }
-    }, [_hasHydrated, isAuthenticated, user, router]);
+    }, [_hasHydrated, isAuthenticated, user, searchParams, router]);
 
     useEffect(() => {
         if (resendCooldown <= 0) return;
@@ -76,7 +80,9 @@ export default function ClinicLoginPage() {
         try {
             const result = await login(email.trim(), password, 'clinic_owner', rememberMe);
             if (result.success) {
-                router.push(ROLE_HOME_ROUTES['clinic_owner']);
+                const redirectParam = searchParams.get('redirect');
+                const target = (redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('/login')) ? redirectParam : ROLE_HOME_ROUTES['clinic_owner'];
+                router.replace(target);
             } else {
                 if (result.code === 'EMAIL_NOT_VERIFIED') setEmailNotVerified(true);
                 setError(result.error || 'Login failed');
@@ -155,10 +161,7 @@ export default function ClinicLoginPage() {
                                 <VaidideaLogo className="w-9 h-9" />
                                 <span className="text-xl font-bold text-white tracking-tight">Vaididea</span>
                             </div>
-                            <Link href="/" className="flex items-center gap-1.5 text-xs text-[#A1A1AA] hover:text-white transition-colors">
-                                <ArrowLeft className="w-3.5 h-3.5" />
-                                <span>Portal Selection</span>
-                            </Link>
+                            <ProviderSelectionLink />
                         </div>
 
                         <motion.div
@@ -228,10 +231,7 @@ export default function ClinicLoginPage() {
                             <VaidideaLogo className="w-8 h-8" />
                             <span className="text-lg font-bold text-white tracking-tight">Vaididea</span>
                         </div>
-                        <Link href="/" className="flex items-center gap-1.5 text-xs text-[#A1A1AA] hover:text-white transition-colors">
-                            <ArrowLeft className="w-3.5 h-3.5" />
-                            Back to portal selection
-                        </Link>
+                        <ProviderSelectionLink />
                     </div>
 
                     {/* Login card */}

@@ -243,7 +243,19 @@ export default function MyCareNetworksPage() {
         });
     }, [invites, searchQuery]);
 
-    const activeAffiliations = useMemo(() => filteredInvites.filter(i => ['accepted', 'active'].includes(i.status)), [filteredInvites]);
+    const activeAffiliations = useMemo(() => {
+        const rawActives = filteredInvites.filter(i => ['accepted', 'active'].includes(i.status));
+        const seenProviders = new Set<string>();
+        const uniqueActives: ProviderInvite[] = [];
+        for (const item of rawActives) {
+            const key = `${item.kind}:${item.providerId}`;
+            if (!seenProviders.has(key)) {
+                seenProviders.add(key);
+                uniqueActives.push(item);
+            }
+        }
+        return uniqueActives;
+    }, [filteredInvites]);
     const hospitalsOnly = useMemo(() => activeAffiliations.filter(i => i.kind === 'hospital'), [activeAffiliations]);
     const clinicsOnly = useMemo(() => activeAffiliations.filter(i => i.kind === 'clinic'), [activeAffiliations]);
     const pendingInvites = useMemo(() => filteredInvites.filter(i => ['pending', 'changes_requested'].includes(i.status)), [filteredInvites]);

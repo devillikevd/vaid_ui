@@ -90,7 +90,7 @@ export function StaffSection({ onDirtyChange }: { onDirtyChange: (dirty: boolean
                                     <div className="min-w-0">
                                         <p className="truncate font-medium text-gray-900 dark:text-gray-100">{doctor.name}</p>
                                         <p className="truncate text-sm text-gray-500 dark:text-gray-400">
-                                            {doctor.specialization || 'General'} · {doctor.is_approved ? 'Verified' : 'Pending verification'}
+                                            {doctor.specialization || 'Specialization not provided'} · {doctor.is_approved ? 'Verified' : 'Pending verification'}
                                         </p>
                                     </div>
                                     <span className="shrink-0 text-xs text-gray-400">{doctor.status}</span>

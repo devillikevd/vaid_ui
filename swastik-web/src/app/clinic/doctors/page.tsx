@@ -8,33 +8,51 @@ import {
     Stethoscope, Loader2, RefreshCw, AlertCircle, Search, Mail, Phone,
     UserCheck, Star, CalendarDays, Ban, BadgeCheck, Clock, UserPlus,
     X, CheckCircle2, ChevronRight, Briefcase, Plus, Hospital, ShieldCheck,
-    Building2, Video, FileText, Send, AlertTriangle, ArrowRight, Check, Sparkles
+    Building2, Video, FileText, Send, AlertTriangle, ArrowRight, Check, Sparkles,
+    History as HistoryIcon, UserX
 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
 import { useClinicStore, ClinicDoctor } from '@/stores/clinicStore';
-import { useClinicInviteUpdates } from '@/hooks/useSocket';
-import { Pagination } from '@/components/ui/Pagination';
 import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
+import { Pagination } from '@/components/ui/Pagination';
 import { InviteDoctorModal } from '@/components/clinic/InviteDoctorModal';
+import { useClinicInviteUpdates } from '@/hooks/useSocket';
 import { DoctorDetailModal } from '@/components/clinic/DoctorDetailModal';
+import { EndAffiliationModal, formatDoctorDisplayName } from '@/components/clinic/EndAffiliationModal';
+import { DoctorAffiliationHistoryModal } from '@/components/clinic/DoctorAffiliationHistoryModal';
+import { ReinviteDoctorModal } from '@/components/clinic/ReinviteDoctorModal';
 
 const PAGE_SIZE = 12;
+
+function formatDate(dateStr?: string | null): string {
+    if (!dateStr) return 'N/A';
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {
+        return dateStr;
+    }
+}
 
 export default function ClinicDoctorsPage() {
     const searchParams = useSearchParams();
     const {
         doctors,
         doctorsPagination,
+        formerDoctors,
+        formerDoctorsPagination,
         invites,
         invitesPagination,
         joinRequests,
         joinRequestsPagination,
         loadingDoctors,
+        loadingFormerDoctors,
         loadingInvites,
         loadingJoinRequests,
         error,
         fetchDoctors,
+        fetchFormerDoctors,
         fetchInvites,
         fetchJoinRequests,
         respondToJoinRequest,
@@ -43,9 +61,9 @@ export default function ClinicDoctorsPage() {
         clearError,
     } = useClinicStore();
 
-    const [tab, setTab] = useState<'roster' | 'invites' | 'requests'>(() => {
+    const [tab, setTab] = useState<'roster' | 'former' | 'invites' | 'requests'>(() => {
         const t = searchParams.get('tab');
-        if (t === 'invites' || t === 'requests') return t as any;
+        if (t === 'former' || t === 'invites' || t === 'requests') return t as any;
         return 'roster';
     });
 
@@ -59,6 +77,9 @@ export default function ClinicDoctorsPage() {
     // Modals
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [selectedDoctorForModal, setSelectedDoctorForModal] = useState<ClinicDoctor | null>(null);
+    const [selectedDoctorForTermination, setSelectedDoctorForTermination] = useState<ClinicDoctor | null>(null);
+    const [selectedDoctorForHistory, setSelectedDoctorForHistory] = useState<ClinicDoctor | null>(null);
+    const [selectedDoctorForReinvite, setSelectedDoctorForReinvite] = useState<ClinicDoctor | null>(null);
 
     const loadDoctors = useCallback(async () => {
         await fetchDoctors({
@@ -67,6 +88,14 @@ export default function ClinicDoctorsPage() {
             search: deferredSearchQuery || undefined,
         });
     }, [deferredSearchQuery, fetchDoctors, page]);
+
+    const loadFormerDoctors = useCallback(async () => {
+        await fetchFormerDoctors({
+            page,
+            limit: PAGE_SIZE,
+            search: deferredSearchQuery || undefined,
+        });
+    }, [deferredSearchQuery, fetchFormerDoctors, page]);
 
     const loadInvites = useCallback(async () => {
         await fetchInvites({ page: 1, limit: 50, status: 'pending' });
@@ -78,14 +107,19 @@ export default function ClinicDoctorsPage() {
 
     const refreshAll = useCallback(async () => {
         if (tab === 'roster') await loadDoctors();
+        else if (tab === 'former') await loadFormerDoctors();
         else if (tab === 'invites') await loadInvites();
         else if (tab === 'requests') await loadRequests();
-    }, [loadDoctors, loadInvites, loadRequests, tab]);
+    }, [loadDoctors, loadFormerDoctors, loadInvites, loadRequests, tab]);
 
     // Initial and tab-dependent loads
     useEffect(() => {
         if (tab === 'roster') void loadDoctors();
     }, [loadDoctors, tab]);
+
+    useEffect(() => {
+        if (tab === 'former') void loadFormerDoctors();
+    }, [loadFormerDoctors, tab]);
 
     useEffect(() => {
         if (tab === 'invites') void loadInvites();
@@ -97,41 +131,31 @@ export default function ClinicDoctorsPage() {
 
     useEffect(() => {
         setPage(1);
-    }, [deferredSearchQuery]);
+    }, [deferredSearchQuery, tab]);
 
     // Socket real-time updates
     useClinicInviteUpdates(useCallback(() => {
         void loadInvites();
         void loadDoctors();
+        void loadFormerDoctors();
         void loadRequests();
-    }, [loadDoctors, loadInvites, loadRequests]));
+    }, [loadDoctors, loadFormerDoctors, loadInvites, loadRequests]));
 
     // Total today appointments across all active doctors
     const totalTodayAppointments = useMemo(() => {
         return doctors.reduce((acc, d) => acc + (d.todayAppointments || 0), 0);
     }, [doctors]);
 
-    const handleRemoveDoctor = async (doc: ClinicDoctor) => {
-        const confirmed = await confirm({
-            title: 'End Doctor Affiliation',
-            message: `Are you sure you want to end affiliation with Dr. ${doc.name}? They will no longer be listed under your clinic's public roster or receive clinic bookings.`,
-            confirmLabel: 'End Affiliation',
-            variant: 'danger',
-        });
-        if (confirmed) {
-            setActionLoading(doc.id);
-            const success = await removeDoctor(doc.doctorId || doc.id);
-            if (success) {
-                toast.success('Affiliation Ended', `Dr. ${doc.name} has been removed from your active roster.`);
-                if (selectedDoctorForModal?.id === doc.id) {
-                    setSelectedDoctorForModal(null);
-                }
-                void loadDoctors();
-            } else {
-                toast.error('Failed to end affiliation', useClinicStore.getState().error || 'Please try again.');
-            }
-            setActionLoading(null);
-        }
+    const handleRemoveDoctor = (doc: ClinicDoctor) => {
+        setSelectedDoctorForTermination(doc);
+    };
+
+    const handleOpenHistory = (doc: ClinicDoctor) => {
+        setSelectedDoctorForHistory(doc);
+    };
+
+    const handleOpenReinvite = (doc: ClinicDoctor) => {
+        setSelectedDoctorForReinvite(doc);
     };
 
     const handleCancelInvite = async (inviteId: string, doctorName: string) => {
@@ -290,6 +314,23 @@ export default function ClinicDoctorsPage() {
                         </button>
 
                         <button
+                            onClick={() => { setTab('former'); setPage(1); }}
+                            className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all shrink-0 flex items-center gap-2 ${
+                                tab === 'former'
+                                    ? 'bg-amber-600 text-white shadow-md shadow-amber-600/20'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                            }`}
+                        >
+                            <UserX className="w-3.5 h-3.5" />
+                            <span>Former Doctors</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                tab === 'former' ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                            }`}>
+                                {formerDoctorsPagination.total || formerDoctors.length}
+                            </span>
+                        </button>
+
+                        <button
                             onClick={() => { setTab('invites'); setPage(1); }}
                             className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all shrink-0 flex items-center gap-2 ${
                                 tab === 'invites'
@@ -438,7 +479,7 @@ export default function ClinicDoctorsPage() {
                                                         </div>
 
                                                         <h3 className="font-extrabold text-gray-900 dark:text-white text-base leading-snug mt-1.5 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                                                            {doc.name.startsWith('Dr.') ? doc.name : `Dr. ${doc.name}`}
+                                                            {formatDoctorDisplayName(doc.name)}
                                                         </h3>
 
                                                         <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 truncate">
@@ -451,8 +492,35 @@ export default function ClinicDoctorsPage() {
                                                 {/* Practice & Details Row */}
                                                 <div className="p-3.5 rounded-2xl bg-gray-50 dark:bg-[#0f172a] border border-gray-100 dark:border-gray-800/80 space-y-2 text-xs">
                                                     
-                                                    {/* Consultation Modes & Dept */}
+                                                    {/* Departments */}
                                                     <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
+                                                        <span className="font-semibold text-gray-500">Depts:</span>
+                                                        <div className="flex items-center gap-1 flex-wrap justify-end">
+                                                            {Array.isArray(doc.departments) && doc.departments.length > 0 ? (
+                                                                doc.departments.map((dept) => (
+                                                                    <span
+                                                                        key={dept.id}
+                                                                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                                                                            dept.is_head
+                                                                                ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/60 dark:text-teal-300 border border-teal-200 dark:border-teal-800'
+                                                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                                                                        }`}
+                                                                    >
+                                                                        {dept.is_head ? `👑 ${dept.name}` : dept.name}
+                                                                    </span>
+                                                                ))
+                                                            ) : doc.department ? (
+                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                                                    {doc.department}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[10px] text-gray-400 italic">General / Unassigned</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Consultation Modes */}
+                                                    <div className="flex items-center justify-between text-gray-600 dark:text-gray-400 pt-1 border-t border-gray-200/60 dark:border-gray-800">
                                                         <span className="font-semibold text-gray-500">Modes:</span>
                                                         <div className="flex items-center gap-1.5 font-bold text-gray-800 dark:text-gray-200">
                                                             {modes.includes('in_clinic') && (
@@ -518,6 +586,172 @@ export default function ClinicDoctorsPage() {
                                     <Pagination
                                         currentPage={page}
                                         totalPages={doctorsPagination.totalPages}
+                                        onPageChange={setPage}
+                                    />
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            )}
+
+            {/* TAB CONTENT: FORMER DOCTORS */}
+            {tab === 'former' && (
+                <div className="space-y-4">
+                    {loadingFormerDoctors && formerDoctors.length === 0 ? (
+                        <div className="py-20 flex flex-col items-center justify-center gap-3">
+                            <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
+                            <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">Loading former doctors...</p>
+                        </div>
+                    ) : formerDoctors.length === 0 ? (
+                        <div className="bg-white dark:bg-[#111c2e] rounded-3xl border border-gray-200 dark:border-gray-800 p-12 text-center shadow-sm">
+                            <div className="w-16 h-16 bg-amber-50 dark:bg-amber-950/60 rounded-3xl flex items-center justify-center mx-auto mb-4 text-amber-600 dark:text-amber-400">
+                                <HistoryIcon className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-lg font-extrabold text-gray-900 dark:text-white mb-1">
+                                No former doctors recorded
+                            </h3>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+                                When a doctor&apos;s affiliation ends, their historical clinic activity and profile will remain safely archived here.
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {formerDoctors.map((doc) => {
+                                    const ratingVal = typeof doc.rating === 'number' ? doc.rating : parseFloat(String(doc.rating || 0));
+                                    const hasPendingInvite = Boolean(doc.pending_invite);
+
+                                    return (
+                                        <div
+                                            key={doc.id}
+                                            className="bg-white dark:bg-[#111c2e] rounded-3xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
+                                        >
+                                            <div className="space-y-4">
+                                                {/* Header / Identity */}
+                                                <div className="flex items-start gap-3.5">
+                                                    {doc.profile_image_url ? (
+                                                        <img
+                                                            src={doc.profile_image_url}
+                                                            alt={doc.name}
+                                                            className="w-14 h-14 rounded-2xl object-cover border border-gray-200 dark:border-gray-700 shadow-sm shrink-0 grayscale-[30%]"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-extrabold text-lg flex items-center justify-center border border-amber-200 dark:border-amber-800 shadow-sm shrink-0">
+                                                            {doc.name.replace('Dr. ', '').slice(0, 2).toUpperCase()}
+                                                        </div>
+                                                    )}
+
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                                                                <HistoryIcon className="w-3 h-3 text-amber-600 dark:text-amber-400" /> Former Doctor
+                                                            </span>
+
+                                                            {hasPendingInvite && (
+                                                                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 flex items-center gap-1">
+                                                                    <Mail className="w-3 h-3 text-blue-600 dark:text-blue-400" /> Invite Pending
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        <h3 className="font-extrabold text-gray-900 dark:text-white text-base leading-snug mt-1.5 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                                                            {formatDoctorDisplayName(doc.name)}
+                                                        </h3>
+
+                                                        <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 truncate">
+                                                            {doc.specialization}
+                                                            {Boolean(doc.experience_years && doc.experience_years > 0) && ` • ${doc.experience_years} yrs exp`}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Affiliation Dates & Termination Info */}
+                                                <div className="p-3 rounded-2xl bg-gray-50 dark:bg-[#0f172a] border border-gray-100 dark:border-gray-800/80 space-y-2 text-xs">
+                                                    <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
+                                                        <span className="font-semibold text-gray-500">Affiliation:</span>
+                                                        <span className="font-bold text-gray-900 dark:text-gray-200 flex items-center gap-1">
+                                                            <CalendarDays className="w-3.5 h-3.5 text-gray-400" />
+                                                            {formatDate(doc.joined_at)} → {formatDate(doc.ended_at)}
+                                                        </span>
+                                                    </div>
+
+                                                    {doc.termination_reason && (
+                                                        <div className="pt-1.5 border-t border-gray-200/60 dark:border-gray-800 text-[11px]">
+                                                            <p className="text-gray-700 dark:text-gray-300 line-clamp-2">
+                                                                <span className="font-bold text-gray-900 dark:text-gray-200">Reason: </span>
+                                                                {doc.termination_reason}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Historical Activity Row */}
+                                                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                                                    <div className="p-2 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30">
+                                                        <p className="text-[10px] text-blue-700 dark:text-blue-300 font-semibold truncate">Past Appts</p>
+                                                        <p className="text-sm font-extrabold text-blue-900 dark:text-blue-100 mt-0.5">
+                                                            {doc.total_appointments ?? 0}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-2 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30">
+                                                        <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold truncate">Consults</p>
+                                                        <p className="text-sm font-extrabold text-emerald-900 dark:text-emerald-100 mt-0.5">
+                                                            {doc.completed_consultations ?? 0}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-2 rounded-xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30">
+                                                        <p className="text-[10px] text-purple-700 dark:text-purple-300 font-semibold truncate">Rating</p>
+                                                        <p className="text-sm font-extrabold text-purple-900 dark:text-purple-100 mt-0.5 flex items-center justify-center gap-0.5">
+                                                            <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                                                            {ratingVal > 0 ? ratingVal.toFixed(1) : '—'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Card Footer Actions */}
+                                            <div className="pt-4 border-t border-gray-100 dark:border-gray-800 mt-4 grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleOpenHistory(doc)}
+                                                    className="w-full py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 font-extrabold text-xs transition-colors shadow-sm flex items-center justify-center gap-1.5"
+                                                >
+                                                    <HistoryIcon className="w-3.5 h-3.5 text-gray-500" />
+                                                    <span>View History</span>
+                                                </button>
+
+                                                {hasPendingInvite ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenReinvite(doc)}
+                                                        className="w-full py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-extrabold text-xs transition-all border border-gray-200 dark:border-gray-700 flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <Clock className="w-3.5 h-3.5 text-blue-500" />
+                                                        <span>Invitation Pending</span>
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenReinvite(doc)}
+                                                        className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <UserPlus className="w-3.5 h-3.5" />
+                                                        <span>Invite to Rejoin</span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Pagination */}
+                            {formerDoctorsPagination.totalPages > 1 && (
+                                <div className="pt-4">
+                                    <Pagination
+                                        currentPage={page}
+                                        totalPages={formerDoctorsPagination.totalPages}
                                         onPageChange={setPage}
                                     />
                                 </div>
@@ -755,7 +989,45 @@ export default function ClinicDoctorsPage() {
                 isOpen={!!selectedDoctorForModal}
                 onClose={() => setSelectedDoctorForModal(null)}
                 doctor={selectedDoctorForModal}
-                onEndAffiliation={(doc) => handleRemoveDoctor(doc)}
+                onEndAffiliation={(doc) => {
+                    setSelectedDoctorForModal(null);
+                    setSelectedDoctorForTermination(doc);
+                }}
+            />
+
+            {/* End Doctor Affiliation Modal */}
+            <EndAffiliationModal
+                open={!!selectedDoctorForTermination}
+                doctor={selectedDoctorForTermination}
+                onClose={() => setSelectedDoctorForTermination(null)}
+                onSuccess={() => {
+                    setSelectedDoctorForTermination(null);
+                    void loadDoctors();
+                    void loadFormerDoctors();
+                }}
+            />
+
+            {/* Doctor Affiliation History Modal */}
+            <DoctorAffiliationHistoryModal
+                open={!!selectedDoctorForHistory}
+                doctor={selectedDoctorForHistory}
+                onClose={() => setSelectedDoctorForHistory(null)}
+                onInviteAgain={(doc) => {
+                    setSelectedDoctorForHistory(null);
+                    setSelectedDoctorForReinvite(doc);
+                }}
+            />
+
+            {/* Reinvite Doctor Modal */}
+            <ReinviteDoctorModal
+                open={!!selectedDoctorForReinvite}
+                doctor={selectedDoctorForReinvite}
+                onClose={() => setSelectedDoctorForReinvite(null)}
+                onSuccess={() => {
+                    setSelectedDoctorForReinvite(null);
+                    void loadFormerDoctors();
+                    void loadInvites();
+                }}
             />
 
             <ConfirmDialog {...dialogProps} />

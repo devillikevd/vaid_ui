@@ -183,15 +183,19 @@ function removeGlobalEventListener(event: string, listener?: SocketListener) {
 }
 
 function getOrCreateSocket(isAuthenticated: boolean, tokenFallback?: string): Socket {
-    // BUG-02 Fix: If auth state changed, disconnect old socket and create new one
-    // This handles token refresh or login/logout
     const currentState = isAuthenticated ? 'auth' : 'unauth';
-    if (globalSocket && globalSocketToken === currentState) {
-        return globalSocket;
-    }
+    const currentToken = tokenFallback || useAuthStore.getState().accessToken || getTokens().accessToken || '';
 
-    // Auth state changed or no socket — disconnect old and create new
     if (globalSocket) {
+        // If auth state hasn't changed and socket exists, keep using it
+        if (globalSocketToken === currentState) {
+            // Update auth token on existing socket if available
+            if (currentToken && globalSocket.auth) {
+                (globalSocket.auth as any).token = currentToken;
+            }
+            return globalSocket;
+        }
+        // Auth state changed — disconnect old and create new
         globalSocket.removeAllListeners();
         globalSocket.disconnect();
         globalSocket = null;
@@ -200,12 +204,15 @@ function getOrCreateSocket(isAuthenticated: boolean, tokenFallback?: string): So
     globalSocketToken = currentState;
     globalSocket = io(SOCKET_URL, {
         withCredentials: true,
-        auth: { token: tokenFallback || '' },
+        auth: (cb) => {
+            const token = useAuthStore.getState().accessToken || getTokens().accessToken || tokenFallback || '';
+            cb({ token });
+        },
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
-        reconnectionDelayMax: 30000,
+        reconnectionDelayMax: 10000,
         randomizationFactor: 0.5,
     });
 
@@ -229,6 +236,8 @@ function getOrCreateSocket(isAuthenticated: boolean, tokenFallback?: string): So
 export function useSocket() {
     const socketRef = useRef<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
+    const [isConnecting, setIsConnecting] = useState(false);
+    const [isError, setIsError] = useState(false);
     const [lastPing, setLastPing] = useState<Date | null>(null);
     const { accessToken, isAuthenticated } = useAuthStore();
 
@@ -238,15 +247,13 @@ export function useSocket() {
             if (socketRef.current) {
                 socketRef.current = null;
                 setIsConnected(false);
+                setIsConnecting(false);
+                setIsError(false);
             }
             return;
         }
 
-        // Because we moved to HttpOnly cookies, we don't pass the token explicitly.
-        // We set withCredentials: true so the browser automatically sends the cookie.
-        // We just need to know the user is authenticated.
         const tokenFallback = accessToken || getTokens().accessToken || '';
-
         const socket = getOrCreateSocket(true, tokenFallback);
         socketRef.current = socket;
         socketRefCount++;
@@ -256,9 +263,25 @@ export function useSocket() {
         }
 
         // Track connection state locally
-        const onConnect = () => setIsConnected(true);
-        const onDisconnect = () => setIsConnected(false);
-        const onConnectError = () => setIsConnected(false);
+        const onConnect = () => {
+            setIsConnected(true);
+            setIsConnecting(false);
+            setIsError(false);
+        };
+        const onDisconnect = (reason: string) => {
+            setIsConnected(false);
+            if (reason === 'io server disconnect' || reason === 'io client disconnect') {
+                setIsConnecting(false);
+            } else {
+                setIsConnecting(true);
+            }
+        };
+        const onConnectError = (err: Error) => {
+            console.warn('[Socket] Connection error:', err.message);
+            setIsConnected(false);
+            setIsConnecting(true);
+            setIsError(true);
+        };
         const onPong = () => setLastPing(new Date());
 
         socket.on('connect', onConnect);
@@ -268,6 +291,8 @@ export function useSocket() {
 
         // Set initial state
         setIsConnected(socket.connected);
+        setIsConnecting(!socket.connected);
+        setIsError(false);
 
         // If not yet connected, connect
         if (!socket.connected) {
@@ -323,6 +348,8 @@ export function useSocket() {
     return {
         socket: socketRef.current,
         isConnected,
+        isConnecting,
+        isError,
         lastPing,
         emit,
         on,

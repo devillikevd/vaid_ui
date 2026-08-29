@@ -1,5 +1,10 @@
 import { create } from 'zustand';
-import { pharmacyApi } from '../lib/api';
+import {
+    pharmacyApi,
+    PharmacyProfileCompletion,
+    PharmacyDashboardPreferences,
+    QuickOperationConfig,
+} from '../lib/api';
 
 export interface PaginationState {
     page: number;
@@ -473,6 +478,8 @@ interface PharmacyState {
     loadingPrescriptions: boolean;
     loadingAnalytics: boolean;
     loadingReviews: boolean;
+    loadingCompletion: boolean;
+    loadingPreferences: boolean;
     error: string | null;
     dashboardError: string | null;
     ordersError: string | null;
@@ -480,8 +487,13 @@ interface PharmacyState {
     inventoryQuery: InventoryQuery;
     ordersQuery: OrdersQuery;
     prescriptionsQuery: PrescriptionsQuery;
+    profileCompletion: PharmacyProfileCompletion | null;
+    dashboardPreferences: PharmacyDashboardPreferences | null;
 
     fetchDashboardData: () => Promise<void>;
+    fetchProfileCompletion: () => Promise<void>;
+    fetchDashboardPreferences: () => Promise<void>;
+    updateDashboardPreferences: (prefs: Partial<PharmacyDashboardPreferences>) => Promise<boolean>;
     fetchInventory: (params?: InventoryQuery) => Promise<void>;
     fetchOrders: (params?: OrdersQuery) => Promise<void>;
     fetchPrescriptions: (params?: PrescriptionsQuery) => Promise<void>;
@@ -509,6 +521,8 @@ const pharmacyInitialState = {
     prescriptionsPagination: { ...defaultPagination },
     pendingPrescriptions: [] as Prescription[],
     lowStockItems: [] as InventoryItem[],
+    profileCompletion: null as PharmacyProfileCompletion | null,
+    dashboardPreferences: null as PharmacyDashboardPreferences | null,
     isLoading: false,
     loadingDashboard: false,
     loadingInventory: false,
@@ -516,6 +530,8 @@ const pharmacyInitialState = {
     loadingPrescriptions: false,
     loadingAnalytics: false,
     loadingReviews: false,
+    loadingCompletion: false,
+    loadingPreferences: false,
     error: null as string | null,
     reviews: [] as Review[],
     inventoryQuery: { page: 1, limit: 10 } as InventoryQuery,
@@ -550,13 +566,25 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
             const lowStockItems = ((data.lowStockItems || []) as Record<string, any>[])
                 .map(normalizeInventoryItem);
 
+            const profileCompletion = (data.profileCompletion || (response as any).profileCompletion || null) as PharmacyProfileCompletion | null;
+            const preferences = (data.preferences || (response as any).preferences || null) as PharmacyDashboardPreferences | null;
+
             set({
                 stats: (data.stats as PharmacyDashboardStats) || null,
                 lowStockItems,
                 pendingPrescriptions: prescriptions,
+                profileCompletion: profileCompletion || get().profileCompletion,
+                dashboardPreferences: preferences || get().dashboardPreferences,
                 loadingDashboard: false,
                 isLoading: false,
             });
+
+            if (!profileCompletion) {
+                void get().fetchProfileCompletion();
+            }
+            if (!preferences) {
+                void get().fetchDashboardPreferences();
+            }
         } catch (error) {
             console.error('Error fetching pharmacy dashboard:', error);
             set({
@@ -564,6 +592,57 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
                 loadingDashboard: false,
                 isLoading: false,
             });
+        }
+    },
+
+    fetchProfileCompletion: async () => {
+        set({ loadingCompletion: true });
+        try {
+            const response = await pharmacyApi.getProfileCompletion();
+            if (response.success && response.data) {
+                set({ profileCompletion: response.data, loadingCompletion: false });
+            } else {
+                set({ loadingCompletion: false });
+            }
+        } catch (error) {
+            console.error('Error fetching pharmacy profile completion:', error);
+            set({ loadingCompletion: false });
+        }
+    },
+
+    fetchDashboardPreferences: async () => {
+        set({ loadingPreferences: true });
+        try {
+            const response = await pharmacyApi.getPreferences();
+            if (response.success && response.data) {
+                set({ dashboardPreferences: response.data, loadingPreferences: false });
+            } else {
+                set({ loadingPreferences: false });
+            }
+        } catch (error) {
+            console.error('Error fetching pharmacy preferences:', error);
+            set({ loadingPreferences: false });
+        }
+    },
+
+    updateDashboardPreferences: async (prefs: Partial<PharmacyDashboardPreferences>) => {
+        const currentPrefs = get().dashboardPreferences || {
+            show_profile_completion: true,
+            onboarding_completed: false,
+        };
+        const optimistic = { ...currentPrefs, ...prefs };
+        set({ dashboardPreferences: optimistic });
+
+        try {
+            const response = await pharmacyApi.updatePreferences(prefs);
+            if (response.success && response.data) {
+                set({ dashboardPreferences: response.data });
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error updating pharmacy dashboard preferences:', error);
+            return false;
         }
     },
 

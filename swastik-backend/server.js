@@ -214,10 +214,12 @@ if (config.redis.ioredisUrl) {
     const Redis = require('ioredis');
     const pubClient = new Redis(config.redis.ioredisUrl, {
       lazyConnect: true,
-      maxRetriesPerRequest: 3,
-      retryStrategy: (times) => Math.min(times * 200, 5000),
+      maxRetriesPerRequest: 1,
+      retryStrategy: () => null,
     });
+    pubClient.on('error', () => {});
     const subClient = pubClient.duplicate();
+    subClient.on('error', () => {});
 
     Promise.all([pubClient.connect(), subClient.connect()])
       .then(() => {
@@ -541,6 +543,7 @@ app.use('/api/patients/consents', patientConsentRoutes);
 app.use('/api/patient/referrals', patientReferralRoutes);
 app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api/emergency-network', require('./routes/emergencyNetwork'));
+app.use('/api/discovery', require('./routes/discovery'));
 
 // HIS — Patient-facing routes (queue position, admissions, lab reports, insurance)
 app.use('/api/patients', require('./routes/patient/his'));

@@ -57,6 +57,18 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/diagnosis',
+        destination: '/diagnostic-center',
+      },
+      {
+        source: '/diagnosis/:path*',
+        destination: '/diagnostic-center/:path*',
+      },
+    ];
+  },
   async headers() {
     return [
       {

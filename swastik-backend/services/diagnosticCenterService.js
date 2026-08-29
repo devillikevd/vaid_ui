@@ -11,6 +11,7 @@ const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
 const eventEmitter = require('./eventEmitter');
 const { buildProviderResubmissionFields } = require('../utils/providerApproval');
+const { signStorageUrlsInPayload } = require('../config/minio');
 
 const normalizeDiagnosticBookingStatus = (status) => (
   status === 'booked' ? 'pending' : status
@@ -536,6 +537,7 @@ const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
 
   const offset = (page - 1) * limit;
   const paginatedData = filteredData.slice(offset, offset + limit);
+  const signedPaginatedData = await signStorageUrlsInPayload(paginatedData);
   const summary = filteredData.reduce((acc, booking) => {
     acc.total += 1;
     acc.status[booking.status] = (acc.status[booking.status] || 0) + 1;
@@ -545,7 +547,7 @@ const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
     return acc;
   }, { total: 0, status: {}, resultStatus: {} });
   return {
-    data: paginatedData,
+    data: signedPaginatedData,
     pagination: buildPagination(page, limit, filteredData.length),
     summary,
   };
@@ -563,7 +565,8 @@ const getBookingById = async (centerId, bookingId) => {
   if (error || !data) {
     throw new ApiError(404, 'Booking not found');
   }
-  return normalizeDiagnosticBookingRecord(data);
+  const normalized = normalizeDiagnosticBookingRecord(data);
+  return signStorageUrlsInPayload(normalized);
 };
 
 // Valid status transitions
@@ -1331,6 +1334,91 @@ const getCenterOwnerId = async (centerId) => {
   return data?.owner_id || null;
 };
 
+// Clinic-routed diagnostic booking / referral
+const createClinicDiagnosticBooking = async (clinicId, actorId, bookingData) => {
+  const { 
+    centerId, 
+    patientId, 
+    testId, 
+    testName, 
+    investigation, 
+    reason, 
+    notes, 
+    clinicalSummary, 
+    urgency = 'routine', 
+    bookingDate, 
+    bookingTime, 
+    collectionType = 'walk_in', 
+    collectionAddress,
+    prescriptionId 
+  } = bookingData;
+
+  if (!centerId || !patientId) {
+    throw new ApiError(400, 'Valid centerId and patientId are required');
+  }
+
+  // 1. Verify Active Partnership
+  const organizationPartnershipService = require('./organizationPartnershipService');
+  await organizationPartnershipService.verifyActivePartnership('clinic', clinicId, 'diagnostic_center', centerId);
+
+  // 2. Resolve Test ID if not directly provided
+  let resolvedTestId = testId || null;
+  const targetInvestigation = testName || investigation || reason || '';
+  if (!resolvedTestId && targetInvestigation) {
+    const { data: matchedTest } = await supabaseAdmin
+      .from('diagnostic_tests')
+      .select('id')
+      .eq('diagnostic_center_id', centerId)
+      .ilike('name', `%${targetInvestigation}%`)
+      .limit(1)
+      .maybeSingle();
+    if (matchedTest) resolvedTestId = matchedTest.id;
+  }
+
+  const bookingNotes = [
+    targetInvestigation ? `Investigation: ${targetInvestigation}` : '',
+    reason ? `Reason: ${reason}` : '',
+    clinicalSummary ? `Clinical Summary: ${clinicalSummary}` : '',
+    notes ? notes : '',
+    urgency && urgency !== 'routine' ? `[Priority: ${urgency.toUpperCase()}]` : ''
+  ].filter(Boolean).join(' | ');
+
+  // 3. Create Diagnostic Booking Record
+  const { data: booking, error } = await supabaseAdmin
+    .from('diagnostic_bookings')
+    .insert({
+      patient_id: patientId,
+      center_id: centerId,
+      test_id: resolvedTestId,
+      prescription_id: prescriptionId || null,
+      booking_date: bookingDate || new Date().toISOString().split('T')[0],
+      booking_time: bookingTime || null,
+      collection_type: collectionType,
+      collection_address: collectionAddress || null,
+      notes: bookingNotes || 'Clinic Diagnostic Referral',
+      status: 'pending',
+      result_status: 'pending',
+    })
+    .select('*, test:diagnostic_tests(name, category, price)')
+    .single();
+
+  if (error) throw error;
+
+  // 4. Notify Diagnostic Center Owner
+  const ownerId = await getCenterOwnerId(centerId);
+  if (ownerId) {
+    const notificationService = require('./notificationService');
+    notificationService.notify(ownerId, {
+      type: 'DIAGNOSTIC_REFERRAL_RECEIVED',
+      title: 'New Diagnostic Referral',
+      message: `A new diagnostic test has been referred by clinic.`,
+      data: { bookingId: booking.id, url: '/diagnostic-center/bookings' }
+    }).catch(() => {});
+  }
+
+  return normalizeDiagnosticBookingRecord(booking);
+};
+
 module.exports = {
   // Public / Discovery
   searchDiagnosticCenters,
@@ -1383,6 +1471,8 @@ module.exports = {
 
   // Patient-facing
   bookTest,
+  // Clinic-facing
+  createClinicDiagnosticBooking,
   // Helpers (DC5: extracted from inline route handlers)
   resolvePatientId,
   getCenterOwnerId,

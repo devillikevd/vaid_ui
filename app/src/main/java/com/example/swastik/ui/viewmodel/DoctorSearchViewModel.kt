@@ -88,15 +88,28 @@ class DoctorSearchViewModel @Inject constructor(
     private fun listenForSlotUpdates() {
         viewModelScope.launch {
             socketManager.doctorSlotsUpdates.collectLatest { update ->
-                val timeSlotStr = update.optString("time_slot") ?: update.optString("timeSlot")
-                
+                val timeSlotRaw = if (update.has("time_slot")) update.optString("time_slot") else update.optString("timeSlot")
+                val timeSlotStr = timeSlotRaw.orEmpty()
+                val updateDoctorId = if (update.has("doctorId")) update.optString("doctorId") else update.optString("doctor_id")
+                val updateDate = if (update.has("date")) update.optString("date") else if (update.has("slot_date")) update.optString("slot_date") else update.optString("appointment_date")
+                val isAvailable = if (update.has("isAvailable")) update.optBoolean("isAvailable", false) else false
+
+                if (!updateDoctorId.isNullOrBlank() && currentSubscribedDoctorId != null && updateDoctorId != currentSubscribedDoctorId) {
+                    return@collectLatest
+                }
+
+                if (!updateDate.isNullOrBlank() && _selectedDate.value.isNotBlank() && updateDate != _selectedDate.value) {
+                    return@collectLatest
+                }
+
                 // Update availableSlots state if present
                 val currentSlotsResponse = _uiState.value.availableSlots
                 if (currentSlotsResponse != null) {
-                    val updatedSlots = currentSlotsResponse.slots.map { 
-                        if (it.time == timeSlotStr) it.copy(isAvailable = false) else it 
+                    val normalizedTarget = if (timeSlotStr.length > 5) timeSlotStr.substring(0, 5) else timeSlotStr
+                    val updatedSlots = currentSlotsResponse.slots.map { slot ->
+                        val slotTime = if (slot.time.length > 5) slot.time.substring(0, 5) else slot.time
+                        if (slotTime == normalizedTarget) slot.copy(isAvailable = isAvailable) else slot 
                     }
-                    val hasAvailableSlots = updatedSlots.any { it.isAvailable }
                     _uiState.value = _uiState.value.copy(
                         availableSlots = currentSlotsResponse.copy(
                             slots = updatedSlots

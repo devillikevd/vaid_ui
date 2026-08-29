@@ -1,18 +1,22 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Building2, X, Loader2, FileText, AlertTriangle, Send } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { doctorApi } from '@/lib/api';
+import { Building2, X, Loader2, FileText, AlertTriangle, Send, Network } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
 interface Props {
+    prescriptionId?: string;
     patientId: string;
     consultationId?: string;
     onClose: () => void;
     onSuccess?: () => void;
 }
 
-export function RouteHospitalModal({ patientId, consultationId, onClose, onSuccess }: Props) {
+export function RouteHospitalModal({ prescriptionId, patientId, consultationId, onClose, onSuccess }: Props) {
     const toast = useToast();
+    const router = useRouter();
     const [partnerships, setPartnerships] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -23,23 +27,35 @@ export function RouteHospitalModal({ patientId, consultationId, onClose, onSucce
     const [clinicalSummary, setClinicalSummary] = useState('');
     const [consentGranted, setConsentGranted] = useState(false);
 
+    const isDoctorContext = typeof window !== 'undefined' && window.location.pathname.includes('/doctor');
+
     useEffect(() => {
         const fetchPartners = async () => {
             try {
-                const { fetchWithAuth } = await import('@/lib/api');
-                const res = await fetchWithAuth('/clinics/owner/partnerships?status=active');
-                if (res.success && Array.isArray(res.data)) {
-                    const hospitalPartners = res.data.filter((p: any) => p.partner.type === 'hospital');
-                    setPartnerships(hospitalPartners);
+                if (isDoctorContext && prescriptionId) {
+                    const res = await doctorApi.getPrescriptionHospitalPartners(prescriptionId);
+                    if (res.success && Array.isArray(res.data || (res as any).partners)) {
+                        setPartnerships((res.data || (res as any).partners) as any[]);
+                    } else {
+                        setPartnerships([]);
+                    }
+                } else {
+                    const { fetchWithAuth } = await import('@/lib/api');
+                    const res = await fetchWithAuth<{ success: boolean; data: any[] }>('/clinics/owner/partnerships?status=active');
+                    if (res.success && Array.isArray(res.data)) {
+                        const hospitalPartners = res.data.filter((p: any) => p.partner?.type === 'hospital' || p.target_type === 'hospital');
+                        setPartnerships(hospitalPartners);
+                    }
                 }
-            } catch (err) {
-                toast.error('Error', 'Failed to load active hospital partners');
+            } catch (err: any) {
+                toast.error('Error', err?.message || 'Failed to load active hospital partners');
+                setPartnerships([]);
             } finally {
                 setLoading(false);
             }
         };
         fetchPartners();
-    }, [toast]);
+    }, [prescriptionId, isDoctorContext]);
 
     const handleRoute = async () => {
         if (!selectedHospitalId) return toast.warning('Required', 'Please select a hospital.');
@@ -48,27 +64,33 @@ export function RouteHospitalModal({ patientId, consultationId, onClose, onSucce
 
         setSubmitting(true);
         try {
-            const { fetchWithAuth } = await import('@/lib/api');
             const payload = {
                 hospitalId: selectedHospitalId,
                 patientId,
                 consultationId,
                 urgency,
-                reason,
-                clinicalSummary
+                reason: reason.trim(),
+                clinicalSummary: clinicalSummary.trim() || undefined,
+                consentGranted: true
             };
 
-            const res = await fetchWithAuth('/clinics/owner/partnerships/referrals', {
-                method: 'POST',
-                body: JSON.stringify(payload)
-            });
+            let res;
+            if (isDoctorContext && prescriptionId) {
+                res = await doctorApi.referPrescriptionToHospital(prescriptionId, payload);
+            } else {
+                const { fetchWithAuth } = await import('@/lib/api');
+                res = await fetchWithAuth('/clinics/owner/partnerships/referrals', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+            }
 
             if (res.success) {
                 toast.success('Success', 'Patient referral created successfully!');
                 onSuccess?.();
                 onClose();
             } else {
-                toast.error('Error', res.message || 'Failed to create referral');
+                toast.error('Error', (res as any).message || 'Failed to create referral');
             }
         } catch (err: any) {
             toast.error('Error', err.message || 'Error creating referral');
@@ -96,8 +118,21 @@ export function RouteHospitalModal({ patientId, consultationId, onClose, onSucce
                             <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
                         </div>
                     ) : partnerships.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                            No active hospital partners found. Cannot create referral.
+                        <div className="text-center py-8 space-y-4">
+                            <p className="text-gray-500 dark:text-gray-400">
+                                No eligible hospital partners found. Cannot create referral.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onClose();
+                                    router.push(isDoctorContext ? '/doctor/care-networks' : '/clinic/care-networks');
+                                }}
+                                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:text-indigo-300 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/40 rounded-xl transition-colors"
+                            >
+                                <Network className="w-4 h-4" />
+                                Manage Care Networks
+                            </button>
                         </div>
                     ) : (
                         <>
@@ -109,12 +144,12 @@ export function RouteHospitalModal({ patientId, consultationId, onClose, onSucce
                                 <select
                                     value={selectedHospitalId}
                                     onChange={(e) => setSelectedHospitalId(e.target.value)}
-                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-sm"
                                 >
                                     <option value="">Select Hospital</option>
                                     {partnerships.map((p) => (
-                                        <option key={p.partner.id} value={p.partner.id}>
-                                            {p.partner.name}
+                                        <option key={p.partner?.id || p.id} value={p.partner?.id || p.id}>
+                                            {p.partner?.name || 'Hospital'}{p.partner?.city ? ` (${p.partner.city})` : ''}
                                         </option>
                                     ))}
                                 </select>
@@ -155,7 +190,7 @@ export function RouteHospitalModal({ patientId, consultationId, onClose, onSucce
                                     value={reason}
                                     onChange={(e) => setReason(e.target.value)}
                                     placeholder="e.g., Suspected appendicitis, needs surgical evaluation"
-                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-sm"
                                 />
                             </div>
 
@@ -170,7 +205,7 @@ export function RouteHospitalModal({ patientId, consultationId, onClose, onSucce
                                     onChange={(e) => setClinicalSummary(e.target.value)}
                                     rows={3}
                                     placeholder="Relevant clinical findings, history, and test results..."
-                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none resize-none"
+                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none resize-none text-sm"
                                 />
                                 <p className="text-xs text-gray-500 mt-1">Include only necessary information relevant to this referral.</p>
                             </div>
@@ -208,8 +243,8 @@ export function RouteHospitalModal({ patientId, consultationId, onClose, onSucce
                     </button>
                     <button
                         onClick={handleRoute}
-                        disabled={loading || submitting || partnerships.length === 0}
-                        className="flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-lg shadow-sm transition-all"
+                        disabled={loading || submitting || !selectedHospitalId || partnerships.length === 0}
+                        className="flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-sm transition-all"
                     >
                         {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                         Submit Referral

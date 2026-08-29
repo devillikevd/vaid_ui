@@ -1,19 +1,18 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
-
-const JWT_SECRET = new TextEncoder().encode(
-    process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || ''
-);
+import { doesRoleMatchPortal } from './lib/roles';
 
 async function verifyJwt(token: string): Promise<{ valid: boolean; role?: string; expired?: boolean }> {
     try {
-        if (!process.env.JWT_ACCESS_SECRET && !process.env.JWT_SECRET) {
-            console.error('[swastik-web] JWT_ACCESS_SECRET or JWT_SECRET is required for route protection.');
+        const secretStr = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
+        if (!secretStr) {
+            console.error('[swastik-web] JWT_ACCESS_SECRET is required for route protection.');
             return { valid: false };
         }
 
-        const { payload } = await jwtVerify(token, JWT_SECRET);
+        const jwtSecret = new TextEncoder().encode(secretStr);
+        const { payload } = await jwtVerify(token, jwtSecret);
         return { valid: true, role: payload.role as string };
     } catch (error: unknown) {
         const isExpired = error instanceof Error && error.message.includes('expired');
@@ -21,16 +20,16 @@ async function verifyJwt(token: string): Promise<{ valid: boolean; role?: string
     }
 }
 
-const ROUTE_ROLES: Record<string, string[]> = {
-    '/admin': ['admin', 'super_admin'],
-    '/doctor': ['doctor'],
-    '/hospital': ['hospital_owner', 'hospital_manager'],
-    '/clinic': ['clinic_owner'],
-    '/diagnostic-center': ['diagnostic_center_owner'],
-    '/wellness': ['wellness_coach'],
-    '/fitness-center': ['fitness_center_owner'],
-    '/pharmacy': ['pharmacy_owner'],
-    '/consultation': ['doctor', 'patient'],
+const ROUTE_PORTAL_MAP: Record<string, string> = {
+    '/admin': 'admin',
+    '/doctor': 'doctor',
+    '/hospital': 'hospital',
+    '/clinic': 'clinic',
+    '/diagnostic-center': 'diagnostic_center',
+    '/wellness': 'wellness_coach',
+    '/fitness-center': 'fitness_center_owner',
+    '/pharmacy': 'pharmacy',
+    '/consultation': 'doctor',
 };
 
 const ROUTE_TO_LOGIN_SLUG: Record<string, string> = {
@@ -48,7 +47,7 @@ const ROUTE_TO_LOGIN_SLUG: Record<string, string> = {
 export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    const matchedPrefix = Object.keys(ROUTE_ROLES).find((prefix) =>
+    const matchedPrefix = Object.keys(ROUTE_PORTAL_MAP).find((prefix) =>
         pathname.startsWith(prefix)
     );
 
@@ -76,8 +75,11 @@ export async function proxy(request: NextRequest) {
         loginUrl.searchParams.set('redirect', pathname);
         if (expired) loginUrl.searchParams.set('expired', '1');
         const response = NextResponse.redirect(loginUrl);
-        response.cookies.set('swastik-role', '', { maxAge: 0, path: '/' });
-        response.cookies.set('swastik-token', '', { maxAge: 0, path: '/' });
+        if (expired) {
+            response.cookies.set('swastik-role', '', { maxAge: 0, path: '/' });
+            response.cookies.set('swastik-token', '', { maxAge: 0, path: '/' });
+            response.cookies.set('accessToken', '', { maxAge: 0, path: '/' });
+        }
         return response;
     };
 
@@ -97,15 +99,11 @@ export async function proxy(request: NextRequest) {
         return redirectToLogin();
     }
 
-    const allowedRoles = ROUTE_ROLES[matchedPrefix];
-    if (!allowedRoles.includes(role)) {
-        const homeRoute = Object.entries(ROUTE_ROLES).find(([, roles]) =>
-            roles.includes(role)
-        );
-        if (homeRoute) {
-            return NextResponse.redirect(new URL(homeRoute[0], request.url));
-        }
-        return NextResponse.redirect(new URL('/', request.url));
+    const targetPortal = ROUTE_PORTAL_MAP[matchedPrefix];
+    const isAllowed = doesRoleMatchPortal(role, targetPortal);
+
+    if (!isAllowed) {
+        return redirectToLogin();
     }
 
     return NextResponse.next();

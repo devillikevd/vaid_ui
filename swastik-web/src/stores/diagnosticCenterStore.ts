@@ -120,7 +120,47 @@ function normalizePagination(
     };
 }
 
+export interface DiagnosticCenterProfile {
+    id: string;
+    owner_id?: string;
+    name: string;
+    email?: string;
+    phone: string;
+    emergency_phone?: string;
+    website?: string;
+    website_url?: string;
+    address: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    registration_number?: string;
+    license_number?: string;
+    license_document_url?: string;
+    nabl_accreditation?: boolean;
+    accreditations?: string[] | string;
+    description?: string;
+    opening_hours?: string;
+    is_24_hours?: boolean;
+    sample_collection_available?: boolean;
+    home_collection_available?: boolean;
+    home_collection_fee?: number | string | null;
+    profile_image_url?: string | null;
+    profile_image?: string | null;
+    image_url?: string | null;
+    is_approved?: boolean;
+    approval_status?: string;
+    rating?: number;
+    total_reviews?: number;
+    created_at?: string;
+    updated_at?: string;
+    [key: string]: unknown;
+}
+
 interface DiagnosticCenterState {
+    profile: DiagnosticCenterProfile | null;
+    loadingProfile: boolean;
     stats: DiagnosticDashboardStats | null;
     tests: DiagnosticTest[];
     bookings: DiagnosticBooking[];
@@ -151,6 +191,9 @@ interface DiagnosticCenterState {
     loadingPatients: boolean;
     fetchPatients: (params?: { page?: number; limit?: number; search?: string }) => Promise<void>;
 
+    fetchProfile: () => Promise<DiagnosticCenterProfile | null>;
+    updateProfile: (data: Record<string, unknown>) => Promise<{ success: boolean; error?: string; data?: DiagnosticCenterProfile }>;
+    setProfile: (profile: DiagnosticCenterProfile | null) => void;
     fetchDashboardData: () => Promise<void>;
     fetchTests: (params?: { page?: number; limit?: number; search?: string; category?: string }) => Promise<void>;
     addTest: (data: Record<string, unknown>) => Promise<boolean>;
@@ -169,6 +212,8 @@ interface DiagnosticCenterState {
 // ==================== Store ====================
 
 const diagnosticInitialState = {
+    profile: null as DiagnosticCenterProfile | null,
+    loadingProfile: false,
     stats: null as DiagnosticDashboardStats | null,
     tests: [] as DiagnosticTest[],
     bookings: [] as DiagnosticBooking[],
@@ -203,6 +248,57 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
 
     clearError: () => set({ error: null }),
     reset: () => set({ ...diagnosticInitialState }),
+
+    setProfile: (profile) => set({ profile }),
+
+    fetchProfile: async () => {
+        set({ loadingProfile: true, error: null });
+        try {
+            const response = await diagnosticCenterApi.getProfile();
+            if (!response.success) {
+                set({ error: response.error || 'Failed to load profile', loadingProfile: false });
+                return null;
+            }
+            const rawData = response.data;
+            const p = (rawData as any)?.center || (rawData as any)?.profile || (rawData as any)?.pharmacy || rawData || {};
+            const normalizedProfile: DiagnosticCenterProfile = {
+                ...p,
+                profile_image_url: p.profile_image_url || p.profile_image || p.image_url || null,
+            };
+            set({ profile: normalizedProfile, loadingProfile: false });
+            return normalizedProfile;
+        } catch (error) {
+            console.error('Error fetching diagnostic profile:', error);
+            set({ error: 'Failed to load profile.', loadingProfile: false });
+            return null;
+        }
+    },
+
+    updateProfile: async (data: Record<string, unknown>) => {
+        set({ loadingProfile: true, error: null });
+        try {
+            const response = await diagnosticCenterApi.updateProfile(data);
+            if (!response.success) {
+                const errorMsg = response.error || 'Failed to update profile';
+                set({ error: errorMsg, loadingProfile: false });
+                return { success: false, error: errorMsg };
+            }
+            const rawData = response.data;
+            const p = (rawData as any)?.center || (rawData as any)?.profile || rawData || {};
+            const updatedProfile: DiagnosticCenterProfile = {
+                ...(get().profile || {}),
+                ...p,
+                profile_image_url: p.profile_image_url || p.profile_image || p.image_url || null,
+            };
+            set({ profile: updatedProfile, loadingProfile: false });
+            return { success: true, data: updatedProfile };
+        } catch (error) {
+            console.error('Error updating diagnostic profile:', error);
+            const errorMsg = 'Failed to update profile due to a network error.';
+            set({ error: errorMsg, loadingProfile: false });
+            return { success: false, error: errorMsg };
+        }
+    },
 
     fetchPatients: async (params = {}) => {
         set({ loadingPatients: true, error: null });

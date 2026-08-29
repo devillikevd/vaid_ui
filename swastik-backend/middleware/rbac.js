@@ -29,6 +29,7 @@ const ROLES = {
  * Usage: requireRole(ROLES.ADMIN, ROLES.SUPER_ADMIN)
  */
 const requireRole = (...allowedRoles) => {
+  const roles = allowedRoles.flat();
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
@@ -37,10 +38,10 @@ const requireRole = (...allowedRoles) => {
       });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: `Access denied. Required role: ${allowedRoles.join(' or ')}. Your role: ${req.user.role}`,
+        message: `Access denied. Required role: ${roles.join(' or ')}. Your role: ${req.user.role}`,
       });
     }
 

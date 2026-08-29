@@ -53,8 +53,11 @@ const initializeNotificationQueue = async () => {
   queueConnection = new Redis(config.redis.ioredisUrl, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
+    retryStrategy: () => null,
   });
+  queueConnection.on('error', () => {});
   workerConnection = queueConnection.duplicate();
+  workerConnection.on('error', () => {});
 
   queue = new bullmq.Queue(queueName, {
     connection: queueConnection,

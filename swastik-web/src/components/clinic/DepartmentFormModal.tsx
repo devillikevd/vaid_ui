@@ -12,6 +12,7 @@ interface DepartmentFormModalProps {
     open: boolean;
     onClose: () => void;
     editing?: (DepartmentFormValue & { id: string }) | null;
+    initialValues?: Partial<DepartmentFormValue> | null;
     onSaved?: () => void;
 }
 
@@ -23,7 +24,7 @@ export interface DepartmentFormValue {
     isActive: boolean;
 }
 
-export function DepartmentFormModal({ open, onClose, editing, onSaved }: DepartmentFormModalProps) {
+export function DepartmentFormModal({ open, onClose, editing, initialValues, onSaved }: DepartmentFormModalProps) {
     const { doctors, addDepartment, updateDepartment } = useClinicStore();
     const toast = useToast();
 
@@ -46,10 +47,18 @@ export function DepartmentFormModal({ open, onClose, editing, onSaved }: Departm
                 contactExtension: editing.contactExtension || '',
                 isActive: editing.isActive !== false,
             });
+        } else if (initialValues) {
+            setForm({
+                name: initialValues.name || '',
+                headDoctorId: initialValues.headDoctorId || '',
+                description: initialValues.description || '',
+                contactExtension: initialValues.contactExtension || '',
+                isActive: initialValues.isActive !== false,
+            });
         } else {
             setForm({ name: '', headDoctorId: '', description: '', contactExtension: '', isActive: true });
         }
-    }, [open, editing]);
+    }, [open, editing, initialValues]);
 
     if (!open) return null;
 

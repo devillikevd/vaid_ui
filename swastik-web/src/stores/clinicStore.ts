@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { clinicApi } from '../lib/api';
+import { clinicApi, ClinicProfileCompletion, ClinicDashboardPreferences } from '../lib/api';
 
 export interface PaginationState {
     page: number;
@@ -214,6 +214,7 @@ export interface ClinicDoctor {
     email: string;
     phone: string;
     status: 'active' | 'on-leave' | 'inactive';
+    is_active?: boolean;
     is_approved?: boolean;
     verification?: 'verified' | 'pending';
     rating?: number | null;
@@ -231,9 +232,16 @@ export interface ClinicDoctor {
     practice_type?: string | null;
     consultation_modes?: string[] | null;
     department?: string | null;
+    departments?: Array<{ id: string; name: string; is_head?: boolean }>;
     schedule?: any;
     available_days?: string[];
     available_hours?: string;
+    ended_at?: string | null;
+    termination_reason?: string | null;
+    termination_note?: string | null;
+    affiliation_history?: Array<{ joined_at?: string; ended_at?: string; termination_reason?: string; termination_note?: string; terminated_by?: string }>;
+    pending_invite?: any | null;
+    total_appointments?: number;
 }
 
 export interface ClinicInvite {
@@ -405,30 +413,67 @@ function normalizeClinicDoctor(raw: Record<string, any>): ClinicDoctor {
                 ? 'on-leave'
                 : 'active';
 
+    const specialization =
+        doctor.specialization ||
+        (Array.isArray(doctor.specializations) && doctor.specializations[0]) ||
+        raw.specialization ||
+        (Array.isArray(raw.specializations) && raw.specializations[0]) ||
+        'Specialization not provided';
+
     return {
         id: doctor.id || raw.doctorId || raw.doctor_id || raw.id || '',
         doctorId: doctor.id || raw.doctorId || raw.doctor_id || raw.id || '',
         associationId: raw.associationId || raw.association_id || raw.id || null,
         name: doctor.name || raw.name || 'Doctor',
-        specialization: doctor.specialization || raw.specialization || '',
+        specialization,
+        sub_specialization: doctor.sub_specialization || raw.sub_specialization || null,
+        qualifications: doctor.qualifications || raw.qualifications || null,
+        education: doctor.education || raw.education || null,
+        languages: Array.isArray(doctor.languages) ? doctor.languages : Array.isArray(raw.languages) ? raw.languages : [],
+        bio: doctor.bio || raw.bio || null,
+        registration_number: doctor.registration_number || raw.registration_number || null,
         email: doctor.email || raw.email || doctor.user?.email || '',
         phone: doctor.phone || raw.phone || doctor.user?.phone || '',
         status,
-        is_approved: raw.is_approved === true,
-        verification: raw.verification || (raw.is_approved === true ? 'verified' : 'pending'),
-        rating: raw.rating != null ? Number(raw.rating) : null,
-        total_reviews: Number(raw.total_reviews || 0),
-        experience_years: Number(raw.experience_years || 0),
-        consultation_fee: raw.consultation_fee != null ? Number(raw.consultation_fee) : null,
+        is_approved: raw.is_approved === true || doctor.is_approved === true,
+        verification: raw.verification || (raw.is_approved === true || doctor.is_approved === true ? 'verified' : 'pending'),
+        rating: raw.rating != null ? Number(raw.rating) : doctor.rating != null ? Number(doctor.rating) : null,
+        total_reviews: Number(raw.total_reviews || doctor.total_reviews || 0),
+        total_consultations: Number(raw.total_consultations || doctor.total_consultations || 0),
+        completed_consultations: Number(raw.completed_consultations || doctor.completed_consultations || 0),
+        experience_years: Number(raw.experience_years || doctor.experience_years || 0),
+        consultation_fee: raw.consultation_fee != null ? Number(raw.consultation_fee) : doctor.consultation_fee != null ? Number(doctor.consultation_fee) : null,
+        video_consultation_fee: raw.video_consultation_fee != null ? Number(raw.video_consultation_fee) : doctor.video_consultation_fee != null ? Number(doctor.video_consultation_fee) : null,
         profile_image_url: raw.profile_image_url || doctor.profile_image_url || null,
         joined_at: raw.joined_at || null,
-        is_available: raw.is_available !== false,
+        is_active: raw.is_active !== false && doctor.is_active !== false,
+        is_available: raw.is_available !== false && doctor.is_available !== false,
         todayAppointments: Number(raw.todayAppointments || 0),
+        upcomingAppointments: Number(raw.upcomingAppointments || 0),
+        practice_type: raw.practice_type || doctor.practice_type || null,
+        consultation_modes: raw.consultation_modes || doctor.consultation_modes || null,
+        department: raw.department || doctor.department || null,
+        departments: Array.isArray(raw.departments) ? raw.departments : Array.isArray(doctor.departments) ? doctor.departments : [],
+        schedule: raw.schedule || doctor.schedule || null,
+        available_days: raw.available_days || doctor.available_days || [],
+        available_hours: raw.available_hours || doctor.available_hours || '',
+        ended_at: raw.ended_at || null,
+        termination_reason: raw.termination_reason || null,
+        termination_note: raw.termination_note || null,
+        affiliation_history: Array.isArray(raw.affiliation_history) ? raw.affiliation_history : [],
+        pending_invite: raw.pending_invite || null,
+        total_appointments: Number(raw.total_appointments || 0),
     };
 }
 
 function normalizeClinicInvite(raw: Record<string, any>): ClinicInvite {
     const doctor = (raw.doctor || {}) as Record<string, any>;
+    const specialization =
+        doctor.specialization ||
+        (Array.isArray(doctor.specializations) && doctor.specializations[0]) ||
+        raw.specialization ||
+        'Specialization not provided';
+
     return {
         id: raw.id || '',
         clinicId: raw.clinicId || raw.clinic_id || '',
@@ -453,7 +498,7 @@ function normalizeClinicInvite(raw: Record<string, any>): ClinicInvite {
         doctor: {
             id: doctor.id || raw.doctorId || raw.doctor_id || '',
             name: doctor.name || 'Doctor',
-            specialization: doctor.specialization || raw.specialization || '',
+            specialization,
             email: doctor.email || raw.email || '',
             phone: doctor.phone || raw.phone || '',
             profile_image_url: doctor.profile_image_url || null,
@@ -650,21 +695,37 @@ interface ClinicState {
     loadingInvites: boolean;
     loadingJoinRequests: boolean;
     loadingPatients: boolean;
+    formerDoctors: ClinicDoctor[];
+    formerDoctorsPagination: PaginationState;
+    loadingFormerDoctors: boolean;
+    profileCompletion: ClinicProfileCompletion | null;
+    dashboardPreferences: ClinicDashboardPreferences;
+    loadingCompletion: boolean;
 
     fetchDashboardData: () => Promise<void>;
+    fetchProfileCompletion: () => Promise<void>;
+    fetchDashboardPreferences: () => Promise<void>;
+    updateDashboardPreferences: (prefs: Partial<ClinicDashboardPreferences>) => Promise<boolean>;
     fetchAppointments: (params?: { page?: number; limit?: number; search?: string; status?: string; date?: string; dateRange?: string; doctorId?: string; type?: string }) => Promise<void>;
     fetchDoctors: (params?: { page?: number; limit?: number; search?: string }) => Promise<void>;
+    fetchFormerDoctors: (params?: { page?: number; limit?: number; search?: string }) => Promise<void>;
+    fetchDoctorAffiliationHistory: (doctorId: string) => Promise<any>;
+    reinviteDoctor: (doctorId: string, payload?: { departmentId?: string; message?: string }) => Promise<{ success: boolean; message?: string; code?: string; status?: number; details?: any; data?: any }>;
     fetchSchedule: () => Promise<void>;
     fetchReviews: (page?: number) => Promise<void>;
     updateSchedule: (schedule: Record<string, unknown>) => Promise<boolean>;
     addDoctor: (data: Record<string, any>) => Promise<boolean>;
-    removeDoctor: (doctorId: string) => Promise<boolean>;
+    removeDoctor: (doctorId: string, payload?: { reason: string; note?: string }) => Promise<{ success: boolean; message?: string; notified?: boolean }>;
     fetchDepartments: () => Promise<void>;
     fetchDepartmentMeta: () => Promise<void>;
     fetchDepartmentDetail: (departmentId: string) => Promise<DepartmentDetail | null>;
+    fetchAvailableDoctorsForDepartment: (departmentId: string) => Promise<any[]>;
     addDepartment: (data: Record<string, unknown>) => Promise<boolean>;
     updateDepartment: (departmentId: string, data: Record<string, unknown>) => Promise<boolean>;
     deleteDepartment: (departmentId: string) => Promise<boolean>;
+    assignDoctorToDepartment: (departmentId: string, doctorId: string) => Promise<boolean>;
+    setDepartmentDoctors: (departmentId: string, doctorIds: string[]) => Promise<boolean>;
+    unassignDoctorFromDepartment: (departmentId: string, doctorId: string) => Promise<boolean>;
     fetchConsultations: (params?: { page?: number; limit?: number; search?: string; status?: string; type?: string; date?: string; dateRange?: string; doctorId?: string }) => Promise<void>;
     fetchAnalytics: (period?: string) => Promise<void>;
     fetchInvites: (params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
@@ -709,12 +770,15 @@ const clinicInitialState = {
     },
     doctors: [] as ClinicDoctor[],
     doctorsPagination: { ...defaultPagination },
+    formerDoctors: [] as ClinicDoctor[],
+    formerDoctorsPagination: { ...defaultPagination },
     staff: [] as ClinicDoctor[],
     schedule: null as Record<string, unknown> | null,
     isLoading: false,
     loadingDashboard: false,
     loadingAppointments: false,
     loadingDoctors: false,
+    loadingFormerDoctors: false,
     loadingSchedule: false,
     loadingReviews: false,
     loadingDepartments: false,
@@ -763,6 +827,9 @@ const clinicInitialState = {
     loadingInvites: false,
     loadingJoinRequests: false,
     loadingPatients: false,
+    profileCompletion: null as ClinicProfileCompletion | null,
+    dashboardPreferences: { show_profile_completion: true, onboarding_completed: false } as ClinicDashboardPreferences,
+    loadingCompletion: false,
 };
 
 export const useClinicStore = create<ClinicState>((set, get) => ({
@@ -785,6 +852,14 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
             }
 
             const data = ((response.data as Record<string, unknown>) || response || {}) as Record<string, unknown>;
+            const profileCompletion = (response as any).profileCompletion || (data as any).profileCompletion || null;
+            if (profileCompletion) {
+                set({ profileCompletion });
+            } else {
+                void get().fetchProfileCompletion();
+            }
+            void get().fetchDashboardPreferences();
+
             const rawStats = ((data.stats || response.stats || {}) as Record<string, unknown>);
             const recentAppointments = ((data.recentAppointments || response.recentAppointments || data.appointments || []) as Record<string, any>[])
                 .map(normalizeClinicAppointment);
@@ -939,6 +1014,89 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
         }
     },
 
+    fetchFormerDoctors: async (params = {}) => {
+        set({ loadingFormerDoctors: true, error: null });
+        try {
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await clinicApi.getDoctors({
+                page,
+                limit,
+                search: params.search,
+                status: 'former',
+            });
+            if (!response.success) {
+                set({ error: response.error || 'Failed to load former doctors', loadingFormerDoctors: false });
+                return;
+            }
+            const rawData = response.data;
+            const formerDoctors = (Array.isArray(rawData) ? rawData : (rawData as any)?.doctors || (rawData as any)?.data || [])
+                .map((doctor: Record<string, any>) => normalizeClinicDoctor(doctor)) as ClinicDoctor[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
+            set({
+                formerDoctors,
+                formerDoctorsPagination: pagination ? {
+                    page: pagination.page || page,
+                    totalPages: pagination.totalPages || 1,
+                    total: pagination.total || formerDoctors.length,
+                    hasMore: (pagination.page || page) < (pagination.totalPages || 1),
+                } : { ...defaultPagination, total: formerDoctors.length },
+                loadingFormerDoctors: false,
+            });
+        } catch (error) {
+            console.error('Error fetching former doctors:', error);
+            set({ error: 'Failed to load former doctors.', loadingFormerDoctors: false });
+        }
+    },
+
+    fetchDoctorAffiliationHistory: async (doctorId: string) => {
+        try {
+            const targetDoctorId = get().formerDoctors.find((d) => d.id === doctorId)?.doctorId ||
+                get().doctors.find((d) => d.id === doctorId)?.doctorId || doctorId;
+            const response = await clinicApi.getDoctorAffiliationHistory(targetDoctorId);
+            if (response.success && response.data) {
+                return response.data;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error fetching doctor affiliation history:', error);
+            return null;
+        }
+    },
+
+    reinviteDoctor: async (doctorId: string, payload?: { departmentId?: string; message?: string }) => {
+        try {
+            const targetDoctorId = get().formerDoctors.find((d) => d.id === doctorId)?.doctorId ||
+                get().doctors.find((d) => d.id === doctorId)?.doctorId || doctorId;
+            const response = await clinicApi.reinviteDoctor(targetDoctorId, payload);
+            if (response.success) {
+                await Promise.allSettled([
+                    get().fetchFormerDoctors(),
+                    get().fetchInvites(),
+                ]);
+                return {
+                    success: true,
+                    message: response.message || 'Rejoin invitation sent successfully.',
+                    data: (response as any).data,
+                };
+            }
+            return {
+                success: false,
+                message: (response as any).message || (response as any).error || 'Failed to send invitation.',
+                code: (response as any).code,
+                status: (response as any).status,
+                details: (response as any).details,
+            };
+        } catch (error: any) {
+            console.error('Error sending reinvite:', error);
+            return {
+                success: false,
+                message: error?.message || 'Network error while sending invitation.',
+                code: error?.code,
+            };
+        }
+    },
+
     fetchSchedule: async () => {
         set({ loadingSchedule: true, error: null });
         try {
@@ -993,23 +1151,33 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
         }
     },
 
-    removeDoctor: async (doctorId) => {
+    removeDoctor: async (doctorId, payload) => {
         try {
-            const targetDoctorId = get().doctors.find((doctor) => doctor.id === doctorId)?.doctorId || doctorId;
-            const response = await clinicApi.removeDoctor(targetDoctorId);
+            // Resolve to the actual doctors-table UUID (doctorId field)
+            const allDoctors = [...get().doctors, ...get().formerDoctors];
+            const targetDoctorId = allDoctors.find((d) => d.id === doctorId || d.doctorId === doctorId)?.doctorId || doctorId;
+            const response = await clinicApi.removeDoctor(targetDoctorId, payload);
             if (response.success) {
                 await Promise.allSettled([
                     get().fetchDoctors(),
+                    get().fetchFormerDoctors(),
+                    get().fetchDepartments(),
                     get().fetchDashboardData(),
                 ]);
-                return true;
+                return {
+                    success: true,
+                    message: (response.data?.message || response.message || 'Doctor affiliation ended successfully.') as string,
+                    notified: Boolean(response.data?.notified ?? response.notified ?? true),
+                };
             }
-            set({ error: response.error || 'Failed to remove doctor' });
-            return false;
-        } catch (error) {
-            console.error('Error deleting doctor:', error);
-            set({ error: 'Failed to delete doctor.' });
-            return false;
+            const errMsg = response.error || 'Failed to end doctor affiliation';
+            set({ error: errMsg });
+            return { success: false, message: errMsg, notified: false };
+        } catch (error: any) {
+            console.error('Error ending doctor affiliation:', error);
+            const errMsg = error?.message || 'Failed to end doctor affiliation.';
+            set({ error: errMsg });
+            return { success: false, message: errMsg, notified: false };
         }
     },
 
@@ -1122,6 +1290,67 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
             return false;
         } catch (error) {
             set({ error: 'Network error while deleting department' });
+            return false;
+        }
+    },
+
+    fetchAvailableDoctorsForDepartment: async (departmentId) => {
+        try {
+            const response = await clinicApi.getDepartmentAvailableDoctors(departmentId);
+            if (response.success && Array.isArray(response.data)) {
+                return response.data;
+            }
+            return [];
+        } catch (error) {
+            console.error('Error fetching available doctors for department:', error);
+            return [];
+        }
+    },
+
+    assignDoctorToDepartment: async (departmentId, doctorId) => {
+        try {
+            const response = await clinicApi.assignDoctorToDepartment(departmentId, doctorId);
+            if (response.success) {
+                await get().fetchDepartmentDetail(departmentId);
+                get().fetchDepartments();
+                return true;
+            }
+            set({ error: response.error || 'Failed to assign doctor' });
+            return false;
+        } catch (error) {
+            set({ error: 'Network error while assigning doctor' });
+            return false;
+        }
+    },
+
+    setDepartmentDoctors: async (departmentId, doctorIds) => {
+        try {
+            const response = await clinicApi.setDepartmentDoctors(departmentId, doctorIds);
+            if (response.success) {
+                await get().fetchDepartmentDetail(departmentId);
+                get().fetchDepartments();
+                return true;
+            }
+            set({ error: response.error || 'Failed to update department doctors' });
+            return false;
+        } catch (error) {
+            set({ error: 'Network error while updating department doctors' });
+            return false;
+        }
+    },
+
+    unassignDoctorFromDepartment: async (departmentId, doctorId) => {
+        try {
+            const response = await clinicApi.unassignDoctorFromDepartment(departmentId, doctorId);
+            if (response.success) {
+                await get().fetchDepartmentDetail(departmentId);
+                get().fetchDepartments();
+                return true;
+            }
+            set({ error: response.error || 'Failed to unassign doctor' });
+            return false;
+        } catch (error) {
+            set({ error: 'Network error while unassigning doctor' });
             return false;
         }
     },
@@ -1404,6 +1633,53 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
         } catch (error) {
             console.error('Error checking in appointment:', error);
             set({ error: 'Failed to check in patient.' });
+            return false;
+        }
+    },
+
+    fetchProfileCompletion: async () => {
+        set({ loadingCompletion: true });
+        try {
+            const response = await clinicApi.getProfileCompletion();
+            if (response.success && response.data) {
+                set({ profileCompletion: response.data, loadingCompletion: false });
+            } else {
+                set({ loadingCompletion: false });
+            }
+        } catch (err) {
+            console.error('Error fetching profile completion:', err);
+            set({ loadingCompletion: false });
+        }
+    },
+
+    fetchDashboardPreferences: async () => {
+        try {
+            const response = await clinicApi.getPreferences();
+            if (response.success && response.data) {
+                set({ dashboardPreferences: response.data });
+            }
+        } catch (err) {
+            console.error('Error fetching dashboard preferences:', err);
+        }
+    },
+
+    updateDashboardPreferences: async (prefs: Partial<ClinicDashboardPreferences>) => {
+        try {
+            // Optimistic update
+            set(state => ({
+                dashboardPreferences: {
+                    ...state.dashboardPreferences,
+                    ...prefs
+                }
+            }));
+            const response = await clinicApi.updatePreferences(prefs);
+            if (response.success && response.data) {
+                set({ dashboardPreferences: response.data });
+                return true;
+            }
+            return false;
+        } catch (err) {
+            console.error('Error updating dashboard preferences:', err);
             return false;
         }
     },
