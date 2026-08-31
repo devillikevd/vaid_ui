@@ -8,6 +8,7 @@ import { useSocket, useVideoConsultation, useConsultationChat, useConsultationEn
 import { api } from '@/lib/api';
 import DoctorVitalsPanel from '@/components/consultation/DoctorVitalsPanel';
 import DoctorPatientHistoryDrawer from '@/components/consultation/DoctorPatientHistoryDrawer';
+import { PreJoinLobby } from '@/components/consultation/PreJoinLobby';
 
 import { Star, Loader2, Video,
     VideoOff,
@@ -249,8 +250,10 @@ export default function VideoConsultation() {
     const [resendSuccess, setResendSuccess] = useState('');
 
     const [callPhase, setCallPhase] = useState<'LOBBY' | 'CONNECTING' | 'IN_CALL' | 'COMPLETED'>('LOBBY');
+    const [isWaitingForDoctor, setIsWaitingForDoctor] = useState(false);
     const chosenVideoDeviceId = useRef<string | undefined>(undefined);
     const chosenAudioDeviceId = useRef<string | undefined>(undefined);
+    const joinRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         if (resendCooldown > 0) {
@@ -461,12 +464,41 @@ export default function VideoConsultation() {
         }
     }, [connectionMode]);
 
-    // Initialize media and peer connection — calls join API first
+    // Preload consultation / appointment details for PreJoinLobby
     useEffect(() => {
-        if (!user?.role) return;
-        initializeCall();
-        return () => { cleanup(); };
-    }, [consultationId, user?.role]);
+        if (!user?.role || !consultationId) return;
+        let isCancelled = false;
+
+        const loadMetadata = async () => {
+            try {
+                if (user?.role === 'patient') {
+                    // Try fetching appointment details first to render full doctor info
+                    const apptRes = await api.appointments.getById(consultationId).catch(() => null);
+                    if (apptRes?.success && apptRes?.data) {
+                        if (!isCancelled) setConsultationData(apptRes.data);
+                        return;
+                    }
+                    const consultRes = await api.consultations.getDetails(consultationId).catch(() => null);
+                    if (consultRes?.success && consultRes?.data) {
+                        if (!isCancelled) setConsultationData(consultRes.data);
+                    }
+                } else {
+                    const docRes = await api.consultations.getDetails(consultationId).catch(() => null);
+                    if (docRes?.success && docRes?.data) {
+                        if (!isCancelled) setConsultationData(docRes.data);
+                    }
+                }
+            } catch (err) {
+                console.warn('Initial consultation metadata preload note:', err);
+            }
+        };
+
+        loadMetadata();
+        return () => {
+            isCancelled = true;
+            cleanup();
+        };
+    }, [consultationId, user?.role, cleanup]);
 
     // Handle incoming WebRTC signaling
     useEffect(() => {
@@ -689,41 +721,145 @@ export default function VideoConsultation() {
         return () => { if (statsIntervalRef.current) clearInterval(statsIntervalRef.current); };
     }, [handleQualityChange, isConnected]);
 
-    // ── Initialization: join API → media → peer connection ─────────
-    const initializeCall = async () => {
+    // ── Pre-Join Lobby and Consultation Connection Handlers ─────────
+    const handleLobbyJoin = (
+        videoDeviceId?: string,
+        audioDeviceId?: string,
+        initialCameraState: boolean = true,
+        initialMicState: boolean = true
+    ) => {
+        chosenVideoDeviceId.current = videoDeviceId;
+        chosenAudioDeviceId.current = audioDeviceId;
+        userVideoEnabledRef.current = initialCameraState;
+        userMicEnabledRef.current = initialMicState;
+        setIsVideoOn(initialCameraState);
+        setIsMuted(!initialMicState);
+        setCallPhase('CONNECTING');
+        connectToCall(videoDeviceId, audioDeviceId);
+    };
+
+    const handleLobbyCancel = () => {
+        cleanup();
+        router.push(user?.role === 'doctor' ? '/doctor/appointments' : '/patient/appointments');
+    };
+
+    const connectToCall = async (videoDeviceId?: string, audioDeviceId?: string) => {
+        setIsConnecting(true);
+        setError(null);
         let loadedConsultation: any = null;
+
         try {
-            setError(null);
-
-            const response = user?.role === 'patient'
-                ? await api.consultations.join(consultationId)
-                : await api.consultations.getDetails(consultationId);
-
-            if (!response.success || !response.data) {
-                setError(response.error || response.message || 'Unable to load consultation');
+            if (user?.role === 'doctor') {
+                const startRes = await api.consultations.start(consultationId).catch(async () => {
+                    return await api.consultations.getDetails(consultationId);
+                });
+                if (startRes?.success && startRes?.data) {
+                    loadedConsultation = startRes.data;
+                    setConsultationData(loadedConsultation);
+                } else {
+                    throw new Error(startRes?.message || 'Failed to start doctor consultation room');
+                }
+            } else {
+                // Patient join flow
+                const joinRes = await api.consultations.join(consultationId);
+                if (joinRes?.success && joinRes?.data) {
+                    loadedConsultation = joinRes.data;
+                    setConsultationData(loadedConsultation);
+                    setIsWaitingForDoctor(false);
+                } else {
+                    // Check if 404 or pending doctor start
+                    const apptRes = await api.appointments.getById(consultationId).catch(() => null);
+                    if (apptRes?.success && apptRes?.data) {
+                        setConsultationData(apptRes.data);
+                        setIsWaitingForDoctor(true);
+                    } else {
+                        throw new Error(joinRes?.message || joinRes?.error || 'Consultation room not found');
+                    }
+                }
+            }
+        } catch (err: any) {
+            // If patient encounters pending doctor start or not-found, enter Waiting Room gracefully
+            if (user?.role === 'patient') {
+                try {
+                    const apptRes = await api.appointments.getById(consultationId);
+                    if (apptRes?.success && apptRes?.data) {
+                        setConsultationData(apptRes.data);
+                        setIsWaitingForDoctor(true);
+                    } else {
+                        setError(err.message || 'Unable to connect to consultation room');
+                        setCallPhase('LOBBY');
+                        setIsConnecting(false);
+                        return;
+                    }
+                } catch {
+                    setError(err.message || 'Unable to connect to consultation room');
+                    setCallPhase('LOBBY');
+                    setIsConnecting(false);
+                    return;
+                }
+            } else {
+                setError(err.message || 'Unable to start consultation session');
+                setCallPhase('LOBBY');
                 setIsConnecting(false);
                 return;
             }
-
-            loadedConsultation = response.data;
-            setConsultationData(loadedConsultation);
-        } catch {
-            setError('Unable to load consultation');
-            setIsConnecting(false);
-            return;
         }
 
+        // Fetch ICE servers
         try {
             const iceResponse = await api.consultations.getIceServers(loadedConsultation?.id || consultationId);
-            rtcConfigRef.current = iceResponse.success && iceResponse.data
+            rtcConfigRef.current = iceResponse?.success && iceResponse?.data
                 ? normalizeIceServers(iceResponse.data)
                 : ICE_SERVERS;
         } catch {
             rtcConfigRef.current = ICE_SERVERS;
         }
 
-        await initializeMedia();
+        await initializeMedia(videoDeviceId, audioDeviceId);
+        setCallPhase('IN_CALL');
     };
+
+    // Background retry for patient when in Waiting Room
+    useEffect(() => {
+        if (user?.role !== 'patient' || !isWaitingForDoctor || callPhase !== 'IN_CALL') {
+            if (joinRetryTimerRef.current) {
+                clearInterval(joinRetryTimerRef.current);
+                joinRetryTimerRef.current = null;
+            }
+            return;
+        }
+
+        const pollActiveConsultation = async () => {
+            try {
+                const joinRes = await api.consultations.join(consultationId);
+                if (joinRes?.success && joinRes?.data) {
+                    setConsultationData(joinRes.data);
+                    setIsWaitingForDoctor(false);
+                    if (joinRetryTimerRef.current) {
+                        clearInterval(joinRetryTimerRef.current);
+                        joinRetryTimerRef.current = null;
+                    }
+                    const iceResponse = await api.consultations.getIceServers((joinRes.data as any)?.id || consultationId);
+                    if (iceResponse?.success && iceResponse?.data) {
+                        rtcConfigRef.current = normalizeIceServers(iceResponse.data);
+                    }
+                    if (!peerConnectionRef.current) {
+                        setupPeerConnection();
+                    }
+                }
+            } catch {
+                // Doctor has not joined yet, keep waiting
+            }
+        };
+
+        joinRetryTimerRef.current = setInterval(pollActiveConsultation, 3500);
+        return () => {
+            if (joinRetryTimerRef.current) {
+                clearInterval(joinRetryTimerRef.current);
+                joinRetryTimerRef.current = null;
+            }
+        };
+    }, [callPhase, consultationId, isWaitingForDoctor, user?.role]);
 
     const fetchConsultationData = async () => {
         try {
@@ -736,21 +872,33 @@ export default function VideoConsultation() {
         }
     };
 
-    const initializeMedia = async () => {
+    const initializeMedia = async (videoDeviceId?: string, audioDeviceId?: string) => {
         setMediaPermissionError(false);
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
+            const constraints: MediaStreamConstraints = {
+                video: userVideoEnabledRef.current ? {
+                    ...(videoDeviceId ? { deviceId: { exact: videoDeviceId } } : {}),
                     width: { ideal: 640, max: 960 },
                     height: { ideal: 480, max: 540 },
                     frameRate: { ideal: 20, max: 24 },
                     facingMode: 'user',
-                },
-                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-            });
+                } : false,
+                audio: userMicEnabledRef.current ? {
+                    ...(audioDeviceId ? { deviceId: { exact: audioDeviceId } } : {}),
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                } : false,
+            };
+
+            const finalConstraints = (!constraints.video && !constraints.audio)
+                ? { audio: true }
+                : constraints;
+
+            const stream = await navigator.mediaDevices.getUserMedia(finalConstraints);
             cameraUnavailableRef.current = false;
             localStreamRef.current = stream;
-            if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+            if (localVideoRef.current && constraints.video) localVideoRef.current.srcObject = stream;
             applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, localPreferredMode, remoteMode));
             setupPeerConnection();
             setIsConnecting(false);
@@ -761,7 +909,10 @@ export default function VideoConsultation() {
             // Only try audio-only if it's NOT a permission denial
             if (!isPermissionDenied) {
                 try {
-                    const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    const audioStream = await navigator.mediaDevices.getUserMedia({
+                        audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true,
+                        video: false,
+                    });
                     cameraUnavailableRef.current = true;
                     localStreamRef.current = audioStream;
                     userVideoEnabledRef.current = false;
@@ -1056,7 +1207,7 @@ export default function VideoConsultation() {
             // Only close and redirect on success or non-OTP errors
             setShowOtpModal(false);
             cleanup();
-            router.push(user?.role === 'doctor' ? `/doctor/prescriptions/new?consultation=${consultationId}` : '/');
+            router.push(user?.role === 'doctor' ? `/doctor/prescriptions/new?consultation=${consultationId}` : '/patient/appointments');
         } catch (err) {
             console.error('Failed to end/leave consultation:', err);
             // On hard network error, we might still want to let them leave the page? 
@@ -1115,6 +1266,16 @@ export default function VideoConsultation() {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
+    if (callPhase === 'LOBBY') {
+        return (
+            <PreJoinLobby
+                consultationData={consultationData}
+                onJoin={handleLobbyJoin}
+                onCancel={handleLobbyCancel}
+            />
+        );
+    }
+
     const counterpartName = user?.role === 'doctor'
         ? (consultationData?.patient?.name || 'Patient')
         : (consultationData?.doctor?.name ? `Dr. ${consultationData.doctor.name}` : 'Doctor');
@@ -1132,7 +1293,7 @@ export default function VideoConsultation() {
                     <p className="text-gray-400">The other participant has ended the consultation.</p>
                     <p className="text-gray-500 text-sm">Redirecting in a few seconds…</p>
                     <button
-                        onClick={() => router.push(user?.role === 'doctor' ? '/doctor/appointments' : '/')}
+                        onClick={() => router.push(user?.role === 'doctor' ? '/doctor/appointments' : '/patient/appointments')}
                         className="mt-4 px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                     >
                         Go Back Now

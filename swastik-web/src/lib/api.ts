@@ -476,6 +476,15 @@ export const authApi = {
         return response.json();
     },
 
+    verifyResetOtp: async (email: string, otp: string, role?: string) => {
+        const response = await fetch(`${API_BASE_URL}/auth/verify-reset-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, otp, role }),
+        });
+        return response.json();
+    },
+
     resetPassword: async (token: string, password: string) => {
         const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
             method: 'POST',
@@ -2812,51 +2821,218 @@ export const medicineApi = {
         }),
 };
 
-// ==================== COMMUNITY API ====================
+// ==================== COMMUNITY Q&A API ====================
 // Backend: routes/communityRoutes.js
 
+export interface CommunityAuthor {
+    id: string;
+    name: string;
+    user_id?: string;
+    profile_image_url?: string | null;
+}
+
+export interface CommunityDoctorSummary {
+    id: string;
+    name: string;
+    specialization?: string | null;
+    qualifications?: string[];
+    experience_years?: number;
+    rating?: number;
+    total_reviews?: number;
+    profile_image_url?: string | null;
+    is_verified?: boolean;
+}
+
+export interface CommunityAnswer {
+    id: string;
+    question_id: string;
+    content: string;
+    upvotes: number;
+    created_at: string;
+    updated_at: string;
+    status: string;
+    responder_type?: 'doctor' | 'patient' | 'pharmacy' | 'clinic' | 'hospital' | 'diagnostic_center';
+    responder_name?: string;
+    responder_verified?: boolean;
+    is_doctor_verified?: boolean;
+    doctor_id?: string | null;
+    patient_id?: string | null;
+    doctor?: CommunityDoctorSummary | null;
+    patient?: CommunityAuthor | null;
+}
+
+export interface CommunityQuestion {
+    id: string;
+    patient_id: string;
+    title: string;
+    content: string;
+    topic?: string | null;
+    category?: string | null;
+    specialty_target?: string | null;
+    upvotes: number;
+    views: number;
+    is_anonymous: boolean;
+    attachments?: string[];
+    status: string;
+    created_at: string;
+    updated_at: string;
+    patient?: CommunityAuthor | null;
+    answers?: CommunityAnswer[];
+    answer_count?: number;
+    has_verified_answer?: boolean;
+    is_bookmarked?: boolean;
+    is_upvoted?: boolean;
+}
+
 export const communityApi = {
-    getQuestions: (page: number = 1, limit: number = 20, filter?: string, search?: string, sortBy?: string) => {
-        let url = `/community/questions?page=${page}&limit=${limit}`;
-        if (filter) url += `&filter=${encodeURIComponent(filter)}`;
-        if (search) url += `&search=${encodeURIComponent(search)}`;
-        if (sortBy) url += `&sortBy=${encodeURIComponent(sortBy)}`;
-        return fetchWithAuth(url);
+    getQuestions: (
+        paramsOrPage?:
+            | number
+            | {
+                  page?: number;
+                  limit?: number;
+                  filter?: string;
+                  topic?: string;
+                  search?: string;
+                  sortBy?: string;
+                  category?: string;
+                  specialtyTarget?: string;
+              },
+        limit: number = 20,
+        filter?: string,
+        search?: string,
+        sortBy?: string
+    ) => {
+        let pageNum = 1;
+        let limitNum = limit;
+        let filterVal = filter;
+        let topicVal: string | undefined;
+        let searchVal = search;
+        let sortByVal = sortBy;
+        let categoryVal: string | undefined;
+        let specialtyTargetVal: string | undefined;
+
+        if (typeof paramsOrPage === 'object' && paramsOrPage !== null) {
+            pageNum = paramsOrPage.page ?? 1;
+            limitNum = paramsOrPage.limit ?? 20;
+            filterVal = paramsOrPage.filter;
+            topicVal = paramsOrPage.topic;
+            searchVal = paramsOrPage.search;
+            sortByVal = paramsOrPage.sortBy;
+            categoryVal = paramsOrPage.category;
+            specialtyTargetVal = paramsOrPage.specialtyTarget;
+        } else if (typeof paramsOrPage === 'number') {
+            pageNum = paramsOrPage;
+        }
+
+        const query = new URLSearchParams();
+        query.append('page', String(pageNum));
+        query.append('limit', String(limitNum));
+        if (filterVal && filterVal !== 'All') query.append('filter', filterVal);
+        if (topicVal) query.append('topic', topicVal);
+        if (searchVal) query.append('search', searchVal);
+        if (sortByVal) query.append('sortBy', sortByVal);
+        if (categoryVal) query.append('category', categoryVal);
+        if (specialtyTargetVal) query.append('specialtyTarget', specialtyTargetVal);
+
+        return fetchWithAuth<{
+            questions: CommunityQuestion[];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        }>(`/community/questions?${query.toString()}`);
     },
-    addAnswer: (questionId: string, content: string) => fetchWithAuth(`/community/questions/${questionId}/answers`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content })
-    }),
-    editAnswer: (answerId: string, content: string) => fetchWithAuth(`/community/answers/${answerId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content })
-    }),
-    deleteAnswer: (answerId: string) => fetchWithAuth(`/community/answers/${answerId}`, {
-        method: 'DELETE'
-    }),
-    reportQuestion: (questionId: string, data: { reason: string, details?: string }) => fetchWithAuth(`/community/questions/${questionId}/report`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    }),
-    reportAnswer: (answerId: string, data: { reason: string, details?: string }) => fetchWithAuth(`/community/answers/${answerId}/report`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    }),
-    getReports: (status?: string) => fetchWithAuth(`/community/admin/reports${status ? `?status=${status}` : ''}`),
-    updateReportStatus: (reportId: string, status: string) => fetchWithAuth(`/community/admin/reports/${reportId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-    }),
-    moderateContent: (targetType: string, targetId: string, status: string) => fetchWithAuth(`/community/admin/moderate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetType, targetId, status })
-    })
+
+    getQuestionDetails: (id: string) =>
+        fetchWithAuth<CommunityQuestion>(`/community/questions/${encodeURIComponent(id)}`),
+
+    createQuestion: (data: {
+        title: string;
+        content: string;
+        topic?: string;
+        is_anonymous?: boolean;
+        attachments?: string[];
+        category?: string;
+        specialty_target?: string;
+    }) =>
+        fetchWithAuth<CommunityQuestion>('/community/questions', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    addAnswer: (questionId: string, content: string) =>
+        fetchWithAuth<CommunityAnswer>(`/community/questions/${encodeURIComponent(questionId)}/answers`, {
+            method: 'POST',
+            body: JSON.stringify({ content }),
+        }),
+
+    updateAnswer: (answerId: string, content: string) =>
+        fetchWithAuth<CommunityAnswer>(`/community/answers/${encodeURIComponent(answerId)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ content }),
+        }),
+
+    editAnswer: (answerId: string, content: string) =>
+        fetchWithAuth<CommunityAnswer>(`/community/answers/${encodeURIComponent(answerId)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ content }),
+        }),
+
+    upvoteQuestion: (questionId: string, action: string = 'upvote') =>
+        fetchWithAuth<{ success: boolean }>(`/community/questions/${encodeURIComponent(questionId)}/upvote?action=${action}`, {
+            method: 'POST',
+        }),
+
+    upvoteAnswer: (answerId: string, action: string = 'upvote') =>
+        fetchWithAuth<{ success: boolean }>(`/community/answers/${encodeURIComponent(answerId)}/upvote?action=${action}`, {
+            method: 'POST',
+        }),
+
+    toggleBookmark: (questionId: string) =>
+        fetchWithAuth<{ bookmarked: boolean }>(`/community/questions/${encodeURIComponent(questionId)}/bookmark`, {
+            method: 'POST',
+        }),
+
+    deleteQuestion: (questionId: string) =>
+        fetchWithAuth<{ success: boolean }>(`/community/questions/${encodeURIComponent(questionId)}`, {
+            method: 'DELETE',
+        }),
+
+    deleteAnswer: (answerId: string) =>
+        fetchWithAuth<{ success: boolean }>(`/community/answers/${encodeURIComponent(answerId)}`, {
+            method: 'DELETE',
+        }),
+
+    reportQuestion: (questionId: string, data: { reason: string; details?: string }) =>
+        fetchWithAuth<{ success: boolean }>(`/community/questions/${encodeURIComponent(questionId)}/report`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    reportAnswer: (answerId: string, data: { reason: string; details?: string }) =>
+        fetchWithAuth<{ success: boolean }>(`/community/answers/${encodeURIComponent(answerId)}/report`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    getReports: (status?: string) =>
+        fetchWithAuth(`/community/admin/reports${status ? `?status=${status}` : ''}`),
+
+    updateReportStatus: (reportId: string, status: string) =>
+        fetchWithAuth(`/community/admin/reports/${encodeURIComponent(reportId)}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status }),
+        }),
+
+    moderateContent: (targetType: string, targetId: string, status: string) =>
+        fetchWithAuth('/community/admin/moderate', {
+            method: 'POST',
+            body: JSON.stringify({ targetType, targetId, status }),
+        }),
+
+    getTrendingTopics: () =>
+        fetchWithAuth<Array<{ topic: string; count: number }>>('/community/trending'),
 };
 
 // ==================== WELLNESS API ====================
@@ -3242,10 +3418,428 @@ export const universalReferralsApi = {
     },
 };
 
+// ==================== PATIENT API ====================
+
+export const patientApi = {
+    // Profile & Dashboard
+    getProfile: () => fetchWithAuth('/patients/profile'),
+    updateProfile: (data: Record<string, unknown>) =>
+        fetchWithAuth('/patients/profile', {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+    getDashboard: () => fetchWithAuth('/patients/dashboard'),
+    getHealthAlerts: (params?: { city?: string; latitude?: number; longitude?: number }) => {
+        const query = new URLSearchParams();
+        if (params?.city) query.append('city', params.city);
+        if (params?.latitude) query.append('latitude', String(params.latitude));
+        if (params?.longitude) query.append('longitude', String(params.longitude));
+        const qStr = query.toString();
+        return fetchWithAuth(`/patients/health-alerts${qStr ? `?${qStr}` : ''}`);
+    },
+
+    // Doctors Discovery (Patient-Scoped)
+    getDoctors: (params?: {
+        search?: string;
+        specialization?: string;
+        city?: string;
+        consultationType?: string;
+        hospitalId?: string;
+        clinicId?: string;
+        page?: number;
+        limit?: number;
+        sortBy?: string;
+        global?: boolean;
+        latitude?: number;
+        longitude?: number;
+    }) => {
+        const query = new URLSearchParams();
+        if (params?.search) query.append('search', params.search);
+        if (params?.specialization && params.specialization !== 'All Specialties') {
+            query.append('specialization', params.specialization);
+        }
+        if (params?.city) query.append('city', params.city);
+        if (params?.hospitalId) query.append('hospitalId', params.hospitalId);
+        if (params?.clinicId) query.append('clinicId', params.clinicId);
+        if (params?.consultationType && params.consultationType !== 'all') {
+            const mode = params.consultationType === 'clinic' || params.consultationType === 'in_clinic'
+                ? 'in_person'
+                : params.consultationType;
+            query.append('consultationType', mode);
+        }
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        if (params?.sortBy) {
+            let sort = params.sortBy;
+            if (sort === 'rating') sort = 'rating_desc';
+            if (sort === 'experience') sort = 'experience_desc';
+            if (sort === 'fee_low') sort = 'fee_asc';
+            query.append('sortBy', sort);
+        }
+        // Match Android behavior: enable global doctor discovery when no specific GPS / city constraint is given
+        const isGlobal = params?.global !== undefined ? params.global : (!params?.latitude && !params?.city);
+        if (isGlobal) query.append('global', 'true');
+        if (params?.latitude) query.append('latitude', String(params.latitude));
+        if (params?.longitude) query.append('longitude', String(params.longitude));
+        const qStr = query.toString();
+        return fetchWithAuth(`/patients/doctors${qStr ? `?${qStr}` : ''}`);
+    },
+    getRecommendedDoctors: (limit: number = 8) =>
+        fetchWithAuth(`/patients/doctors/recommended?limit=${limit}`),
+    getDoctorById: (id: string) => fetchWithAuth(`/patients/doctors/${id}`),
+    getDoctorSlots: (id: string, date: string, type: string = 'all') =>
+        fetchWithAuth(`/patients/doctors/${id}/slots?date=${encodeURIComponent(date)}&type=${encodeURIComponent(type)}`),
+
+    // Appointments (Patient-Scoped)
+    getAppointments: (params?: { page?: number; limit?: number; status?: string }) => {
+        const query = new URLSearchParams();
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        if (params?.status) query.append('status', params.status);
+        const qStr = query.toString();
+        return fetchWithAuth(`/patients/appointments${qStr ? `?${qStr}` : ''}`);
+    },
+    bookAppointment: (data: {
+        doctorId: string;
+        date: string;
+        timeSlot: string;
+        type: 'clinic' | 'video' | 'home_visit' | 'in_person';
+        hospitalId?: string;
+        clinicId?: string;
+        reason?: string;
+        symptoms?: string[];
+        patientNotes?: string;
+        reasonForVisit?: string;
+    }) =>
+        fetchWithAuth('/patients/appointments', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    cancelAppointment: (id: string, reason?: string) =>
+        fetchWithAuth(`/patients/appointments/${id}/cancel`, {
+            method: 'PUT',
+            body: JSON.stringify({ reason }),
+        }),
+
+    // Prescriptions & Health Records
+    getPrescriptions: (params?: { page?: number; limit?: number }) => {
+        const query = new URLSearchParams();
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        const qStr = query.toString();
+        return fetchWithAuth(`/patients/prescriptions${qStr ? `?${qStr}` : ''}`);
+    },
+    getPrescriptionById: (id: string) => fetchWithAuth(`/patients/prescriptions/${id}`),
+    forwardPrescriptionToPharmacy: (id: string, data: { pharmacyId: string; deliveryAddress?: string }) =>
+        fetchWithAuth(`/patients/prescriptions/${id}/forward-to-pharmacy`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    getReports: (params?: { page?: number; limit?: number }) => {
+        const query = new URLSearchParams();
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        const qStr = query.toString();
+        return fetchWithAuth(`/patients/reports${qStr ? `?${qStr}` : ''}`);
+    },
+
+    // Vitals
+    getVitals: (params?: { page?: number; limit?: number }) => {
+        const query = new URLSearchParams();
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        const qStr = query.toString();
+        return fetchWithAuth(`/patients/vitals${qStr ? `?${qStr}` : ''}`);
+    },
+    recordVital: (data: {
+        type: 'blood_pressure' | 'heart_rate' | 'temperature' | 'blood_sugar' | 'oxygen_saturation' | 'weight' | 'height';
+        value: string | number;
+        diastolic?: string | number;
+        unit?: string;
+        notes?: string;
+    }) =>
+        fetchWithAuth('/patients/vitals', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    // Pharmacy Orders (Patient-Scoped)
+    getOrders: (params?: { page?: number; limit?: number; status?: string }) => {
+        const query = new URLSearchParams();
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        if (params?.status) query.append('status', params.status);
+        const qStr = query.toString();
+        return fetchWithAuth(`/patients/orders${qStr ? `?${qStr}` : ''}`);
+    },
+    getOrderById: (id: string) => fetchWithAuth(`/patients/orders/${id}`),
+    cancelOrder: (id: string) =>
+        fetchWithAuth(`/patients/orders/${id}/cancel`, {
+            method: 'PATCH',
+        }),
+    getPharmacies: (params?: { city?: string; search?: string; latitude?: number; longitude?: number; radius?: number }) => {
+        if (params?.latitude && params?.longitude) {
+            const query = new URLSearchParams({
+                latitude: String(params.latitude),
+                longitude: String(params.longitude),
+                radius: String(params.radius || 25)
+            });
+            return fetchWithAuth(`/hospitals/pharmacies?${query.toString()}`);
+        }
+        const query = new URLSearchParams();
+        if (params?.city) query.append('city', params.city);
+        if (params?.search) query.append('search', params.search);
+        const qStr = query.toString();
+        return fetchWithAuth(`/pharmacy/public${qStr ? `?${qStr}` : ''}`);
+    },
+
+    // Diagnostic Bookings (Patient-Scoped)
+    getDiagnosticBookings: (params?: { page?: number; limit?: number; status?: string }) => {
+        const query = new URLSearchParams();
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        if (params?.status) query.append('status', params.status);
+        const qStr = query.toString();
+        return fetchWithAuth(`/patients/diagnostic-bookings${qStr ? `?${qStr}` : ''}`);
+    },
+    getDiagnosticBookingById: (id: string) => fetchWithAuth(`/patients/diagnostic-bookings/${id}`),
+    cancelDiagnosticBooking: (id: string) =>
+        fetchWithAuth(`/patients/diagnostic-bookings/${id}/cancel`, {
+            method: 'PATCH',
+        }),
+
+    // Emergency SOS (Patient-Scoped)
+    getActiveEmergency: () => fetchWithAuth('/patients/emergency/active'),
+    requestSOS: (data: { latitude: number; longitude: number; emergencyType?: string }) =>
+        fetchWithAuth('/patients/emergency', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    cancelEmergency: (id: string, data: { reason: string; legalNoticeAccepted: boolean }) =>
+        fetchWithAuth(`/patients/emergency/${id}/cancel`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+
+    // Hospital Discovery (Patient-Scoped / Public — Canonical 25 KM Radius)
+    getHospitals: (params?: { search?: string; city?: string; type?: string; isEmergencyAvailable?: boolean; page?: number; limit?: number; latitude?: number; longitude?: number; radius?: number }) => {
+        if (params?.latitude && params?.longitude) {
+            const query = new URLSearchParams({
+                latitude: String(params.latitude),
+                longitude: String(params.longitude),
+                radius: String(params.radius || 25),
+            });
+            if (params.type) query.append('type', params.type);
+            if (params.isEmergencyAvailable) query.append('isEmergencyAvailable', 'true');
+            return fetchWithAuth(`/hospitals/nearby?${query.toString()}`);
+        }
+        const query = new URLSearchParams();
+        if (params?.search) query.append('search', params.search);
+        if (params?.city) query.append('city', params.city);
+        if (params?.type) query.append('type', params.type);
+        if (params?.isEmergencyAvailable) query.append('isEmergencyAvailable', 'true');
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        const qStr = query.toString();
+        return fetchWithAuth(`/hospitals${qStr ? `?${qStr}` : ''}`);
+    },
+    getHospitalById: (id: string) => fetchWithAuth(`/hospitals/${id}`),
+
+    // Clinic Discovery (Patient-Scoped / Public — Canonical 25 KM Radius)
+    getClinics: (params?: { search?: string; city?: string; specialization?: string; page?: number; limit?: number; latitude?: number; longitude?: number; radius?: number }) => {
+        if (params?.latitude && params?.longitude) {
+            const query = new URLSearchParams({
+                latitude: String(params.latitude),
+                longitude: String(params.longitude),
+                radius: String(params.radius || 25),
+            });
+            if (params.specialization) query.append('specialization', params.specialization);
+            return fetchWithAuth(`/hospitals/clinics?${query.toString()}`);
+        }
+        const query = new URLSearchParams();
+        if (params?.search) query.append('search', params.search);
+        if (params?.city) query.append('city', params.city);
+        if (params?.specialization) query.append('specialization', params.specialization);
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        const qStr = query.toString();
+        return fetchWithAuth(`/clinics/search${qStr ? `?${qStr}` : ''}`);
+    },
+    getClinicById: (id: string) => fetchWithAuth(`/clinics/${id}`),
+    getClinicDoctors: (clinicId: string) => fetchWithAuth(`/hospitals/clinics/${clinicId}/doctors`),
+
+    // Diagnostic Centers Discovery (Canonical 25 KM Radius)
+    getDiagnosticCenters: (params?: { latitude?: number; longitude?: number; radius?: number; city?: string; search?: string; testType?: string; page?: number; limit?: number }) => {
+        if (params?.latitude && params?.longitude) {
+            const query = new URLSearchParams({
+                latitude: String(params.latitude),
+                longitude: String(params.longitude),
+                radius: String(params.radius || 25)
+            });
+            return fetchWithAuth(`/hospitals/diagnostic-centers?${query.toString()}`);
+        }
+        const query = new URLSearchParams();
+        if (params?.city) query.append('city', params.city);
+        if (params?.search) query.append('search', params.search);
+        if (params?.testType) query.append('testType', params.testType);
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        const qStr = query.toString();
+        return fetchWithAuth(`/diagnostic-centers/search${qStr ? `?${qStr}` : ''}`);
+    },
+    getDiagnosticCenterById: (id: string) => fetchWithAuth(`/diagnostic-centers/${id}`),
+    getDiagnosticCenterTests: (id: string, params?: { search?: string; category?: string; page?: number; limit?: number }) => {
+        const query = new URLSearchParams();
+        if (params?.search) query.append('search', params.search);
+        if (params?.category) query.append('category', params.category);
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        const qStr = query.toString();
+        return fetchWithAuth(`/diagnostic-centers/${id}/tests${qStr ? `?${qStr}` : ''}`);
+    },
+    bookDiagnosticTest: (data: { centerId: string; testId?: string; testName?: string; testType?: string; appointmentDate: string; appointmentTime: string; collectionType: 'home_collection' | 'center_visit'; notes?: string; address?: string }) =>
+        fetchWithAuth('/diagnostic-centers/book', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    // Wellness & Fitness Facilities Discovery (Canonical 25 KM Radius)
+    getFitnessCenters: (params?: { latitude?: number; longitude?: number; radius?: number; q?: string; type?: string; city?: string; page?: number; limit?: number }) => {
+        const query = new URLSearchParams();
+        if (params?.latitude && params?.longitude) {
+            query.append('latitude', String(params.latitude));
+            query.append('longitude', String(params.longitude));
+            query.append('radius', String(params.radius || 25));
+        }
+        if (params?.q) query.append('q', params.q);
+        if (params?.type) query.append('type', params.type);
+        if (params?.city) query.append('city', params.city);
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        const qStr = query.toString();
+        return fetchWithAuth(`/wellness/facilities${qStr ? `?${qStr}` : ''}`);
+    },
+    getFitnessCenterById: (id: string) => fetchWithAuth(`/wellness/facilities/${id}`),
+
+    // Reminders
+    getReminders: (params?: { type?: string; isActive?: boolean }) => {
+        const query = new URLSearchParams();
+        if (params?.type) query.append('type', params.type);
+        if (params?.isActive !== undefined) query.append('isActive', String(params.isActive));
+        const qStr = query.toString();
+        return fetchWithAuth(`/patients/reminders${qStr ? `?${qStr}` : ''}`);
+    },
+    createReminder: (data: { title: string; type: string; time: string; days?: string[]; notes?: string }) =>
+        fetchWithAuth('/patients/reminders', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    actOnReminder: (id: string, action: 'taken' | 'skip' | 'snooze', snoozeMinutes?: number) =>
+        fetchWithAuth(`/patients/reminders/${id}/action`, {
+            method: 'POST',
+            body: JSON.stringify({ action, snoozeMinutes }),
+        }),
+    deleteReminder: (id: string) =>
+        fetchWithAuth(`/patients/reminders/${id}`, {
+            method: 'DELETE',
+        }),
+};
+
+// ==================== CHATBOT / AI API ====================
+
+export const chatbotApi = {
+    startSession: () =>
+        fetchWithAuth('/chatbot/session/start', {
+            method: 'POST',
+        }),
+    sendMessage: (sessionId: string, message: string, options?: { messageType?: 'text' | 'voice'; language?: 'en' | 'hi' }) =>
+        fetchWithAuth('/chatbot/message', {
+            method: 'POST',
+            body: JSON.stringify({
+                sessionId,
+                message,
+                messageType: options?.messageType || 'text',
+                language: options?.language || 'en',
+            }),
+        }),
+    getHistory: (sessionId: string) => fetchWithAuth(`/chatbot/session/${sessionId}`),
+    getSessions: (limit: number = 10) => fetchWithAuth(`/chatbot/sessions?limit=${limit}`),
+    endSession: (sessionId: string) =>
+        fetchWithAuth(`/chatbot/session/${sessionId}/end`, {
+            method: 'POST',
+        }),
+    analyzeSymptoms: (symptoms: string | string[], language: string = 'en') =>
+        fetchWithAuth('/chatbot/analyze-symptoms', {
+            method: 'POST',
+            body: JSON.stringify({ symptoms, language }),
+        }),
+    getHealthTips: (category: string = 'general') =>
+        fetchWithAuth(`/chatbot/health-tips?category=${encodeURIComponent(category)}`),
+};
+
+// ==================== HEALTH LIBRARY / DISEASES API ====================
+
+export const diseasesApi = {
+    getStats: () => fetchWithAuth('/diseases/stats'),
+    getCategories: () => fetchWithAuth('/diseases/categories'),
+    search: (q: string, page: number = 1, limit: number = 24, severity?: string) => {
+        const query = new URLSearchParams({ q, page: String(page), limit: String(limit) });
+        if (severity) query.append('severity', severity);
+        return fetchWithAuth(`/diseases/search?${query.toString()}`);
+    },
+    getByAlphabet: (letter: string, page: number = 1, limit: number = 24, severity?: string) => {
+        const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+        if (severity) query.append('severity', severity);
+        return fetchWithAuth(`/diseases/alphabet/${encodeURIComponent(letter)}?${query.toString()}`);
+    },
+    getByCategory: (chapter: string, page: number = 1, limit: number = 24, severity?: string) => {
+        const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+        if (severity) query.append('severity', severity);
+        return fetchWithAuth(`/diseases/category/${encodeURIComponent(chapter)}?${query.toString()}`);
+    },
+    getByCode: (code: string) => fetchWithAuth(`/diseases/disease/${encodeURIComponent(code)}`),
+    getDetailsByCode: (code: string) => fetchWithAuth(`/diseases/disease/${encodeURIComponent(code)}/details`),
+};
+
+// ==================== HEALTH CARD API ====================
+
+export const healthCardApi = {
+    getStatus: () =>
+        fetchWithAuth<{
+            has_active_card: boolean;
+            token: string | null;
+            url: string | null;
+            generated_at: string | null;
+            expires_at: string | null;
+        }>('/health-card/status'),
+    generate: (guardianAnalytics?: any) =>
+        fetchWithAuth<{
+            token: string;
+            url: string;
+            expires_at: string;
+            expires_in_hours: number;
+        }>('/health-card/generate', {
+            method: 'POST',
+            body: JSON.stringify({ guardian_analytics: guardianAnalytics }),
+        }),
+    revoke: () =>
+        fetchWithAuth<{ revoked: boolean }>('/health-card/revoke', {
+            method: 'POST',
+        }),
+    getPublicRecord: (token: string) =>
+        fetchWithAuth(`/health-card/${encodeURIComponent(token)}`),
+};
+
+
+
 // ==================== Unified Export ====================
 
 export const api = {
     auth: authApi,
+    patient: patientApi,
+    healthCard: healthCardApi,
+    chatbot: chatbotApi,
+    diseases: diseasesApi,
     admin: adminApi,
     doctor: doctorApi,
     hospital: hospitalApi,
@@ -3268,4 +3862,5 @@ export const api = {
 };
 
 export default api;
+
 

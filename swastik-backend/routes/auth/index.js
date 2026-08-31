@@ -406,6 +406,38 @@ router.post('/forgot-password',
   })
 );
 
+// Verify reset OTP
+router.post('/verify-reset-otp',
+  authRateLimit(10, 600, 'verify-reset-otp'),
+  [
+    body('email').trim().isEmail().toLowerCase().withMessage('Valid email is required'),
+    body('otp').trim().matches(/^\d{6}$/).withMessage('A valid 6-digit OTP is required'),
+    body('role').optional().isIn([
+      'patient',
+      'doctor',
+      'hospital_owner',
+      'hospital_manager',
+      'clinic_owner',
+      'pharmacy_owner',
+      'ambulance_operator',
+      'ambulance_driver',
+      'wellness_coach',
+      'fitness_center_owner',
+      'diagnostic_center_owner',
+      'admin',
+      'super_admin',
+    ]).withMessage('Invalid role'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await authService.verifyPasswordResetOtp(req.body.email, req.body.otp, req.body.role);
+    res.json({
+      success: true,
+      ...result,
+    });
+  })
+);
+
 // Reset password
 router.post('/reset-password',
   authRateLimit(8, 900, 'reset'), // 8 attempts per 15 minutes

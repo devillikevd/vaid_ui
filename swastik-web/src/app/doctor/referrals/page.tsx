@@ -807,7 +807,7 @@ function DoctorReferralsContent() {
                         refreshAll();
                     }}
                     contextOrgId={activeOrg?.id}
-                    contextOrgType={activeOrg?.organization_type}
+                    contextOrgType={activeOrg?.organization_type || (activeOrg as any)?.type || 'clinic'}
                     contextOrgName={activeOrg?.name}
                 />
             )}

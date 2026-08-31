@@ -151,10 +151,10 @@ export default function PremiumDoctorWizard() {
                 </div>
 
                 <div className="relative z-10 flex-1 flex flex-col">
-                    <div className="flex items-center gap-3 mb-10">
-                        <VaidideaLogo className="w-10 h-10" />
+                    <Link href="/" aria-label="Vaididea Home" className="flex items-center gap-3 mb-10 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-xl inline-flex w-fit">
+                        <VaidideaLogo className="w-10 h-10 transition-transform group-hover:scale-105" />
                         <span className="text-2xl font-bold tracking-tight">Vaididea</span>
-                    </div>
+                    </Link>
 
                     <h1 className="text-3xl lg:text-4xl font-bold leading-tight tracking-tight mb-4">
                         Become a <span className="text-[#22C55E]">Verified</span> Doctor

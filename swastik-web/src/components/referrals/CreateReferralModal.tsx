@@ -152,6 +152,9 @@ export function CreateReferralModal({
   // Step 1 — Patient
   const [patientId, setPatientId] = useState('');
   const [patients, setPatients] = useState<any[]>([]);
+  const [patientsLoading, setPatientsLoading] = useState(false);
+  const [patientsError, setPatientsError] = useState<string | null>(null);
+  const [isAuthError, setIsAuthError] = useState(false);
   const [patientSearchQuery, setPatientSearchQuery] = useState('');
   const [debouncedPatientQuery, setDebouncedPatientQuery] = useState('');
   const [patientPage, setPatientPage] = useState(1);
@@ -256,9 +259,14 @@ export function CreateReferralModal({
   // ---------------------------------------------------------------------------
 
   const fetchPatients = useCallback(async () => {
-    if (!contextOrgType || !contextOrgId) return;
+    if (!contextOrgType || !contextOrgId) {
+      setPatientsError('Organization practice context is required to load patients.');
+      return;
+    }
     try {
-      setLoading(true);
+      setPatientsLoading(true);
+      setPatientsError(null);
+      setIsAuthError(false);
       const res = await api.universalReferrals.searchPatients({
         senderType: contextOrgType,
         senderId: contextOrgId,
@@ -274,15 +282,25 @@ export function CreateReferralModal({
         }
       } else {
         setPatients([]);
-        toast.error('Failed to load patients.');
+        const errMsg = res?.message || res?.error || 'Unable to load eligible patients.';
+        if (errMsg.toLowerCase().includes('auth') || errMsg.toLowerCase().includes('token') || errMsg.toLowerCase().includes('session')) {
+          setIsAuthError(true);
+        } else {
+          setPatientsError(errMsg);
+        }
       }
-    } catch {
+    } catch (err: any) {
       setPatients([]);
-      toast.error('Failed to load patients.');
+      const errMsg = err?.message || 'Unable to load eligible patients.';
+      if (errMsg.toLowerCase().includes('401') || errMsg.toLowerCase().includes('session') || errMsg.toLowerCase().includes('expired')) {
+        setIsAuthError(true);
+      } else {
+        setPatientsError(errMsg);
+      }
     } finally {
-      setLoading(false);
+      setPatientsLoading(false);
     }
-  }, [contextOrgType, contextOrgId, debouncedPatientQuery, patientPage, toast]);
+  }, [contextOrgType, contextOrgId, debouncedPatientQuery, patientPage]);
 
   // Auto-fetch patients when modal opens or dependencies change
   useEffect(() => {
@@ -577,9 +595,35 @@ export function CreateReferralModal({
                     )}
                   </div>
 
-                  {loading ? (
-                    <div className="text-center p-6 border rounded-lg bg-gray-50 dark:bg-gray-800/50 mt-2">
-                      <p className="text-sm text-gray-500">Searching patients...</p>
+                  {patientsLoading ? (
+                    <div className="text-center p-8 border rounded-lg bg-gray-50 dark:bg-gray-800/50 mt-2 space-y-2">
+                      <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent"></div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Loading eligible patients...</p>
+                    </div>
+                  ) : isAuthError ? (
+                    <div className="text-center p-6 border border-rose-200 dark:border-rose-900/50 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 mt-2 space-y-2">
+                      <div className="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                      </div>
+                      <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">Your session has expired</p>
+                      <p className="text-xs text-rose-700 dark:text-rose-400">Please sign in again to view your patient relationships.</p>
+                    </div>
+                  ) : patientsError ? (
+                    <div className="text-center p-6 border border-amber-200 dark:border-amber-900/50 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 mt-2 space-y-3">
+                      <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Unable to load eligible patients</p>
+                        <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">{patientsError}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => fetchPatients()}
+                        className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-xs transition"
+                      >
+                        Retry
+                      </button>
                     </div>
                   ) : patients.length > 0 ? (
                     <div className="border rounded-lg overflow-hidden dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm mt-2">
@@ -607,7 +651,7 @@ export function CreateReferralModal({
                       {patientTotalPages > 1 && (
                         <div className="flex justify-between items-center text-sm p-3 bg-gray-50 dark:bg-gray-700/30 border-t dark:border-gray-600">
                           <button
-                            disabled={patientPage === 1 || loading}
+                            disabled={patientPage === 1 || patientsLoading}
                             onClick={() => setPatientPage(p => Math.max(1, p - 1))}
                             className="px-3 py-1 bg-white dark:bg-gray-600 border rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-500"
                           >
@@ -617,7 +661,7 @@ export function CreateReferralModal({
                             Page {patientPage} of {patientTotalPages}
                           </span>
                           <button
-                            disabled={patientPage === patientTotalPages || loading}
+                            disabled={patientPage === patientTotalPages || patientsLoading}
                             onClick={() => setPatientPage(p => Math.min(patientTotalPages, p + 1))}
                             className="px-3 py-1 bg-white dark:bg-gray-600 border rounded shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-500"
                           >
@@ -627,15 +671,21 @@ export function CreateReferralModal({
                       )}
                     </div>
                   ) : debouncedPatientQuery.length > 0 ? (
-                    <div className="text-center p-6 border border-dashed rounded-lg bg-gray-50 dark:bg-gray-800/50 mt-2">
-                      <p className="text-sm text-gray-500">
-                        No patients match your search.
+                    <div className="text-center p-6 border border-dashed rounded-lg bg-gray-50 dark:bg-gray-800/50 mt-2 space-y-1">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        No matching eligible patients found.
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Try searching with a different name or phone number.
                       </p>
                     </div>
                   ) : (
-                    <div className="text-center p-6 border border-dashed rounded-lg bg-gray-50 dark:bg-gray-800/50 mt-2">
-                      <p className="text-sm text-gray-500">
-                        No authorized patients found. You must have an existing patient relationship to create a referral.
+                    <div className="text-center p-6 border border-dashed rounded-lg bg-gray-50 dark:bg-gray-800/50 mt-2 space-y-1">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        No eligible patients found.
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Patients become available here after you have an authorized patient relationship.
                       </p>
                     </div>
                   )}

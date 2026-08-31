@@ -267,10 +267,10 @@ export default function PharmacyRegisterPage() {
                 </div>
 
                 <div className="relative z-10 flex flex-col h-full p-10 xl:p-14">
-                    <div className="flex items-center gap-3 mb-12">
-                        <VaidideaLogo className="w-10 h-10" />
+                    <Link href="/" aria-label="Vaididea Home" className="flex items-center gap-3 mb-12 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded-xl inline-flex w-fit">
+                        <VaidideaLogo className="w-10 h-10 transition-transform group-hover:scale-105" />
                         <span className="text-2xl font-bold text-white tracking-tight">Vaididea</span>
-                    </div>
+                    </Link>
 
                     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: 'easeOut' }}
                         className="flex-1 flex flex-col justify-center max-w-[440px]"
@@ -353,10 +353,10 @@ export default function PharmacyRegisterPage() {
 
                     {/* Mobile header */}
                     <div className="md:hidden flex flex-col items-center gap-3 mb-7">
-                        <div className="flex items-center gap-2.5">
-                            <VaidideaLogo className="w-8 h-8" />
+                        <Link href="/" aria-label="Vaididea Home" className="flex items-center gap-2.5 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded-xl">
+                            <VaidideaLogo className="w-8 h-8 transition-transform group-hover:scale-105" />
                             <span className="text-lg font-bold text-white tracking-tight">Vaididea</span>
-                        </div>
+                        </Link>
                         <Link href="/login/pharmacy" className="flex items-center gap-1.5 text-xs text-[#A1A1AA] hover:text-white transition-colors">
                             <ArrowLeft className="w-3.5 h-3.5" />
                             Back to Login

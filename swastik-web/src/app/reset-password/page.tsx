@@ -19,6 +19,10 @@ function ResetPasswordForm() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
 
+    const role = searchParams.get('role') || '';
+    const redirectUrl = searchParams.get('redirect') || '';
+    const loginTarget = redirectUrl || (role ? `/login/${role}` : '/login');
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
@@ -77,10 +81,10 @@ function ResetPasswordForm() {
                                 Your password has been successfully reset. You can now sign in with your new password.
                             </p>
                             <Link
-                                href="/"
-                                className="inline-block mt-6 text-blue-600 hover:underline font-medium text-sm"
+                                href={loginTarget}
+                                className="inline-block mt-6 text-cyan-600 dark:text-cyan-400 hover:underline font-semibold text-sm"
                             >
-                                Go to Login
+                                Back to {role ? `${role.charAt(0).toUpperCase() + role.slice(1)} ` : ''}Login &rarr;
                             </Link>
                         </div>
                     ) : (

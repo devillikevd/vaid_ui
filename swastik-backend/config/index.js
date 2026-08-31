@@ -286,4 +286,29 @@ const config = {
 
 config.minio = config.storage;
 
+function validateProductionConfig() {
+  if (process.env.NODE_ENV !== 'production') return;
+
+  const requiredProductionVars = [
+    { key: 'PHI_ENCRYPTION_KEY', val: process.env.PHI_ENCRYPTION_KEY },
+    { key: 'FRONTEND_WEB_URL', val: process.env.FRONTEND_WEB_URL },
+    { key: 'API_URL', val: process.env.API_URL || process.env.BACKEND_URL },
+    { key: 'TRUSTED_PROXY_IPS', val: process.env.TRUSTED_PROXY_IPS },
+    { key: 'JWT_ACCESS_SECRET', val: process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET },
+    { key: 'JWT_REFRESH_SECRET', val: process.env.JWT_REFRESH_SECRET },
+    { key: 'SUPABASE_URL', val: process.env.SUPABASE_URL },
+    { key: 'SUPABASE_SERVICE_ROLE_KEY', val: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY },
+  ];
+
+  const missing = requiredProductionVars
+    .filter(item => !item.val || String(item.val).trim() === '')
+    .map(item => item.key);
+
+  if (missing.length > 0) {
+    throw new Error(`FATAL: Missing required production environment variables: ${missing.join(', ')}`);
+  }
+}
+
+validateProductionConfig();
+
 module.exports = config;

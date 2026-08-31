@@ -157,10 +157,10 @@ export default function ClinicLoginPage() {
                     <div>
                         {/* Logo row */}
                         <div className="flex items-center justify-between mb-8 lg:mb-10">
-                            <div className="flex items-center gap-2.5">
-                                <VaidideaLogo className="w-9 h-9" />
+                            <Link href="/" aria-label="Vaididea Home" className="flex items-center gap-2.5 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 rounded-xl">
+                                <VaidideaLogo className="w-9 h-9 transition-transform group-hover:scale-105" />
                                 <span className="text-xl font-bold text-white tracking-tight">Vaididea</span>
-                            </div>
+                            </Link>
                             <ProviderSelectionLink />
                         </div>
 
@@ -227,10 +227,10 @@ export default function ClinicLoginPage() {
                 >
                     {/* Mobile header */}
                     <div className="md:hidden flex flex-col items-center gap-3 mb-7">
-                        <div className="flex items-center gap-2.5">
-                            <VaidideaLogo className="w-8 h-8" />
+                        <Link href="/" aria-label="Vaididea Home" className="flex items-center gap-2.5 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 rounded-xl">
+                            <VaidideaLogo className="w-8 h-8 transition-transform group-hover:scale-105" />
                             <span className="text-lg font-bold text-white tracking-tight">Vaididea</span>
-                        </div>
+                        </Link>
                         <ProviderSelectionLink />
                     </div>
 

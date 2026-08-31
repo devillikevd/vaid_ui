@@ -20,7 +20,7 @@ async function verifyJwt(token: string): Promise<{ valid: boolean; role?: string
     }
 }
 
-const ROUTE_PORTAL_MAP: Record<string, string> = {
+const ROUTE_PORTAL_MAP: Record<string, string | string[]> = {
     '/admin': 'admin',
     '/doctor': 'doctor',
     '/hospital': 'hospital',
@@ -29,7 +29,12 @@ const ROUTE_PORTAL_MAP: Record<string, string> = {
     '/wellness': 'wellness_coach',
     '/fitness-center': 'fitness_center_owner',
     '/pharmacy': 'pharmacy',
-    '/consultation': 'doctor',
+    '/consultation': ['patient', 'doctor', 'clinic', 'hospital', 'wellness_coach', 'fitness_center_owner', 'admin'],
+    '/patient/appointments': 'patient',
+    '/patient/records': 'patient',
+    '/patient/digital-health-card': 'patient',
+    '/patient/health-id': 'patient',
+    '/patient/assistant': 'patient',
 };
 
 const ROUTE_TO_LOGIN_SLUG: Record<string, string> = {
@@ -41,14 +46,21 @@ const ROUTE_TO_LOGIN_SLUG: Record<string, string> = {
     '/wellness': 'wellness',
     '/fitness-center': 'fitness-center',
     '/pharmacy': 'pharmacy',
-    '/consultation': 'doctor',
+    '/consultation': 'patient',
+    '/patient/appointments': 'patient',
+    '/patient/records': 'patient',
+    '/patient/digital-health-card': 'patient',
+    '/patient/health-id': 'patient',
+    '/patient/assistant': 'patient',
 };
 
 export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    const matchedPrefix = Object.keys(ROUTE_PORTAL_MAP).find((prefix) =>
-        pathname.startsWith(prefix)
+    // Match longest matching prefix first to properly separate private patient sub-routes
+    const sortedPrefixes = Object.keys(ROUTE_PORTAL_MAP).sort((a, b) => b.length - a.length);
+    const matchedPrefix = sortedPrefixes.find((prefix) =>
+        pathname === prefix || pathname.startsWith(`${prefix}/`)
     );
 
     if (!matchedPrefix) {
@@ -66,6 +78,10 @@ export async function proxy(request: NextRequest) {
         let loginUrlPath = '';
         if (matchedPrefix === '/admin') {
             loginUrlPath = '/admin/login';
+        } else if (matchedPrefix === '/consultation') {
+            const effectiveRole = cookieRole || 'patient';
+            const loginSlug = effectiveRole === 'doctor' ? 'doctor' : 'patient';
+            loginUrlPath = `/login/${loginSlug}`;
         } else {
             const loginSlug = ROUTE_TO_LOGIN_SLUG[matchedPrefix] || matchedPrefix.replace('/', '');
             loginUrlPath = `/login/${loginSlug}`;
@@ -120,5 +136,16 @@ export const config = {
         '/fitness-center/:path*',
         '/pharmacy/:path*',
         '/consultation/:path*',
+        '/patient/appointments/:path*',
+        '/patient/appointments',
+        '/patient/records/:path*',
+        '/patient/records',
+        '/patient/digital-health-card/:path*',
+        '/patient/digital-health-card',
+        '/patient/health-id/:path*',
+        '/patient/health-id',
+        '/patient/assistant/:path*',
+        '/patient/assistant',
     ],
 };
+

@@ -377,6 +377,9 @@ class DoctorService {
     if (updateData.consultationFee !== undefined || updateData.consultation_fee !== undefined) {
       updatePayload.consultation_fee = updateData.consultationFee ?? updateData.consultation_fee;
     }
+    if (updateData.videoConsultationFee !== undefined || updateData.video_consultation_fee !== undefined) {
+      updatePayload.video_consultation_fee = updateData.videoConsultationFee ?? updateData.video_consultation_fee;
+    }
     if (updateData.bio !== undefined) updatePayload.bio = updateData.bio;
     if (updateData.languages !== undefined) updatePayload.languages = updateData.languages;
     if (updateData.hospitalId !== undefined) updatePayload.hospital_id = updateData.hospitalId;
@@ -755,9 +758,9 @@ class DoctorService {
       .select(`
         id, name, specialization, experience_years, rating, total_reviews, total_consultations,
         qualifications, consultation_fee, video_consultation_fee, bio,
-        profile_image_url, intro_video_url, languages, is_available,
-        hospital_id, clinic_doctors(clinic_id, clinic:clinics(latitude, longitude)),
-        hospital:hospitals(id, name, city, address, latitude, longitude)
+        profile_image_url, intro_video_url, languages, is_available, consultation_types,
+        hospital_id, clinic_doctors(clinic_id, is_active, clinic:clinics(id, name, city, address, latitude, longitude, is_approved)),
+        hospital:hospitals(id, name, city, address, latitude, longitude, is_approved)
       `, { count: 'exact' })
       .eq('is_approved', true);
 
@@ -790,7 +793,7 @@ class DoctorService {
     }
 
     if (filters.consultationType === 'video') {
-      query = query.not('video_consultation_fee', 'is', null);
+      query = query.or('video_consultation_fee.not.is.null,consultation_types.cs.{"Video"},consultation_types.cs.{"video"}');
     } else if (filters.consultationType === 'in_person') {
       query = query.not('consultation_fee', 'is', null);
     }
@@ -883,31 +886,75 @@ class DoctorService {
 
     if (hasLocation) {
       result = result.map(doc => {
-        const hospLat = doc.hospital?.latitude;
-        const hospLng = doc.hospital?.longitude;
-        const clinicLat = doc.clinic_doctors?.[0]?.clinic?.latitude;
-        const clinicLng = doc.clinic_doctors?.[0]?.clinic?.longitude;
-        
-        let hospDist = null;
-        let clinicDist = null;
-        
-        if (hospLat && hospLng) {
-          hospDist = haversineDistance(patLat, patLng, hospLat, hospLng);
+        const validOrganizations = [];
+
+        // 1. Check active approved hospital affiliation
+        if (doc.hospital && doc.hospital.is_approved !== false) {
+          const hLat = parseFloat(doc.hospital.latitude);
+          const hLng = parseFloat(doc.hospital.longitude);
+          if (!isNaN(hLat) && !isNaN(hLng) && (hLat !== 0 || hLng !== 0)) {
+            const hDist = haversineDistance(patLat, patLng, hLat, hLng);
+            validOrganizations.push({
+              type: 'hospital',
+              id: doc.hospital.id,
+              name: doc.hospital.name,
+              city: doc.hospital.city,
+              address: doc.hospital.address,
+              latitude: hLat,
+              longitude: hLng,
+              distance_km: hDist,
+            });
+          }
         }
-        if (clinicLat && clinicLng) {
-          clinicDist = haversineDistance(patLat, patLng, clinicLat, clinicLng);
+
+        // 2. Check all active approved clinic affiliations
+        if (Array.isArray(doc.clinic_doctors)) {
+          for (const link of doc.clinic_doctors) {
+            if (link.is_active !== false && link.clinic && link.clinic.is_approved !== false) {
+              const cLat = parseFloat(link.clinic.latitude);
+              const cLng = parseFloat(link.clinic.longitude);
+              if (!isNaN(cLat) && !isNaN(cLng) && (cLat !== 0 || cLng !== 0)) {
+                const cDist = haversineDistance(patLat, patLng, cLat, cLng);
+                validOrganizations.push({
+                  type: 'clinic',
+                  id: link.clinic.id,
+                  name: link.clinic.name,
+                  city: link.clinic.city,
+                  address: link.clinic.address,
+                  latitude: cLat,
+                  longitude: cLng,
+                  distance_km: cDist,
+                });
+              }
+            }
+          }
         }
-        
-        let distance = null;
-        if (hospDist !== null && clinicDist !== null) {
-          distance = Math.min(hospDist, clinicDist);
-        } else if (hospDist !== null) {
-          distance = hospDist;
-        } else if (clinicDist !== null) {
-          distance = clinicDist;
-        }
-        
-        return { ...doc, distance_km: distance };
+
+        // 3. Sort all valid physical affiliations by distance ascending
+        validOrganizations.sort((a, b) => a.distance_km - b.distance_km);
+
+        const nearestOrg = validOrganizations.length > 0 ? validOrganizations[0] : null;
+        const minDistance = nearestOrg ? nearestOrg.distance_km : null;
+
+        return {
+          ...doc,
+          distance_km: minDistance,
+          nearest_organization: nearestOrg,
+          display_organization: nearestOrg || (doc.hospital ? {
+            type: 'hospital',
+            id: doc.hospital.id,
+            name: doc.hospital.name,
+            city: doc.hospital.city,
+            address: doc.hospital.address,
+          } : (doc.clinic_doctors?.[0]?.clinic ? {
+            type: 'clinic',
+            id: doc.clinic_doctors[0].clinic.id,
+            name: doc.clinic_doctors[0].clinic.name,
+            city: doc.clinic_doctors[0].clinic.city,
+            address: doc.clinic_doctors[0].clinic.address,
+          } : null)),
+          all_organizations: validOrganizations,
+        };
       });
     }
 
@@ -915,13 +962,13 @@ class DoctorService {
       if (filters.hospitalId || filters.clinicId) {
         // Limit to 25km for hospital/clinic specific searches
         result = result.filter(doc => doc.distance_km !== null && doc.distance_km <= 25.0);
-      } else if (!filters.global) {
+      } else if (!filters.global && filters.consultationType !== 'video') {
         // Limit to 120km for In-Person searches
         result = result.filter(doc => doc.distance_km !== null && doc.distance_km <= 120.0);
       }
-      // If filters.global is true, do not filter by distance
+      // If filters.global or filters.consultationType === 'video', do not filter by distance
     } else {
-      if (!filters.global && !filters.city && !filters.hospitalId && !filters.clinicId) {
+      if (!filters.global && filters.consultationType !== 'video' && !filters.city && !filters.hospitalId && !filters.clinicId) {
         // Cannot filter 120km if no location and no city provided
         return paginatedResponse([], 0, page, limit);
       }
@@ -1156,7 +1203,7 @@ class DoctorService {
 
     if (type === 'video') {
       query = query.eq('is_video_enabled', true);
-    } else if (type === 'in_person') {
+    } else if (type === 'in_person' || type === 'clinic') {
       query = query.eq('is_clinic_enabled', true);
     } else if (type === 'home') {
       query = query.eq('is_home_enabled', true);

@@ -4,6 +4,7 @@ import React, { useState, use, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
+    User,
     Stethoscope,
     Building2,
     Pill,
@@ -22,6 +23,8 @@ import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { useAuthStore, type UserRole, ROLE_HOME_ROUTES } from '@/stores/authStore';
 import { authApi } from '@/lib/api';
+import { getSafeRedirectUrl } from '@/lib/roles';
+
 
 // Role configurations
 const ROLE_CONFIG: Record<string, {
@@ -33,6 +36,15 @@ const ROLE_CONFIG: Record<string, {
     bgColor: string;
     hoverColor: string;
 }> = {
+    patient: {
+        role: 'patient',
+        title: 'Patient Portal',
+        subtitle: 'Access your health journey',
+        icon: User as any,
+        color: 'text-vd-forest',
+        bgColor: 'bg-vd-forest',
+        hoverColor: 'hover:bg-vd-forest-deep',
+    },
     doctor: {
         role: 'doctor',
         title: 'Doctor Portal',
@@ -172,10 +184,11 @@ export default function LoginPage({ params }: LoginPageProps) {
             const result = await login(email.trim(), password, config.role, rememberMe);
 
             if (result.success) {
-                const redirectParam = searchParams.get('redirect');
-                const target = (redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('/login')) ? redirectParam : ROLE_HOME_ROUTES[config.role];
+                const redirectParam = searchParams.get('redirect') || searchParams.get('returnUrl');
+                const target = getSafeRedirectUrl(redirectParam, ROLE_HOME_ROUTES[config.role]);
                 router.replace(target);
             } else {
+
                 if (result.code === 'EMAIL_NOT_VERIFIED') {
                     setEmailNotVerified(true);
                 }
@@ -241,181 +254,177 @@ export default function LoginPage({ params }: LoginPageProps) {
     };
 
     return (
-        <div className="min-h-screen relative flex flex-col items-center justify-center bg-[#050505] overflow-hidden font-sans text-slate-200 py-12 px-4">
-            {/* Dynamic Animated Background */}
+        <div className="min-h-screen relative flex flex-col items-center justify-center bg-[#FAF8F4] overflow-hidden font-sans text-stone-800 py-10 px-4 sm:px-6">
+            {/* Subtle Warm Background Accent */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-vd-forest/20 blur-[120px] mix-blend-screen animate-pulse duration-10000" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-teal-900/20 blur-[150px] mix-blend-screen animate-pulse duration-7000 delay-1000" />
+                <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-vd-forest/5 blur-3xl" />
+                <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-emerald-500/5 blur-3xl" />
             </div>
 
-            <div className="w-full max-w-lg z-10 flex flex-col items-center">
+            <div className="w-full max-w-md z-10 flex flex-col items-center">
                 <Link
-                    href="/"
-                    className="inline-flex items-center gap-2 text-white/60 hover:text-white mb-8 transition-colors font-medium text-sm mx-auto w-full justify-center"
+                    href="/login"
+                    className="inline-flex items-center gap-2 text-stone-500 hover:text-vd-forest mb-6 transition-colors font-medium text-xs sm:text-sm group cursor-pointer"
                 >
-                    <ArrowLeft className="h-4 w-4" />
-                    <span>Back to portal selection</span>
+                    <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                    <span>Back to role selection</span>
                 </Link>
 
-                <div className="flex justify-center transition-colors duration-500 relative group w-full">
-                    <div className="absolute -inset-0.5 bg-gradient-to-br from-gray-500/30 to-gray-800/30 rounded-[2rem] blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
-                    <div className="relative w-full bg-[#0A0A0A]/80 backdrop-blur-2xl border border-white/10 p-8 md:p-10 rounded-[2rem] shadow-2xl flex flex-col gap-6 transition-all duration-500 [&_label]:!text-white/60 [&_label]:!text-xs [&_label]:!font-medium [&_label]:uppercase [&_label]:tracking-wider [&_input]:!bg-white/[0.03] [&_input]:!border-white/10 [&_input]:!text-white [&_input]:placeholder:!text-white/30 [&_input]:focus:!border-white/30 [&_input]:focus:!bg-white/[0.05] [&_input]:!rounded-xl [&_input]:!py-3.5 [&_.text-gray-600]:!text-white/40 [&_.dark\:text-gray-500]:!text-white/40 [&_select]:!bg-[#0A0A0A] [&_select]:!border-white/10 [&_select]:!text-white [&_textarea]:!bg-white/[0.03] [&_textarea]:!border-white/10 [&_textarea]:!text-white [&_textarea]:placeholder:!text-white/30">
-                        
-                        <div className="text-center mb-6">
-                            <div className="inline-flex p-3 rounded-2xl bg-gradient-to-br from-gray-200 to-white text-black shadow-sm mb-4">
-                                <Icon className="h-8 w-8" />
-                            </div>
-                            <h1 className="text-3xl font-semibold text-white tracking-tight mb-2">{config.title}</h1>
-                            <p className="text-white/50 text-sm font-light">{config.subtitle}</p>
+                <div className="w-full bg-white border border-stone-200/80 p-7 sm:p-8 rounded-3xl shadow-2xs">
+                    <div className="text-center mb-6">
+                        <div className="inline-flex p-3 rounded-2xl bg-stone-100 text-vd-forest mb-3">
+                            <Icon className="h-7 w-7" />
                         </div>
+                        <h1 className="font-heading text-2xl sm:text-3xl font-bold text-vd-forest tracking-tight mb-1">
+                            {config.title}
+                        </h1>
+                        <p className="text-stone-500 text-xs sm:text-sm font-normal">{config.subtitle}</p>
+                    </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-5">
-                            {verificationResent && (
-                                <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-sm font-medium">
-                                    Verification code sent. Please check your inbox and enter the 6-digit code below.
-                                </div>
-                            )}
-
-                            {verificationComplete && (
-                                <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-sm font-medium">
-                                    Email verified successfully. You can now sign in with your password.
-                                </div>
-                            )}
-
-                            {isExpiredRedirect && !error && (
-                                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm font-medium">
-                                    Your session has expired. Please sign in again.
-                                </div>
-                            )}
-
-                            {error && (
-                                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-medium">
-                                    <p>{error}</p>
-                                    {emailNotVerified && email && (
-                                        <button
-                                            type="button"
-                                            onClick={handleResendVerification}
-                                            disabled={resendingVerification || resendCooldown > 0}
-                                            className="mt-3 inline-flex items-center gap-1.5 text-white/70 hover:text-white font-medium text-sm disabled:opacity-50 transition-colors"
-                                        >
-                                            <Mail className="h-4 w-4" />
-                                            {resendingVerification ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend verification code'}
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-
-                            {emailNotVerified && (
-                                <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-5">
-                                    <div>
-                                        <p className="text-sm font-medium text-white/90">Verify your email</p>
-                                        <p className="mt-1 text-xs text-white/50">
-                                            Enter the 6-digit code we emailed to this address before signing in.
-                                        </p>
-                                    </div>
-                                    <Input
-                                        label="Verification Code"
-                                        type="text"
-                                        value={verificationOtp}
-                                        onChange={(e) => setVerificationOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                        placeholder="123456"
-                                        inputMode="numeric"
-                                        maxLength={6}
-                                        autoComplete="one-time-code"
-                                        required
-                                    />
-                                    <Button
-                                        type="button"
-                                        isLoading={verifyingOtp}
-                                        onClick={handleVerifyOtp}
-                                        className="w-full bg-white text-black hover:bg-gray-200 py-4 font-semibold rounded-xl transition-all"
-                                    >
-                                        Verify Email OTP
-                                    </Button>
-                                </div>
-                            )}
-
-                            <Input
-                                label="Email Address"
-                                type="email"
-                                value={email}
-                                onChange={(e) => {
-                                    setEmail(e.target.value);
-                                    setVerificationComplete(false);
-                                }}
-                                placeholder="Enter your email"
-                                leftIcon={<Mail className="h-5 w-5" />}
-                                required
-                                autoComplete="email"
-                            />
-
-                            <Input
-                                label="Password"
-                                type={showPassword ? 'text' : 'password'}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="Enter your password"
-                                leftIcon={<Lock className="h-5 w-5" />}
-                                rightIcon={
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="hover:text-white text-white/40 transition-colors"
-                                    >
-                                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                    </button>
-                                }
-                                required
-                                autoComplete="current-password"
-                            />
-
-                            <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between py-2">
-                                <label className="flex items-center gap-2.5 cursor-pointer">
-                                    <div className="relative flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            className="peer appearance-none w-5 h-5 border border-white/20 rounded bg-white/[0.03] checked:bg-white checked:border-white transition-all cursor-pointer"
-                                            checked={rememberMe}
-                                            onChange={(e) => setRememberMe(e.target.checked)}
-                                        />
-                                        <svg className="absolute w-3 h-3 text-black left-1 top-1 opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                    </div>
-                                    <span className="text-white/60 font-medium">Remember me</span>
-                                </label>
-                                <Link href={`/forgot-password/${role}`} className="text-white/60 hover:text-white transition-colors font-medium">
-                                    Forgot password?
-                                </Link>
-                            </div>
-
-                            <div className="pt-2">
-                                <Button
-                                    type="submit"
-                                    isLoading={isLoading}
-                                    className="w-full relative overflow-hidden group/btn bg-gradient-to-r from-gray-200 to-white !text-black py-6 rounded-xl font-semibold tracking-wide border-0 shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_30px_rgba(255,255,255,0.25)] transition-all"
-                                >
-                                    <span className="relative z-10">Sign In</span>
-                                </Button>
-                            </div>
-                        </form>
-
-                        {/* Register Link */}
-                        {role !== 'admin' && (
-                            <div className="mt-6 pt-6 border-t border-white/10 text-center">
-                                <p className="text-white/50 text-sm">
-                                    Don&apos;t have an account?{' '}
-                                    <Link href={`/register/${role}`} className="text-white font-medium hover:underline decoration-white/30 ml-1 transition-colors">
-                                        Register as {config.title.replace(' Portal', '')}
-                                    </Link>
-                                </p>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {verificationResent && (
+                            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-medium">
+                                Verification code sent. Please check your inbox and enter the 6-digit code below.
                             </div>
                         )}
-                    </div>
+
+                        {verificationComplete && (
+                            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-medium">
+                                Email verified successfully. You can now sign in with your password.
+                            </div>
+                        )}
+
+                        {isExpiredRedirect && !error && (
+                            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-medium">
+                                Your session has expired. Please sign in again.
+                            </div>
+                        )}
+
+                        {error && (
+                            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-medium">
+                                <p>{error}</p>
+                                {emailNotVerified && email && (
+                                    <button
+                                        type="button"
+                                        onClick={handleResendVerification}
+                                        disabled={resendingVerification || resendCooldown > 0}
+                                        className="mt-2.5 inline-flex items-center gap-1.5 text-vd-forest hover:underline font-semibold text-xs disabled:opacity-50 transition-colors"
+                                    >
+                                        <Mail className="h-3.5 w-3.5" />
+                                        {resendingVerification ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend verification code'}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {emailNotVerified && (
+                            <div className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+                                <div>
+                                    <p className="text-xs font-semibold text-stone-800">Verify your email</p>
+                                    <p className="mt-0.5 text-[11px] text-stone-500">
+                                        Enter the 6-digit code we emailed to this address before signing in.
+                                    </p>
+                                </div>
+                                <Input
+                                    label="Verification Code"
+                                    type="text"
+                                    value={verificationOtp}
+                                    onChange={(e) => setVerificationOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    placeholder="123456"
+                                    inputMode="numeric"
+                                    maxLength={6}
+                                    autoComplete="one-time-code"
+                                    required
+                                />
+                                <Button
+                                    type="button"
+                                    isLoading={verifyingOtp}
+                                    onClick={handleVerifyOtp}
+                                    className="w-full bg-vd-forest hover:bg-vd-forest-deep text-white py-2.5 font-semibold text-xs rounded-xl transition-all shadow-xs"
+                                >
+                                    Verify Email OTP
+                                </Button>
+                            </div>
+                        )}
+
+                        <Input
+                            label="Email Address"
+                            type="email"
+                            value={email}
+                            onChange={(e) => {
+                                setEmail(e.target.value);
+                                setVerificationComplete(false);
+                            }}
+                            placeholder="Enter your email"
+                            leftIcon={<Mail className="h-4 w-4 text-stone-400" />}
+                            required
+                            autoComplete="email"
+                        />
+
+                        <Input
+                            label="Password"
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Enter your password"
+                            leftIcon={<Lock className="h-4 w-4 text-stone-400" />}
+                            rightIcon={
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="text-stone-400 hover:text-stone-700 transition-colors"
+                                >
+                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                            }
+                            required
+                            autoComplete="current-password"
+                        />
+
+                        <div className="flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between py-1">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    className="w-4 h-4 rounded border-stone-300 text-vd-forest focus:ring-vd-forest cursor-pointer"
+                                    checked={rememberMe}
+                                    onChange={(e) => setRememberMe(e.target.checked)}
+                                />
+                                <span className="text-stone-600 font-medium">Remember me</span>
+                            </label>
+                            <Link href={`/forgot-password/${role}`} className="text-vd-forest hover:underline transition-colors font-medium">
+                                Forgot password?
+                            </Link>
+                        </div>
+
+                        <div className="pt-2">
+                            <Button
+                                type="submit"
+                                isLoading={isLoading}
+                                className="w-full bg-vd-forest hover:bg-vd-forest-deep text-white py-3 rounded-xl font-semibold text-xs sm:text-sm tracking-wide shadow-xs transition-all cursor-pointer"
+                            >
+                                Sign In
+                            </Button>
+                        </div>
+                    </form>
+
+                    {/* Register Link */}
+                    {role !== 'admin' && (
+                        <div className="mt-5 pt-4 border-t border-stone-100 text-center">
+                            <p className="text-stone-500 text-xs">
+                                Don&apos;t have an account?{' '}
+                                <Link
+                                    href={`/register/${role}${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect')!)}` : ''}`}
+                                    className="text-vd-forest font-semibold hover:underline ml-0.5 transition-colors"
+                                >
+                                    Register as {config.title.replace(' Portal', '')}
+                                </Link>
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer */}
-                <p className="text-center text-white/30 text-sm mt-8 font-light">
+                <p className="text-center text-stone-400 text-xs mt-6 font-normal">
                     © {new Date().getFullYear()} VAIDIDEA Healthcare. All rights reserved.
                 </p>
             </div>

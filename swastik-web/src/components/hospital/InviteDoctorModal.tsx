@@ -108,7 +108,7 @@ export function InviteDoctorModal({ isOpen, onClose }: InviteDoctorModalProps) {
         try {
             const response = await api.hospital.sendPlatformInvite(email);
             if (response.success) {
-                toast.success('Invitation Sent', `An invitation has been sent to ${email} to join Vaididea.`);
+                toast.success('Invitation Sent', `An invitation has been sent to ${email} to join VAIDIDEA.`);
                 setInviteStep(3); // Success Screen
             } else {
                 toast.error('Unable to send invite', response.error || 'Please try again later.');
@@ -144,7 +144,7 @@ export function InviteDoctorModal({ isOpen, onClose }: InviteDoctorModalProps) {
                         </div>
                         <div>
                             <h3 className="font-bold text-gray-900 dark:text-white text-lg">Invite Doctor</h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Invite a doctor you already know on Vaididea.</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Invite a doctor you already know on VAIDIDEA.</p>
                         </div>
                     </div>
                     <button onClick={handleClose} className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
@@ -158,7 +158,7 @@ export function InviteDoctorModal({ isOpen, onClose }: InviteDoctorModalProps) {
                         <div className="space-y-6">
                             <div className="space-y-3">
                                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                    Doctor's Vaididea Email
+                                    Doctor's VAIDIDEA Email
                                 </label>
                                 <div className="flex gap-2">
                                     <div className="relative flex-1">
@@ -188,14 +188,14 @@ export function InviteDoctorModal({ isOpen, onClose }: InviteDoctorModalProps) {
                                 <div className="text-center py-8 animate-in fade-in duration-300 bg-gray-50 dark:bg-gray-800/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
                                     <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Doctor account not available yet.</p>
-                                    <p className="text-xs text-gray-500 mt-1 max-w-[250px] mx-auto mb-4">You can invite them to join Vaididea and your hospital in one step.</p>
+                                    <p className="text-xs text-gray-500 mt-1 max-w-[250px] mx-auto mb-4">You can invite them to join VAIDIDEA and your hospital in one step.</p>
                                     <Button 
                                         variant="outline" 
                                         onClick={() => void handleSendPlatformInvite()}
                                         disabled={actionLoading === 'platform_invite'}
                                         leftIcon={actionLoading === 'platform_invite' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                                     >
-                                        Invite to Join Vaididea
+                                        Invite to Join VAIDIDEA
                                     </Button>
                                 </div>
                             )}
@@ -254,7 +254,7 @@ export function InviteDoctorModal({ isOpen, onClose }: InviteDoctorModalProps) {
                                     <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 rounded-lg p-4 flex gap-3 text-sm text-amber-800 dark:text-amber-300">
                                         <AlertCircle className="h-5 w-5 shrink-0" />
                                         <div>
-                                            <p className="font-semibold mb-1">✓ Vaididea Doctor Found</p>
+                                            <p className="font-semibold mb-1">✓ VAIDIDEA Doctor Found</p>
                                             <p className="opacity-90 leading-relaxed">Send an affiliation request to invite them to your hospital roster.</p>
                                         </div>
                                     </div>

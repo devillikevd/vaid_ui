@@ -75,10 +75,10 @@ function DoctorLoginForm() {
 
                 <div className="relative z-10">
                     <div className="flex items-center justify-between mb-12">
-                        <div className="flex items-center gap-3">
-                            <VaidideaLogo className="w-10 h-10" />
+                        <Link href="/" aria-label="Vaididea Home" className="flex items-center gap-3 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-xl">
+                            <VaidideaLogo className="w-10 h-10 transition-transform group-hover:scale-105" />
                             <span className="text-2xl font-bold text-white tracking-tight">Vaididea</span>
-                        </div>
+                        </Link>
                         <ProviderSelectionLink />
                     </div>
 
@@ -141,10 +141,10 @@ function DoctorLoginForm() {
                 >
                     {/* Mobile Logo */}
                     <div className="md:hidden flex flex-col items-center gap-2 mb-6">
-                        <div className="flex items-center gap-3">
-                            <VaidideaLogo className="w-10 h-10" />
+                        <Link href="/" aria-label="Vaididea Home" className="flex items-center gap-3 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-xl">
+                            <VaidideaLogo className="w-10 h-10 transition-transform group-hover:scale-105" />
                             <span className="text-2xl font-bold text-white tracking-tight">Vaididea</span>
-                        </div>
+                        </Link>
                         <ProviderSelectionLink />
                     </div>
 

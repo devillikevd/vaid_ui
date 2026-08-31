@@ -634,7 +634,7 @@ export default function HospitalDoctorsPage() {
                                 No pending join requests
                             </h3>
                             <p className="text-sm font-medium text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-                                When doctors discover your hospital on the Vaididea network and request to join, their proposals will appear here for review.
+                                When doctors discover your hospital on the VAIDIDEA network and request to join, their proposals will appear here for review.
                             </p>
                         </div>
                     ) : (

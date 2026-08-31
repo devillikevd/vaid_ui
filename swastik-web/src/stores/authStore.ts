@@ -15,7 +15,8 @@ import { useClinicStore } from './clinicStore';
 import { usePharmacyStore } from './pharmacyStore';
 import { useDiagnosticCenterStore } from './diagnosticCenterStore';
 import { useAdminStore } from './adminStore';
-import { doesRoleMatchPortal } from '@/lib/roles';
+import { doesRoleMatchPortal, isRoleValidForPortal, isPatientAuthenticated } from '@/lib/roles';
+export { doesRoleMatchPortal, isRoleValidForPortal, isPatientAuthenticated };
 
 /** Decode JWT payload and check if it's expired (H12 fix) */
 function isJwtExpired(token: string): boolean {
@@ -95,7 +96,7 @@ export const ROLE_HOME_ROUTES: Record<UserRole, string> = {
     admin: '/admin',
     super_admin: '/admin',
     doctor: '/doctor',
-    patient: '/',
+    patient: '/patient',
     hospital_owner: '/hospital',
     hospital_manager: '/hospital',
     clinic_owner: '/clinic',
@@ -115,7 +116,7 @@ export const ROLE_LOGIN_ROUTES: Record<UserRole, string> = {
     admin: '/admin/login',
     super_admin: '/admin/login',
     doctor: '/login/doctor',
-    patient: '/',
+    patient: '/login/patient',
     hospital_owner: '/login/hospital',
     hospital_manager: '/login/hospital',
     clinic_owner: '/login/clinic',

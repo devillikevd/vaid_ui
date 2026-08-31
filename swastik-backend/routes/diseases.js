@@ -1,5 +1,5 @@
 const express = require('express');
-const { Disease, Category, HealthSearchStat } = require('../database/models');
+const healthLibraryService = require('../services/healthLibraryService');
 const { generateDetailsViaGemini, generateMockDetails } = require('../utils/diseaseAI');
 
 const router = express.Router();
@@ -7,16 +7,23 @@ const router = express.Router();
 const VALID_SEVERITIES = new Set(["Critical", "Severe", "Moderate", "General"]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Helper to filter by severity
-function severityWhere(severity) {
-  return severity && VALID_SEVERITIES.has(severity) ? { severity } : {};
+function sanitizeSeverity(severity) {
+  return severity && VALID_SEVERITIES.has(severity) ? severity : '';
 }
 
 // ── CATEGORIES ──────────────────────────────────────────────────
 router.get('/categories', async (req, res, next) => {
   try {
-    const rows = await Category.find().sort({ disease_count: -1 }).lean();
-    res.json(rows.map(r => ({ ...r, id: r._id.toString(), _id: r._id.toString() })));
+    const rows = healthLibraryService.getCategories();
+    res.json(rows);
+  } catch (e) { next(e); }
+});
+
+// ── STATS ───────────────────────────────────────────────────────
+router.get('/stats', async (req, res, next) => {
+  try {
+    const stats = healthLibraryService.getStats();
+    res.json(stats);
   } catch (e) { next(e); }
 });
 
@@ -24,18 +31,15 @@ router.get('/categories', async (req, res, next) => {
 router.get('/alphabet/:letter', async (req, res, next) => {
   try {
     const letter = req.params.letter;
-    if (letter.length !== 1 || !/[a-z]/i.test(letter)) {
+    if (letter.length !== 1 || !/[a-z0-9(]/i.test(letter)) {
       return res.status(400).json({ detail: "Invalid letter." });
     }
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
-    const where = { first_letter: letter.toUpperCase(), ...severityWhere(req.query.severity) };
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const severity = sanitizeSeverity(req.query.severity);
 
-    const [total, results] = await Promise.all([
-      Disease.countDocuments(where),
-      Disease.find(where).sort({ name: 1 }).skip((page - 1) * limit).limit(limit).lean(),
-    ]);
-    res.json({ total, page, limit, results: results.map(r => ({ ...r, id: r._id.toString(), _id: r._id.toString() })) });
+    const result = healthLibraryService.getByAlphabet({ letter, page, limit, severity });
+    res.json(result);
   } catch (e) { next(e); }
 });
 
@@ -45,28 +49,11 @@ router.get('/search', async (req, res, next) => {
     const q = (req.query.q || "").trim();
     if (q.length < 2) return res.status(400).json({ detail: "Query too short." });
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const severity = sanitizeSeverity(req.query.severity);
 
-    const regex = new RegExp(q, "i");
-    const where = {
-      $or: [
-        { name: { $regex: regex } },
-        { code: { $regex: regex } },
-        { keywords: { $regex: regex } },
-        { chapter: { $regex: regex } },
-      ],
-      ...severityWhere(req.query.severity),
-    };
-
-    const [total, results] = await Promise.all([
-      Disease.countDocuments(where),
-      Disease.find(where).sort({ name: 1 }).skip((page - 1) * limit).limit(limit).lean(),
-    ]);
-
-    // Log search stat (best-effort)
-    HealthSearchStat.create({ query: q, result_count: total }).catch(() => {});
-
-    res.json({ total, page, limit, results: results.map(r => ({ ...r, id: r._id.toString(), _id: r._id.toString() })) });
+    const result = healthLibraryService.searchDiseases({ query: q, page, limit, severity });
+    res.json(result);
   } catch (e) { next(e); }
 });
 
@@ -74,23 +61,20 @@ router.get('/search', async (req, res, next) => {
 router.get('/category/:chapter', async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
-    const where = { chapter: req.params.chapter, ...severityWhere(req.query.severity) };
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const severity = sanitizeSeverity(req.query.severity);
 
-    const [total, results] = await Promise.all([
-      Disease.countDocuments(where),
-      Disease.find(where).sort({ name: 1 }).skip((page - 1) * limit).limit(limit).lean(),
-    ]);
-    res.json({ total, page, limit, results: results.map(r => ({ ...r, id: r._id.toString(), _id: r._id.toString() })) });
+    const result = healthLibraryService.getByCategory({ chapter: req.params.chapter, page, limit, severity });
+    res.json(result);
   } catch (e) { next(e); }
 });
 
 // ── SINGLE DISEASE ──────────────────────────────────────────────
 router.get('/disease/:code', async (req, res, next) => {
   try {
-    const row = await Disease.findOne({ code: req.params.code }).lean();
+    const row = healthLibraryService.getByCode(req.params.code);
     if (!row) return res.status(404).json({ detail: "Disease not found." });
-    res.json({ ...row, id: row._id.toString(), _id: row._id.toString() });
+    res.json(row);
   } catch (e) { next(e); }
 });
 
@@ -98,11 +82,13 @@ router.get('/disease/:code', async (req, res, next) => {
 router.get('/disease/:code/details', async (req, res, next) => {
   try {
     const code = req.params.code;
-    const row = await Disease.findOne({ code }).lean();
+    const row = healthLibraryService.getByCode(code);
     if (!row) return res.status(404).json({ detail: "Disease not found." });
 
     // Return cached content if already fully generated.
-    if (row.overview && row.symptoms && row.faqs) return res.json({ ...row, id: row._id.toString(), _id: row._id.toString() });
+    if (row.overview && row.symptoms && row.faqs) {
+      return res.json(row);
+    }
 
     let details;
     if (process.env.GEMINI_API_KEY) {
@@ -113,40 +99,13 @@ router.get('/disease/:code/details', async (req, res, next) => {
         details = generateMockDetails(row.name, row.chapter);
       }
     } else {
-      await sleep(1500); // mimic generation latency
+      await sleep(300);
       details = generateMockDetails(row.name, row.chapter);
     }
 
-    // Cache the results
-    try {
-      await Disease.updateOne({ code }, { $set: details });
-    } catch (e) {
-      console.error("Failed to cache details:", e.message);
-    }
-
-    res.json({ ...row, ...details, id: row._id.toString(), _id: row._id.toString() });
-  } catch (e) { next(e); }
-});
-
-// ── STATS ───────────────────────────────────────────────────────
-router.get('/stats', async (req, res, next) => {
-  try {
-    const [total_diseases, total_categories, sevGroups, letterGroups] = await Promise.all([
-      Disease.countDocuments(),
-      Category.countDocuments(),
-      Disease.aggregate([{ $group: { _id: "$severity", cnt: { $sum: 1 } } }]),
-      Disease.aggregate([{ $group: { _id: "$first_letter", cnt: { $sum: 1 } } }]),
-    ]);
-
-    const severity = sevGroups
-      .map((g) => ({ severity: g._id, cnt: g.cnt }))
-      .sort((a, b) => b.cnt - a.cnt);
-    const by_letter = letterGroups
-      .map((g) => ({ first_letter: g._id, cnt: g.cnt }))
-      .sort((a, b) => a.first_letter.localeCompare(b.first_letter));
-
-    res.json({ total_diseases, total_categories, severity, by_letter });
+    res.json({ ...row, ...details });
   } catch (e) { next(e); }
 });
 
 module.exports = router;
+

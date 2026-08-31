@@ -226,7 +226,10 @@ const createPartnershipRequest = async ({ initiatorType, initiatorId, initiatorU
   if (existing && existing.length > 0) {
     const active = existing.find(e => ['pending', 'changes_requested', 'active'].includes(e.status));
     if (active) {
-      throw new ApiError(409, `Partnership is already ${active.status}`);
+      const msg = active.status === 'active'
+        ? 'This organization is already an active partner.'
+        : 'A partnership request already exists with this organization.';
+      throw new ApiError(409, msg);
     }
   }
 
@@ -296,18 +299,34 @@ const createPartnershipRequest = async ({ initiatorType, initiatorId, initiatorU
         .eq('id', initiatorId)
         .maybeSingle();
 
-      notificationService.notify(targetOrg.owner_id, {
-        type: 'PARTNERSHIP_INVITE_RECEIVED',
+      notificationService.sendNotification(targetOrg.owner_id, {
+        type: 'partnership_invite_received',
+        category: 'partnership',
         title: 'New Partnership Invitation',
         message: `${initOrg?.name || 'A healthcare organization'} has invited you to connect for care coordination.`,
-        data: { partnershipId: finalRow.id, url: `/${targetType.replace('_', '-')}/network` }
-      }).catch(() => {});
+        action_url: `/${targetType.replace('_', '-')}/partnerships`,
+        data: { partnershipId: finalRow.id }
+      }).catch((e) => {
+        console.warn('[Partnership sendNotification warning]', e.message);
+      });
     }
   } catch (notifErr) {
     console.warn('[Partnership Invite Notification Failed]', notifErr.message);
   }
   
   return finalRow;
+};
+
+const sendInvite = async (initiatorType, initiatorId, targetType, targetId, initiatorUserId, partnershipType, metadata) => {
+  return createPartnershipRequest({
+    initiatorType,
+    initiatorId,
+    initiatorUserId,
+    targetType,
+    targetId,
+    partnershipType,
+    metadata
+  });
 };
 
 const updatePartnershipStatus = async (id, currentOrgType, currentOrgId, newStatus, additionalData = {}) => {
@@ -414,6 +433,7 @@ module.exports = {
   getPartnerships,
   getPartnershipById,
   createPartnershipRequest,
+  sendInvite,
   respondToPartnershipRequest,
   requestChanges,
   acceptChanges,

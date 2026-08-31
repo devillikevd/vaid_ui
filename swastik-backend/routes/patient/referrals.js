@@ -1,7 +1,7 @@
 const express = require('express');
 const { param } = require('express-validator');
 const { validate } = require('../../middleware/validate');
-const { authenticate } = require('../../middleware/auth');
+const { authenticate, authorize } = require('../../middleware/auth');
 const { asyncHandler, ApiError } = require('../../middleware/errorHandler');
 const { supabaseAdmin } = require('../../config/supabase');
 const consentService = require('../../services/consentService');
@@ -10,6 +10,8 @@ const patientService = require('../../services/patientService');
 const router = express.Router();
 
 router.use(authenticate);
+router.use(authorize('patient'));
+
 
 /**
  * @route GET /api/patient/referrals/pending-consent

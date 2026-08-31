@@ -20,6 +20,9 @@ function getEncryptionKey() {
   }
   
   if (keyHex.length !== 64) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL: PHI_ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes) in production.');
+    }
     console.error('CRITICAL WARNING: PHI_ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes). Using fallback key.');
     return crypto.createHash('sha256').update('development-fallback-phi-key-do-not-use-in-prod').digest();
   }

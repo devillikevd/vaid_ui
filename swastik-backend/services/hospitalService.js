@@ -174,7 +174,7 @@ const getEmergencyHospitals = async (latitude, longitude) => {
 };
 
 // Get pharmacies near location
-const getPharmacies = async (latitude, longitude, radius = 5) => {
+const getPharmacies = async (latitude, longitude, radius = 25) => {
   const bounds = getBoundingBox({ latitude, longitude }, radius);
 
   const { data, error } = await supabaseAdmin
@@ -233,23 +233,26 @@ const getClinics = async (latitude, longitude, radius = 25) => {
 // Get diagnostic centers near location
 // Proxies to diagnosticCenterService.findNearby so both discovery paths
 // (hospitals/diagnostic-centers AND diagnostic-centers/nearby) use the same table
-const getDiagnosticCenters = async (latitude, longitude, radius = 10) => {
+const getDiagnosticCenters = async (latitude, longitude, radius = 25) => {
   const diagnosticCenterService = require('./diagnosticCenterService');
   return diagnosticCenterService.findNearby(latitude, longitude, radius);
 };
 
 // Search hospitals — C4 fix: sanitize search input
-const searchHospitals = async (query, latitude, longitude) => {
+const searchHospitals = async (query = '', latitude = null, longitude = null) => {
   const q = sanitizeSearch(query);
-  if (!q) return [];
 
-  const { data, error } = await supabaseAdmin
+  let queryBuilder = supabaseAdmin
     .from('hospitals')
     .select('*')
     .eq('is_active', true)
-    .eq('is_approved', true)
-    .or(`name.ilike.%${q}%,city.ilike.%${q}%,address.ilike.%${q}%`)
-    .limit(50);
+    .eq('is_approved', true);
+
+  if (q) {
+    queryBuilder = queryBuilder.or(`name.ilike.%${q}%,city.ilike.%${q}%,address.ilike.%${q}%`);
+  }
+
+  const { data, error } = await queryBuilder.limit(50);
 
   if (error) throw error;
 

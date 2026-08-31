@@ -941,8 +941,9 @@ const updateClinic = async (clinicId, userId, updates) => {
     .single();
 
   if (existingClinicError || !existingClinic) {
-    throw existingClinicError || new ApiError(404, 'Clinic not found');
+    throw new ApiError(404, 'Clinic not found');
   }
+
 
   // Whitelist allowed update fields to prevent mass-assignment
   const allowedFields = ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode',

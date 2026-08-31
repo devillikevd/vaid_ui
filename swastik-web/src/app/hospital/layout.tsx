@@ -34,82 +34,118 @@ import DashboardLayout, { type DashboardConfig, type NavItem } from '@/component
 import { hospitalApi } from '@/lib/api';
 
 const ALL_NAV_ITEMS: NavItem[] = [
-    { name: 'Control Tower', href: '/hospital', icon: Gauge },
-    { name: 'Departments', href: '/hospital/departments', icon: Building2 },
-    { name: 'Doctors', href: '/hospital/doctors', icon: Users },
-    { name: 'Appointments', href: '/hospital/appointments', icon: Calendar },
-    { name: 'Consultations', href: '/hospital/consultations', icon: Stethoscope },
+    // ── Overview ──
+    { name: 'Control Tower', href: '/hospital', icon: Gauge, section: 'Overview' },
+
+    // ── Patient Care ──
+    { name: 'Appointments', href: '/hospital/appointments', icon: Calendar, section: 'Patient Care' },
+    { name: 'Consultations', href: '/hospital/consultations', icon: Stethoscope, section: 'Patient Care' },
+    { name: 'OPD Queue', href: '/hospital/queue', icon: ListOrdered, section: 'Patient Care' },
+    { name: 'IPD Management', href: '/hospital/ipd', icon: BedDouble, section: 'Patient Care' },
+    { name: 'Encounters', href: '/hospital/encounters', icon: ClipboardList, section: 'Patient Care' },
+
     // ── Clinical Operations ──
-    { name: 'IPD Management', href: '/hospital/ipd', icon: BedDouble, section: 'Clinical' },
-    { name: 'Bed Management', href: '/hospital/beds', icon: Activity },
-    { name: 'OPD Queue', href: '/hospital/queue', icon: ListOrdered },
-    { name: 'OT Scheduling', href: '/hospital/ot', icon: Scissors },
-    { name: 'In-House Pharmacy', href: '/hospital/inhouse-pharmacy', icon: Pill },
-    { name: 'Lab Orders', href: '/hospital/lab-orders', icon: TestTube },
-    { name: 'Radiology', href: '/hospital/radiology-orders', icon: ScanLine },
-    { name: 'Nursing Station', href: '/hospital/nursing', icon: HeartPulse },
+    { name: 'Doctors', href: '/hospital/doctors', icon: Users, section: 'Clinical Operations' },
+    { name: 'Departments', href: '/hospital/departments', icon: Building2, section: 'Clinical Operations' },
+    { name: 'Nursing Station', href: '/hospital/nursing', icon: HeartPulse, section: 'Clinical Operations' },
+    { name: 'OT Scheduling', href: '/hospital/ot', icon: Scissors, section: 'Clinical Operations' },
+    { name: 'Laboratory', href: '/hospital/lab-orders', icon: TestTube, section: 'Clinical Operations' },
+    { name: 'Radiology', href: '/hospital/radiology-orders', icon: ScanLine, section: 'Clinical Operations' },
+    { name: 'In-House Pharmacy', href: '/hospital/inhouse-pharmacy', icon: Pill, section: 'Clinical Operations' },
+
+    // ── Hospital Operations ──
+    { name: 'Bed Management', href: '/hospital/beds', icon: Activity, section: 'Hospital Operations' },
+    { name: 'Service Catalog', href: '/hospital/services', icon: IndianRupee, section: 'Hospital Operations' },
+    { name: 'Ambulances', href: '/hospital/ambulances', icon: Ambulance, section: 'Hospital Operations' },
+    { name: 'Emergency', href: '/hospital/emergency', icon: AlertTriangle, section: 'Hospital Operations' },
+
+    // ── Finance & Revenue ──
+    { name: 'Billing', href: '/hospital/billing', icon: IndianRupee, section: 'Finance & Revenue' },
+    { name: 'Reports & Revenue', href: '/hospital/reports', icon: BarChart3, section: 'Finance & Revenue' },
+
+    // ── Quality & Compliance ──
+    { name: 'Quality', href: '/hospital/quality', icon: ShieldCheck, section: 'Quality & Compliance' },
+    { name: 'Health Alerts', href: '/hospital/health-alerts', icon: Radar, section: 'Quality & Compliance' },
+
+    // ── Network ──
+    { name: 'Partnerships', href: '/hospital/partnerships', icon: Network, section: 'Network' },
+    { name: 'Referrals', href: '/hospital/referrals', icon: Share2, section: 'Network' },
+    { name: 'Pharmacies', href: '/hospital/pharmacies', icon: Pill, section: 'Network' },
+    { name: 'Diagnostic Centers', href: '/hospital/diagnostic-centers', icon: Microscope, section: 'Network' },
+
     // ── Administration ──
-    { name: 'Encounters', href: '/hospital/encounters', icon: ClipboardList, section: 'Administration' },
-    { name: 'Service Catalog', href: '/hospital/services', icon: IndianRupee },
-    { name: 'Billing', href: '/hospital/billing', icon: IndianRupee },
-    { name: 'Quality', href: '/hospital/quality', icon: ShieldCheck },
-    // ── Partnerships ──
-    { name: 'Partnerships', href: '/hospital/partnerships', icon: Network, section: 'Partners' },
-    { name: 'Referrals', href: '/hospital/referrals', icon: Share2 },
-    { name: 'Pharmacies', href: '/hospital/pharmacies', icon: Pill },
-    { name: 'Diagnostics', href: '/hospital/diagnostic-centers', icon: Microscope },
-    // ── Other ──
-    { name: 'Emergency', href: '/hospital/emergency', icon: AlertTriangle, section: 'Other' },
-    { name: 'Ambulances', href: '/hospital/ambulances', icon: Ambulance },
-    { name: 'Managers', href: '/hospital/managers', icon: UserCog },
-    { name: 'Reports', href: '/hospital/reports', icon: BarChart3 },
-    { name: 'Health Alerts', href: '/hospital/health-alerts', icon: Radar },
-    { name: 'Community Q&A', href: '/hospital/community', icon: MessageCircle },
-    { name: 'Reviews', href: '/hospital/reviews', icon: Star },
-    { name: 'Reels', href: '/hospital/reels', icon: Star },
-    { name: 'Settings', href: '/hospital/settings', icon: Settings },
+    { name: 'Managers', href: '/hospital/managers', icon: UserCog, section: 'Administration' },
+    { name: 'Settings', href: '/hospital/settings', icon: Settings, section: 'Administration' },
+
+    // ── Community ──
+    { name: 'Community Q&A', href: '/hospital/community', icon: MessageCircle, section: 'Community' },
+    { name: 'Reviews', href: '/hospital/reviews', icon: Star, section: 'Community' },
+    { name: 'Reels', href: '/hospital/reels', icon: Star, section: 'Community' },
 ];
 
 const ROLE_ALLOWED_HREFS: Record<string, string[]> = {
     receptionist: [
+        '/hospital',
         '/hospital/queue',
         '/hospital/appointments',
+        '/hospital/consultations',
         '/hospital/ipd',
         '/hospital/departments',
-        '/hospital/consultations',
+        '/hospital/doctors',
+        '/hospital/encounters',
     ],
     nurse: [
+        '/hospital',
         '/hospital/nursing',
         '/hospital/beds',
         '/hospital/ipd',
         '/hospital/emergency',
+        '/hospital/queue',
+    ],
+    doctor: [
+        '/hospital',
+        '/hospital/appointments',
+        '/hospital/consultations',
+        '/hospital/queue',
+        '/hospital/ipd',
+        '/hospital/ot',
+        '/hospital/lab-orders',
+        '/hospital/radiology-orders',
+        '/hospital/nursing',
+        '/hospital/departments',
     ],
     pharmacist: [
+        '/hospital',
         '/hospital/inhouse-pharmacy',
         '/hospital/pharmacies',
         '/hospital/reports',
     ],
     lab_technician: [
+        '/hospital',
         '/hospital/lab-orders',
         '/hospital/reports',
     ],
     radiologist: [
+        '/hospital',
         '/hospital/radiology-orders',
         '/hospital/reports',
     ],
     billing_cashier: [
+        '/hospital',
         '/hospital/billing',
         '/hospital/services',
         '/hospital/encounters',
         '/hospital/reports',
     ],
     tpa_officer: [
+        '/hospital',
         '/hospital/billing',
         '/hospital/services',
         '/hospital/ipd',
         '/hospital/reports',
     ],
     ot_coordinator: [
+        '/hospital',
         '/hospital/ot',
         '/hospital/doctors',
         '/hospital/ipd',
@@ -119,6 +155,7 @@ const ROLE_ALLOWED_HREFS: Record<string, string[]> = {
 const ROLE_SUBTITLES: Record<string, string> = {
     receptionist: 'Reception Desk',
     nurse: 'Nursing Station',
+    doctor: 'Clinical Desk',
     pharmacist: 'In-House Pharmacy Desk',
     lab_technician: 'Pathology Lab Desk',
     radiologist: 'Radiology Desk',
@@ -127,6 +164,7 @@ const ROLE_SUBTITLES: Record<string, string> = {
     ot_coordinator: 'OT Scheduling Desk',
     hospital_admin: 'Operations Hub',
     hospital_owner: 'Operations Hub',
+    hospital_manager: 'Operations Hub',
 };
 
 export default function HospitalLayout({ children }: { children: ReactNode }) {

@@ -184,7 +184,8 @@ const authRoleMatches = (user, expectedRole) => {
     (expectedRole === 'doctor' && user.role === 'doctor_pending') ||
     (expectedRole === 'admin' && user.role === 'super_admin') ||
     (expectedRole === 'hospital_owner' && user.role === 'hospital_manager') ||
-    (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver');
+    (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver') ||
+    (expectedRole === 'fitness_center_owner' && user.role === 'fitness_trainer');
 };
 
 const issueEmailOtp = async ({ userId = null, email, purpose, sender, name }) => {
@@ -218,13 +219,18 @@ const issueEmailOtp = async ({ userId = null, email, purpose, sender, name }) =>
   return { expiresAt };
 };
 
-const getActiveOtpRecord = async (email, purpose) => {
-  const { data, error } = await supabaseAdmin
+const getActiveOtpRecord = async (email, purpose, allowVerified = false) => {
+  let query = supabaseAdmin
     .from('otp_verifications')
     .select('id, user_id, email, otp, purpose, attempts, expires_at, is_verified')
     .eq('email', email)
-    .eq('purpose', purpose)
-    .eq('is_verified', false)
+    .eq('purpose', purpose);
+
+  if (!allowVerified) {
+    query = query.eq('is_verified', false);
+  }
+
+  const { data, error } = await query
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -233,8 +239,8 @@ const getActiveOtpRecord = async (email, purpose) => {
   return data;
 };
 
-const consumeOtpRecord = async ({ email, purpose, otp }) => {
-  const record = await getActiveOtpRecord(email, purpose);
+const consumeOtpRecord = async ({ email, purpose, otp, allowVerified = false }) => {
+  const record = await getActiveOtpRecord(email, purpose, allowVerified);
 
   if (!record) {
     throw createOtpError('OTP_NOT_FOUND', 'No active verification code was found. Please request a new code.');
@@ -265,12 +271,45 @@ const consumeOtpRecord = async ({ email, purpose, otp }) => {
     throw createOtpError('OTP_INVALID', 'The code you entered is incorrect.');
   }
 
-  await supabaseAdmin
-    .from('otp_verifications')
-    .update({ is_verified: true, verified_at: new Date().toISOString() })
-    .eq('id', record.id);
+  if (!record.is_verified) {
+    await supabaseAdmin
+      .from('otp_verifications')
+      .update({ is_verified: true, verified_at: new Date().toISOString() })
+      .eq('id', record.id);
+  }
 
   return record;
+};
+
+const verifyPasswordResetOtp = async (rawEmail, otp, expectedRole = null) => {
+  const email = normalizeEmail(rawEmail);
+  if (!email || !otp) {
+    throw createOtpError('OTP_REQUIRED', 'Email and reset code are required.');
+  }
+
+  const record = await consumeOtpRecord({
+    email,
+    purpose: OTP_PURPOSE_PASSWORD_RESET,
+    otp,
+    allowVerified: true,
+  });
+
+  if (expectedRole) {
+    const { data: user } = await supabaseAdmin
+      .from('users')
+      .select('role, requested_role')
+      .eq('id', record.user_id)
+      .single();
+
+    if (user && !authRoleMatches(user, expectedRole)) {
+      throw new ApiError(403, 'Invalid reset code for this portal role');
+    }
+  }
+
+  return {
+    success: true,
+    message: 'OTP verified successfully. You can now set a new password.',
+  };
 };
 
 // Universal OTP engine (Part 10) — reuses the existing otp_verifications
@@ -641,8 +680,8 @@ const createRoleProfile = async (userId, role, data) => {
         registration_number: normalizeText(firstProvided(data.registrationNumber, data.registration_number)) || null,
         qualifications: doctorQualifications,
         experience_years: Number.isFinite(doctorExperience) ? doctorExperience : 0,
-        consultation_fee: doctorConsultationFee ?? 0,
-        video_consultation_fee: doctorVideoFee ?? 0,
+        consultation_fee: doctorConsultationFee !== undefined ? doctorConsultationFee : null,
+        video_consultation_fee: doctorVideoFee !== undefined ? doctorVideoFee : null,
         bio: normalizeText(data.bio) || null,
         languages: doctorLanguages,
         is_approved: false,
@@ -663,13 +702,18 @@ const createRoleProfile = async (userId, role, data) => {
         name: resolveFacilityName(data) || 'Unnamed Hospital',
         address: data.address || '',
         city: data.city || '',
+        state: data.state || data.hospitalState || null,
+        pincode: data.pincode || null,
         license_number: data.licenseNumber || data.license_number || null,
         phone: data.phone || null,
         email: data.email || null,
+        website: data.website || null,
         latitude: parseOptionalNumber(data.latitude),
         longitude: parseOptionalNumber(data.longitude),
-        is_emergency_available: data.is_emergency_available || false,
-        type: data.type || 'Private',
+        is_emergency_available: data.is_emergency_available || data.isEmergencyAvailable || false,
+        type: data.type || data.hospitalType || 'Private',
+        total_beds: parseOptionalNumber(data.totalBeds || data.total_beds) || null,
+        is_active: true,
         is_approved: false,
         approval_status: 'pending',
       });
@@ -1569,6 +1613,7 @@ const resetPassword = async ({ token = null, email: rawEmail = null, otp = null,
     email,
     purpose: OTP_PURPOSE_PASSWORD_RESET,
     otp,
+    allowVerified: true,
   });
 
   if (expectedRole) {
@@ -1854,6 +1899,7 @@ module.exports = {
   logout,
   changePassword,
   forgotPassword,
+  verifyPasswordResetOtp,
   resetPassword,
   updateProfile,
   issueUniversalOtp,

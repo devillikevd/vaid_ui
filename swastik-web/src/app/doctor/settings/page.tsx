@@ -133,18 +133,18 @@ export default function DoctorSettingsPage() {
     const [rawDoctorProfile, setRawDoctorProfile] = useState<DoctorProfile | null>(null);
     const [profile, setProfile] = useState({
         name: '', phone: '', specialization: '', experience: '',
-        qualification: '', consultationFee: '', languages: '', bio: '',
+        qualification: '', consultationFee: '', videoConsultationFee: '', languages: '', bio: '',
         registrationNumber: '', licenseNumber: '',
         licenseDocumentUrl: '', degreeCertificateUrl: '',
         profileImage: '' as string | null,
         introVideoUrl: '' as string | null,
         awards: '',
-        consultationTypes: [] as string[],
+        consultationTypes: ['In-Person', 'Video'] as string[],
         isPublicProfile: true,
         showPhoneNumber: false,
     });
     const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
-    const [settings, setSettings] = useState({ emailNotifications: true, smsNotifications: true });
+    const [settings, setSettings] = useState({ emailNotifications: true, smsNotifications: false });
     const [savingNotifications, setSavingNotifications] = useState(false);
 
     const loadProfileData = async () => {
@@ -164,6 +164,7 @@ export default function DoctorSettingsPage() {
                     experience: p.experience_years?.toString() || p.experience?.toString() || '',
                     qualification: Array.isArray(p.qualifications) ? p.qualifications.join(', ') : (p.qualification || ''),
                     consultationFee: p.consultation_fee?.toString() || p.consultationFee?.toString() || '',
+                    videoConsultationFee: p.video_consultation_fee?.toString() || p.videoConsultationFee?.toString() || '',
                     languages: Array.isArray(p.languages) ? p.languages.join(', ') : '',
                     bio: p.bio || '',
                     registrationNumber: p.registration_number || '',
@@ -225,12 +226,16 @@ export default function DoctorSettingsPage() {
             
             const experienceNumber = Number(profile.experience);
             const consultationFeeNumber = Number(profile.consultationFee);
+            const videoFeeNumber = profile.videoConsultationFee.trim() !== '' && Number.isFinite(Number(profile.videoConsultationFee))
+                ? Number(profile.videoConsultationFee)
+                : undefined;
             
             const res = await doctorApi.updateProfile({
                 name: profile.name, specialization: profile.specialization,
                 experience: experienceNumber,
                 qualifications: profile.qualification.split(',').map(s => s.trim()).filter(Boolean),
                 consultation_fee: consultationFeeNumber,
+                video_consultation_fee: videoFeeNumber,
                 languages: profile.languages.split(',').map(s => s.trim()).filter(Boolean),
                 bio: profile.bio.trim() || undefined,
                 registration_number: profile.registrationNumber.trim() || undefined,
@@ -556,13 +561,19 @@ export default function DoctorSettingsPage() {
 
                                     <SectionDivider title="Practice & Fees" />
                                     {isEditing ? (
-                                        <div className="max-w-xs">
-                                            <FieldRow label="Consultation Fee (₹)" required>
-                                                <Input type="number" value={profile.consultationFee} onChange={e => setProfile(p => ({ ...p, consultationFee: e.target.value }))} placeholder="e.g. 500" />
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">
+                                            <FieldRow label="In-Clinic Fee (₹)" required>
+                                                <Input type="number" min="0" value={profile.consultationFee} onChange={e => setProfile(p => ({ ...p, consultationFee: e.target.value }))} placeholder="e.g. 500" />
+                                            </FieldRow>
+                                            <FieldRow label="Video Consultation Fee (₹)">
+                                                <Input type="number" min="0" value={profile.videoConsultationFee} onChange={e => setProfile(p => ({ ...p, videoConsultationFee: e.target.value }))} placeholder="e.g. 400" />
                                             </FieldRow>
                                         </div>
                                     ) : (
-                                        <ViewRow label="Consultation Fee" value={profile.consultationFee ? `₹${profile.consultationFee}` : ''} />
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                                            <ViewRow label="In-Clinic Fee" value={profile.consultationFee ? `₹${profile.consultationFee}` : ''} />
+                                            <ViewRow label="Video Consultation Fee" value={profile.videoConsultationFee ? `₹${profile.videoConsultationFee}` : 'Not set'} />
+                                        </div>
                                     )}
 
                                     <SectionDivider title="Consultation Types" />

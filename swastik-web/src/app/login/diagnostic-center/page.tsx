@@ -150,10 +150,10 @@ export default function DiagnosticLoginPage() {
                 <div className="relative z-10 flex flex-col justify-between h-full p-8 lg:p-12 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
                     <div>
                         <div className="flex items-center justify-between mb-8 lg:mb-10">
-                            <div className="flex items-center gap-2.5">
-                                <VaidideaLogo className="w-9 h-9" />
+                            <Link href="/" aria-label="Vaididea Home" className="flex items-center gap-2.5 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-xl">
+                                <VaidideaLogo className="w-9 h-9 transition-transform group-hover:scale-105" />
                                 <span className="text-xl font-bold text-white tracking-tight">Vaididea</span>
-                            </div>
+                            </Link>
                             <ProviderSelectionLink />
                         </div>
 
@@ -214,10 +214,10 @@ export default function DiagnosticLoginPage() {
                     className="w-full max-w-[420px] relative z-10 py-8 md:py-0"
                 >
                     <div className="md:hidden flex flex-col items-center gap-3 mb-7">
-                        <div className="flex items-center gap-2.5">
-                            <VaidideaLogo className="w-8 h-8" />
+                        <Link href="/" aria-label="Vaididea Home" className="flex items-center gap-2.5 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-xl">
+                            <VaidideaLogo className="w-8 h-8 transition-transform group-hover:scale-105" />
                             <span className="text-lg font-bold text-white tracking-tight">Vaididea</span>
-                        </div>
+                        </Link>
                         <ProviderSelectionLink />
                     </div>
 

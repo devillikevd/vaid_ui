@@ -74,7 +74,7 @@ router.get('/pharmacies',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { latitude, longitude, radius = 5 } = req.query;
+    const { latitude, longitude, radius = 25 } = req.query;
     const pharmacies = await hospitalService.getPharmacies(
       parseFloat(latitude),
       parseFloat(longitude),
@@ -92,7 +92,7 @@ router.get('/clinics',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { latitude, longitude, radius = 5 } = req.query;
+    const { latitude, longitude, radius = 25 } = req.query;
     const clinics = await hospitalService.getClinics(
       parseFloat(latitude),
       parseFloat(longitude),
@@ -110,7 +110,7 @@ router.get('/diagnostic-centers',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { latitude, longitude, radius = 10 } = req.query;
+    const { latitude, longitude, radius = 25 } = req.query;
     const centers = await hospitalService.getDiagnosticCenters(
       parseFloat(latitude),
       parseFloat(longitude),
@@ -123,13 +123,15 @@ router.get('/diagnostic-centers',
 // Search hospitals
 router.get('/search',
   [
-    query('q').notEmpty().withMessage('Search query is required'),
+    query('q').optional().isString(),
+    query('search').optional().isString(),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { q, latitude, longitude } = req.query;
+    const { q, search, latitude, longitude } = req.query;
+    const searchTerm = q !== undefined ? q : (search !== undefined ? search : '');
     const hospitals = await hospitalService.searchHospitals(
-      q,
+      searchTerm,
       latitude ? parseFloat(latitude) : null,
       longitude ? parseFloat(longitude) : null
     );

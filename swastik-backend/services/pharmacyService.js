@@ -355,7 +355,7 @@ const findNearbyWithMedicine = async (latitude, longitude, medicineId, radius = 
 };
 
 // Find nearby pharmacies (general — no medicineId required)
-const findNearbyGeneral = async (latitude, longitude, radius = 5) => {
+const findNearbyGeneral = async (latitude, longitude, radius = 25) => {
   const bounds = getBoundingBox({ latitude, longitude }, radius);
 
   const { data: pharmacies } = await supabaseAdmin

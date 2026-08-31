@@ -399,6 +399,7 @@ export function BaseDashboardLayout({
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+    const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
     const [notifOpen, setNotifOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchOpen, setSearchOpen] = useState(false);
@@ -681,17 +682,25 @@ export function BaseDashboardLayout({
             >
                 {/* Logo */}
                 <div className={cn('flex-none flex items-center h-16 px-4 border-b', colors.border, desktopCollapsed ? 'justify-center' : 'justify-between')}>
-                    <div className={cn("flex items-center gap-3 overflow-hidden", desktopCollapsed ? "lg:hidden" : "")}>
-                        <VaidideaLogo className="w-9 h-9 shrink-0" />
+                    <Link
+                        href="/"
+                        aria-label="Vaididea Home"
+                        className={cn("flex items-center gap-3 overflow-hidden group cursor-pointer p-1 -ml-1 rounded-xl hover:bg-gray-100 dark:hover:bg-white/[0.04] transition-all", desktopCollapsed ? "lg:hidden" : "")}
+                    >
+                        <VaidideaLogo className="w-9 h-9 shrink-0 transition-transform group-hover:scale-105" />
                         <div className="whitespace-nowrap min-w-0">
-                            <h1 className="font-bold text-[15px] text-gray-900 dark:text-white tracking-tight leading-tight">{config.portalTitle}</h1>
+                            <h1 className="font-bold text-[15px] text-gray-900 dark:text-white tracking-tight leading-tight group-hover:text-emerald-500 transition-colors">{config.portalTitle}</h1>
                             <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium mt-0.5">{config.portalSubtitle}</p>
                         </div>
-                    </div>
+                    </Link>
                     {desktopCollapsed && (
-                        <div className="shrink-0 hidden lg:flex items-center justify-center">
-                            <VaidideaLogo className="w-9 h-9" />
-                        </div>
+                        <Link
+                            href="/"
+                            aria-label="Vaididea Home"
+                            className="shrink-0 hidden lg:flex items-center justify-center cursor-pointer p-1 rounded-xl hover:bg-gray-100 dark:hover:bg-white/[0.04] transition-all group"
+                        >
+                            <VaidideaLogo className="w-9 h-9 transition-transform group-hover:scale-105" />
+                        </Link>
                     )}
                     <div className="flex shrink-0 items-center gap-1">
                         <button
@@ -712,7 +721,7 @@ export function BaseDashboardLayout({
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-6">
+                <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4">
                     {(() => {
                         const sections: Record<string, typeof visibleNavItems> = {};
                         visibleNavItems.forEach(item => {
@@ -721,70 +730,104 @@ export function BaseDashboardLayout({
                             sections[section].push(item);
                         });
 
-                        return Object.entries(sections).map(([sectionName, items]) => (
-                            <div key={sectionName || 'default'} className="space-y-0.5">
-                                {sectionName && (
-                                    <div className={cn(
-                                        "px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] whitespace-nowrap text-gray-500 dark:text-gray-400",
-                                        desktopCollapsed ? "lg:hidden" : ""
-                                    )}>
-                                        {sectionName}
-                                    </div>
-                                )}
-                                {sectionName && desktopCollapsed && (
-                                    <div className="h-px hidden lg:block bg-gray-200 dark:bg-gray-800/50 mx-2 mb-2" />
-                                )}
-                                {items.map((item) => {
-                                    const isActive = navItemToDisplay?.href === item.href;
-                                    const Icon = item.icon;
+                        const toggleSection = (sName: string) => {
+                            setCollapsedSections(prev => ({
+                                ...prev,
+                                [sName]: !prev[sName]
+                            }));
+                        };
 
-                                    return (
-                                        <Link
-                                            key={item.name}
-                                            href={item.href}
-                                            onClick={item.onClick}
-                                            title={desktopCollapsed ? item.name : undefined}
+                        return Object.entries(sections).map(([sectionName, items]) => {
+                            // Check if current active page is inside this section
+                            const hasActiveItem = items.some(item => navItemToDisplay?.href === item.href);
+                            // If user explicitly collapsed it, but it has the active item, keep it expanded
+                            const isCollapsed = sectionName ? (collapsedSections[sectionName] && !hasActiveItem) : false;
+                            const totalBadges = items.reduce((sum, item) => sum + (item.badge || 0), 0);
+
+                            return (
+                                <div key={sectionName || 'default'} className="space-y-1">
+                                    {sectionName && (
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleSection(sectionName)}
                                             className={cn(
-                                                'relative flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
-                                                desktopCollapsed ? 'lg:justify-center px-3 lg:px-0 lg:py-3' : 'px-3',
-                                                isActive
-                                                    ? colors.active
-                                                    : cn(colors.text, colors.hover)
+                                                "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-[0.12em] text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 transition-colors group cursor-pointer",
+                                                desktopCollapsed ? "lg:hidden" : ""
                                             )}
                                         >
-                                            {/* Active left indicator */}
-                                            {isActive && (
-                                                <span className={cn(
-                                                    "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
-                                                    colors.indicator
+                                            <span className="truncate">{sectionName}</span>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                {isCollapsed && totalBadges > 0 && (
+                                                    <span className="bg-red-500 text-white text-[9px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center">
+                                                        {totalBadges > 99 ? '99+' : totalBadges}
+                                                    </span>
+                                                )}
+                                                <ChevronDown className={cn(
+                                                    "h-3.5 w-3.5 text-gray-400 transition-transform duration-200",
+                                                    isCollapsed ? "-rotate-90" : "rotate-0"
                                                 )} />
-                                            )}
-                                            <Icon className={cn(
-                                                'h-[18px] w-[18px] shrink-0 transition-colors duration-150',
-                                                isActive
-                                                    ? (colors.activeIcon)
-                                                    : cn('text-gray-500 dark:text-gray-400', colors.hoverIcon)
-                                            )} />
-                                            <span className={cn("whitespace-nowrap font-medium", desktopCollapsed ? "lg:hidden" : "")}>{item.name}</span>
+                                            </div>
+                                        </button>
+                                    )}
+                                    {sectionName && desktopCollapsed && (
+                                        <div className="h-px hidden lg:block bg-gray-200 dark:bg-gray-800/50 mx-2 mb-2" />
+                                    )}
+                                    {(!isCollapsed || desktopCollapsed) && (
+                                        <div className="space-y-0.5">
+                                            {items.map((item) => {
+                                                const isActive = navItemToDisplay?.href === item.href;
+                                                const Icon = item.icon;
 
-                                            {item.badge != null && item.badge > 0 && (
-                                                <span className={cn(
-                                                    "bg-red-500 text-white text-[10px] font-bold rounded-full h-4.5 min-w-[18px] flex items-center justify-center px-1 ml-auto leading-none py-0.5",
-                                                    desktopCollapsed ? "lg:hidden" : ""
-                                                )}>
-                                                    {item.badge > 99 ? '99+' : item.badge}
-                                                </span>
-                                            )}
-                                            {desktopCollapsed && item.badge != null && item.badge > 0 && (
-                                                <span className="hidden lg:flex absolute top-0.5 right-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full h-4 w-4 items-center justify-center">
-                                                    {item.badge > 99 ? '!' : item.badge}
-                                                </span>
-                                            )}
-                                        </Link>
-                                    );
-                                })}
-                            </div>
-                        ));
+                                                return (
+                                                    <Link
+                                                        key={item.name}
+                                                        href={item.href}
+                                                        onClick={item.onClick}
+                                                        title={desktopCollapsed ? item.name : undefined}
+                                                        className={cn(
+                                                            'relative flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
+                                                            desktopCollapsed ? 'lg:justify-center px-3 lg:px-0 lg:py-3' : 'px-3',
+                                                            isActive
+                                                                ? colors.active
+                                                                : cn(colors.text, colors.hover)
+                                                        )}
+                                                    >
+                                                        {/* Active left indicator */}
+                                                        {isActive && (
+                                                            <span className={cn(
+                                                                "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
+                                                                colors.indicator
+                                                            )} />
+                                                        )}
+                                                        <Icon className={cn(
+                                                            'h-[18px] w-[18px] shrink-0 transition-colors duration-150',
+                                                            isActive
+                                                                ? (colors.activeIcon)
+                                                                : cn('text-gray-500 dark:text-gray-400', colors.hoverIcon)
+                                                        )} />
+                                                        <span className={cn("whitespace-nowrap font-medium", desktopCollapsed ? "lg:hidden" : "")}>{item.name}</span>
+
+                                                        {item.badge != null && item.badge > 0 && (
+                                                            <span className={cn(
+                                                                "bg-red-500 text-white text-[10px] font-bold rounded-full h-4.5 min-w-[18px] flex items-center justify-center px-1 ml-auto leading-none py-0.5",
+                                                                desktopCollapsed ? "lg:hidden" : ""
+                                                            )}>
+                                                                {item.badge > 99 ? '99+' : item.badge}
+                                                            </span>
+                                                        )}
+                                                        {desktopCollapsed && item.badge != null && item.badge > 0 && (
+                                                            <span className="hidden lg:flex absolute top-0.5 right-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full h-4 w-4 items-center justify-center">
+                                                                {item.badge > 99 ? '!' : item.badge}
+                                                            </span>
+                                                        )}
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        });
                     })()}
                 </nav>
             </div>

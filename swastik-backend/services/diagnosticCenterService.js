@@ -111,7 +111,7 @@ const searchDiagnosticCenters = async (filters = {}, page = 1, limit = 20) => {
 };
 
 // Find nearby diagnostic centers
-const findNearby = async (latitude, longitude, radius = 10) => {
+const findNearby = async (latitude, longitude, radius = 25) => {
   const bounds = getBoundingBox({ latitude, longitude }, radius);
 
   const { data, error } = await supabaseAdmin

@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, query, param } = require('express-validator');
 const { validate } = require('../../middleware/validate');
-const { authenticate, authorize } = require('../../middleware/auth');
+const { authenticate, authorize, optionalAuth } = require('../../middleware/auth');
 const { uploadProfileImage } = require('../../middleware/upload');
 const patientService = require('../../services/patientService');
 const appointmentService = require('../../services/appointmentService');
@@ -75,6 +75,104 @@ const getDiagnosticBookingStatusFilters = (status) => {
   return [normalizedStatus];
 };
 
+// ============ PUBLIC DOCTOR DISCOVERY & SLOTS ============
+// Publicly accessible for visitors/guests and patients to discover doctors and available slots
+
+// Get recommended doctors (smart recommendation for logged-in patients; top-rated for guests)
+// Must be BEFORE /doctors/:id to avoid route collision
+router.get('/doctors/recommended',
+  optionalAuth,
+  asyncHandler(async (req, res) => {
+    const parsedLimit = parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 20) : 8;
+
+    if (req.user && req.user.role === 'patient') {
+      const { data: patient } = await supabaseAdmin
+        .from('patients')
+        .select('id')
+        .eq('user_id', req.user.id)
+        .single();
+
+      if (patient) {
+        const recommended = await patientService.getRecommendedDoctors(
+          patient.id,
+          req.user.id,
+          limit
+        );
+        const signedRecommended = await signStorageUrlsInPayload(recommended);
+        return res.json({ success: true, data: signedRecommended });
+      }
+    }
+
+    // Unauthenticated/guest fallback: return top-rated approved doctors
+    const result = await doctorService.getAllDoctors(
+      { sortBy: 'rating_desc', global: true },
+      1,
+      limit
+    );
+    const signedResult = await signStorageUrlsInPayload(result.data || []);
+    res.json({ success: true, data: signedResult });
+  })
+);
+
+// Search doctors (Public)
+router.get('/doctors',
+  optionalAuth,
+  asyncHandler(async (req, res) => {
+    const { page = 1, limit = 20, specialization, search, hospitalId, clinicId, city, latitude, longitude, global, sortBy, consultationType } = req.query;
+    const result = await doctorService.getAllDoctors(
+      { specialization, search, hospitalId, clinicId, city, latitude, longitude, global: global === 'true', sortBy, consultationType },
+      parseInt(page),
+      parseInt(limit)
+    );
+    const signedResult = await signStorageUrlsInPayload(result);
+    res.json({ success: true, ...signedResult });
+  })
+);
+
+// Get doctor details (Public)
+router.get('/doctors/:id',
+  optionalAuth,
+  asyncHandler(async (req, res) => {
+    const doctorDetails = await doctorService.getDoctorById(req.params.id);
+    const dataPayload = {
+      doctor: doctorDetails,
+      schedules: doctorDetails.slots || [],
+      reviews: doctorDetails.reviews || [],
+      reviewDistribution: doctorDetails.reviewDistribution || {},
+      queueCount: doctorDetails.queueCount || 0,
+      clinics: doctorDetails.affiliatedClinics?.map(ac => ({ ...ac.clinic, consultation_fee: ac.consultation_fee, schedule: ac.schedule })) || [],
+      hospitals: doctorDetails.affiliatedHospitals?.map(ah => ({ ...ah.hospital, department: ah.department, designation: ah.designation, schedule: ah.schedule })) || []
+    };
+
+    const signedData = await signStorageUrlsInPayload(dataPayload);
+
+    res.json({
+      success: true,
+      data: signedData
+    });
+  })
+);
+
+// Get doctor slots (Public)
+router.get('/doctors/:id/slots',
+  [
+    query('date').notEmpty().withMessage('Date is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const slots = await doctorService.getAvailableSlots(req.params.id, req.query.date, req.query.type || 'all');
+    // Wrap as { date, slots } to match Android SlotsResponse DTO
+    res.json({ success: true, data: { date: req.query.date, slots } });
+  })
+);
+
+// ============ PRIVATE PATIENT-PROTECTED ROUTES ============
+// All routes below require valid patient authentication
+router.use(authenticate);
+router.use(authorize('patient'));
+
+
 // Mount reviews router
 const reviewsRoutes = require('./reviews');
 router.use('/reviews', reviewsRoutes);
@@ -83,9 +181,6 @@ router.use('/reviews', reviewsRoutes);
 const referralsRoutes = require('./referrals');
 router.use('/referrals', referralsRoutes);
 
-// All routes require authentication and patient role
-router.use(authenticate);
-router.use(authorize('patient'));
 
 // Get patient profile
 router.get('/profile',
@@ -344,12 +439,6 @@ router.post('/vitals',
       case 'weight': vitalInsert.weight = val; break;
       case 'height': vitalInsert.height = val; break;
     }
-
-    const jwt = require('jsonwebtoken');
-    vitalInsert.crypto_signature = jwt.sign(
-      { type: req.body.type, value: req.body.value, patient_id: patient.id, recorded_at: vitalInsert.recorded_at },
-      config.jwt.secret
-    );
 
     const { data, error } = await supabaseAdmin
       .from('patient_vitals')
@@ -763,86 +852,7 @@ router.put('/appointments/:id/cancel',
   })
 );
 
-// ============ DOCTORS (proxy for Android app) ============
-// Android calls patients/doctors/* — these proxy to doctorService
 
-// Get recommended doctors (smart recommendation engine)
-// Must be BEFORE /doctors/:id to avoid route collision
-router.get('/doctors/recommended',
-  asyncHandler(async (req, res) => {
-    const parsedLimit = parseInt(req.query.limit, 10);
-    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 20) : 8;
-
-    // Get patient ID for the recommendation engine
-    const { data: patient } = await supabaseAdmin
-      .from('patients')
-      .select('id')
-      .eq('user_id', req.user.id)
-      .single();
-
-    if (!patient) {
-      return res.status(404).json({ success: false, message: 'Patient profile not found' });
-    }
-
-    const recommended = await patientService.getRecommendedDoctors(
-      patient.id,
-      req.user.id,
-      limit
-    );
-    const signedRecommended = await signStorageUrlsInPayload(recommended);
-    res.json({ success: true, data: signedRecommended });
-  })
-);
-
-// Search doctors
-router.get('/doctors',
-  asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20, specialization, search, hospitalId, clinicId, city, latitude, longitude, global, sortBy, consultationType } = req.query;
-    const result = await doctorService.getAllDoctors(
-      { specialization, search, hospitalId, clinicId, city, latitude, longitude, global: global === 'true', sortBy, consultationType },
-      parseInt(page),
-      parseInt(limit)
-    );
-    const signedResult = await signStorageUrlsInPayload(result);
-    res.json({ success: true, ...signedResult });
-  })
-);
-
-// Get doctor details
-router.get('/doctors/:id',
-  asyncHandler(async (req, res) => {
-    const doctorDetails = await doctorService.getDoctorById(req.params.id);
-    const dataPayload = {
-      doctor: doctorDetails,
-      schedules: doctorDetails.slots || [],
-      reviews: doctorDetails.reviews || [],
-      reviewDistribution: doctorDetails.reviewDistribution || {},
-      queueCount: doctorDetails.queueCount || 0,
-      clinics: doctorDetails.affiliatedClinics?.map(ac => ({ ...ac.clinic, consultation_fee: ac.consultation_fee, schedule: ac.schedule })) || [],
-      hospitals: doctorDetails.affiliatedHospitals?.map(ah => ({ ...ah.hospital, department: ah.department, designation: ah.designation, schedule: ah.schedule })) || []
-    };
-
-    const signedData = await signStorageUrlsInPayload(dataPayload);
-
-    res.json({
-      success: true,
-      data: signedData
-    });
-  })
-);
-
-// Get doctor slots
-router.get('/doctors/:id/slots',
-  [
-    query('date').notEmpty().withMessage('Date is required'),
-  ],
-  validate,
-  asyncHandler(async (req, res) => {
-    const slots = await doctorService.getAvailableSlots(req.params.id, req.query.date, req.query.type || 'all');
-    // Wrap as { date, slots } to match Android SlotsResponse DTO
-    res.json({ success: true, data: { date: req.query.date, slots } });
-  })
-);
 
 // ============ PRESCRIPTIONS ============
 // Returns actual prescriptions from the prescriptions table (not reports)

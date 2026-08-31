@@ -239,10 +239,10 @@ export default function DiagnosticRegisterPage() {
                 <div className="relative z-10 flex flex-col justify-between h-full p-8 lg:p-12 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
                     <div>
                         <div className="flex items-center justify-between mb-8 lg:mb-10">
-                            <div className="flex items-center gap-2.5">
-                                <VaidideaLogo className="w-9 h-9" />
+                            <Link href="/" aria-label="Vaididea Home" className="flex items-center gap-2.5 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-xl">
+                                <VaidideaLogo className="w-9 h-9 transition-transform group-hover:scale-105" />
                                 <span className="text-xl font-bold text-white tracking-tight">Vaididea</span>
-                            </div>
+                            </Link>
                             <Link href="/" className="flex items-center gap-1.5 text-xs text-[#A1A1AA] hover:text-white transition-colors">
                                 <ArrowLeft className="w-3.5 h-3.5" />
                                 <span>Portal Selection</span>
@@ -302,10 +302,10 @@ export default function DiagnosticRegisterPage() {
                 <div className="w-full max-w-2xl relative z-10 py-8 md:py-0 mx-auto">
                     {/* Mobile branding block */}
                     <div className="md:hidden flex flex-col items-center gap-3 mb-7">
-                        <div className="flex items-center gap-2.5">
-                            <VaidideaLogo className="w-8 h-8" />
+                        <Link href="/" aria-label="Vaididea Home" className="flex items-center gap-2.5 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-xl">
+                            <VaidideaLogo className="w-8 h-8 transition-transform group-hover:scale-105" />
                             <span className="text-lg font-bold text-white tracking-tight">Vaididea</span>
-                        </div>
+                        </Link>
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-[#7A42A8]/20 bg-[#5B2A86]/[0.06] mb-1">
                             <Microscope className="w-3 h-3 text-[#9D5BE0]" />
                             <span className="text-[10px] font-semibold text-[#9D5BE0] tracking-widest uppercase">Diagnostic Center Portal</span>

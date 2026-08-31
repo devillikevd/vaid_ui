@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
     Stethoscope,
     Building2,
@@ -58,6 +59,15 @@ const ROLE_CONFIG: Record<string, {
     bgColor: string;
     hoverColor: string;
 }> = {
+    patient: {
+        role: 'patient',
+        title: 'Patient Registration',
+        subtitle: 'Create your connected health account',
+        icon: User,
+        color: 'text-vd-forest',
+        bgColor: 'bg-vd-forest',
+        hoverColor: 'hover:bg-vd-forest-deep',
+    },
     doctor: {
         role: 'doctor',
         title: 'Doctor Registration',
@@ -131,6 +141,7 @@ interface RegisterPageProps {
 
 export default function RegisterPage({ params }: RegisterPageProps) {
     const { role } = use(params);
+    const searchParams = useSearchParams();
     const { register } = useAuthStore();
 
     // Common State
@@ -458,7 +469,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
 
             <div className="w-full max-w-4xl z-10 flex flex-col items-center">
                 <Link
-                    href={`/login/${role}`}
+                    href={`/login/${role}${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect')!)}` : ''}`}
                     className="inline-flex items-center gap-2 text-white/60 hover:text-white mb-8 transition-colors font-medium text-sm mx-auto w-full justify-center"
                 >
                     <ArrowLeft className="h-4 w-4" />
@@ -526,7 +537,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                     </div>
                                 )}
                                 <div className="mt-8 space-y-3 border-t border-white/10 pt-6">
-                                    <Link href={`/login/${role}`}>
+                                    <Link href={`/login/${role}${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect')!)}` : ''}`}>
                                         <Button className="w-full relative overflow-hidden group/btn bg-gradient-to-r from-gray-200 to-white !text-black py-6 rounded-xl font-semibold tracking-wide border-0 shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_30px_rgba(255,255,255,0.25)] transition-all">
                                             <span className="relative z-10">Go to Login</span>
                                         </Button>

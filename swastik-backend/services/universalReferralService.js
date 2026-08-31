@@ -23,7 +23,7 @@ async function notifyOrganizationOwner(orgType, orgId, payload) {
         else if (orgType === PROVIDER_TYPES.PHARMACY) tableName = 'pharmacies';
         
         if (!tableName) return;
-        
+
         const { data: org } = await supabaseAdmin.from(tableName).select('owner_id').eq('id', orgId).maybeSingle();
         if (org && org.owner_id) {
             await notificationService.createNotification(org.owner_id, payload);
@@ -65,8 +65,8 @@ class UniversalReferralService {
         } else if (role === ROLES.DOCTOR) {
           const { data: doctor } = await supabaseAdmin.from('doctors').select('id').eq('user_id', userId).maybeSingle();
           if (!doctor) throw new ApiError(403, 'Doctor profile not found.');
-          const { data: member } = await supabaseAdmin.from('clinic_doctors').select('id').eq('doctor_id', doctor.id).eq('clinic_id', orgId).eq('is_active', true).maybeSingle();
-          if (!member) throw new ApiError(403, 'Unauthorized. You are not an active doctor at this clinic.');
+          const { data: member } = await supabaseAdmin.from('clinic_doctors').select('id, is_active').eq('doctor_id', doctor.id).eq('clinic_id', orgId).maybeSingle();
+          if (!member || member.is_active === false) throw new ApiError(403, 'Unauthorized. You are not an active doctor at this clinic.');
           return true;
         }
         break;
@@ -81,10 +81,11 @@ class UniversalReferralService {
           if (!data) throw new ApiError(403, 'Unauthorized. You are not a manager of this hospital.');
           return true;
         } else if (role === ROLES.DOCTOR) {
-          const { data: doctor } = await supabaseAdmin.from('doctors').select('id').eq('user_id', userId).maybeSingle();
+          const { data: doctor } = await supabaseAdmin.from('doctors').select('id, hospital_id').eq('user_id', userId).maybeSingle();
           if (!doctor) throw new ApiError(403, 'Doctor profile not found.');
-          const { data: member } = await supabaseAdmin.from('hospital_doctors').select('id').eq('doctor_id', doctor.id).eq('hospital_id', orgId).eq('is_active', true).maybeSingle();
-          if (!member) throw new ApiError(403, 'Unauthorized. You are not an active doctor at this hospital.');
+          if (doctor.hospital_id === orgId) return true;
+          const { data: member } = await supabaseAdmin.from('hospital_doctors').select('id, is_active').eq('doctor_id', doctor.id).eq('hospital_id', orgId).maybeSingle();
+          if (!member || member.is_active === false) throw new ApiError(403, 'Unauthorized. You are not an active doctor at this hospital.');
           return true;
         }
         break;
@@ -169,7 +170,7 @@ class UniversalReferralService {
       throw new ApiError(404, `Receiver not found.`);
     }
 
-    if (receiver.is_active !== true) {
+    if (receiver.is_active === false) {
       throw new ApiError(403, `Receiver is not active.`);
     }
 
@@ -205,38 +206,72 @@ class UniversalReferralService {
     if (senderType === PROVIDER_TYPES.CLINIC) {
       const { data: clinicDoctors } = await supabaseAdmin
         .from('clinic_doctors')
-        .select('doctor_id')
-        .eq('clinic_id', senderId)
-        .eq('is_active', true);
+        .select('doctor_id, is_active')
+        .eq('clinic_id', senderId);
         
-      const activeDoctorIds = (clinicDoctors || []).map(d => d.doctor_id).filter(Boolean);
+      const activeDoctorIds = (clinicDoctors || [])
+        .filter(d => d.is_active !== false)
+        .map(d => d.doctor_id)
+        .filter(Boolean);
+
+      let apptBuilder = supabaseAdmin
+        .from('appointments')
+        .select('id, status, clinic_id, hospital_id, doctor_id, consultations(status)')
+        .eq('patient_id', patientId);
 
       if (activeDoctorIds.length > 0) {
-        const { data: appts } = await supabaseAdmin
-          .from('appointments')
-          .select('id, status, clinic_id, hospital_id, consultations(status)')
+        apptBuilder = apptBuilder.in('doctor_id', activeDoctorIds);
+      } else {
+        apptBuilder = apptBuilder.eq('clinic_id', senderId);
+      }
+
+      const { data: appts } = await apptBuilder;
+          
+      const hasAccess = (appts || []).some(r => {
+        const isClinicAppt = r.clinic_id === senderId || (!r.clinic_id && !r.hospital_id) || (r.doctor_id && activeDoctorIds.includes(r.doctor_id));
+        if (!isClinicAppt) return false;
+        
+        if (r.status !== 'cancelled') return true;
+        if (r.consultations && Array.isArray(r.consultations)) {
+          return r.consultations.some(c => c.status === 'completed');
+        }
+        return false;
+      });
+      
+      if (hasAccess) return true;
+
+      if (activeDoctorIds.length > 0) {
+        const { data: consults } = await supabaseAdmin
+          .from('consultations')
+          .select('id')
           .eq('patient_id', patientId)
           .in('doctor_id', activeDoctorIds);
-          
-        const hasAccess = (appts || []).some(r => {
-          const isClinicAppt = r.clinic_id === senderId || (!r.clinic_id && !r.hospital_id);
-          if (!isClinicAppt) return false;
-          
-          if (r.status !== 'cancelled') return true;
-          if (r.consultations && Array.isArray(r.consultations)) {
-            return r.consultations.some(c => c.status === 'completed');
-          }
-          return false;
-        });
-        
-        if (hasAccess) return true;
+
+        if (consults && consults.length > 0) return true;
       }
     } else if (senderType === PROVIDER_TYPES.HOSPITAL) {
-      const { data: appts } = await supabaseAdmin
+      const { data: hospDoctors } = await supabaseAdmin
+        .from('hospital_doctors')
+        .select('doctor_id, is_active')
+        .eq('hospital_id', senderId);
+
+      const activeDoctorIds = (hospDoctors || [])
+        .filter(d => d.is_active !== false)
+        .map(d => d.doctor_id)
+        .filter(Boolean);
+
+      let apptBuilder = supabaseAdmin
         .from('appointments')
         .select('id, status, consultations(status)')
-        .eq('patient_id', patientId)
-        .eq('hospital_id', senderId);
+        .eq('patient_id', patientId);
+
+      if (activeDoctorIds.length > 0) {
+        apptBuilder = apptBuilder.in('doctor_id', activeDoctorIds);
+      } else {
+        apptBuilder = apptBuilder.eq('hospital_id', senderId);
+      }
+
+      const { data: appts } = await apptBuilder;
 
       const hasAccess = (appts || []).some(r => {
         if (r.status !== 'cancelled') return true;
@@ -247,9 +282,7 @@ class UniversalReferralService {
       });
       
       if (hasAccess) return true;
-    }
-
-    if (senderType === PROVIDER_TYPES.PHARMACY) {
+    } else if (senderType === PROVIDER_TYPES.PHARMACY) {
       const { data: order } = await supabaseAdmin
         .from('pharmacy_orders')
         .select('id')
@@ -260,9 +293,7 @@ class UniversalReferralService {
         .maybeSingle();
       
       if (order) return true;
-    }
-
-    if (senderType === PROVIDER_TYPES.DIAGNOSTIC_CENTER) {
+    } else if (senderType === PROVIDER_TYPES.DIAGNOSTIC_CENTER) {
       const { data: booking } = await supabaseAdmin
         .from('diagnostic_bookings')
         .select('id')
@@ -1119,6 +1150,238 @@ class UniversalReferralService {
           }
       }
 
+    if (role === ROLES.CLINIC_OWNER) {
+      const { data } = await supabaseAdmin.from('clinics').select('id').eq('owner_id', userId);
+      (data || []).forEach(d => orgs.push({ type: 'clinic', id: d.id }));
+    } else if (role === ROLES.HOSPITAL_OWNER) {
+      const { data } = await supabaseAdmin.from('hospitals').select('id').eq('owner_id', userId);
+      (data || []).forEach(d => orgs.push({ type: 'hospital', id: d.id }));
+    } else if (role === ROLES.HOSPITAL_MANAGER) {
+      const { data } = await supabaseAdmin.from('hospital_managers').select('hospital_id').eq('user_id', userId);
+      (data || []).forEach(d => orgs.push({ type: 'hospital', id: d.hospital_id }));
+    } else if (role === ROLES.DOCTOR) {
+      const { data: doctor } = await supabaseAdmin.from('doctors').select('id, hospital_id').eq('user_id', userId).maybeSingle();
+      if (doctor && doctor.id) {
+        orgs.push({ type: 'doctor', id: doctor.id });
+        if (doctor.hospital_id) {
+          orgs.push({ type: 'hospital', id: doctor.hospital_id });
+        }
+        const { data: clinicAff } = await supabaseAdmin.from('clinic_doctors').select('clinic_id').eq('doctor_id', doctor.id).neq('is_active', false);
+        const { data: hospAff } = await supabaseAdmin.from('hospital_doctors').select('hospital_id').eq('doctor_id', doctor.id).neq('is_active', false);
+        (clinicAff || []).forEach(d => orgs.push({ type: 'clinic', id: d.clinic_id }));
+        (hospAff || []).forEach(d => orgs.push({ type: 'hospital', id: d.hospital_id }));
+      }
+    } else if (role === ROLES.DIAGNOSTIC_CENTER_OWNER) {
+      const { data } = await supabaseAdmin.from('diagnostic_centers').select('id').eq('owner_id', userId);
+      (data || []).forEach(d => orgs.push({ type: 'diagnostic_center', id: d.id }));
+    } else if ([ROLES.DIAGNOSTIC_MANAGER, ROLES.LAB_TECHNICIAN].includes(role)) {
+      const { data } = await supabaseAdmin.from('diagnostic_members').select('diagnostic_center_id').eq('user_id', userId).eq('status', 'active');
+      (data || []).forEach(d => orgs.push({ type: 'diagnostic_center', id: d.diagnostic_center_id }));
+    } else if (role === ROLES.PHARMACY_OWNER) {
+      const { data } = await supabaseAdmin.from('pharmacies').select('id').eq('owner_id', userId);
+      (data || []).forEach(d => orgs.push({ type: 'pharmacy', id: d.id }));
+    } else if ([ROLES.PHARMACY_MANAGER, ROLES.PHARMACY_STAFF].includes(role)) {
+      const { data } = await supabaseAdmin.from('pharmacy_members').select('pharmacy_id').eq('user_id', userId).eq('status', 'active');
+      (data || []).forEach(d => orgs.push({ type: 'pharmacy', id: d.pharmacy_id }));
+    }
+
+    const unique = [];
+    const seen = new Set();
+    for (const org of orgs) {
+      const key = `${org.type}:${org.id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(org);
+      }
+    }
+    return unique;
+  }
+
+  async getInbox(user, query = {}) {
+    const { status, urgency, sender_type, page = 1, limit = 20 } = query;
+    const offset = (page - 1) * limit;
+
+    const orgs = await this.resolveUserOrganizations(user);
+
+    if (orgs.length === 0) {
+      return { data: [], total: 0, page: parseInt(page), limit: parseInt(limit), totalPages: 0 };
+    }
+
+    const receiverConditions = orgs.map(org => `and(receiver_type.eq.${org.type},receiver_id.eq.${org.id})`).join(',');
+    
+    let dbQuery = supabaseAdmin
+      .from('universal_referrals')
+      .select('*, patient:patients(id, user_id, name, users(name, email, phone))', { count: 'exact' })
+      .or(receiverConditions);
+
+    if (status) {
+      dbQuery = dbQuery.eq('status', status);
+    } else {
+      dbQuery = dbQuery.not('status', 'in', '("awaiting_consent","consent_declined")');
+    }
+    if (urgency) dbQuery = dbQuery.eq('urgency', urgency);
+    if (sender_type) dbQuery = dbQuery.eq('sender_type', sender_type);
+
+    dbQuery = dbQuery.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+
+    const { data, count, error } = await dbQuery;
+    if (error) throw new ApiError(400, error.message);
+
+    const mappedData = (data || []).map((r) => ({
+      ...r,
+      patient: r.patient ? { ...r.patient, full_name: r.patient.name || r.patient.full_name } : null,
+    }));
+
+    return {
+      data: mappedData,
+      total: count || 0,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil((count || 0) / limit),
+    };
+  }
+
+  async getSent(user, query = {}) {
+    const { status, urgency, receiver_type, page = 1, limit = 20 } = query;
+    const offset = (page - 1) * limit;
+
+    const orgs = await this.resolveUserOrganizations(user);
+
+    if (orgs.length === 0) {
+      return { data: [], total: 0, page: parseInt(page), limit: parseInt(limit), totalPages: 0 };
+    }
+
+    const senderConditions = orgs.map((org) => `and(sender_type.eq.${org.type},sender_id.eq.${org.id})`).join(',');
+
+    let dbQuery = supabaseAdmin
+      .from('universal_referrals')
+      .select('*, patient:patients(id, user_id, name, users(name, email, phone))', { count: 'exact' })
+      .or(senderConditions);
+
+    if (status) {
+      dbQuery = dbQuery.eq('status', status);
+    } else {
+      dbQuery = dbQuery.not('status', 'in', '("awaiting_consent","consent_declined")');
+    }
+    if (urgency) dbQuery = dbQuery.eq('urgency', urgency);
+    if (receiver_type) dbQuery = dbQuery.eq('receiver_type', receiver_type);
+
+    dbQuery = dbQuery.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+
+    const { data, count, error } = await dbQuery;
+    if (error) throw new ApiError(400, error.message);
+
+    const mappedData = (data || []).map((r) => ({
+      ...r,
+      patient: r.patient ? { ...r.patient, full_name: r.patient.name || r.patient.full_name } : null,
+    }));
+
+    return {
+      data: mappedData,
+      total: count || 0,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil((count || 0) / limit),
+    };
+  }
+
+  async getReferral(referralId) {
+    const { data, error } = await supabaseAdmin
+      .from('universal_referrals')
+      .select(`
+        *,
+        patient:patients(id, user_id, name, date_of_birth, gender, blood_group, users(name, email, phone)),
+        attachments:referral_attachments(*)
+      `)
+      .eq('id', referralId)
+      .single();
+
+    if (error || !data) {
+      throw new ApiError(404, 'Referral not found.');
+    }
+
+    return {
+      ...data,
+      patient: data.patient ? { ...data.patient, full_name: data.patient.name || data.patient.full_name } : null,
+    };
+  }
+
+  async updateReferralStatus(user, referralId, newStatus, extraData = {}) {
+    const { rejection_reason, completion_notes, hospital_admission_status } = extraData;
+
+    const { data: currentReferral, error: fetchError } = await supabaseAdmin
+      .from('universal_referrals')
+      .select('*')
+      .eq('id', referralId)
+      .single();
+
+    if (fetchError || !currentReferral) {
+      throw new ApiError(404, 'Referral not found.');
+    }
+
+    let isReceiver = false;
+    let isSender = false;
+
+    try {
+      await this.validateProviderAccess(currentReferral.receiver_type, currentReferral.receiver_id, user);
+      isReceiver = true;
+    } catch {
+      // not receiver
+    }
+
+    try {
+      await this.validateProviderAccess(currentReferral.sender_type, currentReferral.sender_id, user);
+      isSender = true;
+    } catch {
+      // not sender
+    }
+
+    if (!isReceiver && !isSender) {
+      throw new ApiError(403, 'Access denied. You are neither the sender nor receiver of this referral.');
+    }
+
+    this.validateStatusTransition(currentReferral.status, newStatus, isReceiver);
+
+    if (hospital_admission_status) {
+      this.validateHospitalAdmission(currentReferral.receiver_type, hospital_admission_status);
+    }
+
+    const updates = {
+      status: newStatus,
+      updated_at: new Date().toISOString()
+    };
+
+    if (newStatus === 'accepted') updates.accepted_at = new Date().toISOString();
+    if (newStatus === 'completed') {
+      updates.completed_at = new Date().toISOString();
+      if (completion_notes) updates.completion_notes = completion_notes;
+    }
+    if (newStatus === 'rejected') {
+      if (!rejection_reason) throw new ApiError(400, 'Rejection reason is required.');
+      updates.rejection_reason = rejection_reason;
+    }
+    if (hospital_admission_status) {
+      updates.hospital_admission_status = hospital_admission_status;
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('universal_referrals')
+      .update(updates)
+      .eq('id', referralId)
+      .select('*')
+      .single();
+
+    if (updateError) {
+      throw new ApiError(400, `Failed to update status: ${updateError.message}`);
+    }
+
+    return updated;
+  }
+
+  async addAttachment(referralId, user, payload) {
+      const { report_id, prescription_id, document_type, file_name, storage_path } = payload;
+      await this.validateAttachmentAccess(referralId, user, report_id, prescription_id);
+
       const { data, error } = await supabaseAdmin
         .from('referral_attachments')
         .insert({
@@ -1153,31 +1416,66 @@ class UniversalReferralService {
     const searchTerm = (q || '').trim();
 
     let junctionQuery;
+    let activeDoctorIds = [];
+
     if (senderType === PROVIDER_TYPES.CLINIC) {
       const { data: clinicDoctors } = await supabaseAdmin
         .from('clinic_doctors')
-        .select('doctor_id')
-        .eq('clinic_id', senderId)
-        .eq('is_active', true);
+        .select('doctor_id, is_active')
+        .eq('clinic_id', senderId);
         
-      const activeDoctorIds = (clinicDoctors || []).map(d => d.doctor_id).filter(Boolean);
+      activeDoctorIds = (clinicDoctors || [])
+        .filter(d => d.is_active !== false)
+        .map(d => d.doctor_id)
+        .filter(Boolean);
+
+      if (user?.role === 'doctor') {
+        const { data: doc } = await supabaseAdmin.from('doctors').select('id').eq('user_id', user.id).maybeSingle();
+        if (doc && !activeDoctorIds.includes(doc.id)) {
+          activeDoctorIds.push(doc.id);
+        }
+      }
 
       if (activeDoctorIds.length > 0) {
         junctionQuery = supabaseAdmin
           .from('appointments')
-          .select('patient_id, status, clinic_id, hospital_id, consultations(status)')
+          .select('patient_id, status, clinic_id, hospital_id, doctor_id, consultations(status)')
           .in('doctor_id', activeDoctorIds);
       } else {
         junctionQuery = supabaseAdmin
           .from('appointments')
-          .select('patient_id')
-          .eq('clinic_id', '00000000-0000-0000-0000-000000000000');
+          .select('patient_id, status, clinic_id, hospital_id, doctor_id, consultations(status)')
+          .eq('clinic_id', senderId);
       }
     } else if (senderType === PROVIDER_TYPES.HOSPITAL) {
-      junctionQuery = supabaseAdmin
-        .from('appointments')
-        .select('patient_id, status, consultations(status)')
+      const { data: hospDoctors } = await supabaseAdmin
+        .from('hospital_doctors')
+        .select('doctor_id, is_active')
         .eq('hospital_id', senderId);
+
+      activeDoctorIds = (hospDoctors || [])
+        .filter(d => d.is_active !== false)
+        .map(d => d.doctor_id)
+        .filter(Boolean);
+
+      if (user?.role === 'doctor') {
+        const { data: doc } = await supabaseAdmin.from('doctors').select('id, hospital_id').eq('user_id', user.id).maybeSingle();
+        if (doc && (doc.hospital_id === senderId || !activeDoctorIds.includes(doc.id))) {
+          if (!activeDoctorIds.includes(doc.id)) activeDoctorIds.push(doc.id);
+        }
+      }
+
+      if (activeDoctorIds.length > 0) {
+        junctionQuery = supabaseAdmin
+          .from('appointments')
+          .select('patient_id, status, hospital_id, doctor_id, consultations(status)')
+          .in('doctor_id', activeDoctorIds);
+      } else {
+        junctionQuery = supabaseAdmin
+          .from('appointments')
+          .select('patient_id, status, hospital_id, doctor_id, consultations(status)')
+          .eq('hospital_id', senderId);
+      }
     } else if (senderType === PROVIDER_TYPES.PHARMACY) {
       junctionQuery = supabaseAdmin
         .from('pharmacy_orders')
@@ -1196,12 +1494,13 @@ class UniversalReferralService {
 
     const { data: junctionRows, error: junctionError } = await junctionQuery;
     if (junctionError) {
-      throw new ApiError(500, `Patient lookup failed: ${junctionError.message}`);
+      console.error('[UniversalReferralService] Patient junction lookup failed:', junctionError.message);
+      throw new ApiError(500, 'Unable to load eligible patients.');
     }
 
     const validJunctionRows = (junctionRows || []).filter(r => {
       if (senderType === PROVIDER_TYPES.CLINIC) {
-        const isClinicAppt = r.clinic_id === senderId || (!r.clinic_id && !r.hospital_id);
+        const isClinicAppt = r.clinic_id === senderId || (!r.clinic_id && !r.hospital_id) || (r.doctor_id && activeDoctorIds.includes(r.doctor_id));
         if (!isClinicAppt) return false;
 
         if (r.status !== 'cancelled') return true;
@@ -1233,11 +1532,12 @@ class UniversalReferralService {
 
     const { data: allPatients, error: allErr } = await supabaseAdmin
       .from('patients')
-      .select('id, full_name, user_id, users(phone)')
+      .select('id, name, user_id, users(phone, email)')
       .in('id', allPatientIds);
 
     if (allErr) {
-      throw new ApiError(500, `Patient search failed: ${allErr.message}`);
+      console.error('[UniversalReferralService] Patient lookup failed:', allErr.message);
+      throw new ApiError(500, 'Unable to load eligible patients.');
     }
 
     let candidates = [];
@@ -1248,12 +1548,14 @@ class UniversalReferralService {
       const normalizedQ = searchTerm.replace(/\D/g, '');
 
       candidates = (allPatients || []).filter(p => {
-        const patientName = p.full_name || p.name || '';
+        const patientName = p.name || p.users?.name || p.user?.name || '';
         const nameMatch = patientName.toLowerCase().includes(lowerQ);
         const rawPhone = p.users?.phone || p.user?.phone || p.phone || '';
+        const rawEmail = p.users?.email || p.user?.email || p.email || '';
         const phoneMatch = rawPhone.toLowerCase().includes(lowerQ) ||
                            (normalizedQ.length > 0 && rawPhone.replace(/\D/g, '').includes(normalizedQ));
-        return nameMatch || phoneMatch;
+        const emailMatch = rawEmail.toLowerCase().includes(lowerQ);
+        return nameMatch || phoneMatch || emailMatch;
       });
     }
 
@@ -1271,8 +1573,9 @@ class UniversalReferralService {
 
     const pageData = uniqueCandidates.slice(offset, offset + safeLimit).map(p => ({
       id: p.id,
-      name: p.full_name || p.name || 'Patient',
+      name: p.name || p.users?.name || p.user?.name || 'Patient',
       phone: p.users?.phone || p.user?.phone || p.phone || null,
+      email: p.users?.email || p.user?.email || p.email || null,
     }));
 
     return {

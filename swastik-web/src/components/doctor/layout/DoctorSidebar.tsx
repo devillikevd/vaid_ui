@@ -127,11 +127,11 @@ export function DoctorSidebar({ isCollapsed, setIsCollapsed, isMobileOpen, setIs
             )}>
                 {/* Brand Header */}
                 <div className="h-16 flex items-center px-4 shrink-0 border-b border-[rgba(255,255,255,0.05)] relative">
-                    <Link href="/doctor" className={cn("flex items-center gap-3 transition-all", isCollapsed ? "justify-center w-full" : "")}>
-                        <VaidideaLogo className="w-9 h-9 shrink-0" />
+                    <Link href="/" aria-label="Vaididea Home" className={cn("flex items-center gap-3 transition-all group cursor-pointer", isCollapsed ? "justify-center w-full" : "")}>
+                        <VaidideaLogo className="w-9 h-9 shrink-0 transition-transform group-hover:scale-105" />
                         {!isCollapsed && (
                             <div className="whitespace-nowrap min-w-0">
-                                <span className="font-bold text-white text-[15px] tracking-tight leading-tight block">Doctor Portal</span>
+                                <span className="font-bold text-white text-[15px] tracking-tight leading-tight block group-hover:text-emerald-400 transition-colors">Doctor Portal</span>
                                 <span className="text-[11px] text-gray-400 font-medium block">Clinical Operating System</span>
                             </div>
                         )}

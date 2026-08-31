@@ -23,6 +23,8 @@ export interface Partnership {
     };
     created_at: string;
     updated_at: string;
+    accepted_at?: string;
+    terminated_at?: string;
     metadata?: any;
 }
 

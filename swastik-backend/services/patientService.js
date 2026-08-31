@@ -536,6 +536,13 @@ class PatientService {
     let unreadCount = notificationsResult.status === 'fulfilled' ? notificationsResult.value.count || 0 : 0;
 
     // Enrich reminders with today's action state from Redis
+    let adherenceStats = {
+      adherence_rate: 100,
+      streak_days: 1,
+      taken_today: 0,
+      total_today: reminders.length
+    };
+
     try {
       const now = new Date();
       const pad2 = (n) => String(n).padStart(2, '0');
@@ -543,13 +550,6 @@ class PatientService {
       const actionsKey = `reminder:actions:${userId}:${yyyymmdd}`;
       let actions = await cacheGet(actionsKey);
       if (actions && typeof actions === 'string') actions = JSON.parse(actions);
-      
-      let adherenceStats = {
-        adherence_rate: 100,
-        streak_days: 1,
-        taken_today: 0,
-        total_today: reminders.length
-      };
 
       if (Array.isArray(actions)) {
         const takenCount = actions.filter(a => a.action === 'taken').length;

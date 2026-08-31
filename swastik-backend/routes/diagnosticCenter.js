@@ -514,16 +514,19 @@ router.post('/owner/partnerships/invite', requireRole(ROLES.DIAGNOSTIC_CENTER_OW
     validate
 ], asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+    if (!center) {
+        throw new ApiError(404, 'Diagnostic center not found for this user');
+    }
     
-    const result = await organizationPartnershipService.sendInvite(
-        'diagnostic_center',
-        center.id,
-        req.body.targetType,
-        req.body.targetId,
-        req.user.id,
-        req.body.partnershipType,
-        req.body.metadata
-    );
+    const result = await organizationPartnershipService.createPartnershipRequest({
+        initiatorType: 'diagnostic_center',
+        initiatorId: center.id,
+        initiatorUserId: req.user.id,
+        targetType: req.body.targetType,
+        targetId: req.body.targetId,
+        partnershipType: req.body.partnershipType,
+        metadata: req.body.metadata
+    });
     
     res.json({ success: true, message: 'Partnership invite sent', data: result });
 }));
@@ -535,11 +538,11 @@ router.post('/owner/partnerships/:id/respond', requireRole(ROLES.DIAGNOSTIC_CENT
 ], asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     
-    const updated = await organizationPartnershipService.updatePartnershipStatus(
+    const updated = await organizationPartnershipService.respondToPartnershipRequest(
         req.params.id,
         'diagnostic_center',
         center.id,
-        req.body.action === 'accept' ? 'active' : 'rejected'
+        req.body.action
     );
     
     res.json({ success: true, message: `Partnership ${req.body.action}ed`, data: updated });

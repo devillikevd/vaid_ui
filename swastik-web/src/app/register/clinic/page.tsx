@@ -269,10 +269,10 @@ export default function ClinicRegisterPage() {
                 <div className="relative z-10 flex flex-col h-full p-8 lg:p-11 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
                     {/* Logo */}
                     <div className="flex items-center justify-between mb-8">
-                        <div className="flex items-center gap-2.5">
-                            <VaidideaLogo className="w-9 h-9" />
+                        <Link href="/" aria-label="Vaididea Home" className="flex items-center gap-2.5 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 rounded-xl">
+                            <VaidideaLogo className="w-9 h-9 transition-transform group-hover:scale-105" />
                             <span className="text-xl font-bold text-white tracking-tight">Vaididea</span>
-                        </div>
+                        </Link>
                         <Link href="/login/clinic" className="flex items-center gap-1.5 text-xs text-[#A1A1AA] hover:text-white transition-colors">
                             <ArrowLeft className="w-3.5 h-3.5" />
                             <span>Back to Login</span>
@@ -359,10 +359,10 @@ export default function ClinicRegisterPage() {
 
                     {/* Mobile header */}
                     <div className="md:hidden flex flex-col items-center gap-3 mb-7">
-                        <div className="flex items-center gap-2.5">
-                            <VaidideaLogo className="w-8 h-8" />
+                        <Link href="/" aria-label="Vaididea Home" className="flex items-center gap-2.5 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 rounded-xl">
+                            <VaidideaLogo className="w-8 h-8 transition-transform group-hover:scale-105" />
                             <span className="text-lg font-bold text-white tracking-tight">Vaididea</span>
-                        </div>
+                        </Link>
                         <Link href="/login/clinic" className="flex items-center gap-1.5 text-xs text-[#A1A1AA] hover:text-white transition-colors">
                             <ArrowLeft className="w-3.5 h-3.5" />
                             Back to Login
