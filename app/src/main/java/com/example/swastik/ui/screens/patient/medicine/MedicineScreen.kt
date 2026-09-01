@@ -276,11 +276,21 @@ fun MedicineScreen(
                                     items = filteredMedicines,
                                     key = { it.id }
                                 ) { med ->
+                                    val isInCart = cartState.items.any { it.medicine.id == med.id }
+                                    val cartQty = cartState.items.find { it.medicine.id == med.id }?.quantity ?: 0
                                     CompactMedicineListItem(
                                         medicine = med,
+                                        isInCart = isInCart,
+                                        cartQuantity = cartQty,
                                         onClick = { onMedicineClick(med.id) },
-                                        onPharmacyClick = {
-                                            onPharmacyClick(med.nearbyPharmacyId, med.nearbyPharmacy)
+                                        onAddToCart = {
+                                            viewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, med, "GLOBAL_REQUEST", "Global Request")
+                                        },
+                                        onIncrement = {
+                                            viewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, med, "GLOBAL_REQUEST", "Global Request")
+                                        },
+                                        onDecrement = {
+                                            viewModel.removeFromCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, med.id)
                                         }
                                     )
                                 }
@@ -512,8 +522,12 @@ private fun MedicineCategoryFilter(
 @Composable
 private fun CompactMedicineListItem(
     medicine: Medicine,
+    isInCart: Boolean = false,
+    cartQuantity: Int = 0,
     onClick: () -> Unit,
-    onPharmacyClick: () -> Unit
+    onAddToCart: () -> Unit = {},
+    onIncrement: () -> Unit = {},
+    onDecrement: () -> Unit = {}
 ) {
 
     Card(
@@ -546,7 +560,7 @@ private fun CompactMedicineListItem(
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
                     )
                 } else {
-                    Text(getMedicineEmoji(medicine.category?.name ?: "TABLET"), fontSize = 26.sp)
+                    Text(getMedicineEmoji(medicine.category.name), fontSize = 26.sp)
                 }
             }
 
@@ -603,7 +617,7 @@ private fun CompactMedicineListItem(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Right: Price
+            // Right: Price & Add Button
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "₹${medicine.effectivePrice.toInt()}",
@@ -618,6 +632,65 @@ private fun CompactMedicineListItem(
                         color = SwastikGreen,
                         fontWeight = FontWeight.Bold
                     )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                if (isInCart && cartQuantity > 0) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = SwastikPrimary,
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(horizontal = 2.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .clickable { onDecrement() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Remove, contentDescription = "-", tint = Color.White, modifier = Modifier.size(12.dp))
+                            }
+                            Text(
+                                "$cartQuantity",
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .clickable { onIncrement() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "+", tint = Color.White, modifier = Modifier.size(12.dp))
+                            }
+                        }
+                    }
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = SwastikPrimary,
+                        shadowElevation = 1.dp,
+                        modifier = Modifier
+                            .height(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { onAddToCart() }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text("ADD", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        }
+                    }
                 }
             }
         }

@@ -5,20 +5,24 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.Healing
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,8 +32,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.focus.focusRequester
-import com.example.swastik.ui.theme.ShadowTint
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -41,9 +43,9 @@ import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.swastik.data.model.Doctor
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import com.example.swastik.utils.SpecializationMapper
 import com.example.swastik.utils.getTranslatedCategoryText
 
 @Composable
@@ -56,8 +58,6 @@ fun GlobalSearchBar(
 ) {
     var isSearchScreenOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
-    val context = androidx.compose.ui.platform.LocalContext.current
     
     val speechRecognizerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -67,7 +67,7 @@ fun GlobalSearchBar(
             val matches = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             if (!matches.isNullOrEmpty()) {
                 query = matches[0]
-                isSearchScreenOpen = true // Open dialog if voice search returns results
+                isSearchScreenOpen = true
             }
         }
     }
@@ -95,32 +95,81 @@ fun GlobalSearchBar(
         stringResource(R.string.search_term_chatbot)
     )
 
-    val fallbackSuggestions = listOf(
-        stringResource(R.string.search_term_hospitals),
-        stringResource(R.string.search_term_fever),
-        stringResource(R.string.search_term_headache),
-        stringResource(R.string.category_dermatologist),
-        stringResource(R.string.category_gynecologist),
-        stringResource(R.string.search_term_ambulance),
-        "Fitness Centers",
-        stringResource(R.string.category_dentist)
+    val symptomsList = listOf(
+        "Headache",
+        "Migraine",
+        "Fever",
+        "Cold & Cough",
+        "Stomach Pain",
+        "Acidity & Gas",
+        "Constipation",
+        "Skin Rash & Itching",
+        "Acne & Pimples",
+        "Hair Fall & Dandruff",
+        "Chest Pain & Palpitations",
+        "Back Pain",
+        "Knee & Joint Pain",
+        "Ear Pain & Discharge",
+        "Sinus & Nasal Blockage",
+        "Throat Pain & Tonsils",
+        "Eye Pain & Blurry Vision",
+        "Toothache & Bleeding Gums",
+        "Period Pain & PCOS",
+        "Pregnancy Care",
+        "Burning Urination & UTI",
+        "Kidney Stone",
+        "Asthma & Breathlessness",
+        "Diabetes & High Sugar",
+        "Anxiety & Depression",
+        "Piles & Fissure"
     )
-    val suggestions = searchSuggestions.ifEmpty { fallbackSuggestions }
 
-    val filteredServices = if (query.isEmpty()) emptyList() else homeServices.filter { it.contains(query, ignoreCase = true) }
-    val filteredDocs = if (query.isEmpty()) emptyList() else doctors.filter { it.name.contains(query, ignoreCase = true) || it.specialization.contains(query, ignoreCase = true) }
     val specialitiesList = listOf(
         stringResource(R.string.category_general_physician),
+        stringResource(R.string.category_neurologist),
         stringResource(R.string.category_dermatologist),
         stringResource(R.string.category_gynecologist),
+        stringResource(R.string.category_cardiologist),
         stringResource(R.string.category_orthopedist),
         stringResource(R.string.category_pediatrician),
         stringResource(R.string.category_ent_specialist),
-        stringResource(R.string.category_cardiologist),
-        stringResource(R.string.category_neurologist),
+        stringResource(R.string.category_dentist),
+        stringResource(R.string.category_ophthalmologist),
+        stringResource(R.string.category_gastroenterologist),
+        stringResource(R.string.category_pulmonologist),
+        stringResource(R.string.category_urologist),
+        stringResource(R.string.category_nephrologist),
         stringResource(R.string.category_psychiatrist),
-        stringResource(R.string.category_gastroenterologist)
+        stringResource(R.string.category_diabetologist),
+        stringResource(R.string.category_endocrinologist),
+        stringResource(R.string.category_cancer_specialist),
+        stringResource(R.string.category_general_surgeon),
+        stringResource(R.string.category_physiotherapist),
+        stringResource(R.string.category_diet_nutrition),
+        stringResource(R.string.category_ayurveda),
+        stringResource(R.string.category_homeopathy),
+        stringResource(R.string.category_sexologist)
     )
+
+    val fallbackSuggestions = listOf(
+        "Headache",
+        "Fever",
+        "Cold & Cough",
+        stringResource(R.string.category_dermatologist),
+        stringResource(R.string.category_neurologist),
+        stringResource(R.string.category_gynecologist),
+        stringResource(R.string.search_term_hospitals),
+        stringResource(R.string.search_term_ambulance)
+    )
+    val suggestions = searchSuggestions.ifEmpty { fallbackSuggestions }
+
+    val filteredSymptoms = if (query.isEmpty()) emptyList() else symptomsList.filter { 
+        it.contains(query, ignoreCase = true) || SpecializationMapper.getSpecialistSubtitle(it).contains(query, ignoreCase = true)
+    }
+    val filteredServices = if (query.isEmpty()) emptyList() else homeServices.filter { it.contains(query, ignoreCase = true) }
+    val filteredDocs = if (query.isEmpty()) emptyList() else doctors.filter { 
+        it.name.contains(query, ignoreCase = true) || it.specialization.contains(query, ignoreCase = true) 
+    }
     val filteredSpecs = if (query.isEmpty()) emptyList() else specialitiesList.filter { it.contains(query, ignoreCase = true) }
 
     val homeBgColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
@@ -129,7 +178,7 @@ fun GlobalSearchBar(
         Color(0xFFF8FAFC)
     }
 
-    // Read-only Search Bar for Home Screen
+    // Read-only Search Bar on Home Screen
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -213,7 +262,7 @@ fun GlobalSearchBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = { isSearchScreenOpen = false; query = "" }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
                     }
                     
                     BasicTextField(
@@ -240,34 +289,22 @@ fun GlobalSearchBar(
                             onSearch = {
                                 val trimmedQuery = query.trim()
                                 if (trimmedQuery.isNotEmpty()) {
-                                    val serviceMatch = homeServices.find { it.equals(trimmedQuery, ignoreCase = true) } ?: homeServices.find { it.contains(trimmedQuery, ignoreCase = true) }
+                                    val serviceMatch = homeServices.find { it.equals(trimmedQuery, ignoreCase = true) } 
+                                        ?: homeServices.find { it.contains(trimmedQuery, ignoreCase = true) }
                                     if (serviceMatch != null) {
                                         isSearchScreenOpen = false
                                         query = ""
                                         onServiceSelect(serviceMatch)
                                     } else {
-                                        val specMatch = specialitiesList.find { it.equals(trimmedQuery, ignoreCase = true) } ?: specialitiesList.find { it.contains(trimmedQuery, ignoreCase = true) }
-                                        if (specMatch != null) {
+                                        val doctorMatch = doctors.find { it.name.contains(trimmedQuery, ignoreCase = true) }
+                                        if (doctorMatch != null) {
                                             isSearchScreenOpen = false
                                             query = ""
-                                            onSpecialitySelect(specMatch)
+                                            onDoctorSelect(doctorMatch)
                                         } else {
-                                            val doctorMatch = doctors.find { it.name.contains(trimmedQuery, ignoreCase = true) || it.specialization.contains(trimmedQuery, ignoreCase = true) }
-                                            if (doctorMatch != null) {
-                                                isSearchScreenOpen = false
-                                                query = ""
-                                                onDoctorSelect(doctorMatch)
-                                            } else {
-                                                val symptoms = listOf("fever", "headache", "cough", "pain", "stomach", "cold", "flu", "injury")
-                                                val isSymptom = symptoms.any { trimmedQuery.lowercase().contains(it) }
-                                                if (isSymptom || trimmedQuery.length > 3) {
-                                                    isSearchScreenOpen = false
-                                                    query = ""
-                                                    onSpecialitySelect(trimmedQuery)
-                                                } else {
-                                                    android.widget.Toast.makeText(context, "No matches found for \"$trimmedQuery\"", android.widget.Toast.LENGTH_SHORT).show()
-                                                }
-                                            }
+                                            isSearchScreenOpen = false
+                                            query = ""
+                                            onSpecialitySelect(trimmedQuery)
                                         }
                                     }
                                 }
@@ -314,73 +351,243 @@ fun GlobalSearchBar(
                     )
                 }
                 
-                // Recommendations List
-                val displayList = if (query.isEmpty()) suggestions else emptyList()
-                if (displayList.isNotEmpty() || filteredDocs.isNotEmpty() || filteredSpecs.isNotEmpty() || filteredServices.isNotEmpty()) {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        if (query.isEmpty()) {
+                // Recommendations & Live Search Results List
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    if (query.isEmpty()) {
+                        item {
+                            Text(
+                                stringResource(R.string.suggested_for_you), 
+                                fontWeight = FontWeight.Bold, 
+                                modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), 
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                fontSize = 12.sp
+                            )
+                        }
+                        items(suggestions) { item ->
+                            val translatedItem = getTranslatedCategoryText(item)
+                            val subtitle = SpecializationMapper.getSpecialistSubtitle(item)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        isSearchScreenOpen = false
+                                        query = ""
+                                        if (homeServices.contains(item)) onServiceSelect(item) else onSpecialitySelect(item)
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.NorthEast, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(translatedItem, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                    if (subtitle != "Specialist Consultation") {
+                                        Text(subtitle, fontSize = 11.5.sp, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // 1. Symptoms & Clinical Concerns
+                        if (filteredSymptoms.isNotEmpty()) {
                             item {
-                                Text(stringResource(R.string.suggested_for_you), fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                Text(
+                                    "Symptoms & Health Concerns", 
+                                    fontWeight = FontWeight.Bold, 
+                                    modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 6.dp), 
+                                    color = MaterialTheme.colorScheme.primary, 
+                                    fontSize = 12.sp
+                                )
                             }
-                            items(suggestions) { item ->
-                                val translatedItem = getTranslatedCategoryText(item)
-                                SuggestionRow(translatedItem) {
-                                    isSearchScreenOpen = false
-                                    query = ""
-                                    if (homeServices.contains(item)) onServiceSelect(item) else onSpecialitySelect(item)
-                                }
-                            }
-                        } else {
-                            if (filteredServices.isNotEmpty()) {
-                                item {
-                                    Text(stringResource(R.string.services), fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                                }
-                                items(filteredServices) { service ->
-                                    val translatedService = getTranslatedCategoryText(service)
-                                    SuggestionRow(translatedService) {
-                                        isSearchScreenOpen = false
-                                        query = ""
-                                        onServiceSelect(service)
-                                    }
-                                }
-                            }
-
-                            if (filteredSpecs.isNotEmpty()) {
-                                item {
-                                    Text(stringResource(R.string.specialities), fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                                }
-                                items(filteredSpecs) { spec ->
-                                    val translatedSpec = getTranslatedCategoryText(spec)
-                                    SuggestionRow(translatedSpec) {
-                                        isSearchScreenOpen = false
-                                        query = ""
-                                        onSpecialitySelect(spec)
-                                    }
-                                }
-                            }
-
-                            if (filteredDocs.isNotEmpty()) {
-                                item {
-                                    Text(stringResource(R.string.doctors), fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                                }
-                                items(filteredDocs) { doc ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { 
-                                                isSearchScreenOpen = false
-                                                query = ""
-                                                onDoctorSelect(doc)
-                                            }
-                                            .padding(16.dp, 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.Filled.NorthEast, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(16.dp))
-                                        Column {
-                                            Text(doc.name, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                            Text(doc.specialization, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            items(filteredSymptoms) { symptom ->
+                                val subtitle = SpecializationMapper.getSpecialistSubtitle(symptom)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            isSearchScreenOpen = false
+                                            query = ""
+                                            onSpecialitySelect(symptom)
                                         }
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Outlined.Healing, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(symptom, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                        Text(subtitle, fontSize = 11.5.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                                    }
+                                    Icon(Icons.Filled.NorthEast, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+
+                        // 2. Medical Specialities
+                        if (filteredSpecs.isNotEmpty()) {
+                            item {
+                                Text(
+                                    stringResource(R.string.specialities), 
+                                    fontWeight = FontWeight.Bold, 
+                                    modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 6.dp), 
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                    fontSize = 12.sp
+                                )
+                            }
+                            items(filteredSpecs) { spec ->
+                                val translatedSpec = getTranslatedCategoryText(spec)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            isSearchScreenOpen = false
+                                            query = ""
+                                            onSpecialitySelect(spec)
+                                        }
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF00695C).copy(alpha = 0.10f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Filled.MedicalServices, null, tint = Color(0xFF00695C), modifier = Modifier.size(16.dp))
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(translatedSpec, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                                    Icon(Icons.Filled.NorthEast, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+
+                        // 3. Doctors List
+                        if (filteredDocs.isNotEmpty()) {
+                            item {
+                                Text(
+                                    stringResource(R.string.doctors), 
+                                    fontWeight = FontWeight.Bold, 
+                                    modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 6.dp), 
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                    fontSize = 12.sp
+                                )
+                            }
+                            items(filteredDocs) { doc ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { 
+                                            isSearchScreenOpen = false
+                                            query = ""
+                                            onDoctorSelect(doc)
+                                        }
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(doc.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(doc.specialization, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                    Icon(Icons.Filled.NorthEast, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+
+                        // 4. Health Services
+                        if (filteredServices.isNotEmpty()) {
+                            item {
+                                Text(
+                                    stringResource(R.string.services), 
+                                    fontWeight = FontWeight.Bold, 
+                                    modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 6.dp), 
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                    fontSize = 12.sp
+                                )
+                            }
+                            items(filteredServices) { service ->
+                                val translatedService = getTranslatedCategoryText(service)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            isSearchScreenOpen = false
+                                            query = ""
+                                            onServiceSelect(service)
+                                        }
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF1565C0).copy(alpha = 0.10f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.LocalHospital, null, tint = Color(0xFF1565C0), modifier = Modifier.size(16.dp))
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(translatedService, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                                    Icon(Icons.Filled.NorthEast, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+
+                        // No results fallback
+                        if (filteredSymptoms.isEmpty() && filteredSpecs.isEmpty() && filteredDocs.isEmpty() && filteredServices.isEmpty()) {
+                            item {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(Icons.Filled.Search, contentDescription = null, tint = Color(0xFF94A3B8), modifier = Modifier.size(44.dp))
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Text(
+                                        "Search \"$query\" with our clinical network",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        "Tap below to consult the right specialist for this condition.",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF64748B),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Button(
+                                        onClick = {
+                                            isSearchScreenOpen = false
+                                            val q = query.trim()
+                                            query = ""
+                                            onSpecialitySelect(q)
+                                        },
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text("Find Specialist for \"$query\"")
                                     }
                                 }
                             }
@@ -389,20 +596,5 @@ fun GlobalSearchBar(
                 }
             }
         }
-    }
-}
-
-@Composable
-fun SuggestionRow(text: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(16.dp, 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(Icons.Filled.NorthEast, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(18.dp))
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }

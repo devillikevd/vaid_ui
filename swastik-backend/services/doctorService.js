@@ -742,14 +742,16 @@ class DoctorService {
       }
     }
 
-    // Resolve category name to actual specialization(s) if needed
+    // Resolve category or symptom name to actual specialization(s) if needed
     let specializations = [];
     if (filters.specialization) {
-      const mapped = CATEGORY_TO_SPECIALIZATIONS[filters.specialization];
+      const trimmedSpec = filters.specialization.trim();
+      const mapped = CATEGORY_TO_SPECIALIZATIONS[trimmedSpec] ||
+        Object.entries(CATEGORY_TO_SPECIALIZATIONS).find(([k]) => k.toLowerCase() === trimmedSpec.toLowerCase())?.[1];
       if (mapped) {
         specializations = mapped;
       } else {
-        specializations = [filters.specialization];
+        specializations = [trimmedSpec];
       }
     }
 
@@ -858,7 +860,16 @@ class DoctorService {
             query = query.eq('id', '00000000-0000-0000-0000-000000000000');
           }
         } else {
-          query = query.or(`name.ilike.%${s}%,specialization.ilike.%${s}%`);
+          const searchMappedSpecs = Object.entries(CATEGORY_TO_SPECIALIZATIONS).find(([k]) => k.toLowerCase() === s.toLowerCase())?.[1];
+          const isSymptomForCurrentSpec = specializations.length > 0 && searchMappedSpecs && searchMappedSpecs.some(sm => specializations.includes(sm));
+          
+          if (!isSymptomForCurrentSpec) {
+            if (!filters.specialization && searchMappedSpecs && searchMappedSpecs.length > 0) {
+              query = query.or(`name.ilike.%${s}%,specialization.ilike.%${s}%,specialization.in.(${searchMappedSpecs.join(',')})`);
+            } else {
+              query = query.or(`name.ilike.%${s}%,specialization.ilike.%${s}%`);
+            }
+          }
         }
       }
     }

@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -34,12 +36,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import com.example.swastik.utils.SpecializationMapper
 import com.example.swastik.utils.getTranslatedCategoryText
 import com.example.swastik.ui.theme.*
 
@@ -288,16 +292,37 @@ fun FindDoctorsCategoriesScreen(
         }
     }
 
+    // Comprehensive searchable dataset (Symptoms, Conditions, Categories & Specialities)
+    val allSearchableItems = remember {
+        val list = mutableListOf<String>()
+        // 1. Symptoms & Clinical Concerns
+        list.addAll(listOf(
+            "Headache", "Migraine", "Fever", "Cold & Cough", "Stomach Pain", "Acidity & Gas",
+            "Constipation", "Skin Rash & Itching", "Acne & Pimples", "Hair Fall",
+            "Back Pain", "Knee & Joint Pain", "Chest Pain", "Sinusitis", "Vertigo",
+            "Ear Pain", "Eye Pain", "Toothache", "Period Pain & PCOS", "Pregnancy Care",
+            "Burning Urination & UTI", "Kidney Stones", "Asthma & Breathing Issues",
+            "Diabetes Management", "Anxiety & Depression", "Piles & Fissure"
+        ))
+        // 2. All Specialities
+        list.addAll(allSpecialities.map { it.name.replace("\n", " ") })
+        // 3. Category Cards
+        list.addAll(categoryCards.map { it.title })
+        list.distinct()
+    }
+
     // Filter logic for search results
     val filteredSpecialities = if (searchQuery.isEmpty()) emptyList() else {
-        (allSpecialities.map { it.name } + categoryCards.map { it.title })
-            .filter { it.contains(searchQuery, ignoreCase = true) }
-            .distinct()
-            .take(6)
+        allSearchableItems
+            .filter { item ->
+                item.contains(searchQuery, ignoreCase = true) ||
+                SpecializationMapper.getSpecialistSubtitle(item).contains(searchQuery, ignoreCase = true)
+            }
+            .take(8)
     }
 
     // Default suggestions when focused but empty
-    val suggestions = listOf("Fever", "Headache", "Dermatologist", "Gynecologist", "Cough", "Dentist")
+    val suggestions = listOf("Headache", "Fever", "Cold & Cough", "Dermatologist", "Gynecologist", "Dentist")
 
     Scaffold(
         topBar = {
@@ -444,6 +469,17 @@ fun FindDoctorsCategoriesScreen(
                             }
                         }
                     },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            val trimmed = searchQuery.trim()
+                            if (trimmed.isNotEmpty()) {
+                                focusManager.clearFocus()
+                                val (spec, search) = SpecializationMapper.mapToSearchParams(trimmed)
+                                onSpecialityClick(spec, search)
+                            }
+                        }
+                    ),
                     interactionSource = interactionSource,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -470,29 +506,66 @@ fun FindDoctorsCategoriesScreen(
                         ) {
                             Column {
                                 displayList.forEach { item ->
+                                    val cleanItem = item.replace("\n", " ")
+                                    val subtitle = SpecializationMapper.getSpecialistSubtitle(cleanItem)
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable {
-                                                searchQuery = item
-                                                val (spec, search) = com.example.swastik.utils.SpecializationMapper.mapToSearchParams(item)
+                                                searchQuery = cleanItem
+                                                focusManager.clearFocus()
+                                                val (spec, search) = SpecializationMapper.mapToSearchParams(cleanItem)
                                                 onSpecialityClick(spec, search)
                                             }
-                                            .padding(16.dp),
+                                            .padding(14.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
                                             if (searchQuery.isEmpty()) Icons.Default.NorthEast else Icons.Outlined.Search,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(12.dp))
-                                        Text(getTranslatedCategoryText(item), fontSize = 14.sp)
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(text = getTranslatedCategoryText(cleanItem), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                            if (subtitle.isNotEmpty() && subtitle != "Specialist Consultation") {
+                                                Text(text = subtitle, fontSize = 11.5.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                                            }
+                                        }
                                     }
                                     if (item != displayList.last()) {
                                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                                     }
+                                }
+                            }
+                        }
+                    } else if (searchQuery.isNotEmpty()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val trimmed = searchQuery.trim()
+                                        focusManager.clearFocus()
+                                        val (spec, search) = SpecializationMapper.mapToSearchParams(trimmed)
+                                        onSpecialityClick(spec, search)
+                                    }
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Search, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(text = "Find specialist for \"$searchQuery\"", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                    Text(text = SpecializationMapper.getSpecialistSubtitle(searchQuery), fontSize = 12.sp, color = SwastikPrimary)
                                 }
                             }
                         }

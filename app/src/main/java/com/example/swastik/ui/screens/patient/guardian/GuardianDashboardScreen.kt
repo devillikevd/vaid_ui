@@ -1306,7 +1306,7 @@ private fun GaitMobilityLabSection(
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             // Header Row with weight constraint
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1326,7 +1326,7 @@ private fun GaitMobilityLabSection(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        "V2 Step asymmetry, stride length & fatigue analysis",
+                        "Step asymmetry, stride & fatigue analysis",
                         fontSize = 11.sp,
                         color = Color(0xFF64748B),
                         maxLines = 1,
@@ -1359,7 +1359,7 @@ private fun GaitMobilityLabSection(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 MetricScorePill(
                     modifier = Modifier.weight(1f),
@@ -1869,47 +1869,52 @@ private fun MetricScorePill(
     tint: Color = Color(0xFF0284C7)
 ) {
     Surface(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(12.dp),
         color = tint.copy(alpha = 0.07f),
         border = BorderStroke(1.dp, tint.copy(alpha = 0.20f)),
         modifier = modifier
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 3.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .background(tint.copy(alpha = 0.12f), CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(13.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = label,
-                    fontSize = 10.sp,
-                    color = Color(0xFF475569),
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    softWrap = false
-                )
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(12.dp))
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
+                text = label,
+                fontSize = 9.5.sp,
+                color = Color(0xFF475569),
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                softWrap = false,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
                 text = value,
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color(0xFF0F172A),
                 maxLines = 1,
-                softWrap = false
+                softWrap = false,
+                textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = sub,
-                fontSize = 9.sp,
+                fontSize = 8.5.sp,
                 color = tint,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                softWrap = false
+                softWrap = false,
+                textAlign = TextAlign.Center
             )
         }
     }

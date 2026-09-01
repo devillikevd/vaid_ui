@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -283,22 +284,27 @@ fun MedicineTabContent(
                         )
                     } else {
                         LazyVerticalGrid(
-                            columns = GridCells.Fixed(if (isGridView) 3 else 1),
+                            columns = GridCells.Fixed(if (isGridView) 2 else 1),
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            contentPadding = PaddingValues(
+                                start = 12.dp,
+                                end = 12.dp,
+                                top = 8.dp,
+                                bottom = if (cartState.totalItems > 0) 84.dp else 24.dp
+                            ),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             // Hero Promo Banner (full width span)
                             if (searchQuery.isBlank() && state.selectedCategory == null) {
-                                item(span = { GridItemSpan(if (isGridView) 3 else 1) }) {
+                                item(span = { GridItemSpan(if (isGridView) 2 else 1) }) {
                                     HeroPromoCard(onClick = { viewModel.setCategoryByName("vitamin") })
                                 }
                             }
 
                             // Nearby pharmacies strip (full width span)
                             if (!isSearchActive && nearbyPharmacies.isNotEmpty()) {
-                                item(span = { GridItemSpan(if (isGridView) 3 else 1) }) {
+                                item(span = { GridItemSpan(if (isGridView) 2 else 1) }) {
                                     NearbyPharmaciesSection(
                                         pharmacies = nearbyPharmacies,
                                         onPharmacyClick = onPharmacyClick
@@ -307,7 +313,7 @@ fun MedicineTabContent(
                             }
 
                             // Category Horizontal Carousel (full width span)
-                            item(span = { GridItemSpan(if (isGridView) 3 else 1) }) {
+                            item(span = { GridItemSpan(if (isGridView) 2 else 1) }) {
                                 if (backendCategories.isNotEmpty()) {
                                     Surface(
                                         modifier = Modifier
@@ -388,7 +394,7 @@ fun MedicineTabContent(
 
                             // Section header
                             if (itemCount > 0) {
-                                item(span = { GridItemSpan(if (isGridView) 3 else 1) }) {
+                                item(span = { GridItemSpan(if (isGridView) 2 else 1) }) {
                                     Column(modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
                                         Text(
                                             text = if (isSearchActive) "Search Results" else "Most Frequently Ordered Medicines",
@@ -456,7 +462,7 @@ fun MedicineTabContent(
                             }
 
                             if (displayPaged?.loadState?.append is androidx.paging.LoadState.Loading) {
-                                item(span = { GridItemSpan(if (isGridView) 3 else 1) }) {
+                                item(span = { GridItemSpan(if (isGridView) 2 else 1) }) {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -468,7 +474,7 @@ fun MedicineTabContent(
                                 }
                             }
 
-                            item(span = { GridItemSpan(if (isGridView) 3 else 1) }) { Spacer(modifier = Modifier.height(16.dp)) }
+                            item(span = { GridItemSpan(if (isGridView) 2 else 1) }) { Spacer(modifier = Modifier.height(16.dp)) }
                         }
                     }
                 }
@@ -962,16 +968,20 @@ fun GlobalMedicineCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(0.5.dp, Color(0x18000000))
     ) {
-        Column(modifier = Modifier.padding(8.dp)) {
+        Column(modifier = Modifier.padding(10.dp)) {
             // Image Box
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(80.dp)
+                    .height(105.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFF8FAFC)),
+                contentAlignment = Alignment.Center
             ) {
                 if (!medicine.imageUrl.isNullOrBlank()) {
                     AsyncImage(
@@ -979,15 +989,15 @@ fun GlobalMedicineCard(
                         contentDescription = medicine.name,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(4.dp)
+                            .padding(6.dp)
                             .clip(RoundedCornerShape(8.dp)),
                         contentScale = ContentScale.Fit
                     )
                 } else {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = getMedicineCategoryEmoji(medicine.category?.name ?: "TABLET"),
-                            fontSize = 36.sp
+                            text = getMedicineCategoryEmoji(medicine.category.name),
+                            fontSize = 42.sp
                         )
                     }
                 }
@@ -997,155 +1007,211 @@ fun GlobalMedicineCard(
                     Surface(
                         modifier = Modifier
                             .align(Alignment.TopStart)
-                            .padding(4.dp),
+                            .padding(6.dp),
                         color = Color(0xFF2E7D32),
-                        shape = RoundedCornerShape(4.dp)
+                        shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
                             text = "$discount% OFF",
-                            fontSize = 8.sp,
+                            fontSize = 9.sp,
                             color = Color.White,
                             fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                         )
                     }
                 }
 
                 // Rx badge
                 if (medicine.requiresPrescription) {
-                    Text(
-                        text = "Rx",
-                        fontSize = 9.sp,
-                        color = Color(0xFF00897B),
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.align(Alignment.BottomCenter)
-                    )
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(6.dp),
+                        color = Color(0xFFE0F2F1),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "Rx",
+                            fontSize = 9.sp,
+                            color = Color(0xFF00796B),
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
                 }
 
                 // Heart icon
-                IconButton(
-                    onClick = {
-                        onToggleFavorite()
-                        if (!isFavorite) {
-                            Toast.makeText(context, "Added to favorites", Toast.LENGTH_SHORT).show()
-                        }
-                    },
+                Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(2.dp)
-                        .size(26.dp)
-                        .background(Color.White.copy(alpha = 0.9f), CircleShape)
+                        .padding(6.dp)
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.92f))
+                        .clickable {
+                            onToggleFavorite()
+                            if (!isFavorite) {
+                                Toast.makeText(context, "Added to favorites", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                         contentDescription = "Favorite",
                         tint = if (isFavorite) Color.Red else colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Medicine Name
             Text(
                 text = medicine.name,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
                 color = colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                lineHeight = 14.sp,
-                modifier = Modifier.defaultMinSize(minHeight = 28.dp)
+                lineHeight = 16.sp,
+                modifier = Modifier.height(34.dp)
             )
 
+            // Manufacturer
             Text(
-                text = medicine.manufacturer ?: "",
-                fontSize = 9.sp,
+                text = medicine.manufacturer?.takeIf { it.isNotBlank() } ?: "Generic",
+                fontSize = 10.sp,
                 color = colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 1.dp)
             )
 
+            // Dosage / Generic
             if (!packLine.isNullOrBlank()) {
                 Text(
                     text = packLine,
-                    fontSize = 9.sp,
-                    color = colorScheme.onSurfaceVariant,
+                    fontSize = 10.sp,
+                    color = colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            } else {
+                Spacer(modifier = Modifier.height(13.dp))
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Price and Add Button row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f, fill = false)) {
                     if (currentPrice > 0) {
                         Text(
                             text = "₹${currentPrice.toInt()}",
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 14.sp,
-                            color = Color.Black
+                            fontSize = 15.sp,
+                            color = Color(0xFF1B5E20)
                         )
                         if (strikePrice != null && strikePrice > currentPrice) {
                             Text(
                                 text = "₹${strikePrice.toInt()}",
-                                fontSize = 9.sp,
+                                fontSize = 10.sp,
                                 color = colorScheme.onSurfaceVariant,
                                 textDecoration = TextDecoration.LineThrough
                             )
                         }
                     } else {
-                        Text("Request", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("Request", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = SwastikPrimary)
                     }
                 }
 
-                // Green Add Button
-                val buttonModifier = Modifier.height(26.dp).width(60.dp)
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Robust Add Button / Stepper
                 if (isInCart && cartQuantity > 0) {
                     Surface(
-                        shape = RoundedCornerShape(50),
+                        shape = RoundedCornerShape(8.dp),
                         color = SwastikPrimary,
-                        modifier = buttonModifier
+                        modifier = Modifier.height(30.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.padding(horizontal = 2.dp)
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(horizontal = 4.dp)
                         ) {
-                            IconButton(onClick = onDecrement, modifier = Modifier.size(22.dp)) {
-                                Icon(Icons.Default.Remove, contentDescription = "-", tint = Color.White, modifier = Modifier.size(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .clickable { onDecrement() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Remove,
+                                    contentDescription = "Decrease",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(13.dp)
+                                )
                             }
                             Text(
-                                "$cartQuantity",
+                                text = "$cartQuantity",
                                 color = Color.White,
                                 fontWeight = FontWeight.ExtraBold,
-                                fontSize = 11.sp
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 6.dp)
                             )
-                            IconButton(onClick = onIncrement, modifier = Modifier.size(22.dp)) {
-                                Icon(Icons.Default.Add, contentDescription = "+", tint = Color.White, modifier = Modifier.size(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .clickable { onIncrement() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = "Increase",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(13.dp)
+                                )
                             }
                         }
                     }
                 } else {
-                    Button(
-                        onClick = onAddToCart,
-                        modifier = buttonModifier,
-                        shape = RoundedCornerShape(50),
-                        contentPadding = PaddingValues(0.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = SwastikPrimary,
-                            contentColor = Color.White
-                        )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = SwastikPrimary,
+                        shadowElevation = 1.dp,
+                        modifier = Modifier
+                            .height(30.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onAddToCart() }
                     ) {
-                        Text("Add", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(horizontal = 10.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "ADD",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
                     }
                 }
             }
@@ -1205,7 +1271,7 @@ fun GlobalMedicineListCard(
                     )
                 } else {
                     Text(
-                        text = getMedicineCategoryEmoji(medicine.category?.name ?: "TABLET"),
+                        text = getMedicineCategoryEmoji(medicine.category.name),
                         fontSize = 28.sp
                     )
                 }
@@ -1371,50 +1437,85 @@ fun GlobalMedicineListCard(
                         }
                     }
 
-                    val buttonModifier = Modifier.height(28.dp).width(64.dp)
-
+                    // Stepper / Add button
                     if (isInCart && cartQuantity > 0) {
                         Surface(
-                            shape = RoundedCornerShape(50),
+                            shape = RoundedCornerShape(8.dp),
                             color = SwastikPrimary,
-                            modifier = buttonModifier
+                            modifier = Modifier.height(30.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier.padding(horizontal = 2.dp)
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(horizontal = 4.dp)
                             ) {
-                                IconButton(onClick = onDecrement, modifier = Modifier.size(22.dp)) {
-                                    Icon(Icons.Default.Remove, contentDescription = "-", tint = Color.White, modifier = Modifier.size(12.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .clickable { onDecrement() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Remove,
+                                        contentDescription = "Decrease",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
                                 }
                                 Text(
-                                    "$cartQuantity",
+                                    text = "$cartQuantity",
                                     color = Color.White,
                                     fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 11.sp
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(horizontal = 6.dp)
                                 )
-                                IconButton(onClick = onIncrement, modifier = Modifier.size(22.dp)) {
-                                    Icon(Icons.Default.Add, contentDescription = "+", tint = Color.White, modifier = Modifier.size(12.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .clickable { onIncrement() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = "Increase",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
                                 }
                             }
                         }
                     } else {
-                        Button(
-                            onClick = onAddToCart,
-                            modifier = buttonModifier,
-                            shape = RoundedCornerShape(50),
-                            contentPadding = PaddingValues(0.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = SwastikPrimary,
-                                contentColor = Color.White
-                            )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = SwastikPrimary,
+                            shadowElevation = 1.dp,
+                            modifier = Modifier
+                                .height(30.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onAddToCart() }
                         ) {
-                            Text(
-                                text = "Add",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 0.5.sp
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "ADD",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
                         }
                     }
                 }
