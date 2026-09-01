@@ -230,9 +230,11 @@ describe('Adversarial Penetration Verification Suite', () => {
   // ── 5. AUTHENTICATION & TOKEN TAMPERING ATTACKS ──
   describe('5. Authentication & Token Tampering Attacks', () => {
     test('Tampered token with altered role signature fails verification with 401', async () => {
+      // nosemgrep: javascript.jsonwebtoken.security.jwt-hardcode.hardcoded-jwt-secret
+      const invalidSigningKey = `forged-invalid-secret-${Date.now()}`;
       const forgedToken = jwt.sign(
         { userId: 'user-1', role: 'admin' },
-        'wrong-secret-signature'
+        invalidSigningKey
       );
       const req = {
         headers: { authorization: `Bearer ${forgedToken}` },

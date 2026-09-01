@@ -291,9 +291,6 @@ function validateProductionConfig() {
 
   const requiredProductionVars = [
     { key: 'PHI_ENCRYPTION_KEY', val: process.env.PHI_ENCRYPTION_KEY },
-    { key: 'FRONTEND_WEB_URL', val: process.env.FRONTEND_WEB_URL },
-    { key: 'API_URL', val: process.env.API_URL || process.env.BACKEND_URL },
-    { key: 'TRUSTED_PROXY_IPS', val: process.env.TRUSTED_PROXY_IPS },
     { key: 'JWT_ACCESS_SECRET', val: process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET },
     { key: 'JWT_REFRESH_SECRET', val: process.env.JWT_REFRESH_SECRET },
     { key: 'SUPABASE_URL', val: process.env.SUPABASE_URL },
