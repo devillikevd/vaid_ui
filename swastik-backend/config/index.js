@@ -282,6 +282,9 @@ const config = {
     fromName: process.env.EMAIL_FROM_NAME || 'VAIDIDEA Healthcare',
     fromEmail: process.env.EMAIL_FROM_ADDRESS || process.env.FROM_EMAIL || 'noreply@vaididea.in',
   },
+
+  // Presentation Mode (allows multiple independent portal sessions in demo environments)
+  presentationMode: parseBoolean(process.env.PRESENTATION_MODE || process.env.NEXT_PUBLIC_PRESENTATION_MODE, false),
 };
 
 config.minio = config.storage;

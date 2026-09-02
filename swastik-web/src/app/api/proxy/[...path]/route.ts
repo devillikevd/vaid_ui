@@ -18,12 +18,17 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
     const contentType = req.headers.get('content-type');
     if (contentType) headers.set('content-type', contentType);
 
+    const isPresentationMode =
+        process.env.PRESENTATION_MODE === 'true' ||
+        process.env.NEXT_PUBLIC_PRESENTATION_MODE === 'true' ||
+        req.headers.get('x-presentation-mode') === '1';
+
     // Forward incoming Authorization header directly if present
     const authHeader = req.headers.get('authorization');
     if (authHeader) {
         headers.set('authorization', authHeader);
-    } else {
-        // Fallback: extract tokens from cookies (accessToken or swastik-token)
+    } else if (!isPresentationMode) {
+        // Fallback: extract tokens from cookies only in standard mode (in presentation mode, keep per-tab tokens isolated)
         const accessToken = req.cookies.get('accessToken')?.value || req.cookies.get('swastik-token')?.value;
         if (accessToken) {
             headers.set('authorization', `Bearer ${accessToken}`);
@@ -31,9 +36,11 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
     }
     
     // Forward the refreshToken cookie using the name the backend expects
-    const refreshToken = req.cookies.get('refreshToken')?.value || req.cookies.get('swastik-refresh-token')?.value;
-    if (refreshToken) {
-        headers.append('cookie', `swastik-refresh-token=${refreshToken}`);
+    if (!isPresentationMode) {
+        const refreshToken = req.cookies.get('refreshToken')?.value || req.cookies.get('swastik-refresh-token')?.value;
+        if (refreshToken) {
+            headers.append('cookie', `swastik-refresh-token=${refreshToken}`);
+        }
     }
 
     try {
@@ -78,7 +85,8 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
         });
 
         const tokens = data?.data || data;
-        if (data && data.success && tokens && tokens.accessToken && tokens.refreshToken) {
+        // In presentation mode, avoid setting global cookies so each Chrome tab maintains its own isolated session
+        if (!isPresentationMode && data && data.success && tokens && tokens.accessToken && tokens.refreshToken) {
             // Set HttpOnly cookies
             nextResponse.cookies.set('accessToken', tokens.accessToken, {
                 httpOnly: true,
@@ -103,7 +111,6 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
                     maxAge: 15 * 60 // 15 mins
                 });
             }
-            
             // Set a readable cookie for frontend state
             nextResponse.cookies.set('isAuthenticated', 'true', {
                 httpOnly: false,

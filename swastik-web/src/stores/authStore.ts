@@ -16,7 +16,8 @@ import { usePharmacyStore } from './pharmacyStore';
 import { useDiagnosticCenterStore } from './diagnosticCenterStore';
 import { useAdminStore } from './adminStore';
 import { doesRoleMatchPortal, isRoleValidForPortal, isPatientAuthenticated } from '@/lib/roles';
-export { doesRoleMatchPortal, isRoleValidForPortal, isPatientAuthenticated };
+import { IS_PRESENTATION_MODE } from '@/lib/presentationMode';
+export { doesRoleMatchPortal, isRoleValidForPortal, isPatientAuthenticated, IS_PRESENTATION_MODE };
 
 /** Decode JWT payload and check if it's expired (H12 fix) */
 function isJwtExpired(token: string): boolean {
@@ -201,12 +202,13 @@ export const useAuthStore = create<AuthState>()(
                     }
                     const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24; // 30 days vs 1 day
 
-                    // Sync tokens/cookies to api.ts + localStorage for fetchWithAuth and route guards
+                    // Sync tokens/cookies to api.ts + storage for fetchWithAuth and route guards
                     syncTokens(accessTk, refreshTk, { cookieMaxAge: maxAge, role: user.role });
 
                     if (typeof window !== 'undefined') {
                         try {
-                            localStorage.setItem('swastik-auth-storage', JSON.stringify({
+                            const storage = IS_PRESENTATION_MODE ? sessionStorage : localStorage;
+                            storage.setItem('swastik-auth-storage', JSON.stringify({
                                 state: { user, isAuthenticated: true },
                                 version: 0,
                             }));
@@ -254,11 +256,11 @@ export const useAuthStore = create<AuthState>()(
             },
 
             logout: () => {
-                if (typeof document !== 'undefined') {
+                if (!IS_PRESENTATION_MODE && typeof document !== 'undefined') {
                     document.cookie = 'swastik-role=; path=/; max-age=0';
                     document.cookie = 'swastik-token=; path=/; max-age=0';
                 }
-                // Sync clear to api.ts module + localStorage
+                // Sync clear to api.ts module + storage
                 syncClearTokens();
                 set({
                     user: null,
@@ -267,6 +269,12 @@ export const useAuthStore = create<AuthState>()(
                     isAuthenticated: false,
                     isLoading: false,
                 });
+                if (typeof window !== 'undefined') {
+                    try {
+                        const storage = IS_PRESENTATION_MODE ? sessionStorage : localStorage;
+                        storage.removeItem('swastik-auth-storage');
+                    } catch { /* ignore */ }
+                }
                 // Reset all role-specific stores to prevent data flash on re-login
                 useDoctorStore.getState().reset();
                 useHospitalStore.getState().reset();
@@ -349,7 +357,7 @@ export const useAuthStore = create<AuthState>()(
         }),
         {
             name: 'swastik-auth-storage',
-            storage: createJSONStorage(() => (typeof window !== 'undefined' ? localStorage : sessionStorage)),
+            storage: createJSONStorage(() => (typeof window !== 'undefined' ? (IS_PRESENTATION_MODE ? sessionStorage : localStorage) : sessionStorage)),
             partialize: (state) => ({
                 user: state.user,
                 isAuthenticated: state.isAuthenticated,
@@ -413,7 +421,8 @@ export function canAccessRoute(userRole: UserRole | undefined, path: string): bo
 
 // ==================== Multi-Tab Token Sync via BroadcastChannel ====================
 // Ensures that when one tab logs out or refreshes tokens, all other tabs stay in sync.
-if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
+// In presentation mode, cross-tab sync is disabled to allow independent accounts in separate tabs.
+if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined' && !IS_PRESENTATION_MODE) {
     const authChannel = new BroadcastChannel('swastik-auth-sync');
 
     authChannel.onmessage = (event) => {

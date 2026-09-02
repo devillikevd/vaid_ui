@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { doctorApi, appointmentsApi, consultationsApi } from '../lib/api';
+import { doctorApi, appointmentsApi, consultationsApi, getTokens } from '../lib/api';
 
 // ==================== Types ====================
 
@@ -1155,11 +1155,12 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
 
     resendOtp: async (appointmentId) => {
         try {
+            const token = getTokens().accessToken;
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}/resend-otp`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${localStorage.getItem('token')}`,
+                    Authorization: `Bearer ${token || ''}`,
                 },
             });
             const data = await response.json();

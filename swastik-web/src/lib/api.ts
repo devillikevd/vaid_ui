@@ -96,6 +96,13 @@ function syncCookie(name: string, value: string | null, maxAge: number = DEFAULT
     document.cookie = `${name}=${value}; path=/; max-age=${maxAge}; SameSite=Strict${secureFlag}`;
 }
 
+import { IS_PRESENTATION_MODE } from './presentationMode';
+
+export const getAuthStorage = (): Storage | null => {
+    if (typeof window === 'undefined') return null;
+    return IS_PRESENTATION_MODE ? window.sessionStorage : window.localStorage;
+};
+
 export const setTokens = (
     access: string | null | undefined,
     refresh: string | null | undefined,
@@ -106,45 +113,61 @@ export const setTokens = (
     aiServiceToken = normalizeStoredToken(options.aiServiceToken);
 
     if (typeof window !== 'undefined') {
-        syncCookie('swastik-token', accessToken, options.cookieMaxAge);
-        syncCookie('accessToken', accessToken, options.cookieMaxAge);
-        if (refreshToken) {
-            syncCookie('refreshToken', refreshToken, options.cookieMaxAge);
-            syncCookie('swastik-refresh-token', refreshToken, options.cookieMaxAge);
-        }
-        if (options.aiServiceToken) {
-            syncCookie('swastik-ai-token', aiServiceToken, 60 * 15);
-        } else {
-            syncCookie('swastik-ai-token', null);
-        }
-        if (options.role) {
-            syncCookie('swastik-role', options.role, options.cookieMaxAge);
-        }
+        const storage = getAuthStorage();
         try {
             if (accessToken) {
-                localStorage.setItem('swastik-token', accessToken);
+                storage?.setItem('swastik-token', accessToken);
+                if (refreshToken) storage?.setItem('swastik-refresh-token', refreshToken);
             } else {
-                localStorage.removeItem('swastik-token');
+                storage?.removeItem('swastik-token');
+                storage?.removeItem('swastik-refresh-token');
             }
         } catch { /* ignore */ }
+
+        // In presentation mode, skip global cookie synchronization to prevent cross-tab session contamination
+        if (!IS_PRESENTATION_MODE) {
+            syncCookie('swastik-token', accessToken, options.cookieMaxAge);
+            syncCookie('accessToken', accessToken, options.cookieMaxAge);
+            if (refreshToken) {
+                syncCookie('refreshToken', refreshToken, options.cookieMaxAge);
+                syncCookie('swastik-refresh-token', refreshToken, options.cookieMaxAge);
+            }
+            if (options.aiServiceToken) {
+                syncCookie('swastik-ai-token', aiServiceToken, 60 * 15);
+            } else {
+                syncCookie('swastik-ai-token', null);
+            }
+            if (options.role) {
+                syncCookie('swastik-role', options.role, options.cookieMaxAge);
+            }
+        }
     }
 };
 
 export const getTokens = () => {
     if (typeof window !== 'undefined') {
-        if (!accessToken) {
+        const storage = getAuthStorage();
+        if (!accessToken && storage) {
             try {
-                accessToken = localStorage.getItem('swastik-token');
+                accessToken = storage.getItem('swastik-token');
             } catch { /* ignore */ }
         }
-        if (!accessToken) {
-            const match = document.cookie.match(new RegExp('(^| )swastik-token=([^;]+)')) ||
-                          document.cookie.match(new RegExp('(^| )accessToken=([^;]+)'));
-            if (match) accessToken = match[2];
+        if (!refreshToken && storage) {
+            try {
+                refreshToken = storage.getItem('swastik-refresh-token');
+            } catch { /* ignore */ }
         }
-        if (!aiServiceToken) {
-            const match = document.cookie.match(new RegExp('(^| )swastik-ai-token=([^;]+)'));
-            if (match) aiServiceToken = match[2];
+        // In presentation mode, do NOT fall back to shared cookies (to keep tabs isolated)
+        if (!IS_PRESENTATION_MODE) {
+            if (!accessToken) {
+                const match = document.cookie.match(new RegExp('(^| )swastik-token=([^;]+)')) ||
+                              document.cookie.match(new RegExp('(^| )accessToken=([^;]+)'));
+                if (match) accessToken = match[2];
+            }
+            if (!aiServiceToken) {
+                const match = document.cookie.match(new RegExp('(^| )swastik-ai-token=([^;]+)'));
+                if (match) aiServiceToken = match[2];
+            }
         }
         accessToken = normalizeStoredToken(accessToken);
         refreshToken = normalizeStoredToken(refreshToken);
@@ -163,15 +186,21 @@ export const clearTokens = () => {
     refreshToken = null;
     aiServiceToken = null;
     if (typeof window !== 'undefined') {
-        syncCookie('swastik-role', null);
-        syncCookie('swastik-token', null);
-        syncCookie('accessToken', null);
-        syncCookie('refreshToken', null);
-        syncCookie('swastik-refresh-token', null);
-        syncCookie('swastik-ai-token', null);
+        const storage = getAuthStorage();
         try {
-            localStorage.removeItem('swastik-token');
+            storage?.removeItem('swastik-token');
+            storage?.removeItem('swastik-refresh-token');
+            storage?.removeItem('swastik-ai-token');
         } catch { /* ignore */ }
+
+        if (!IS_PRESENTATION_MODE) {
+            syncCookie('swastik-role', null);
+            syncCookie('swastik-token', null);
+            syncCookie('accessToken', null);
+            syncCookie('refreshToken', null);
+            syncCookie('swastik-refresh-token', null);
+            syncCookie('swastik-ai-token', null);
+        }
     }
 };
 
@@ -212,6 +241,9 @@ export async function fetchWithAuth<T>(
 
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (IS_PRESENTATION_MODE) {
+        headers['x-presentation-mode'] = '1';
     }
 
     // Only set Content-Type for non-FormData bodies (FormData needs browser to set boundary)

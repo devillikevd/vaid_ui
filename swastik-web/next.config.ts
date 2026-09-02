@@ -4,7 +4,13 @@ import type { NextConfig } from "next";
 
 const rootDir = dirname(fileURLToPath(import.meta.url));
 
+const isPresentation = (process.env.PRESENTATION_MODE === 'true' || process.env.NEXT_PUBLIC_PRESENTATION_MODE === 'true') ? 'true' : 'false';
+
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_PRESENTATION_MODE: isPresentation,
+    PRESENTATION_MODE: isPresentation,
+  },
   // Required for Docker standalone builds (Dockerfile copies from .next/standalone)
   output: 'standalone',
   turbopack: {

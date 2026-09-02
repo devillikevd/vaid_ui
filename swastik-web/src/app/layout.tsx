@@ -7,6 +7,7 @@ import '@/lib/env'; // Validates env vars on server startup
 
 import { GlobalSocketToastsDynamic } from '@/components/shared/GlobalSocketToastsDynamic';
 import { PublicThemeGuard } from '@/components/shared/PublicThemeGuard';
+import { PresentationModeBadge } from '@/components/shared/PresentationModeBadge';
 
 // M020: fonts are self-hosted via next/font — no third-party CDN assets are
 // loaded (previously Google Fonts was fetched at runtime, outside SRI control).
@@ -54,6 +55,7 @@ export default function RootLayout({
         <ToastProvider>
           {children}
           <GlobalSocketToastsDynamic />
+          <PresentationModeBadge />
         </ToastProvider>
       </body>
     </html>
