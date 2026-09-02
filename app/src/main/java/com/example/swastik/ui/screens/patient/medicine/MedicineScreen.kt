@@ -560,7 +560,7 @@ private fun CompactMedicineListItem(
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
                     )
                 } else {
-                    Text(getMedicineEmoji(medicine.category.name), fontSize = 26.sp)
+                    Text(getMedicineEmoji(medicine.safeCategoryName), fontSize = 26.sp)
                 }
             }
 

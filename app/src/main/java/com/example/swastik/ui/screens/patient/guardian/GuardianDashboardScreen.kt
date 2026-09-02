@@ -314,7 +314,7 @@ private fun LiveSafetyShieldHeader(
                         Brush.horizontalGradient(listOf(Color(0xFF1E293B), Color(0xFF334155)))
                     }
                 )
-                .padding(18.dp)
+                .padding(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -323,17 +323,17 @@ private fun LiveSafetyShieldHeader(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f).padding(end = 12.dp)
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
                 ) {
                     PulsingIndicator(isActive = isActive && !isConsultationPaused)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isConsultationPaused) "Sentinel Standby (Video Call) 📹"
+                            text = if (isConsultationPaused) "Sentinel Standby 📹"
                             else if (isActive) "Guardian Sentinel Active 🛡️"
                             else "Guardian Protection Paused ⏸️",
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 15.sp,
+                            fontSize = 13.5.sp,
                             color = Color.White,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -343,9 +343,9 @@ private fun LiveSafetyShieldHeader(
                             text = if (isConsultationPaused) "Sensor polling paused for video call CPU priority"
                             else if (isActive) "24/7 Fall, Crash & Gait V2 Sentinel Running"
                             else "Tap switch to activate emergency shield",
-                            fontSize = 11.sp,
+                            fontSize = 10.5.sp,
                             color = Color.White.copy(alpha = 0.88f),
-                            lineHeight = 14.sp,
+                            lineHeight = 13.5.sp,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -364,9 +364,9 @@ private fun LiveSafetyShieldHeader(
                 )
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -379,13 +379,13 @@ private fun LiveSafetyShieldHeader(
                     modifier = Modifier.wrapContentWidth()
                 ) {
                     Text(
-                        text = if (recentCriticalEvents == 0) "✓ 100% Safety Uptime • 0 Incidents" else "⚠️ $recentCriticalEvents Incident(s) Logged",
-                        fontSize = 11.sp,
+                        text = if (recentCriticalEvents == 0) "✓ 100% Uptime • 0 Incidents" else "⚠️ $recentCriticalEvents Incident(s)",
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                         maxLines = 1,
                         softWrap = false,
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.5.dp)
                     )
                 }
 
@@ -395,18 +395,18 @@ private fun LiveSafetyShieldHeader(
                     modifier = Modifier.wrapContentWidth()
                 ) {
                     val tierLabel = when (capabilityTier) {
-                        "FULL" -> "Hardware: Full 6-Axis 🟢"
+                        "FULL" -> "Hardware: Full 🟢"
                         "STANDARD" -> "Hardware: Standard 🟡"
                         else -> "Hardware: Basic 🟠"
                     }
                     Text(
                         text = tierLabel,
-                        fontSize = 10.5.sp,
+                        fontSize = 10.sp,
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         softWrap = false,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.5.dp)
                     )
                 }
             }
@@ -824,12 +824,13 @@ private fun EmergencyActiveRadarWidget(onClickHero: () -> Unit) {
                     Icon(Icons.Default.Radar, null, tint = Color(0xFF38BDF8), modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "Community First Responder Radar 🗺️",
+                        "Community First Responders 🗺️",
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 13.5.sp,
+                        fontSize = 12.5.sp,
                         color = Color.White,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
                 }
 
@@ -842,7 +843,7 @@ private fun EmergencyActiveRadarWidget(onClickHero: () -> Unit) {
                         "2.0 km Radius",
                         color = Color(0xFF38BDF8),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 9.5.sp,
+                        fontSize = 9.sp,
                         maxLines = 1,
                         softWrap = false,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -866,8 +867,8 @@ private fun EmergencyActiveRadarWidget(onClickHero: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("🟢 4 Active Responders in Area", fontSize = 10.5.sp, color = Color(0xFF4ADE80), fontWeight = FontWeight.Bold)
-                Text("Manage volunteer profile →", fontSize = 11.sp, color = Color(0xFF38BDF8), fontWeight = FontWeight.SemiBold)
+                Text("🟢 4 Active Responders", fontSize = 10.5.sp, color = Color(0xFF4ADE80), fontWeight = FontWeight.Bold, maxLines = 1)
+                Text("Volunteer profile →", fontSize = 10.5.sp, color = Color(0xFF38BDF8), fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
             }
         }
     }
@@ -1213,7 +1214,9 @@ private fun EmergencyHeroQuickBar(
     onTriggerTestAlert: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Surface(
@@ -1222,17 +1225,34 @@ private fun EmergencyHeroQuickBar(
             border = BorderStroke(1.dp, Color(0xFFFECDD3)),
             modifier = Modifier
                 .weight(1f)
+                .fillMaxHeight()
                 .clickable { onClickHero() }
         ) {
             Row(
-                modifier = Modifier.padding(14.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.VolunteerActivism, null, tint = Color(0xFFE11D48), modifier = Modifier.size(22.dp))
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text("Hero Responders", fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = Color(0xFF881337))
-                    Text("Nearby network 🟢", fontSize = 10.sp, color = Color(0xFFE11D48))
+                Icon(Icons.Default.VolunteerActivism, null, tint = Color(0xFFE11D48), modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Hero Responders",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.5.sp,
+                        color = Color(0xFF881337),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        "Nearby network 🟢",
+                        fontSize = 9.5.sp,
+                        color = Color(0xFFE11D48),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
@@ -1243,17 +1263,34 @@ private fun EmergencyHeroQuickBar(
             border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
             modifier = Modifier
                 .weight(1f)
+                .fillMaxHeight()
                 .clickable { onTriggerTestAlert() }
         ) {
             Row(
-                modifier = Modifier.padding(14.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.PlayCircle, null, tint = Color(0xFF1D4ED8), modifier = Modifier.size(22.dp))
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text("Test Alert UI", fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = Color(0xFF1E3A8A))
-                    Text("10s Countdown 🔔", fontSize = 10.sp, color = Color(0xFF2563EB))
+                Icon(Icons.Default.PlayCircle, null, tint = Color(0xFF1D4ED8), modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Test Alert UI",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.5.sp,
+                        color = Color(0xFF1E3A8A),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        "10s Countdown 🔔",
+                        fontSize = 9.5.sp,
+                        color = Color(0xFF2563EB),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }

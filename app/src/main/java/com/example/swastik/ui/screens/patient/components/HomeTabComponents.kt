@@ -620,25 +620,28 @@ fun CommunityQABanner(totalQuestions: Int? = null, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE5F5F0)),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F7F2)),
+        border = BorderStroke(1.dp, Color(0xFFBFEADB)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
         ) {
             // Top Section
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left side: Fake Doctor Profiles
+                // Left side: Overlapping Doctor Profiles (Compact & Elegant)
                 Box(
                     modifier = Modifier
-                        .width(100.dp)
-                        .height(72.dp),
+                        .width(72.dp)
+                        .height(52.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     // Left profile
@@ -647,8 +650,8 @@ fun CommunityQABanner(totalQuestions: Int? = null, onClick: () -> Unit) {
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(44.dp)
-                            .offset(x = (-26).dp)
+                            .size(34.dp)
+                            .offset(x = (-18).dp)
                             .clip(CircleShape)
                             .border(2.dp, Color.White, CircleShape)
                     )
@@ -658,8 +661,8 @@ fun CommunityQABanner(totalQuestions: Int? = null, onClick: () -> Unit) {
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(44.dp)
-                            .offset(x = 26.dp)
+                            .size(34.dp)
+                            .offset(x = 18.dp)
                             .clip(CircleShape)
                             .border(2.dp, Color.White, CircleShape)
                     )
@@ -669,7 +672,7 @@ fun CommunityQABanner(totalQuestions: Int? = null, onClick: () -> Unit) {
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(60.dp)
+                            .size(46.dp)
                             .clip(CircleShape)
                             .border(2.dp, Color.White, CircleShape)
                     )
@@ -677,89 +680,104 @@ fun CommunityQABanner(totalQuestions: Int? = null, onClick: () -> Unit) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .offset(x = 20.dp, y = (-2).dp)
-                            .size(14.dp)
+                            .offset(x = 14.dp, y = (-1).dp)
+                            .size(11.dp)
                             .border(2.dp, Color.White, CircleShape)
                             .clip(CircleShape)
                             .background(Color(0xFF00C853))
                     )
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 
                 // Middle: Texts
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Text(
                             text = "Community Q&A",
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            color = Color(0xFF1E293B)
+                            fontSize = 16.sp,
+                            color = Color(0xFF0F3E2E)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
                         // LIVE Badge
                         Row(
                             modifier = Modifier
-                                .background(Color(0xFFD4EFE5), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                .background(Color(0xFFD4EFE5), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 5.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF00C853)))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("LIVE", color = Color(0xFF00C853), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(Color(0xFF00C853)))
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("LIVE", color = Color(0xFF008938), fontSize = 8.5.sp, fontWeight = FontWeight.ExtraBold)
                         }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Ask doctors. Get verified answers.",
-                        fontSize = 12.sp,
-                        color = Color(0xFF64748B),
-                        maxLines = 1,
+                        text = "Ask health questions & get verified doctor answers",
+                        fontSize = 11.sp,
+                        color = Color(0xFF475569),
+                        lineHeight = 14.sp,
+                        maxLines = 2,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
+
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = Color(0xFF00A844),
+                    modifier = Modifier.size(20.dp)
+                )
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = Color(0xFFD4EFE5), thickness = 1.dp)
             Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = Color(0xFFCEEFE3), thickness = 1.dp)
+            Spacer(modifier = Modifier.height(10.dp))
             
-            // Bottom Section (Stats)
+            // Bottom Section (Stats Pills)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Live Discussions
-                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.background(Color(0xFFD4EFE5), RoundedCornerShape(4.dp)).padding(4.dp), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Outlined.Chat, contentDescription = null, tint = Color(0xFF00C853), modifier = Modifier.size(14.dp))
-                    }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .background(Color(0xFFD4EFE5).copy(alpha = 0.7f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 3.5.dp)
+                ) {
+                    Icon(Icons.Outlined.Chat, contentDescription = null, tint = Color(0xFF008938), modifier = Modifier.size(12.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Live Discussions", fontSize = 10.sp, color = Color(0xFF1E293B), fontWeight = FontWeight.Medium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text("Live Q&A", fontSize = 10.sp, color = Color(0xFF0F3E2E), fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                 }
-
-                Spacer(modifier = Modifier.width(4.dp))
 
                 // Verified Doctors
-                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.background(Color(0xFFD4EFE5), RoundedCornerShape(4.dp)).padding(4.dp), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Outlined.VerifiedUser, contentDescription = null, tint = Color(0xFF00C853), modifier = Modifier.size(14.dp))
-                    }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .background(Color(0xFFD4EFE5).copy(alpha = 0.7f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 3.5.dp)
+                ) {
+                    Icon(Icons.Outlined.VerifiedUser, contentDescription = null, tint = Color(0xFF008938), modifier = Modifier.size(12.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Verified Doctors", fontSize = 10.sp, color = Color(0xFF1E293B), fontWeight = FontWeight.Medium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text("Verified Docs", fontSize = 10.sp, color = Color(0xFF0F3E2E), fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                 }
 
-                Spacer(modifier = Modifier.width(4.dp))
-
                 // Questions Count
-                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.background(Color(0xFFD4EFE5), RoundedCornerShape(4.dp)).padding(4.dp), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Outlined.People, contentDescription = null, tint = Color(0xFF00C853), modifier = Modifier.size(14.dp))
-                    }
+                val qCountStr = if (totalQuestions == null || totalQuestions <= 0) "Active" else if (totalQuestions >= 1000) "${totalQuestions / 1000}K+ Qs" else "$totalQuestions Questions"
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .background(Color(0xFFD4EFE5).copy(alpha = 0.7f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 3.5.dp)
+                ) {
+                    Icon(Icons.Outlined.People, contentDescription = null, tint = Color(0xFF008938), modifier = Modifier.size(12.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    val qCountStr = if (totalQuestions == null) "0 Questions" else if (totalQuestions >= 1000) "${totalQuestions / 1000}K+ Questions" else "$totalQuestions Questions"
-                    Text(qCountStr, fontSize = 10.sp, color = Color(0xFF1E293B), fontWeight = FontWeight.Medium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text(qCountStr, fontSize = 10.sp, color = Color(0xFF0F3E2E), fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                 }
             }
         }

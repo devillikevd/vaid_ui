@@ -414,7 +414,7 @@ const bookAppointment = async (patientId, appointmentData) => {
         .select('id')
         .eq('doctor_id', doctorId)
         .eq('block_date', date)
-        .or(`time_slot.eq.${timeSlotDb},time_slot.eq.${ts}`)
+        .in('time_slot', [ts, timeSlotDb])
         .maybeSingle();
 
       if (manualBlock) {

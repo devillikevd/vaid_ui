@@ -41,6 +41,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemKey
+import androidx.compose.foundation.lazy.grid.items
 import coil.compose.AsyncImage
 import com.example.swastik.R
 import com.example.swastik.data.model.*
@@ -412,20 +414,21 @@ fun MedicineTabContent(
                             }
 
                             // Medicine grid cards
-                            items(
-                                count = itemCount,
-                                key = { index -> displayMedicines?.get(index)?.id ?: displayPaged?.get(index)?.id ?: index }
-                            ) { index ->
-                                val medicine = displayMedicines?.get(index) ?: displayPaged?.get(index)
-                                if (medicine != null) {
+                            if (isSearchActive) {
+                                val searchList = displayMedicines ?: emptyList()
+                                items(
+                                    items = searchList,
+                                    key = { it.id }
+                                ) { medicine ->
                                     val isInCart = cartState.items.any { it.medicine.id == medicine.id }
-                                    val isFav = viewModel.favoriteMedicines.collectAsState().value.any { it.id == medicine.id }
+                                    val isFav = favorites.any { it.id == medicine.id }
                                     val toggleFav = { viewModel.toggleFavorite(medicine) }
+                                    val cartQty = cartState.items.find { it.medicine.id == medicine.id }?.quantity ?: 0
                                     if (isGridView) {
                                         GlobalMedicineCard(
                                             medicine = medicine,
                                             isInCart = isInCart,
-                                            cartQuantity = cartState.items.find { it.medicine.id == medicine.id }?.quantity ?: 0,
+                                            cartQuantity = cartQty,
                                             isFavorite = isFav,
                                             onToggleFavorite = toggleFav,
                                             onClick = { onMedicineClick(medicine.id) },
@@ -443,7 +446,7 @@ fun MedicineTabContent(
                                         GlobalMedicineListCard(
                                             medicine = medicine,
                                             isInCart = isInCart,
-                                            cartQuantity = cartState.items.find { it.medicine.id == medicine.id }?.quantity ?: 0,
+                                            cartQuantity = cartQty,
                                             isFavorite = isFav,
                                             onToggleFavorite = toggleFav,
                                             onClick = { onMedicineClick(medicine.id) },
@@ -457,6 +460,56 @@ fun MedicineTabContent(
                                                 viewModel.removeFromCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine.id)
                                             }
                                         )
+                                    }
+                                }
+                            } else {
+                                items(
+                                    count = pagedMedicines.itemCount,
+                                    key = pagedMedicines.itemKey { it.id }
+                                ) { index ->
+                                    val medicine = pagedMedicines[index]
+                                    if (medicine != null) {
+                                        val isInCart = cartState.items.any { it.medicine.id == medicine.id }
+                                        val isFav = favorites.any { it.id == medicine.id }
+                                        val toggleFav = { viewModel.toggleFavorite(medicine) }
+                                        val cartQty = cartState.items.find { it.medicine.id == medicine.id }?.quantity ?: 0
+                                        if (isGridView) {
+                                            GlobalMedicineCard(
+                                                medicine = medicine,
+                                                isInCart = isInCart,
+                                                cartQuantity = cartQty,
+                                                isFavorite = isFav,
+                                                onToggleFavorite = toggleFav,
+                                                onClick = { onMedicineClick(medicine.id) },
+                                                onAddToCart = {
+                                                    viewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine, "GLOBAL_REQUEST", "Global Request")
+                                                },
+                                                onIncrement = {
+                                                    viewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine, "GLOBAL_REQUEST", "Global Request")
+                                                },
+                                                onDecrement = {
+                                                    viewModel.removeFromCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine.id)
+                                                }
+                                            )
+                                        } else {
+                                            GlobalMedicineListCard(
+                                                medicine = medicine,
+                                                isInCart = isInCart,
+                                                cartQuantity = cartQty,
+                                                isFavorite = isFav,
+                                                onToggleFavorite = toggleFav,
+                                                onClick = { onMedicineClick(medicine.id) },
+                                                onAddToCart = {
+                                                    viewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine, "GLOBAL_REQUEST", "Global Request")
+                                                },
+                                                onIncrement = {
+                                                    viewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine, "GLOBAL_REQUEST", "Global Request")
+                                                },
+                                                onDecrement = {
+                                                    viewModel.removeFromCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine.id)
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -996,7 +1049,7 @@ fun GlobalMedicineCard(
                 } else {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = getMedicineCategoryEmoji(medicine.category.name),
+                            text = getMedicineCategoryEmoji(medicine.safeCategoryName),
                             fontSize = 42.sp
                         )
                     }
@@ -1271,7 +1324,7 @@ fun GlobalMedicineListCard(
                     )
                 } else {
                     Text(
-                        text = getMedicineCategoryEmoji(medicine.category.name),
+                        text = getMedicineCategoryEmoji(medicine.safeCategoryName),
                         fontSize = 28.sp
                     )
                 }
@@ -1525,6 +1578,6 @@ fun GlobalMedicineListCard(
 }
 
 // Helper function to get emoji based on category
-private fun getMedicineCategoryEmoji(category: String): String {
+private fun getMedicineCategoryEmoji(category: String?): String {
     return getMedicineEmoji(category)
 }

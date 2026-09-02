@@ -82,7 +82,7 @@ fun MedicineCard(
                                 .background(SwastikPrimary.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(getMedicineEmoji(medicine.category.name), fontSize = 24.sp)
+                            Text(getMedicineEmoji(medicine.safeCategoryName), fontSize = 24.sp)
                         }
                     }
                 }
@@ -222,7 +222,7 @@ fun CompactMedicineItem(
                         .background(SwastikPrimary.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(getMedicineEmoji(medicine.category.name), fontSize = 20.sp)
+                    Text(getMedicineEmoji(medicine.safeCategoryName), fontSize = 20.sp)
                 }
             }
         }
@@ -522,14 +522,25 @@ fun PriceDisplay(
 /**
  * Get emoji based on medicine category
  */
-fun getMedicineEmoji(category: String): String {
-    return when (category.uppercase()) {
-        "TABLET", "CAPSULE" -> "💊"
-        "SYRUP" -> "🧴"
-        "INJECTION" -> "💉"
-        "OINTMENT" -> "🧴"
-        "DROPS" -> "💧"
-        "POWDER" -> "🥄"
+fun getMedicineEmoji(category: String?): String {
+    val cat = category?.uppercase() ?: return "💊"
+    return when {
+        cat.contains("TABLET") || cat.contains("CAPSULE") -> "💊"
+        cat.contains("SYRUP") -> "🧴"
+        cat.contains("INJECTION") -> "💉"
+        cat.contains("OINTMENT") || cat.contains("CREAM") || cat.contains("GEL") -> "🧴"
+        cat.contains("DROP") -> "💧"
+        cat.contains("POWDER") -> "🥄"
+        cat.contains("INHALER") || cat.contains("RESPIRATORY") -> "🫁"
+        cat.contains("AYURVED") -> "🌿"
+        cat.contains("VITAMIN") -> "✨"
+        cat.contains("DIABET") -> "🩸"
+        cat.contains("CARDIAC") || cat.contains("HEART") -> "❤️"
+        cat.contains("PAIN") -> "🩹"
+        cat.contains("DEVICE") -> "🩺"
+        cat.contains("BABY") -> "👶"
+        cat.contains("EYE") -> "👁️"
+        cat.contains("DENTAL") -> "🦷"
         else -> "💊"
     }
 }
@@ -538,15 +549,16 @@ fun getMedicineEmoji(category: String): String {
  * Get color based on medicine category
  */
 @Composable
-fun getMedicineCategoryColor(category: String): Color {
-    return when (category.uppercase()) {
-        "TABLET" -> Color(0xFF6C63FF)
-        "CAPSULE" -> MaterialTheme.colorScheme.secondary
-        "SYRUP" -> MaterialTheme.colorScheme.tertiary
-        "INJECTION" -> MaterialTheme.colorScheme.error
-        "OINTMENT" -> Color(0xFF2196F3)
-        "DROPS" -> Color(0xFF00BCD4)
-        "POWDER" -> Color(0xFF9C27B0)
+fun getMedicineCategoryColor(category: String?): Color {
+    val cat = category?.uppercase() ?: return Color(0xFF6C63FF)
+    return when {
+        cat.contains("TABLET") -> Color(0xFF6C63FF)
+        cat.contains("CAPSULE") -> MaterialTheme.colorScheme.secondary
+        cat.contains("SYRUP") -> MaterialTheme.colorScheme.tertiary
+        cat.contains("INJECTION") -> MaterialTheme.colorScheme.error
+        cat.contains("OINTMENT") || cat.contains("CREAM") -> Color(0xFF2196F3)
+        cat.contains("DROP") -> Color(0xFF00BCD4)
+        cat.contains("POWDER") -> Color(0xFF9C27B0)
         else -> Color(0xFF6C63FF)
     }
 }

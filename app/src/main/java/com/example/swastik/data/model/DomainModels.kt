@@ -365,7 +365,7 @@ data class Medicine(
     val price: Float?,
     val mrp: Float? = null,
     @SerializedName("requires_prescription") val requiresPrescription: Boolean,
-    val category: MedicineCategory = MedicineCategory.TABLET,
+    val category: MedicineCategory? = MedicineCategory.TABLET,
     @SerializedName("therapeutic_category") val therapeuticCategory: String? = null,
     @SerializedName("dosage_form") val dosageForm: String? = null,
     val description: String? = null,
@@ -381,6 +381,7 @@ data class Medicine(
     @SerializedName("campaign_id") val campaignId: String? = null,
     @SerializedName("campaign_name") val campaignName: String? = null
 ) {
+    val safeCategoryName: String get() = category?.name ?: therapeuticCategory ?: dosageForm ?: "TABLET"
     val effectivePrice: Float get() = campaignPrice ?: price ?: 0f
     val hasActiveCampaign: Boolean
         get() = campaignPrice != null && price != null && campaignPrice!! < price!!

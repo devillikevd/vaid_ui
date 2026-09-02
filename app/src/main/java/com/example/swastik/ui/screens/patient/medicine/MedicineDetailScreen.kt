@@ -228,7 +228,7 @@ fun MedicineDetailScreen(
                     )
                 } else {
                     Text(
-                        text = getMedicineCategoryEmoji(medicine.category?.name ?: "TABLET"),
+                        text = getMedicineCategoryEmoji(medicine.safeCategoryName),
                         fontSize = 72.sp
                     )
                 }
@@ -787,7 +787,7 @@ private fun AlternativeMedicineRow(alternative: Medicine, onClick: () -> Unit) {
                     contentScale = ContentScale.Crop
                 )
             } else {
-                Text(getMedicineCategoryEmoji(alternative.category.name), fontSize = 22.sp)
+                Text(getMedicineCategoryEmoji(alternative.safeCategoryName), fontSize = 22.sp)
             }
         }
 
@@ -885,6 +885,6 @@ private fun InfoChip(
     }
 }
 
-private fun getMedicineCategoryEmoji(category: String): String {
+private fun getMedicineCategoryEmoji(category: String?): String {
     return getMedicineEmoji(category)
 }
