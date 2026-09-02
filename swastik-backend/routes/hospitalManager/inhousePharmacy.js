@@ -17,6 +17,13 @@ const getHospitalId = async (userId) => {
   return hospital.id;
 };
 
+// ── KPIs ──
+router.get('/kpis', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
+  const hospitalId = await getHospitalId(req.user.id);
+  const kpis = await hospitalPharmacyService.getPharmacyKpis(hospitalId, req.query.date);
+  res.json({ success: true, ...kpis });
+}));
+
 // ── Inventory Management ──
 router.get('/inventory', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);

@@ -38,11 +38,25 @@ router.post('/lab/orders/bulk', ownerOrManager, requireApproval, [
   res.status(201).json({ success: true, orders, count: orders.length });
 }));
 
+router.get('/lab/kpis', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
+  const hospitalId = await getHospitalId(req.user.id);
+  const kpis = await hospitalLabService.getLabKpis(hospitalId, req.query.date);
+  res.json({ success: true, ...kpis });
+}));
+
 router.get('/lab/orders', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);
   const { page = 1, limit = 20, ...filters } = req.query;
   const result = await hospitalLabService.getLabOrders(hospitalId, filters, parseInt(page), parseInt(limit));
   res.json({ success: true, ...result });
+}));
+
+router.get('/lab/orders/:id', ownerOrManager, requireApproval, [
+  param('id').isUUID(), validate,
+], asyncHandler(async (req, res) => {
+  const hospitalId = await getHospitalId(req.user.id);
+  const order = await hospitalLabService.getLabOrderDetails(hospitalId, req.params.id);
+  res.json({ success: true, order });
 }));
 
 router.put('/lab/orders/:id/status', ownerOrManager, requireApproval, [
@@ -74,11 +88,25 @@ router.post('/radiology/orders', ownerOrManager, requireApproval, [
   res.status(201).json({ success: true, order });
 }));
 
+router.get('/radiology/kpis', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
+  const hospitalId = await getHospitalId(req.user.id);
+  const kpis = await hospitalLabService.getRadiologyKpis(hospitalId, req.query.date);
+  res.json({ success: true, ...kpis });
+}));
+
 router.get('/radiology/orders', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);
   const { page = 1, limit = 20, ...filters } = req.query;
   const result = await hospitalLabService.getRadiologyOrders(hospitalId, filters, parseInt(page), parseInt(limit));
   res.json({ success: true, ...result });
+}));
+
+router.get('/radiology/orders/:id', ownerOrManager, requireApproval, [
+  param('id').isUUID(), validate,
+], asyncHandler(async (req, res) => {
+  const hospitalId = await getHospitalId(req.user.id);
+  const order = await hospitalLabService.getRadiologyStudyDetails(hospitalId, req.params.id);
+  res.json({ success: true, order });
 }));
 
 router.put('/radiology/orders/:id/status', ownerOrManager, requireApproval, [

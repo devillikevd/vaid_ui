@@ -64,8 +64,10 @@ const getNursingTasks = async (hospitalId, filters = {}, page = 1, limit = 30) =
     .select(`
       *,
       admission:patient_admissions(
-        id, admission_number, patient:patients(id, name, date_of_birth, gender),
-        bed:hospital_beds(id, bed_number)
+        id, admission_number, chief_complaint, status,
+        patient:patients(id, name, date_of_birth, gender),
+        bed:hospital_beds!patient_admissions_bed_id_fkey(id, bed_number),
+        attendingDoctor:doctors!patient_admissions_attending_doctor_id_fkey(id, name, specialization)
       ),
       ward:hospital_wards(id, name, ward_type, floor),
       assignedNurse:users!nursing_tasks_assigned_nurse_id_fkey(id, name)
@@ -95,6 +97,65 @@ const getNursingTasks = async (hospitalId, filters = {}, page = 1, limit = 30) =
     data: data || [],
     pagination: { page, limit, total: count || 0, totalPages: count > 0 ? Math.ceil(count / limit) : 1 },
   };
+};
+
+const getNursingKpis = async (hospitalId) => {
+  const [admissionsRes, tasksRes, marRes] = await Promise.all([
+    supabaseAdmin
+      .from('patient_admissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('hospital_id', hospitalId)
+      .eq('status', 'admitted'),
+    supabaseAdmin
+      .from('nursing_tasks')
+      .select('id, status, priority, task_type, scheduled_at')
+      .eq('hospital_id', hospitalId),
+    supabaseAdmin
+      .from('medication_administration')
+      .select('id', { count: 'exact', head: true })
+      .eq('hospital_id', hospitalId)
+      .eq('status', 'scheduled'),
+  ]);
+
+  const tasks = tasksRes.data || [];
+  const now = new Date().toISOString();
+
+  const totalPatients = admissionsRes.count || 0;
+  const pending = tasks.filter(t => t.status === 'pending').length;
+  const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+  const completed = tasks.filter(t => t.status === 'completed').length;
+  const overdue = tasks.filter(t => t.status === 'overdue' || (t.status === 'pending' && t.scheduled_at && t.scheduled_at < now)).length;
+  const medicationDue = (marRes.count || 0) + tasks.filter(t => ['medication', 'injection', 'iv_fluid'].includes(t.task_type) && t.status === 'pending').length;
+  const critical = tasks.filter(t => ['urgent', 'stat', 'high'].includes(t.priority) && t.status !== 'completed').length;
+
+  return {
+    patients_under_nursing_care: totalPatients,
+    total_tasks: tasks.length,
+    pending_tasks: pending,
+    in_progress_tasks: inProgress,
+    completed_tasks: completed,
+    due_overdue_tasks: overdue,
+    medication_due: medicationDue,
+    critical_priority: critical,
+  };
+};
+
+const getActiveAdmissions = async (hospitalId) => {
+  const { data, error } = await supabaseAdmin
+    .from('patient_admissions')
+    .select(`
+      id, admission_number, chief_complaint, admitted_at, ward_id, bed_id,
+      patient:patients(id, name, date_of_birth, gender),
+      bed:hospital_beds!patient_admissions_bed_id_fkey(id, bed_number),
+      ward:hospital_wards(id, name, ward_type, floor),
+      attendingDoctor:doctors!patient_admissions_attending_doctor_id_fkey(id, name, specialization)
+    `)
+    .eq('hospital_id', hospitalId)
+    .eq('status', 'admitted')
+    .order('admitted_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
 };
 
 const updateTaskStatus = async (hospitalId, taskId, status, data = {}) => {
@@ -249,7 +310,7 @@ const getWardDashboard = async (hospitalId, wardId) => {
 };
 
 module.exports = {
-  createNursingTask, createNursingTasksBulk, getNursingTasks, updateTaskStatus,
+  createNursingTask, createNursingTasksBulk, getNursingTasks, getNursingKpis, getActiveAdmissions, updateTaskStatus,
   addMedicationAdministration, updateMedicationStatus, getMedicationSchedule,
   getWardDashboard,
 };

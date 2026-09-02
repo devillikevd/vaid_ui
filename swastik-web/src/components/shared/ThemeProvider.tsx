@@ -2,9 +2,9 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
-type Theme = 'light' | 'dark' | 'system';
+export type Theme = 'light' | 'dark' | 'system';
 
-interface ThemeContextType {
+export interface ThemeContextType {
     theme: Theme;
     resolvedTheme: 'light' | 'dark';
     setTheme: (theme: Theme) => void;
@@ -27,21 +27,35 @@ function getSystemTheme(): 'light' | 'dark' {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-    const [theme, setThemeState] = useState<Theme>('light');
+interface ThemeProviderProps {
+    children: ReactNode;
+    storageKey?: string;
+    defaultTheme?: Theme;
+}
+
+export function ThemeProvider({
+    children,
+    storageKey = 'vaididea-theme-default',
+    defaultTheme = 'light',
+}: ThemeProviderProps) {
+    const [theme, setThemeState] = useState<Theme>(defaultTheme);
     const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
     const [mounted, setMounted] = useState(false);
 
-    // Load saved theme on mount
+    // 1. Load saved theme from portal-specific key on mount
     useEffect(() => {
-        const saved = localStorage.getItem('swastik-theme') as Theme | null;
-        if (saved && ['light', 'dark', 'system'].includes(saved)) {
-            setThemeState(saved);
+        try {
+            const saved = localStorage.getItem(storageKey) as Theme | null;
+            if (saved && ['light', 'dark', 'system'].includes(saved)) {
+                setThemeState(saved);
+            }
+        } catch {
+            // ignore localStorage errors
         }
         setMounted(true);
-    }, []);
+    }, [storageKey]);
 
-    // Resolve theme and apply to <html>
+    // 2. Resolve theme and apply to documentElement only while this portal is active
     useEffect(() => {
         if (!mounted) return;
 
@@ -51,31 +65,46 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         const root = document.documentElement;
         root.classList.remove('light', 'dark');
         root.classList.add(resolved);
-
-        // Also set a color-scheme meta for native UI elements
         root.style.colorScheme = resolved;
     }, [theme, mounted]);
 
-    // Listen for system theme changes when in 'system' mode
+    // 3. Listen for system theme changes when in 'system' mode
     useEffect(() => {
         if (!mounted || theme !== 'system') return;
 
         const mq = window.matchMedia('(prefers-color-scheme: dark)');
         const handler = (e: MediaQueryListEvent) => {
-            setResolvedTheme(e.matches ? 'dark' : 'light');
+            const resolved = e.matches ? 'dark' : 'light';
+            setResolvedTheme(resolved);
             const root = document.documentElement;
             root.classList.remove('light', 'dark');
-            root.classList.add(e.matches ? 'dark' : 'light');
-            root.style.colorScheme = e.matches ? 'dark' : 'light';
+            root.classList.add(resolved);
+            root.style.colorScheme = resolved;
         };
 
         mq.addEventListener('change', handler);
         return () => mq.removeEventListener('change', handler);
     }, [theme, mounted]);
 
+    // 4. CRITICAL: Cleanup on portal unmount (leaving portal -> reset html to Light)
+    useEffect(() => {
+        return () => {
+            if (typeof document !== 'undefined') {
+                const root = document.documentElement;
+                root.classList.remove('dark');
+                root.classList.add('light');
+                root.style.colorScheme = 'light';
+            }
+        };
+    }, []);
+
     const setTheme = (t: Theme) => {
         setThemeState(t);
-        localStorage.setItem('swastik-theme', t);
+        try {
+            localStorage.setItem(storageKey, t);
+        } catch {
+            // ignore localStorage errors
+        }
     };
 
     const toggleTheme = () => {

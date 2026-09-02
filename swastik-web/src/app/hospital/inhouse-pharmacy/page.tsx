@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useDeferredValue, useMemo } from 'react';
+import Link from 'next/link';
 import {
     Pill,
     Package,
     Plus,
     Search,
     AlertTriangle,
-    CheckCircle,
+    CheckCircle2,
     Clock,
     FileText,
     TrendingUp,
@@ -22,637 +23,1405 @@ import {
     X,
     Building2,
     Check,
+    RefreshCw,
+    ShieldAlert,
+    AlertCircle,
+    Eye,
+    Edit3,
+    DollarSign,
+    QrCode,
+    History,
+    Activity,
+    ArrowRight,
+    ShieldCheck,
+    CheckCheck,
+    Stethoscope,
+    Radio
 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { StatusBadge } from '@/components/doctor/StatusBadge';
 import { hospitalApi } from '@/lib/api';
+import { useSocket } from '@/hooks/useSocket';
+import { Pagination } from '@/components/ui/Pagination';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
+import { DispenseMedicineModal } from '@/components/hospital/pharmacy/DispenseMedicineModal';
+import { AddStockModal } from '@/components/hospital/pharmacy/AddStockModal';
+import { PrescriptionDetailsDrawer } from '@/components/hospital/pharmacy/PrescriptionDetailsDrawer';
 
-interface InventoryItem {
-    id: string;
-    medicine_name: string;
-    generic_name?: string;
-    category: string;
-    batch_number?: string;
-    expiry_date?: string;
-    mrp: number;
-    selling_price: number;
-    stock_quantity: number;
-    min_alert_quantity: number;
-    unit: string;
-    rack_location?: string;
-}
-
-interface PendingPrescription {
-    id: string;
-    patient_id: string;
-    chief_complaint?: string;
-    created_at: string;
-    patient?: {
-        id: string;
-        name: string;
-        phone?: string;
-        age?: number;
-        gender?: string;
-    };
-    doctor?: {
-        name: string;
-        specialization?: string;
-    };
-}
-
-interface DispensationRecord {
-    id: string;
-    dispensation_number: string;
-    total_amount: number;
-    dispense_type: string;
-    created_at: string;
-    status: string;
-    items: Array<{
-        medicine_name: string;
-        quantity: number;
-        unit_price: number;
-        total_amount: number;
-        batch_number?: string;
-    }>;
-    patient?: {
-        name: string;
-        phone?: string;
-    };
-    dispenser?: {
-        name: string;
-    };
-}
+const PAGE_SIZE = 15;
 
 export default function InhousePharmacyPage() {
     const toast = useToast();
-    const [activeTab, setActiveTab] = useState<'queue' | 'inventory' | 'history'>('queue');
-    const [isLoading, setIsLoading] = useState(false);
 
-    // Inventory State
-    const [inventory, setInventory] = useState<InventoryItem[]>([]);
-    const [inventorySearch, setInventorySearch] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('all');
+    // ── DATA STATES ──
+    const [inventory, setInventory] = useState<any[]>([]);
+    const [invPagination, setInvPagination] = useState({ page: 1, totalPages: 1, total: 0 });
+    const [queue, setQueue] = useState<any[]>([]);
+    const [history, setHistory] = useState<any[]>([]);
+    const [histPagination, setHistPagination] = useState({ page: 1, totalPages: 1, total: 0 });
+    const [doctors, setDoctors] = useState<any[]>([]);
+    const [kpis, setKpis] = useState<any>(null);
+    const [staffRole, setStaffRole] = useState('hospital_owner');
+
+    // ── INDEPENDENT LOADING & ERROR STATES ──
+    const [loadingQueue, setLoadingQueue] = useState(true);
+    const [queueError, setQueueError] = useState<{ message: string; isPermission: boolean } | null>(null);
+
+    const [loadingInventory, setLoadingInventory] = useState(true);
+    const [inventoryError, setInventoryError] = useState<{ message: string; isPermission: boolean } | null>(null);
+
+    const [loadingHistory, setLoadingHistory] = useState(false);
+    const [historyError, setHistoryError] = useState<{ message: string; isPermission: boolean } | null>(null);
+
+    const [loadingKpis, setLoadingKpis] = useState(true);
+    const [kpisError, setKpisError] = useState<boolean>(false);
+
+    // ── TABS & FILTERS ──
+    const [activeTab, setActiveTab] = useState<'queue' | 'inventory' | 'alerts' | 'history'>('queue');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('');
+    const [sourceFilter, setSourceFilter] = useState('');
+    const [priorityFilter, setPriorityFilter] = useState('');
+    const [doctorFilter, setDoctorFilter] = useState('');
     const [showLowStockOnly, setShowLowStockOnly] = useState(false);
-    const [showAddStockModal, setShowAddStockModal] = useState(false);
-    const [stockForm, setStockForm] = useState({
-        medicineName: '',
-        genericName: '',
-        category: 'Tablet',
-        batchNumber: '',
-        expiryDate: '',
-        mrp: '',
-        sellingPrice: '',
-        stockQuantity: '',
-        minAlertQuantity: '10',
-        unit: 'strips',
-        rackLocation: '',
-    });
+    const [showOutOfStockOnly, setShowOutOfStockOnly] = useState(false);
+    const [dateFilter, setDateFilter] = useState('');
+    const [page, setPage] = useState(1);
 
-    // Queue State
-    const [pendingEncounters, setPendingEncounters] = useState<PendingPrescription[]>([]);
-    const [showDispenseModal, setShowDispenseModal] = useState(false);
-    const [selectedPrescription, setSelectedPrescription] = useState<PendingPrescription | null>(null);
-    const [dispenseItems, setDispenseItems] = useState<Array<{
-        inventoryId?: string;
-        medicineName: string;
-        batchNumber: string;
-        quantity: number;
-        unitPrice: number;
-        instructions: string;
-    }>>([]);
+    // ── MODALS & DRAWER ──
+    const [selectedPrescription, setSelectedPrescription] = useState<any | null>(null);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [isDispenseModalOpen, setIsDispenseModalOpen] = useState(false);
+    const [isAddStockModalOpen, setIsAddStockModalOpen] = useState(false);
+    const [editingStockItem, setEditingStockItem] = useState<any | null>(null);
 
-    // History State
-    const [history, setHistory] = useState<DispensationRecord[]>([]);
+    const deferredSearch = useDeferredValue(searchQuery.trim().toLowerCase());
 
-    const fetchInventory = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            const params: Record<string, string | number | boolean> = { search: inventorySearch };
-            if (selectedCategory !== 'all') params.category = selectedCategory;
-            if (showLowStockOnly) params.lowStock = 'true';
-            const res = await hospitalApi.getInhouseInventory(params);
-            if (res.success && res.inventory) {
-                setInventory(res.inventory as InventoryItem[]);
-            }
-        } catch (e) {
-            console.error('Failed to fetch inventory', e);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [inventorySearch, selectedCategory, showLowStockOnly]);
+    // ── SOCKET STATUS ──
+    const socket = useSocket();
+    const isSocketConnected = Boolean(socket?.isConnected);
 
+    // ── FETCH PRESCRIPTION QUEUE ──
     const fetchQueue = useCallback(async () => {
-        setIsLoading(true);
+        setLoadingQueue(true);
+        setQueueError(null);
         try {
             const res = await hospitalApi.getPendingDispensations();
-            if (res.success) {
-                setPendingEncounters((res.recentEncounters || []) as PendingPrescription[]);
+            if (res && res.success) {
+                const encs = Array.isArray(res.recentEncounters) ? res.recentEncounters : [];
+                const adms = Array.isArray(res.admissions) ? res.admissions : [];
+                setQueue([...encs, ...adms]);
+            } else {
+                const errMsg = res?.message || res?.error || 'Unable to load prescription queue';
+                const isPerm = res?.status === 401 || res?.status === 403;
+                setQueueError({ message: errMsg, isPermission: isPerm });
             }
-        } catch (e) {
-            console.error('Failed to fetch pending prescriptions', e);
+        } catch (err: any) {
+            const errMsg = err.message || 'Unable to load prescription queue';
+            const isPerm = err.status === 401 || err.status === 403;
+            setQueueError({ message: errMsg, isPermission: isPerm });
         } finally {
-            setIsLoading(false);
+            setLoadingQueue(false);
         }
     }, []);
 
-    const fetchHistory = useCallback(async () => {
-        setIsLoading(true);
+    // ── FETCH INVENTORY ──
+    const fetchInventory = useCallback(async () => {
+        setLoadingInventory(true);
+        setInventoryError(null);
         try {
-            const res = await hospitalApi.getDispensationsHistory();
-            if (res.success && res.dispensations) {
-                setHistory(res.dispensations as DispensationRecord[]);
+            const params: Record<string, any> = {
+                page,
+                limit: PAGE_SIZE,
+            };
+            if (deferredSearch) params.search = deferredSearch;
+            if (selectedCategory) params.category = selectedCategory;
+            if (showLowStockOnly) params.lowStock = true;
+            if (showOutOfStockOnly) params.outOfStock = true;
+
+            const res = await hospitalApi.getInhouseInventory(params);
+            if (res && res.success) {
+                const raw = Array.isArray(res.inventory) ? res.inventory : (res.data as any)?.inventory || [];
+                setInventory(raw);
+                setInvPagination(
+                    res.pagination ||
+                    (res.data as any)?.pagination ||
+                    { page: 1, totalPages: 1, total: raw.length }
+                );
+            } else {
+                const errMsg = res?.message || res?.error || 'Unable to load medicine inventory';
+                const isPerm = res?.status === 401 || res?.status === 403;
+                setInventoryError({ message: errMsg, isPermission: isPerm });
             }
-        } catch (e) {
-            console.error('Failed to fetch dispensation history', e);
+        } catch (err: any) {
+            const errMsg = err.message || 'Unable to load medicine inventory';
+            const isPerm = err.status === 401 || err.status === 403;
+            setInventoryError({ message: errMsg, isPermission: isPerm });
         } finally {
-            setIsLoading(false);
+            setLoadingInventory(false);
+        }
+    }, [page, deferredSearch, selectedCategory, showLowStockOnly, showOutOfStockOnly]);
+
+    // ── FETCH HISTORY ──
+    const fetchHistory = useCallback(async () => {
+        setLoadingHistory(true);
+        setHistoryError(null);
+        try {
+            const params: Record<string, any> = { page, limit: PAGE_SIZE };
+            const res = await hospitalApi.getDispensationsHistory(params);
+            if (res && res.success) {
+                const raw = Array.isArray(res.dispensations) ? res.dispensations : [];
+                setHistory(raw);
+                setHistPagination(
+                    res.pagination ||
+                    { page: 1, totalPages: 1, total: raw.length }
+                );
+            } else {
+                const errMsg = res?.message || res?.error || 'Unable to load dispensation history';
+                const isPerm = res?.status === 401 || res?.status === 403;
+                setHistoryError({ message: errMsg, isPermission: isPerm });
+            }
+        } catch (err: any) {
+            const errMsg = err.message || 'Unable to load dispensation history';
+            const isPerm = err.status === 401 || err.status === 403;
+            setHistoryError({ message: errMsg, isPermission: isPerm });
+        } finally {
+            setLoadingHistory(false);
+        }
+    }, [page]);
+
+    // ── FETCH KPIS ──
+    const fetchKpis = useCallback(async () => {
+        setLoadingKpis(true);
+        setKpisError(false);
+        try {
+            const res = await hospitalApi.getInhousePharmacyKpis(dateFilter || undefined);
+            if (res && res.success) {
+                setKpis(res.data ?? res);
+            } else {
+                setKpisError(true);
+            }
+        } catch {
+            setKpisError(true);
+        } finally {
+            setLoadingKpis(false);
+        }
+    }, [dateFilter]);
+
+    // ── FETCH METADATA (ROLE & DOCTORS) ──
+    const fetchMetadata = useCallback(async () => {
+        try {
+            const [roleRes, docsRes] = await Promise.allSettled([
+                hospitalApi.getMyStaffRole(),
+                hospitalApi.getDoctors(1, '', 100),
+            ]);
+
+            if (roleRes.status === 'fulfilled' && (roleRes.value as any)?.success && (roleRes.value as any)?.staffRole) {
+                setStaffRole(String((roleRes.value as any).staffRole));
+            }
+            if (docsRes.status === 'fulfilled' && (docsRes.value as any)?.success) {
+                const rawDocs = (docsRes.value as any).doctors || (docsRes.value as any).data?.doctors || (docsRes.value as any).data || [];
+                setDoctors(Array.isArray(rawDocs) ? rawDocs : []);
+            }
+        } catch (err) {
+            console.error('Failed to load pharmacy metadata:', err);
         }
     }, []);
 
+    // Refresh all data
+    const refreshAll = useCallback(() => {
+        fetchQueue();
+        fetchInventory();
+        fetchKpis();
+        fetchMetadata();
+        if (activeTab === 'history') fetchHistory();
+    }, [fetchQueue, fetchInventory, fetchKpis, fetchMetadata, fetchHistory, activeTab]);
+
+    useEffect(() => {
+        refreshAll();
+    }, [refreshAll]);
+
+    // Tab switch trigger
     useEffect(() => {
         if (activeTab === 'queue') fetchQueue();
         if (activeTab === 'inventory') fetchInventory();
         if (activeTab === 'history') fetchHistory();
+        if (activeTab === 'alerts') fetchInventory();
     }, [activeTab, fetchQueue, fetchInventory, fetchHistory]);
 
-    const handleAddStock = async () => {
-        if (!stockForm.medicineName.trim() || !stockForm.sellingPrice) {
-            toast.error('Validation Error', 'Medicine name and selling price are required');
-            return;
-        }
+    // Polling fallback
+    useEffect(() => {
+        const interval = setInterval(() => {
+            refreshAll();
+        }, 25000);
+        return () => clearInterval(interval);
+    }, [refreshAll]);
 
-        try {
-            const res = await hospitalApi.addInhouseInventory(stockForm);
-            if (res.success) {
-                toast.success('Stock Added', `${stockForm.medicineName} added to hospital inventory`);
-                setShowAddStockModal(false);
-                setStockForm({
-                    medicineName: '',
-                    genericName: '',
-                    category: 'Tablet',
-                    batchNumber: '',
-                    expiryDate: '',
-                    mrp: '',
-                    sellingPrice: '',
-                    stockQuantity: '',
-                    minAlertQuantity: '10',
-                    unit: 'strips',
-                    rackLocation: '',
-                });
-                fetchInventory();
-            } else {
-                toast.error('Failed', res.error || 'Could not add stock');
-            }
-        } catch (e) {
-            toast.error('Error', 'Failed to connect to server');
-        }
-    };
+    // Socket real-time events
+    useEffect(() => {
+        if (!socket) return;
+        const handleUpdate = () => {
+            refreshAll();
+        };
 
-    const handleOpenDispense = (presc: PendingPrescription) => {
-        setSelectedPrescription(presc);
-        setDispenseItems([
-            { medicineName: '', batchNumber: '', quantity: 1, unitPrice: 0, instructions: '' }
-        ]);
-        setShowDispenseModal(true);
-    };
+        socket.on('pharmacy:dispensed', handleUpdate);
+        socket.on('pharmacy:stock_updated', handleUpdate);
+        socket.on('prescription:created', handleUpdate);
 
-    const handleDispenseSubmit = async () => {
-        if (!selectedPrescription) return;
-        const validItems = dispenseItems.filter(i => i.medicineName.trim() && i.quantity > 0);
-        if (validItems.length === 0) {
-            toast.error('Error', 'Please add at least one valid medicine to dispense');
-            return;
-        }
+        return () => {
+            socket.off('pharmacy:dispensed', handleUpdate);
+            socket.off('pharmacy:stock_updated', handleUpdate);
+            socket.off('prescription:created', handleUpdate);
+        };
+    }, [socket, refreshAll]);
 
-        try {
-            const res = await hospitalApi.dispensePrescription({
-                patientId: selectedPrescription.patient_id,
-                encounterId: selectedPrescription.id,
-                dispenseType: 'opd_prescription',
-                items: validItems,
-                notes: `Dispensed for encounter ${selectedPrescription.id}`,
+    // Filter queue client search & dropdown filters
+    const displayedQueue = useMemo(() => {
+        let list = queue;
+
+        if (sourceFilter) {
+            list = list.filter((item) => {
+                if (sourceFilter === 'ipd') return Boolean(item.admission_number || item.ward);
+                if (sourceFilter === 'opd') return !item.admission_number && !item.ward;
+                return true;
             });
+        }
 
-            if (res.success) {
-                toast.success('Dispensed & Charged', 'Medicines dispensed and added to hospital billing!');
-                setShowDispenseModal(false);
-                setSelectedPrescription(null);
-                fetchQueue();
-            } else {
-                toast.error('Failed', res.error || 'Dispensation failed');
+        if (doctorFilter) {
+            list = list.filter((item) => {
+                const dId = item.doctor_id || item.attending_doctor_id || item.doctor?.id || item.attendingDoctor?.id;
+                return dId === doctorFilter;
+            });
+        }
+
+        if (!deferredSearch) return list;
+        return list.filter((item) => {
+            const pName = (item.patient?.name || '').toLowerCase();
+            const dName = (item.doctor?.name || item.attendingDoctor?.name || '').toLowerCase();
+            const comp = (item.chief_complaint || item.provisional_diagnosis || '').toLowerCase();
+            const admNum = (item.admission_number || item.encounter_number || '').toLowerCase();
+            return pName.includes(deferredSearch) ||
+                dName.includes(deferredSearch) ||
+                comp.includes(deferredSearch) ||
+                admNum.includes(deferredSearch);
+        });
+    }, [queue, deferredSearch, sourceFilter, doctorFilter]);
+
+    // Filter alerts
+    const lowStockItems = useMemo(() => {
+        return inventory.filter((i) => i.stock_quantity > 0 && i.stock_quantity <= (i.min_alert_quantity || 10));
+    }, [inventory]);
+
+    const expiringSoonItems = useMemo(() => {
+        const now = new Date();
+        const thirtyDays = new Date();
+        thirtyDays.setDate(thirtyDays.getDate() + 30);
+        return inventory.filter((i) => {
+            if (!i.expiry_date) return false;
+            const exp = new Date(i.expiry_date);
+            return exp <= thirtyDays;
+        });
+    }, [inventory]);
+
+    const hasActiveFilters = Boolean(searchQuery || selectedCategory || sourceFilter || priorityFilter || doctorFilter || showLowStockOnly || showOutOfStockOnly || dateFilter);
+
+    const handleClearFilters = () => {
+        setSearchQuery('');
+        setSelectedCategory('');
+        setSourceFilter('');
+        setPriorityFilter('');
+        setDoctorFilter('');
+        setShowLowStockOnly(false);
+        setShowOutOfStockOnly(false);
+        setDateFilter('');
+        setPage(1);
+    };
+
+    // Dispense action
+    const handleDispenseSubmit = async (formData: Record<string, any>) => {
+        try {
+            const res = await hospitalApi.dispensePrescription(formData);
+            if (res && res.success) {
+                toast.success('Medication Dispensed', 'Prescription has been fulfilled and encounter charges updated.');
+                refreshAll();
+                return true;
             }
-        } catch (e) {
-            toast.error('Error', 'Failed to complete dispensation');
+            toast.error('Dispensing Failed', res?.message || 'Could not dispense medication.');
+            return false;
+        } catch (err: any) {
+            toast.error('Dispensing Failed', err.message || 'Could not dispense medication.');
+            return false;
         }
     };
+
+    // Add or Edit Stock Item
+    const handleAddOrEditStock = async (itemData: Record<string, any>) => {
+        try {
+            let res;
+            if (itemData.id) {
+                res = await hospitalApi.updateInhouseInventory(itemData.id, itemData);
+            } else {
+                res = await hospitalApi.addInhouseInventory(itemData);
+            }
+
+            if (res && res.success) {
+                toast.success('Inventory Updated', `${itemData.medicineName} stock record saved.`);
+                refreshAll();
+                return true;
+            }
+            toast.error('Stock Update Failed', res?.message || 'Could not save inventory item.');
+            return false;
+        } catch (err: any) {
+            toast.error('Stock Update Failed', err.message || 'Could not save inventory item.');
+            return false;
+        }
+    };
+
+    const isGlobalRefreshing = loadingQueue || loadingInventory || loadingKpis;
+    const canManagePharmacy = ['hospital_owner', 'hospital_admin', 'hospital_manager', 'pharmacist', 'pharmacy_manager', 'doctor'].includes(staffRole);
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-4 pt-1 pb-8">
+            
+            {/* 1. Page Header with Enterprise Actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <Pill className="h-7 w-7 text-teal-600" />
-                        In-House Hospital Pharmacy Desk
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-1">
-                        Dispensary queue, hospital stock management, and automatic billing charge integration
-                    </p>
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-teal-100 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold">
+                            <Pill className="w-4 h-4" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                                    In-House Pharmacy
+                                </h1>
+                                {isSocketConnected ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                        <span>● Live</span>
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-gray-700">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                        <span>● Updates Paused</span>
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                Hospital medication dispensing, inventory and pharmacy operations.
+                            </p>
+                        </div>
+                    </div>
                 </div>
-                {activeTab === 'inventory' && (
-                    <Button onClick={() => setShowAddStockModal(true)} className="bg-teal-600 hover:bg-teal-700 text-white">
-                        <Plus className="h-4 w-4 mr-2" /> Add Medicine Stock
-                    </Button>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                        type="button"
+                        onClick={refreshAll}
+                        disabled={isGlobalRefreshing}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isGlobalRefreshing ? 'animate-spin text-teal-600' : ''}`} />
+                        <span>Refresh</span>
+                    </button>
+                    {canManagePharmacy && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setEditingStockItem(null);
+                                    setIsAddStockModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                            >
+                                <Boxes className="w-3.5 h-3.5 text-teal-600" />
+                                <span>+ Add Stock</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (queue.length > 0) {
+                                        setSelectedPrescription(queue[0]);
+                                        setIsDispenseModalOpen(true);
+                                    } else {
+                                        toast.info('No Prescriptions', 'Select an inpatient or add medication to dispense.');
+                                    }
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                            >
+                                <ShoppingCart className="w-3.5 h-3.5" />
+                                <span>+ New Dispensing</span>
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {/* 2. Top Real Database-Backed KPI Row (8 Cards) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+                
+                {/* 1: Today's Prescriptions */}
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('queue')}
+                    className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                        activeTab === 'queue'
+                            ? 'bg-teal-50/80 border-teal-300 dark:bg-teal-950/40 dark:border-teal-800 shadow-2xs'
+                            : 'bg-white dark:bg-gray-900 border-slate-200/80 dark:border-gray-800 hover:border-teal-300'
+                    }`}
+                >
+                    <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block truncate">Today's Prescriptions</span>
+                    <span className="text-lg font-bold text-teal-600 dark:text-teal-400 font-mono mt-0.5 block">
+                        {loadingKpis ? (
+                            <span className="inline-block w-8 h-4 bg-slate-200 dark:bg-gray-800 animate-pulse rounded" />
+                        ) : kpisError || kpis === null ? (
+                            <span className="text-slate-400 font-normal text-sm" title="Data unavailable">—</span>
+                        ) : (
+                            kpis.total_prescriptions_today ?? 0
+                        )}
+                    </span>
+                </button>
+
+                {/* 2: Ready to Dispense */}
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('queue')}
+                    className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                        activeTab === 'queue'
+                            ? 'bg-amber-50/80 border-amber-300 dark:bg-amber-950/40 dark:border-amber-800 shadow-2xs'
+                            : 'bg-white dark:bg-gray-900 border-slate-200/80 dark:border-gray-800 hover:border-amber-300'
+                    }`}
+                >
+                    <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block truncate">Ready to Dispense</span>
+                    <span className="text-lg font-bold text-amber-600 dark:text-amber-400 font-mono mt-0.5 block">
+                        {loadingKpis ? (
+                            <span className="inline-block w-8 h-4 bg-slate-200 dark:bg-gray-800 animate-pulse rounded" />
+                        ) : kpisError || kpis === null ? (
+                            <span className="text-slate-400 font-normal text-sm" title="Data unavailable">—</span>
+                        ) : (
+                            kpis.waiting_dispensing ?? queue.length
+                        )}
+                    </span>
+                </button>
+
+                {/* 3: Dispensed Today */}
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('history')}
+                    className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                        activeTab === 'history'
+                            ? 'bg-emerald-50/80 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800 shadow-2xs'
+                            : 'bg-white dark:bg-gray-900 border-slate-200/80 dark:border-gray-800 hover:border-emerald-300'
+                    }`}
+                >
+                    <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block truncate">Dispensed Today</span>
+                    <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400 font-mono mt-0.5 block">
+                        {loadingKpis ? (
+                            <span className="inline-block w-8 h-4 bg-slate-200 dark:bg-gray-800 animate-pulse rounded" />
+                        ) : kpisError || kpis === null ? (
+                            <span className="text-slate-400 font-normal text-sm" title="Data unavailable">—</span>
+                        ) : (
+                            kpis.dispensed_today ?? 0
+                        )}
+                    </span>
+                </button>
+
+                {/* 4: Total Stock SKUs */}
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('inventory')}
+                    className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                        activeTab === 'inventory'
+                            ? 'bg-blue-50/80 border-blue-300 dark:bg-blue-950/40 dark:border-blue-800 shadow-2xs'
+                            : 'bg-white dark:bg-gray-900 border-slate-200/80 dark:border-gray-800 hover:border-blue-300'
+                    }`}
+                >
+                    <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block truncate">Stock Medicines</span>
+                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400 font-mono mt-0.5 block">
+                        {loadingInventory ? (
+                            <span className="inline-block w-8 h-4 bg-slate-200 dark:bg-gray-800 animate-pulse rounded" />
+                        ) : inventoryError ? (
+                            <span className="text-slate-400 font-normal text-sm" title="Data unavailable">—</span>
+                        ) : (
+                            invPagination.total ?? inventory.length
+                        )}
+                    </span>
+                </button>
+
+                {/* 5: Low Stock Items */}
+                <button
+                    type="button"
+                    onClick={() => { setActiveTab('alerts'); setShowLowStockOnly(true); }}
+                    className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                        activeTab === 'alerts'
+                            ? 'bg-amber-50/80 border-amber-300 dark:bg-amber-950/40 dark:border-amber-800 shadow-2xs'
+                            : 'bg-white dark:bg-gray-900 border-slate-200/80 dark:border-gray-800 hover:border-amber-300'
+                    }`}
+                >
+                    <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 block truncate">Low Stock Items</span>
+                    <span className="text-lg font-bold text-amber-600 dark:text-amber-400 font-mono mt-0.5 block">
+                        {loadingKpis ? (
+                            <span className="inline-block w-8 h-4 bg-slate-200 dark:bg-gray-800 animate-pulse rounded" />
+                        ) : kpisError || kpis === null ? (
+                            <span className="text-slate-400 font-normal text-sm" title="Data unavailable">—</span>
+                        ) : (
+                            kpis.low_stock_count ?? 0
+                        )}
+                    </span>
+                </button>
+
+                {/* 6: Expiring Soon */}
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('alerts')}
+                    className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                        activeTab === 'alerts'
+                            ? 'bg-rose-50/80 border-rose-300 dark:bg-rose-950/40 dark:border-rose-800 shadow-2xs'
+                            : 'bg-white dark:bg-gray-900 border-slate-200/80 dark:border-gray-800 hover:border-rose-300'
+                    }`}
+                >
+                    <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 block truncate">Expiring Soon</span>
+                    <span className="text-lg font-bold text-rose-600 dark:text-rose-400 font-mono mt-0.5 block">
+                        {loadingKpis ? (
+                            <span className="inline-block w-8 h-4 bg-slate-200 dark:bg-gray-800 animate-pulse rounded" />
+                        ) : kpisError || kpis === null ? (
+                            <span className="text-slate-400 font-normal text-sm" title="Data unavailable">—</span>
+                        ) : (
+                            kpis.expiring_soon_count ?? 0
+                        )}
+                    </span>
+                </button>
+
+                {/* 7: Out of Stock */}
+                <button
+                    type="button"
+                    onClick={() => { setActiveTab('inventory'); setShowOutOfStockOnly(true); }}
+                    className="p-2.5 rounded-2xl border bg-white dark:bg-gray-900 border-slate-200/80 dark:border-gray-800 text-left transition-all cursor-pointer hover:border-rose-300"
+                >
+                    <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block truncate">Out of Stock</span>
+                    <span className="text-lg font-bold text-rose-600 dark:text-rose-400 font-mono mt-0.5 block">
+                        {loadingKpis ? (
+                            <span className="inline-block w-8 h-4 bg-slate-200 dark:bg-gray-800 animate-pulse rounded" />
+                        ) : kpisError || kpis === null ? (
+                            <span className="text-slate-400 font-normal text-sm" title="Data unavailable">—</span>
+                        ) : (
+                            kpis.out_of_stock_count ?? 0
+                        )}
+                    </span>
+                </button>
+
+                {/* 8: Returns Today */}
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('history')}
+                    className="p-2.5 rounded-2xl border bg-white dark:bg-gray-900 border-slate-200/80 dark:border-gray-800 text-left transition-all cursor-pointer hover:border-purple-300"
+                >
+                    <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block truncate">Returns Today</span>
+                    <span className="text-lg font-bold text-purple-600 dark:text-purple-400 font-mono mt-0.5 block">
+                        {loadingKpis ? (
+                            <span className="inline-block w-8 h-4 bg-slate-200 dark:bg-gray-800 animate-pulse rounded" />
+                        ) : kpisError || kpis === null ? (
+                            <span className="text-slate-400 font-normal text-sm" title="Data unavailable">—</span>
+                        ) : (
+                            kpis.returns_today ?? 0
+                        )}
+                    </span>
+                </button>
+
+            </div>
+
+            {/* 3. Interactive 5-Stage Visual Pharmacy Workflow Pipeline */}
+            <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-2xs">
+                <div className="flex items-center justify-between gap-1.5 overflow-x-auto text-xs font-semibold">
+                    
+                    <button
+                        type="button"
+                        onClick={() => { setActiveTab('queue'); setSourceFilter(''); }}
+                        className={`flex-1 py-1.5 px-2 rounded-xl border text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                            activeTab === 'queue' && !sourceFilter
+                                ? 'bg-amber-50 border-amber-300 text-amber-800 font-bold'
+                                : 'bg-slate-50 dark:bg-gray-800 border-slate-200/60 text-slate-600 hover:bg-slate-100'
+                        }`}
+                    >
+                        <span>1. Prescribed</span>
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-200 text-amber-900 font-bold">
+                            {queue.length}
+                        </span>
+                    </button>
+
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+
+                    <button
+                        type="button"
+                        onClick={() => { setActiveTab('queue'); setSourceFilter('opd'); }}
+                        className={`flex-1 py-1.5 px-2 rounded-xl border text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                            activeTab === 'queue' && sourceFilter === 'opd'
+                                ? 'bg-blue-50 border-blue-300 text-blue-800 font-bold'
+                                : 'bg-slate-50 dark:bg-gray-800 border-slate-200/60 text-slate-600 hover:bg-slate-100'
+                        }`}
+                    >
+                        <span>2. Verification (OPD)</span>
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-200 text-blue-900 font-bold">
+                            {queue.filter(q => !q.admission_number).length}
+                        </span>
+                    </button>
+
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+
+                    <button
+                        type="button"
+                        onClick={() => { setActiveTab('queue'); setSourceFilter('ipd'); }}
+                        className={`flex-1 py-1.5 px-2 rounded-xl border text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                            activeTab === 'queue' && sourceFilter === 'ipd'
+                                ? 'bg-indigo-50 border-indigo-300 text-indigo-800 font-bold'
+                                : 'bg-slate-50 dark:bg-gray-800 border-slate-200/60 text-slate-600 hover:bg-slate-100'
+                        }`}
+                    >
+                        <span>3. Ward Indents (IPD)</span>
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-200 text-indigo-900 font-bold">
+                            {queue.filter(q => Boolean(q.admission_number)).length}
+                        </span>
+                    </button>
+
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('history')}
+                        className="flex-1 py-1.5 px-2 rounded-xl border border-slate-200/60 bg-slate-50 dark:bg-gray-800 text-slate-600 text-center flex items-center justify-center gap-1.5"
+                    >
+                        <span>4. Dispensed</span>
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-200 text-emerald-900 font-bold">
+                            {kpis?.dispensed_today ?? history.length}
+                        </span>
+                    </button>
+
+                </div>
+            </div>
+
+            {/* 4. Directory Navigation Tabs */}
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-slate-200/80 dark:border-gray-800 text-xs">
+                {[
+                    { id: 'queue', label: 'Prescription Dispensing Queue', count: queue.length },
+                    { id: 'inventory', label: 'Medicine Stock Inventory', count: invPagination.total },
+                    { id: 'alerts', label: 'Low Stock & Expiry Alerts', count: lowStockItems.length + expiringSoonItems.length },
+                    { id: 'history', label: 'Dispensation History & Charges', count: histPagination.total },
+                ].map((item) => {
+                    const isActive = activeTab === item.id;
+                    return (
+                        <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                                setActiveTab(item.id as any);
+                                setPage(1);
+                            }}
+                            className={`px-3 py-1.5 rounded-xl font-semibold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1.5 ${
+                                isActive
+                                    ? 'bg-teal-600 text-white shadow-2xs'
+                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+                            }`}
+                        >
+                            <span>{item.label}</span>
+                            {item.count !== undefined && item.count > 0 && (
+                                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                                    isActive
+                                        ? 'bg-teal-800 text-teal-100'
+                                        : 'bg-slate-200 dark:bg-gray-700 text-slate-700 dark:text-slate-300'
+                                }`}>
+                                    {item.count}
+                                </span>
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* 5. Search & Advanced Filter Toolbar */}
+            <div className="bg-white dark:bg-gray-900 p-2.5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-2xs space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2 text-xs">
+                    
+                    {/* Search */}
+                    <div className="lg:col-span-4 relative">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Search patient, medicine, doctor, batch, prescription..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/50 dark:bg-gray-800/40 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Source Filter (OPD / IPD) */}
+                    <div className="lg:col-span-2">
+                        <select
+                            value={sourceFilter}
+                            onChange={(e) => setSourceFilter(e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/50 dark:bg-gray-800/40 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        >
+                            <option value="">All Sources</option>
+                            <option value="opd">OPD Encounters</option>
+                            <option value="ipd">IPD Inpatients</option>
+                        </select>
+                    </div>
+
+                    {/* Doctor Filter */}
+                    <div className="lg:col-span-2">
+                        <select
+                            value={doctorFilter}
+                            onChange={(e) => setDoctorFilter(e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/50 dark:bg-gray-800/40 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        >
+                            <option value="">All Doctors</option>
+                            {doctors.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                    Dr. {d.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Category Filter */}
+                    <div className="lg:col-span-2">
+                        <select
+                            value={selectedCategory}
+                            onChange={(e) => setSelectedCategory(e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/50 dark:bg-gray-800/40 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        >
+                            <option value="">All Categories</option>
+                            <option value="Tablet">Tablets</option>
+                            <option value="Capsule">Capsules</option>
+                            <option value="Syrup">Syrups</option>
+                            <option value="Injection">Injections</option>
+                            <option value="IV Fluid">IV Fluids</option>
+                            <option value="Ointment">Ointments</option>
+                            <option value="Medical Supply">Medical Supplies</option>
+                        </select>
+                    </div>
+
+                    {/* Low Stock Toggle */}
+                    <div className="lg:col-span-2 flex items-center justify-end">
+                        <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700 dark:text-slate-300">
+                            <input
+                                type="checkbox"
+                                checked={showLowStockOnly}
+                                onChange={(e) => setShowLowStockOnly(e.target.checked)}
+                                className="rounded text-teal-600 focus:ring-teal-500"
+                            />
+                            <span>Low Stock Only</span>
+                        </label>
+                    </div>
+
+                </div>
+
+                {hasActiveFilters && (
+                    <div className="flex justify-end pt-1 border-t border-slate-100 dark:border-gray-800">
+                        <button
+                            type="button"
+                            onClick={handleClearFilters}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Clear Filters</span>
+                        </button>
+                    </div>
                 )}
             </div>
 
-            {/* Top Navigation Tabs */}
-            <div className="flex border-b border-gray-200 dark:border-gray-800 gap-6">
-                <button
-                    onClick={() => setActiveTab('queue')}
-                    className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
-                        activeTab === 'queue'
-                            ? 'border-teal-600 text-teal-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-900'
-                    }`}
-                >
-                    <Clock className="h-4 w-4" /> Prescription Dispensing Queue
-                </button>
-                <button
-                    onClick={() => setActiveTab('inventory')}
-                    className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
-                        activeTab === 'inventory'
-                            ? 'border-teal-600 text-teal-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-900'
-                    }`}
-                >
-                    <Package className="h-4 w-4" /> Hospital Medicine Inventory
-                </button>
-                <button
-                    onClick={() => setActiveTab('history')}
-                    className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
-                        activeTab === 'history'
-                            ? 'border-teal-600 text-teal-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-900'
-                    }`}
-                >
-                    <FileText className="h-4 w-4" /> Dispensation History
-                </button>
-            </div>
+            {/* 6. Primary Workspace Views based on Active Tab */}
 
-            {/* TAB 1: DISPENSING QUEUE */}
+            {/* TAB 1: PRESCRIPTION DISPENSING QUEUE */}
             {activeTab === 'queue' && (
-                <div className="space-y-4">
-                    {isLoading ? (
-                        <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-teal-600" /></div>
-                    ) : pendingEncounters.length === 0 ? (
-                        <Card className="p-12 text-center text-gray-500">
-                            <Clock className="h-10 w-10 mx-auto text-gray-400 mb-2" />
-                            <p className="font-medium">No pending prescriptions in queue</p>
-                            <p className="text-xs text-gray-400 mt-1">Prescriptions generated in OPD and IPD will appear here for dispensation.</p>
-                        </Card>
+                <div className="bg-white dark:bg-gray-900 rounded-3xl border border-slate-200/80 dark:border-gray-800 overflow-hidden shadow-2xs">
+                    {loadingQueue ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-3">
+                            <Loader2 className="w-7 h-7 animate-spin text-teal-600" />
+                            <span className="text-xs text-slate-500 font-medium">Loading hospital prescription queue...</span>
+                        </div>
+                    ) : queueError && queue.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-2xl text-rose-600 dark:text-rose-400 mb-3">
+                                <ShieldAlert className="w-7 h-7" />
+                            </div>
+                            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                                {queueError.isPermission ? "Access Denied" : "Unable to load pharmacy queue"}
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mt-1 mb-4">
+                                {queueError.isPermission
+                                    ? "You don't have permission to access pharmacy operations."
+                                    : "We couldn't retrieve the latest prescription queue. Please check your connection and retry."}
+                            </p>
+                            {!queueError.isPermission && (
+                                <button
+                                    type="button"
+                                    onClick={fetchQueue}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                                >
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                    <span>Retry</span>
+                                </button>
+                            )}
+                        </div>
+                    ) : displayedQueue.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                            <div className="p-3.5 bg-slate-100 dark:bg-gray-800 rounded-2xl text-slate-400 mb-3">
+                                <CheckCircle2 className="w-7 h-7 text-teal-500" />
+                            </div>
+                            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                                No Prescriptions Waiting for Dispensing
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mt-1 mb-4">
+                                Active OPD encounters and admitted IPD patients with medication orders will appear in this dispensing queue.
+                            </p>
+                        </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {pendingEncounters.map((enc) => (
-                                <Card key={enc.id} className="p-5 border border-teal-100 dark:border-teal-900/40 hover:shadow-md transition">
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <span className="text-xs font-bold text-teal-700 bg-teal-50 dark:bg-teal-950 px-2 py-0.5 rounded">
-                                                OPD Prescription
-                                            </span>
-                                            <h3 className="text-base font-bold text-gray-900 dark:text-white mt-2">
-                                                {enc.patient?.name || 'Patient'}
-                                            </h3>
-                                            <p className="text-xs text-gray-500">
-                                                {enc.patient?.age ? `${enc.patient.age}y / ${enc.patient.gender || 'M'}` : ''} • Phone: {enc.patient?.phone || 'N/A'}
-                                            </p>
-                                        </div>
-                                    </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr className="border-b border-slate-200/80 dark:border-gray-800 bg-slate-50/70 dark:bg-gray-800/40 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                        <th className="py-3 px-4">Patient & UHID</th>
+                                        <th className="py-3 px-4">Source & Location</th>
+                                        <th className="py-3 px-4">Prescribing Doctor</th>
+                                        <th className="py-3 px-4">Chief Indication / Diagnosis</th>
+                                        <th className="py-3 px-4">Prescribed At</th>
+                                        <th className="py-3 px-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-gray-800/80">
+                                    {displayedQueue.map((item) => (
+                                        <tr
+                                            key={item.id}
+                                            className="hover:bg-slate-50/80 dark:hover:bg-gray-800/40 transition-colors"
+                                        >
+                                            {/* Patient */}
+                                            <td className="py-3 px-4">
+                                                <div className="font-semibold text-slate-900 dark:text-slate-100 text-xs">
+                                                    {item.patient?.name || 'Patient'}
+                                                </div>
+                                                <span className="font-mono text-[10px] text-slate-400">
+                                                    {item.patient?.gender ? `${item.patient.gender} • ` : ''}
+                                                    {item.patient?.date_of_birth ? `DOB: ${item.patient.date_of_birth}` : ''}
+                                                    {item.patient?.blood_group ? ` • ${item.patient.blood_group}` : ''}
+                                                </span>
+                                            </td>
 
-                                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-600 space-y-1">
-                                        <p><strong>Doctor:</strong> {enc.doctor?.name || 'Assigned Doctor'}</p>
-                                        <p><strong>Reason:</strong> {enc.chief_complaint || 'General Checkup'}</p>
-                                        <p className="text-gray-400">{new Date(enc.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                                    </div>
+                                            {/* Source */}
+                                            <td className="py-3 px-4 whitespace-nowrap">
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                                    item.admission_number
+                                                        ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                                        : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                                }`}>
+                                                    {item.admission_number ? `IPD: ${item.ward?.name || 'Ward'}` : 'OPD Encounter'}
+                                                </span>
+                                                {item.bed?.bed_number && (
+                                                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                                                        Bed {item.bed.bed_number}
+                                                    </span>
+                                                )}
+                                            </td>
 
-                                    <Button
-                                        onClick={() => handleOpenDispense(enc)}
-                                        className="w-full mt-4 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold py-2"
-                                    >
-                                        <Pill className="h-3.5 w-3.5 mr-1.5" /> Dispense Medicines & Bill
-                                    </Button>
-                                </Card>
-                            ))}
+                                            {/* Doctor */}
+                                            <td className="py-3 px-4 whitespace-nowrap">
+                                                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                                    Dr. {item.doctor?.name || item.attendingDoctor?.name || 'Physician'}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 block">
+                                                    {item.doctor?.specialization || item.attendingDoctor?.specialization || 'Clinical Staff'}
+                                                </span>
+                                            </td>
+
+                                            {/* Indication */}
+                                            <td className="py-3 px-4 max-w-[240px]">
+                                                <p className="text-slate-700 dark:text-slate-300 truncate">
+                                                    {item.chief_complaint || item.provisional_diagnosis || (Array.isArray(item.diagnosis) ? item.diagnosis.join(', ') : 'Medical Management')}
+                                                </p>
+                                            </td>
+
+                                            {/* Prescribed At */}
+                                            <td className="py-3 px-4 whitespace-nowrap font-mono text-[11px] text-slate-600 dark:text-slate-400">
+                                                {item.created_at || item.admitted_at
+                                                    ? new Date(item.created_at || item.admitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                    : '—'}
+                                            </td>
+
+                                            {/* Actions */}
+                                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSelectedPrescription(item);
+                                                            setIsDrawerOpen(true);
+                                                        }}
+                                                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1"
+                                                    >
+                                                        <Eye className="w-3.5 h-3.5" />
+                                                        <span>View</span>
+                                                    </button>
+                                                    {canManagePharmacy && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setSelectedPrescription(item);
+                                                                setIsDispenseModalOpen(true);
+                                                            }}
+                                                            className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1"
+                                                        >
+                                                            <ShoppingCart className="w-3.5 h-3.5" />
+                                                            <span>Dispense</span>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     )}
                 </div>
             )}
 
-            {/* TAB 2: INVENTORY */}
+            {/* TAB 2: MEDICINE STOCK INVENTORY */}
             {activeTab === 'inventory' && (
-                <div className="space-y-4">
-                    {/* Filters & Search */}
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                            <Input
-                                placeholder="Search medicine, generic name, or batch..."
-                                value={inventorySearch}
-                                onChange={(e) => setInventorySearch(e.target.value)}
-                                className="pl-9"
-                            />
+                <div className="bg-white dark:bg-gray-900 rounded-3xl border border-slate-200/80 dark:border-gray-800 overflow-hidden shadow-2xs">
+                    {loadingInventory ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-3">
+                            <Loader2 className="w-7 h-7 animate-spin text-teal-600" />
+                            <span className="text-xs text-slate-500 font-medium">Loading hospital inventory...</span>
                         </div>
-                        <select
-                            value={selectedCategory}
-                            onChange={(e) => setSelectedCategory(e.target.value)}
-                            className="px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700"
-                        >
-                            <option value="all">All Categories</option>
-                            <option value="Tablet">Tablets</option>
-                            <option value="Capsule">Capsules</option>
-                            <option value="Injection">Injections</option>
-                            <option value="IV Fluid">IV Fluids</option>
-                            <option value="Syrup">Syrups</option>
-                            <option value="Medical Supply">Medical Supplies</option>
-                        </select>
-                        <button
-                            onClick={() => setShowLowStockOnly(!showLowStockOnly)}
-                            className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                                showLowStockOnly
-                                    ? 'bg-amber-500 text-white border-amber-600'
-                                    : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300'
-                            }`}
-                        >
-                            <AlertTriangle className="h-3.5 w-3.5 inline mr-1" /> Low Stock Alerts
-                        </button>
-                    </div>
-
-                    {/* Inventory Table */}
-                    <div className="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-lg">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 uppercase text-xs">
-                                <tr>
-                                    <th className="p-3">Medicine Name</th>
-                                    <th className="p-3">Category</th>
-                                    <th className="p-3">Batch & Expiry</th>
-                                    <th className="p-3">Stock Qty</th>
-                                    <th className="p-3">Rate (Selling)</th>
-                                    <th className="p-3">Rack</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                {inventory.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={6} className="p-8 text-center text-gray-400">
-                                            No inventory items found. Click &quot;Add Medicine Stock&quot; to stock items.
-                                        </td>
+                    ) : inventoryError && inventory.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-2xl text-rose-600 dark:text-rose-400 mb-3">
+                                <ShieldAlert className="w-7 h-7" />
+                            </div>
+                            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                                Unable to load medicine inventory
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mt-1 mb-4">
+                                Could not load inventory items. Please check connection and try again.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={fetchInventory}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                            >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                <span>Retry</span>
+                            </button>
+                        </div>
+                    ) : inventory.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                            <div className="p-3.5 bg-slate-100 dark:bg-gray-800 rounded-2xl text-slate-400 mb-3">
+                                <Boxes className="w-7 h-7 text-teal-500" />
+                            </div>
+                            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                                No Inventory Records Found
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mt-1 mb-4">
+                                Add hospital medicines, batches, and reorder levels to track in-house stock.
+                            </p>
+                            {canManagePharmacy && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEditingStockItem(null);
+                                        setIsAddStockModalOpen(true);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>Add First Medicine</span>
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr className="border-b border-slate-200/80 dark:border-gray-800 bg-slate-50/70 dark:bg-gray-800/40 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                        <th className="py-3 px-4">Medicine & Generic</th>
+                                        <th className="py-3 px-4">Form / Category</th>
+                                        <th className="py-3 px-4">Batch & Expiry</th>
+                                        <th className="py-3 px-4">Selling Price / MRP</th>
+                                        <th className="py-3 px-4">Stock Quantity</th>
+                                        <th className="py-3 px-4">Rack Location</th>
+                                        <th className="py-3 px-4">Status</th>
+                                        <th className="py-3 px-4 text-right">Actions</th>
                                     </tr>
-                                ) : (
-                                    inventory.map((item) => {
-                                        const isLowStock = item.stock_quantity <= item.min_alert_quantity;
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-gray-800/80">
+                                    {inventory.map((item) => {
+                                        const isLow = item.stock_quantity > 0 && item.stock_quantity <= (item.min_alert_quantity || 10);
+                                        const isOut = item.stock_quantity === 0;
+
                                         return (
-                                            <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
-                                                <td className="p-3 font-semibold text-gray-900 dark:text-white">
-                                                    {item.medicine_name}
+                                            <tr
+                                                key={item.id}
+                                                className="hover:bg-slate-50/80 dark:hover:bg-gray-800/40 transition-colors"
+                                            >
+                                                {/* Medicine */}
+                                                <td className="py-3 px-4">
+                                                    <div className="font-semibold text-slate-900 dark:text-slate-100 text-xs">
+                                                        {item.medicine_name}
+                                                    </div>
                                                     {item.generic_name && (
-                                                        <div className="text-xs text-gray-400 font-normal">{item.generic_name}</div>
+                                                        <span className="text-[10px] text-slate-400 block truncate max-w-[200px]">
+                                                            {item.generic_name}
+                                                        </span>
                                                     )}
                                                 </td>
-                                                <td className="p-3 text-xs">{item.category}</td>
-                                                <td className="p-3 text-xs">
-                                                    <span className="font-mono bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{item.batch_number || 'N/A'}</span>
-                                                    <div className="text-gray-400 mt-0.5">{item.expiry_date || 'No Expiry'}</div>
-                                                </td>
-                                                <td className="p-3">
-                                                    <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                                        isLowStock
-                                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                                                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                                    }`}>
-                                                        {item.stock_quantity} {item.unit}
+
+                                                {/* Category */}
+                                                <td className="py-3 px-4 whitespace-nowrap">
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-slate-300">
+                                                        {item.category || 'Tablet'}
                                                     </span>
                                                 </td>
-                                                <td className="p-3 font-semibold text-gray-900 dark:text-white">
-                                                    ₹{item.selling_price}
-                                                    {item.mrp > item.selling_price && (
-                                                        <span className="text-xs text-gray-400 line-through ml-1.5">₹{item.mrp}</span>
+
+                                                {/* Batch & Expiry */}
+                                                <td className="py-3 px-4 whitespace-nowrap font-mono text-[11px]">
+                                                    <span className="text-slate-700 dark:text-slate-300 block">
+                                                        {item.batch_number || '—'}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 block">
+                                                        Exp: {item.expiry_date || 'N/A'}
+                                                    </span>
+                                                </td>
+
+                                                {/* Pricing */}
+                                                <td className="py-3 px-4 whitespace-nowrap font-mono">
+                                                    <span className="font-bold text-teal-700 dark:text-teal-300 block">
+                                                        ₹{item.selling_price}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 block">
+                                                        MRP: ₹{item.mrp || item.selling_price}
+                                                    </span>
+                                                </td>
+
+                                                {/* Stock */}
+                                                <td className="py-3 px-4 whitespace-nowrap">
+                                                    <span className={`font-bold font-mono text-xs ${
+                                                        isOut ? 'text-rose-600' : isLow ? 'text-amber-600' : 'text-slate-900 dark:text-slate-100'
+                                                    }`}>
+                                                        {item.stock_quantity} {item.unit || 'units'}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 block">
+                                                        Min: {item.min_alert_quantity || 10}
+                                                    </span>
+                                                </td>
+
+                                                {/* Rack */}
+                                                <td className="py-3 px-4 whitespace-nowrap text-slate-600 dark:text-slate-400">
+                                                    {item.rack_location || '—'}
+                                                </td>
+
+                                                {/* Status */}
+                                                <td className="py-3 px-4 whitespace-nowrap">
+                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                                        isOut
+                                                            ? 'bg-rose-100 text-rose-700 border border-rose-300'
+                                                            : isLow
+                                                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                                            : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                                    }`}>
+                                                        {isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}
+                                                    </span>
+                                                </td>
+
+                                                {/* Actions */}
+                                                <td className="py-3 px-4 text-right whitespace-nowrap">
+                                                    {canManagePharmacy && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setEditingStockItem(item);
+                                                                setIsAddStockModalOpen(true);
+                                                            }}
+                                                            className="p-1.5 text-slate-500 hover:text-teal-600 cursor-pointer"
+                                                            title="Edit Stock"
+                                                        >
+                                                            <Edit3 className="w-3.5 h-3.5" />
+                                                        </button>
                                                     )}
                                                 </td>
-                                                <td className="p-3 text-xs text-gray-500">{item.rack_location || '—'}</td>
                                             </tr>
                                         );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {/* TAB 3: HISTORY */}
-            {activeTab === 'history' && (
-                <div className="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-lg">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 uppercase text-xs">
-                            <tr>
-                                <th className="p-3">Dispensation #</th>
-                                <th className="p-3">Patient</th>
-                                <th className="p-3">Items Dispensed</th>
-                                <th className="p-3">Total Amount</th>
-                                <th className="p-3">Dispensed By</th>
-                                <th className="p-3">Date & Time</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                            {history.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="p-8 text-center text-gray-400">
-                                        No dispensation history recorded yet.
-                                    </td>
-                                </tr>
-                            ) : (
-                                history.map((disp) => (
-                                    <tr key={disp.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
-                                        <td className="p-3 font-mono font-bold text-xs text-teal-700">{disp.dispensation_number}</td>
-                                        <td className="p-3 font-semibold text-gray-900 dark:text-white">{disp.patient?.name || 'Patient'}</td>
-                                        <td className="p-3 text-xs text-gray-600">
-                                            {(disp.items || []).map(i => `${i.medicine_name} (x${i.quantity})`).join(', ')}
-                                        </td>
-                                        <td className="p-3 font-bold text-gray-900 dark:text-white">₹{disp.total_amount}</td>
-                                        <td className="p-3 text-xs text-gray-500">{disp.dispenser?.name || 'Pharmacist'}</td>
-                                        <td className="p-3 text-xs text-gray-400">{new Date(disp.created_at).toLocaleString()}</td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-
-            {/* ADD STOCK MODAL */}
-            {showAddStockModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-gray-900 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-xl border">
-                        <div className="flex items-center justify-between border-b pb-3">
-                            <h3 className="font-bold text-lg text-gray-900 dark:text-white">Add Medicine to Hospital Inventory</h3>
-                            <button onClick={() => setShowAddStockModal(false)}><X className="h-5 w-5 text-gray-400" /></button>
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="col-span-2">
-                                <label className="text-xs font-semibold text-gray-600">Medicine Name *</label>
-                                <Input value={stockForm.medicineName} onChange={e => setStockForm({ ...stockForm, medicineName: e.target.value })} placeholder="e.g. Augmentin 625 Duo" />
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-600">Generic Name</label>
-                                <Input value={stockForm.genericName} onChange={e => setStockForm({ ...stockForm, genericName: e.target.value })} placeholder="Amoxicillin + Clav" />
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-600">Category</label>
-                                <select value={stockForm.category} onChange={e => setStockForm({ ...stockForm, category: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-800">
-                                    <option value="Tablet">Tablet</option>
-                                    <option value="Capsule">Capsule</option>
-                                    <option value="Injection">Injection</option>
-                                    <option value="IV Fluid">IV Fluid</option>
-                                    <option value="Syrup">Syrup</option>
-                                    <option value="Medical Supply">Medical Supply</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-600">Batch Number</label>
-                                <Input value={stockForm.batchNumber} onChange={e => setStockForm({ ...stockForm, batchNumber: e.target.value })} placeholder="e.g. AUG-2026B" />
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-600">Expiry Date</label>
-                                <Input type="date" value={stockForm.expiryDate} onChange={e => setStockForm({ ...stockForm, expiryDate: e.target.value })} />
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-600">MRP (₹)</label>
-                                <Input type="number" value={stockForm.mrp} onChange={e => setStockForm({ ...stockForm, mrp: e.target.value })} placeholder="220" />
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-600">Selling Price (₹) *</label>
-                                <Input type="number" value={stockForm.sellingPrice} onChange={e => setStockForm({ ...stockForm, sellingPrice: e.target.value })} placeholder="200" />
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-600">Stock Quantity</label>
-                                <Input type="number" value={stockForm.stockQuantity} onChange={e => setStockForm({ ...stockForm, stockQuantity: e.target.value })} placeholder="50" />
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-600">Rack Location</label>
-                                <Input value={stockForm.rackLocation} onChange={e => setStockForm({ ...stockForm, rackLocation: e.target.value })} placeholder="Shelf B-4" />
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-3 pt-3 border-t">
-                            <Button variant="outline" onClick={() => setShowAddStockModal(false)}>Cancel</Button>
-                            <Button onClick={handleAddStock} className="bg-teal-600 hover:bg-teal-700 text-white">Save Medicine</Button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                    )}
 
-            {/* DISPENSE MODAL */}
-            {showDispenseModal && selectedPrescription && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-gray-900 rounded-xl max-w-xl w-full p-6 space-y-4 shadow-xl border">
-                        <div className="flex items-center justify-between border-b pb-3">
-                            <div>
-                                <h3 className="font-bold text-lg text-gray-900 dark:text-white">Dispense Prescription</h3>
-                                <p className="text-xs text-gray-500">Patient: {selectedPrescription.patient?.name} • Doctor: {selectedPrescription.doctor?.name}</p>
-                            </div>
-                            <button onClick={() => setShowDispenseModal(false)}><X className="h-5 w-5 text-gray-400" /></button>
-                        </div>
-
-                        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-                            {dispenseItems.map((item, idx) => (
-                                <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-lg space-y-2 text-xs border">
-                                    <div className="grid grid-cols-12 gap-2">
-                                        <div className="col-span-6">
-                                            <label className="font-semibold text-gray-600">Medicine Name</label>
-                                            <Input
-                                                value={item.medicineName}
-                                                onChange={e => {
-                                                    const val = e.target.value;
-                                                    const matchingInv = inventory.find(i => i.medicine_name.toLowerCase() === val.toLowerCase());
-                                                    const updated = [...dispenseItems];
-                                                    updated[idx].medicineName = val;
-                                                    if (matchingInv) {
-                                                        updated[idx].inventoryId = matchingInv.id;
-                                                        updated[idx].batchNumber = matchingInv.batch_number || '';
-                                                        updated[idx].unitPrice = matchingInv.selling_price;
-                                                    }
-                                                    setDispenseItems(updated);
-                                                }}
-                                                placeholder="Enter medicine..."
-                                            />
-                                        </div>
-                                        <div className="col-span-3">
-                                            <label className="font-semibold text-gray-600">Qty</label>
-                                            <Input
-                                                type="number"
-                                                min={1}
-                                                value={item.quantity}
-                                                onChange={e => {
-                                                    const updated = [...dispenseItems];
-                                                    updated[idx].quantity = parseInt(e.target.value) || 1;
-                                                    setDispenseItems(updated);
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="col-span-3">
-                                            <label className="font-semibold text-gray-600">Rate (₹)</label>
-                                            <Input
-                                                type="number"
-                                                value={item.unitPrice}
-                                                onChange={e => {
-                                                    const updated = [...dispenseItems];
-                                                    updated[idx].unitPrice = parseFloat(e.target.value) || 0;
-                                                    setDispenseItems(updated);
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-between text-gray-500">
-                                        <span>Total: ₹{(item.quantity * item.unitPrice).toFixed(2)}</span>
-                                        {dispenseItems.length > 1 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setDispenseItems(dispenseItems.filter((_, i) => i !== idx))}
-                                                className="text-red-500 hover:underline"
-                                            >
-                                                Remove
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                            <Button
-                                variant="outline"
-                                onClick={() => setDispenseItems([...dispenseItems, { medicineName: '', batchNumber: '', quantity: 1, unitPrice: 0, instructions: '' }])}
-                                className="w-full text-xs"
-                            >
-                                <Plus className="h-3.5 w-3.5 mr-1" /> Add Another Medicine
-                            </Button>
-                        </div>
-
-                        <div className="p-3 bg-teal-50 dark:bg-teal-950/40 rounded-lg text-xs text-teal-800 dark:text-teal-300 flex items-center justify-between font-semibold">
-                            <span>Total Bill to Charge Patient:</span>
-                            <span className="text-base font-bold">
-                                ₹{dispenseItems.reduce((sum, i) => sum + (i.quantity * i.unitPrice), 0).toFixed(2)}
+                    {/* Pagination */}
+                    {!loadingInventory && inventory.length > 0 && invPagination.totalPages > 1 && (
+                        <div className="p-4 border-t border-slate-200/80 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-800/30 flex items-center justify-between">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                                Showing page <span className="font-semibold">{invPagination.page}</span> of <span className="font-semibold">{invPagination.totalPages}</span> ({invPagination.total} medicines)
                             </span>
+                            <Pagination
+                                currentPage={page}
+                                totalPages={invPagination.totalPages}
+                                onPageChange={(p) => setPage(p)}
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* TAB 3: LOW STOCK & EXPIRY ALERTS */}
+            {activeTab === 'alerts' && (
+                <div className="space-y-4">
+                    {/* Low Stock Section */}
+                    <div className="bg-white dark:bg-gray-900 rounded-3xl border border-slate-200/80 dark:border-gray-800 p-4 space-y-3 shadow-2xs">
+                        <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-xs">
+                            <AlertTriangle className="w-4 h-4 text-amber-600" />
+                            <span>Low Stock Reorder Alerts ({lowStockItems.length})</span>
                         </div>
 
-                        <div className="flex justify-end gap-3 pt-3 border-t">
-                            <Button variant="outline" onClick={() => setShowDispenseModal(false)}>Cancel</Button>
-                            <Button onClick={handleDispenseSubmit} className="bg-teal-600 hover:bg-teal-700 text-white font-semibold">
-                                <Check className="h-4 w-4 mr-1.5" /> Dispense & Add to Bill
-                            </Button>
+                        {lowStockItems.length === 0 ? (
+                            <div className="p-6 text-center text-slate-400 text-xs italic">
+                                No medicines are currently below minimum alert reorder levels.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {lowStockItems.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="p-3 rounded-2xl bg-amber-50/60 dark:bg-amber-950/40 border border-amber-200/70 dark:border-amber-800 flex items-center justify-between text-xs"
+                                    >
+                                        <div>
+                                            <h4 className="font-bold text-amber-950 dark:text-amber-200">
+                                                {item.medicine_name}
+                                            </h4>
+                                            <p className="text-[10px] text-amber-700 dark:text-amber-400">
+                                                Stock: {item.stock_quantity} / Reorder: {item.min_alert_quantity} {item.unit}
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setEditingStockItem(item);
+                                                setIsAddStockModalOpen(true);
+                                            }}
+                                            className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-semibold cursor-pointer"
+                                        >
+                                            Restock
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Expiry Alerts Section */}
+                    <div className="bg-white dark:bg-gray-900 rounded-3xl border border-slate-200/80 dark:border-gray-800 p-4 space-y-3 shadow-2xs">
+                        <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-bold text-xs">
+                            <Clock className="w-4 h-4 text-rose-600" />
+                            <span>Expiring Soon / Expired Medicines ({expiringSoonItems.length})</span>
                         </div>
+
+                        {expiringSoonItems.length === 0 ? (
+                            <div className="p-6 text-center text-slate-400 text-xs italic">
+                                No medicines in stock are expiring within 30 days.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {expiringSoonItems.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="p-3 rounded-2xl bg-rose-50/60 dark:bg-rose-950/40 border border-rose-200/70 dark:border-rose-800 flex items-center justify-between text-xs"
+                                    >
+                                        <div>
+                                            <h4 className="font-bold text-rose-950 dark:text-rose-200">
+                                                {item.medicine_name}
+                                            </h4>
+                                            <p className="text-[10px] text-rose-700 dark:text-rose-400 font-mono">
+                                                Batch: {item.batch_number || 'N/A'} • Exp: {item.expiry_date}
+                                            </p>
+                                        </div>
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-200 text-rose-900">
+                                            Expiring
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
+
+            {/* TAB 4: DISPENSATION HISTORY */}
+            {activeTab === 'history' && (
+                <div className="bg-white dark:bg-gray-900 rounded-3xl border border-slate-200/80 dark:border-gray-800 overflow-hidden shadow-2xs">
+                    {loadingHistory ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-3">
+                            <Loader2 className="w-7 h-7 animate-spin text-teal-600" />
+                            <span className="text-xs text-slate-500 font-medium">Loading dispensation history...</span>
+                        </div>
+                    ) : historyError && history.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-2xl text-rose-600 dark:text-rose-400 mb-3">
+                                <ShieldAlert className="w-7 h-7" />
+                            </div>
+                            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                                Unable to load dispensation history
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={fetchHistory}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer mt-3"
+                            >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                <span>Retry</span>
+                            </button>
+                        </div>
+                    ) : history.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                            <div className="p-3.5 bg-slate-100 dark:bg-gray-800 rounded-2xl text-slate-400 mb-3">
+                                <History className="w-7 h-7 text-teal-500" />
+                            </div>
+                            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                                No Dispensation Transactions Found
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mt-1 mb-4">
+                                Completed dispensations, patient bills, and inventory logs will be archived here.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr className="border-b border-slate-200/80 dark:border-gray-800 bg-slate-50/70 dark:bg-gray-800/40 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                        <th className="py-3 px-4">Dispensation #</th>
+                                        <th className="py-3 px-4">Patient</th>
+                                        <th className="py-3 px-4">Type</th>
+                                        <th className="py-3 px-4">Medicines Dispensed</th>
+                                        <th className="py-3 px-4">Total Billed</th>
+                                        <th className="py-3 px-4">Dispensed By</th>
+                                        <th className="py-3 px-4">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-gray-800/80">
+                                    {history.map((record) => (
+                                        <tr
+                                            key={record.id}
+                                            className="hover:bg-slate-50/80 dark:hover:bg-gray-800/40 transition-colors"
+                                        >
+                                            {/* Number */}
+                                            <td className="py-3 px-4 font-mono font-bold text-teal-700 dark:text-teal-400">
+                                                {record.dispensation_number}
+                                            </td>
+
+                                            {/* Patient */}
+                                            <td className="py-3 px-4">
+                                                <span className="font-semibold text-slate-900 dark:text-slate-100 block">
+                                                    {record.patient?.name || 'Patient'}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 block font-mono">
+                                                    {record.patient?.gender ? `${record.patient.gender} • ` : ''}
+                                                    {record.patient?.blood_group || 'Inpatient'}
+                                                </span>
+                                            </td>
+
+                                            {/* Type */}
+                                            <td className="py-3 px-4 whitespace-nowrap">
+                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-slate-300 uppercase">
+                                                    {record.dispense_type?.replace(/_/g, ' ') || 'OPD'}
+                                                </span>
+                                            </td>
+
+                                            {/* Items */}
+                                            <td className="py-3 px-4 max-w-[260px]">
+                                                {Array.isArray(record.items) ? (
+                                                    <div className="space-y-0.5">
+                                                        {record.items.slice(0, 2).map((it: any, idx: number) => (
+                                                            <div key={idx} className="text-[11px] text-slate-700 dark:text-slate-300 truncate">
+                                                                • {it.medicine_name} (x{it.quantity})
+                                                            </div>
+                                                        ))}
+                                                        {record.items.length > 2 && (
+                                                            <span className="text-[10px] text-teal-600 font-semibold">
+                                                                +{record.items.length - 2} more items
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    '—'
+                                                )}
+                                            </td>
+
+                                            {/* Total */}
+                                            <td className="py-3 px-4 whitespace-nowrap font-mono font-bold text-slate-900 dark:text-slate-100">
+                                                ₹{record.total_amount}
+                                            </td>
+
+                                            {/* Dispenser */}
+                                            <td className="py-3 px-4 whitespace-nowrap text-slate-600 dark:text-slate-400">
+                                                {record.dispenser?.name || 'Pharmacist'}
+                                            </td>
+
+                                            {/* Date */}
+                                            <td className="py-3 px-4 whitespace-nowrap font-mono text-[11px] text-slate-500">
+                                                {new Date(record.created_at).toLocaleString([], {
+                                                    day: '2-digit',
+                                                    month: 'short',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                })}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* 7. Workspace Drawer */}
+            <PrescriptionDetailsDrawer
+                prescription={selectedPrescription}
+                isOpen={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+                onOpenDispense={(pres) => {
+                    setSelectedPrescription(pres);
+                    setIsDispenseModalOpen(true);
+                }}
+                canManagePharmacy={canManagePharmacy}
+            />
+
+            {/* 8. Dispense Modal */}
+            <DispenseMedicineModal
+                isOpen={isDispenseModalOpen}
+                onClose={() => setIsDispenseModalOpen(false)}
+                onDispense={handleDispenseSubmit}
+                prescription={selectedPrescription}
+                inventory={inventory}
+            />
+
+            {/* 9. Add / Edit Stock Modal */}
+            <AddStockModal
+                isOpen={isAddStockModalOpen}
+                onClose={() => {
+                    setIsAddStockModalOpen(false);
+                    setEditingStockItem(null);
+                }}
+                onAddStock={handleAddOrEditStock}
+                editItem={editingStockItem}
+            />
+
         </div>
     );
 }

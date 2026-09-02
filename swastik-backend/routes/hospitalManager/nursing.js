@@ -28,6 +28,18 @@ router.post('/tasks', ownerOrManager, requireApproval, [
   res.status(201).json({ success: true, task });
 }));
 
+router.get('/kpis', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
+  const hospitalId = await getHospitalId(req.user.id);
+  const kpis = await nursingService.getNursingKpis(hospitalId);
+  res.json({ success: true, ...kpis });
+}));
+
+router.get('/admissions', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
+  const hospitalId = await getHospitalId(req.user.id);
+  const admissions = await nursingService.getActiveAdmissions(hospitalId);
+  res.json({ success: true, data: admissions });
+}));
+
 router.get('/tasks', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);
   const { page = 1, limit = 30, ...filters } = req.query;

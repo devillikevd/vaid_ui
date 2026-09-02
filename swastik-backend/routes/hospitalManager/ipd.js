@@ -10,7 +10,13 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const hospitalManagerService = require('../../services/hospitalManagerService');
 const ipdService = require('../../services/ipdService');
 
-const ownerOrManager = requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER);
+const ipdAuthorized = requireRole(
+  ROLES.HOSPITAL_OWNER,
+  ROLES.HOSPITAL_MANAGER,
+  ROLES.ADMIN,
+  ROLES.SUPER_ADMIN,
+  ROLES.DOCTOR
+);
 
 // Helper to get hospital ID from authenticated user
 const getHospitalId = async (userId) => {
@@ -20,7 +26,7 @@ const getHospitalId = async (userId) => {
 
 // ── ADMISSIONS ──
 
-router.post('/admissions', ownerOrManager, requireApproval, [
+router.post('/admissions', ipdAuthorized, requireApproval, [
   body('patientId').notEmpty().withMessage('Patient ID required'),
   validate,
 ], asyncHandler(async (req, res) => {
@@ -29,14 +35,14 @@ router.post('/admissions', ownerOrManager, requireApproval, [
   res.status(201).json({ success: true, admission });
 }));
 
-router.get('/admissions', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
+router.get('/admissions', ipdAuthorized, requireApproval, asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);
   const { page = 1, limit = 20, status, departmentId, wardId, doctorId, admissionType, fromDate, toDate, search } = req.query;
   const result = await ipdService.getAdmissions(hospitalId, { status, departmentId, wardId, doctorId, admissionType, fromDate, toDate, search }, parseInt(page), parseInt(limit));
   res.json({ success: true, ...result });
 }));
 
-router.get('/admissions/:id', ownerOrManager, requireApproval, [
+router.get('/admissions/:id', ipdAuthorized, requireApproval, [
   param('id').isUUID(), validate,
 ], asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);
@@ -44,7 +50,7 @@ router.get('/admissions/:id', ownerOrManager, requireApproval, [
   res.json({ success: true, admission });
 }));
 
-router.post('/admissions/:id/admit', ownerOrManager, requireApproval, [
+router.post('/admissions/:id/admit', ipdAuthorized, requireApproval, [
   param('id').isUUID(),
   body('bedId').notEmpty().withMessage('Bed ID required'),
   validate,
@@ -54,7 +60,7 @@ router.post('/admissions/:id/admit', ownerOrManager, requireApproval, [
   res.json({ success: true, ...result });
 }));
 
-router.post('/admissions/:id/transfer', ownerOrManager, requireApproval, [
+router.post('/admissions/:id/transfer', ipdAuthorized, requireApproval, [
   param('id').isUUID(),
   body('newBedId').notEmpty().withMessage('New bed ID required'),
   validate,
@@ -64,7 +70,7 @@ router.post('/admissions/:id/transfer', ownerOrManager, requireApproval, [
   res.json({ success: true, admission });
 }));
 
-router.post('/admissions/:id/discharge', ownerOrManager, requireApproval, [
+router.post('/admissions/:id/discharge', ipdAuthorized, requireApproval, [
   param('id').isUUID(), validate,
 ], asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);
@@ -74,14 +80,14 @@ router.post('/admissions/:id/discharge', ownerOrManager, requireApproval, [
 
 // ── PROGRESS NOTES ──
 
-router.post('/admissions/:id/progress-notes', ownerOrManager, requireApproval, [
+router.post('/admissions/:id/progress-notes', ipdAuthorized, requireApproval, [
   param('id').isUUID(), validate,
 ], asyncHandler(async (req, res) => {
   const note = await ipdService.addProgressNote(req.params.id, req.body.doctorId || req.user.id, req.body);
   res.status(201).json({ success: true, note });
 }));
 
-router.get('/admissions/:id/progress-notes', ownerOrManager, requireApproval, [
+router.get('/admissions/:id/progress-notes', ipdAuthorized, requireApproval, [
   param('id').isUUID(), validate,
 ], asyncHandler(async (req, res) => {
   const { page = 1, limit = 20 } = req.query;
@@ -91,13 +97,13 @@ router.get('/admissions/:id/progress-notes', ownerOrManager, requireApproval, [
 
 // ── CENSUS & DISCHARGE SUMMARY ──
 
-router.get('/census', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
+router.get('/census', ipdAuthorized, requireApproval, asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);
   const census = await ipdService.getIPDCensus(hospitalId);
   res.json({ success: true, ...census });
 }));
 
-router.get('/admissions/:id/discharge-summary', ownerOrManager, requireApproval, [
+router.get('/admissions/:id/discharge-summary', ipdAuthorized, requireApproval, [
   param('id').isUUID(), validate,
 ], asyncHandler(async (req, res) => {
   const summary = await ipdService.getDischargeSummary(req.params.id);

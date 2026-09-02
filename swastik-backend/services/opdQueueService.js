@@ -87,9 +87,21 @@ const getQueue = async (hospitalId, filters = {}) => {
 
   const queue = data || [];
 
-  // Calculate position for waiting patients
+  // Calculate position for waiting patients and active serving
   const waiting = queue.filter(q => q.status === 'waiting');
   const inConsultation = queue.filter(q => q.status === 'in_consultation');
+  const completed = queue.filter(q => q.status === 'completed');
+
+  // Calculate real average wait time from checked-in to consultation start
+  const completedWithWait = completed.filter(q => q.check_in_time && q.consultation_start_time);
+  let avgWaitMinutes = 0;
+  if (completedWithWait.length > 0) {
+    const totalWait = completedWithWait.reduce((acc, q) => {
+      const wait = Math.max(0, Math.round((new Date(q.consultation_start_time).getTime() - new Date(q.check_in_time).getTime()) / 60000));
+      return acc + wait;
+    }, 0);
+    avgWaitMinutes = Math.round(totalWait / completedWithWait.length);
+  }
 
   return {
     queue,
@@ -97,11 +109,14 @@ const getQueue = async (hospitalId, filters = {}) => {
       total: queue.length,
       waiting: waiting.length,
       in_consultation: inConsultation.length,
-      completed: queue.filter(q => q.status === 'completed').length,
+      completed: completed.length,
       skipped: queue.filter(q => q.status === 'skipped').length,
       no_show: queue.filter(q => q.status === 'no_show').length,
       cancelled: queue.filter(q => q.status === 'cancelled').length,
+      avg_wait_minutes: avgWaitMinutes,
     },
+    now_serving: inConsultation,
+    up_next: waiting.slice(0, 3),
     current_token: inConsultation.length > 0 ? inConsultation[0].display_token : null,
     next_token: waiting.length > 0 ? waiting[0].display_token : null,
   };

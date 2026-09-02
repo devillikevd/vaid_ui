@@ -33,6 +33,7 @@ import AuthGateModal from '@/components/auth/AuthGateModal';
 import { useAuthStore, isPatientAuthenticated } from '@/stores/authStore';
 import { useAuthGate } from '@/hooks/useAuthGate';
 import { patientApi } from '@/lib/api';
+import { ThemeProvider, useTheme } from '@/components/shared/ThemeProvider';
 
 const NAV_ITEMS = [
     { href: '/patient', label: 'Dashboard', icon: LayoutDashboard, exact: true, requiresAuth: false },
@@ -48,7 +49,7 @@ const NAV_ITEMS = [
     { href: '/patient/assistant', label: 'AI Health Assistant', icon: Bot, badge: 'AI', requiresAuth: true },
 ];
 
-export default function PatientLayout({ children }: { children: React.ReactNode }) {
+function PatientLayoutContent({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
     const { user, isAuthenticated, logout } = useAuthStore();
@@ -56,6 +57,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     const { isOpen, title, description, actionType, returnUrl, closeAuthGate } = useAuthGate();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [patientProfile, setPatientProfile] = useState<any>(null);
+    const { resolvedTheme } = useTheme();
 
     // Fetch patient profile ONLY if authenticated as a patient
     useEffect(() => {
@@ -73,7 +75,6 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         }
     }, [isPatient]);
 
-
     // Close mobile drawer on route change
     useEffect(() => {
         setSidebarOpen(false);
@@ -90,7 +91,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     const registerUrl = `/register/patient?redirect=${encodeURIComponent(pathname || '/patient')}`;
 
     return (
-        <div className="min-h-screen bg-[#FAF8F4] text-gray-900 flex flex-col selection:bg-vd-forest selection:text-white font-sans">
+        <div className={`min-h-screen bg-[#FAF8F4] dark:bg-[#080e1a] text-gray-900 dark:text-gray-100 flex flex-col selection:bg-vd-forest selection:text-white font-sans ${resolvedTheme === 'dark' ? 'dark' : ''}`} data-theme="patient">
             {/* Global Auth Gate Modal */}
             <AuthGateModal
                 isOpen={isOpen}
@@ -102,13 +103,13 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             />
 
             {/* Top Navigation Bar */}
-            <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-stone-200/80">
+            <header className="sticky top-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-stone-200/80 dark:border-gray-800">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
                     {/* Brand & Mobile Menu Toggle */}
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => setSidebarOpen(!sidebarOpen)}
-                            className="lg:hidden p-2 rounded-xl text-stone-600 hover:bg-stone-100 hover:text-stone-900 transition-colors"
+                            className="lg:hidden p-2 rounded-xl text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-gray-800 hover:text-stone-900 dark:hover:text-white transition-colors"
                             aria-label="Toggle Navigation"
                         >
                             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -119,7 +120,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                             <span className="font-heading font-bold text-lg sm:text-xl tracking-tight text-vd-forest uppercase">
                                 VAIDIDEA
                             </span>
-                            <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-emerald-50 text-vd-forest border border-emerald-200">
+                            <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-emerald-50 dark:bg-emerald-950/40 text-vd-forest dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                                 Patient Portal
                             </span>
                         </Link>
@@ -130,7 +131,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                         {isPatient ? (
                             <>
                                 {bloodGroup && (
-                                    <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200/70 text-rose-700 text-xs font-semibold">
+                                    <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200/70 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold">
                                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                                         <span>Blood Group: {bloodGroup}</span>
                                     </div>
@@ -140,9 +141,9 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
 
                                 <Link
                                     href="/patient/assistant"
-                                    className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100/80 text-vd-forest border border-emerald-200 text-xs font-semibold transition-all shadow-xs"
+                                    className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/60 text-vd-forest dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-semibold transition-all shadow-xs"
                                 >
-                                    <Sparkles className="w-3.5 h-3.5 text-vd-forest" />
+                                    <Sparkles className="w-3.5 h-3.5 text-vd-forest dark:text-emerald-300" />
                                     <span>AI Assistant</span>
                                 </Link>
 
@@ -158,23 +159,23 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                             <div className="flex items-center gap-2">
                                 <Link
                                     href="/patient/doctors"
-                                    className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-stone-700 hover:text-stone-900 text-xs font-semibold hover:bg-stone-100 transition-colors"
+                                    className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white text-xs font-semibold hover:bg-stone-100 dark:hover:bg-gray-800 transition-colors"
                                 >
-                                    <Stethoscope className="w-3.5 h-3.5 text-vd-forest" />
+                                    <Stethoscope className="w-3.5 h-3.5 text-vd-forest dark:text-emerald-400" />
                                     <span>Find Doctors</span>
                                 </Link>
 
                                 <Link
                                     href="/patient/health-library"
-                                    className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-stone-700 hover:text-stone-900 text-xs font-semibold hover:bg-stone-100 transition-colors"
+                                    className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white text-xs font-semibold hover:bg-stone-100 dark:hover:bg-gray-800 transition-colors"
                                 >
-                                    <BookOpen className="w-3.5 h-3.5 text-vd-forest" />
+                                    <BookOpen className="w-3.5 h-3.5 text-vd-forest dark:text-emerald-400" />
                                     <span>Health Library</span>
                                 </Link>
 
                                 <Link
                                     href={loginUrl}
-                                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-bold transition-all"
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-stone-100 dark:bg-gray-800 hover:bg-stone-200 dark:hover:bg-gray-700 text-stone-800 dark:text-stone-200 rounded-xl text-xs font-bold transition-all"
                                 >
                                     <LogIn className="w-3.5 h-3.5" />
                                     <span>Sign In</span>
@@ -199,16 +200,16 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                 <aside className="hidden lg:flex flex-col w-64 shrink-0 space-y-6">
                     <div className="space-y-6">
                         {/* Portal Welcome / Auth Status Badge */}
-                        <div className="bg-white border border-stone-200/80 rounded-3xl p-4 shadow-xs">
+                        <div className="bg-white dark:bg-gray-900 border border-stone-200/80 dark:border-gray-800 rounded-3xl p-4 shadow-xs">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-vd-forest font-bold text-sm">
+                                <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-vd-forest dark:text-emerald-300 font-bold text-sm">
                                     {isPatient ? (user?.name ? user.name[0].toUpperCase() : 'P') : <UserIcon className="w-5 h-5 text-stone-400" />}
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-xs font-bold text-stone-900 truncate">
+                                    <p className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate">
                                         {isPatient ? (patientProfile?.name || user?.name || 'Patient Account') : 'Guest Explorer'}
                                     </p>
-                                    <p className="text-[10px] text-stone-500 font-medium tracking-wide">
+                                    <p className="text-[10px] text-stone-500 dark:text-stone-400 font-medium tracking-wide">
                                         {isPatient ? 'Personal Health Record' : 'Sign in to access records'}
                                     </p>
                                 </div>
@@ -230,11 +231,11 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                                         className={`flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-semibold transition-all ${
                                             isActive
                                                 ? 'bg-vd-forest text-white shadow-md shadow-emerald-950/10 font-bold'
-                                                : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
+                                                : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-gray-800 hover:text-stone-900 dark:hover:text-white'
                                         }`}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-stone-400'}`} />
+                                            <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-stone-400 dark:text-stone-500'}`} />
                                             <span>{item.label}</span>
                                         </div>
                                         {item.badge ? (
@@ -242,13 +243,13 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                                                 className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase ${
                                                     isActive
                                                         ? 'bg-white/20 text-white'
-                                                        : 'bg-emerald-50 text-vd-forest border border-emerald-200'
+                                                        : 'bg-emerald-50 dark:bg-emerald-950/40 text-vd-forest dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                                                 }`}
                                             >
                                                 {item.badge}
                                             </span>
                                         ) : !isPatient && item.requiresAuth ? (
-                                            <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold text-stone-400 bg-stone-100 flex items-center gap-0.5">
+                                            <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold text-stone-400 bg-stone-100 dark:bg-gray-800 flex items-center gap-0.5">
                                                 <Lock className="w-2.5 h-2.5" />
                                             </span>
                                         ) : null}
@@ -267,11 +268,11 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                         onClick={() => setSidebarOpen(false)}
                     >
                         <div
-                            className="w-72 bg-white h-full p-6 flex flex-col justify-between shadow-2xl animate-in slide-in-from-left duration-300 overflow-y-auto"
+                            className="w-72 bg-white dark:bg-gray-900 h-full p-6 flex flex-col justify-between shadow-2xl animate-in slide-in-from-left duration-300 overflow-y-auto"
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div className="space-y-6">
-                                <div className="flex items-center justify-between pb-4 border-b border-stone-100">
+                                <div className="flex items-center justify-between pb-4 border-b border-stone-100 dark:border-gray-800">
                                     <Link
                                         href="/"
                                         onClick={() => setSidebarOpen(false)}
@@ -279,13 +280,13 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                                         className="flex items-center gap-2 group cursor-pointer"
                                     >
                                         <VaidideaLogo className="w-6 h-6 text-vd-forest transition-transform group-hover:scale-105" />
-                                        <span className="font-heading font-bold text-stone-900 text-base">
-                                            VAIDIDEA
+                                        <span className="font-heading font-bold text-stone-900 dark:text-stone-100 text-base">
+                                             VAIDIDEA
                                         </span>
                                     </Link>
                                     <button
                                         onClick={() => setSidebarOpen(false)}
-                                        className="p-1 rounded-lg text-stone-400 hover:text-stone-800"
+                                        className="p-1 rounded-lg text-stone-400 hover:text-stone-800 dark:hover:text-stone-200"
                                     >
                                         <X className="w-5 h-5" />
                                     </button>
@@ -305,7 +306,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                                                 className={`flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-semibold transition-all ${
                                                     isActive
                                                         ? 'bg-vd-forest text-white font-bold'
-                                                        : 'text-stone-700 hover:bg-stone-100'
+                                                        : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-gray-800'
                                                 }`}
                                             >
                                                 <div className="flex items-center gap-3">
@@ -317,7 +318,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                                                         {item.badge}
                                                     </span>
                                                 ) : !isPatient && item.requiresAuth ? (
-                                                    <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold text-stone-400 bg-stone-100 flex items-center gap-0.5">
+                                                    <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold text-stone-400 bg-stone-100 dark:bg-gray-800 flex items-center gap-0.5">
                                                         <Lock className="w-2.5 h-2.5" />
                                                     </span>
                                                 ) : null}
@@ -327,10 +328,10 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                                 </nav>
                             </div>
 
-                            <div className="pt-4 border-t border-stone-100 space-y-2">
+                            <div className="pt-4 border-t border-stone-100 dark:border-gray-800 space-y-2">
                                 <Link
                                     href="/"
-                                    className="flex items-center gap-2 text-stone-600 text-xs font-medium p-2 hover:bg-stone-50 rounded-xl"
+                                    className="flex items-center gap-2 text-stone-600 dark:text-stone-400 text-xs font-medium p-2 hover:bg-stone-50 dark:hover:bg-gray-800 rounded-xl"
                                 >
                                     <ArrowLeft className="w-4 h-4" />
                                     <span>Return to Main Website</span>
@@ -339,7 +340,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                                 {isPatient ? (
                                     <button
                                         onClick={handleLogout}
-                                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs transition-colors cursor-pointer"
+                                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 font-bold text-xs transition-colors cursor-pointer"
                                     >
                                         <LogOut className="w-4 h-4" />
                                         <span>Sign Out</span>
@@ -354,7 +355,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                                         </Link>
                                         <Link
                                             href={registerUrl}
-                                            className="w-full text-center py-2.5 rounded-xl bg-stone-100 text-stone-800 font-semibold text-xs"
+                                            className="w-full text-center py-2.5 rounded-xl bg-stone-100 dark:bg-gray-800 text-stone-800 dark:text-stone-200 font-semibold text-xs"
                                         >
                                             Create Account
                                         </Link>
@@ -370,5 +371,13 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                 <main className="flex-1 min-w-0">{children}</main>
             </div>
         </div>
+    );
+}
+
+export default function PatientLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <ThemeProvider storageKey="vaididea-theme-patient">
+            <PatientLayoutContent>{children}</PatientLayoutContent>
+        </ThemeProvider>
     );
 }

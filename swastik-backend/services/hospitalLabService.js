@@ -64,6 +64,51 @@ const createLabOrdersBulk = async (hospitalId, orders) => {
   return data;
 };
 
+const getLabKpis = async (hospitalId, date = null) => {
+  const targetDate = date || new Date().toISOString().split('T')[0];
+  const dayStart = `${targetDate}T00:00:00.000Z`;
+  const dayEnd = `${targetDate}T23:59:59.999Z`;
+
+  const { data, error } = await supabaseAdmin
+    .from('lab_orders')
+    .select('id, status, priority, created_at, critical_value, is_abnormal')
+    .eq('hospital_id', hospitalId)
+    .gte('created_at', dayStart)
+    .lte('created_at', dayEnd);
+
+  if (error) throw error;
+  const orders = data || [];
+
+  return {
+    total_orders_today: orders.length,
+    pending_collection: orders.filter(o => ['ordered', 'pending'].includes(o.status)).length,
+    samples_collected: orders.filter(o => ['sample_collected', 'sample_received'].includes(o.status)).length,
+    processing: orders.filter(o => ['in_progress', 'processing'].includes(o.status)).length,
+    reports_ready: orders.filter(o => ['report_ready', 'completed'].includes(o.status)).length,
+    pending_approval: orders.filter(o => o.status === 'report_ready').length,
+    released_today: orders.filter(o => ['report_approved', 'released'].includes(o.status)).length,
+    stat_critical: orders.filter(o => ['stat', 'emergency', 'urgent'].includes(o.priority) && o.status !== 'cancelled').length,
+  };
+};
+
+const getLabOrderDetails = async (hospitalId, orderId) => {
+  const { data, error } = await supabaseAdmin
+    .from('lab_orders')
+    .select(`
+      *,
+      patient:patients(id, name, date_of_birth, gender, blood_group, phone),
+      orderingDoctor:doctors!lab_orders_ordering_doctor_id_fkey(id, name, specialization, profile_image_url),
+      admission:patient_admissions(id, admission_number, chief_complaint, ward_id, bed_id, bed:hospital_beds!patient_admissions_bed_id_fkey(id, bed_number), ward:hospital_wards!patient_admissions_ward_id_fkey(id, name))
+    `)
+    .eq('id', orderId)
+    .eq('hospital_id', hospitalId)
+    .single();
+
+  if (error) throw error;
+  if (!data) throw new ApiError(404, 'Lab order not found');
+  return data;
+};
+
 const getLabOrders = async (hospitalId, filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
 
@@ -72,7 +117,8 @@ const getLabOrders = async (hospitalId, filters = {}, page = 1, limit = 20) => {
     .select(`
       *,
       patient:patients(id, name, date_of_birth, gender),
-      orderingDoctor:doctors!lab_orders_ordering_doctor_id_fkey(id, name, specialization, profile_image_url)
+      orderingDoctor:doctors!lab_orders_ordering_doctor_id_fkey(id, name, specialization, profile_image_url),
+      admission:patient_admissions(id, admission_number, ward_id, bed_id, bed:hospital_beds!patient_admissions_bed_id_fkey(id, bed_number), ward:hospital_wards!patient_admissions_ward_id_fkey(id, name))
     `, { count: 'exact' })
     .eq('hospital_id', hospitalId);
 
@@ -85,6 +131,11 @@ const getLabOrders = async (hospitalId, filters = {}, page = 1, limit = 20) => {
   if (filters.toDate) query = query.lte('created_at', filters.toDate);
   if (filters.encounterId) query = query.eq('encounter_id', filters.encounterId);
   if (filters.admissionId) query = query.eq('admission_id', filters.admissionId);
+  if (filters.date) {
+    const dayStart = `${filters.date}T00:00:00.000Z`;
+    const dayEnd = `${filters.date}T23:59:59.999Z`;
+    query = query.gte('created_at', dayStart).lte('created_at', dayEnd);
+  }
   if (filters.search) {
     const s = filters.search;
     query = query.or(`test_name.ilike.%${s}%,order_number.ilike.%${s}%`);
@@ -216,6 +267,62 @@ const createRadiologyOrder = async (hospitalId, data) => {
   return order;
 };
 
+const getRadiologyKpis = async (hospitalId, date = null) => {
+  const targetDate = date || new Date().toISOString().split('T')[0];
+  const dayStart = `${targetDate}T00:00:00.000Z`;
+  const dayEnd = `${targetDate}T23:59:59.999Z`;
+
+  const { data, error } = await supabaseAdmin
+    .from('radiology_orders')
+    .select('id, status, priority, modality, created_at, scheduled_at')
+    .eq('hospital_id', hospitalId)
+    .gte('created_at', dayStart)
+    .lte('created_at', dayEnd);
+
+  if (error) throw error;
+  const orders = data || [];
+
+  // Modality Breakdown
+  const modalityCounts = {
+    xray: orders.filter(o => o.modality?.toLowerCase().includes('xray') || o.modality?.toLowerCase().includes('x-ray')).length,
+    ct: orders.filter(o => o.modality?.toLowerCase().includes('ct')).length,
+    mri: orders.filter(o => o.modality?.toLowerCase().includes('mri')).length,
+    ultrasound: orders.filter(o => o.modality?.toLowerCase().includes('ultrasound') || o.modality?.toLowerCase().includes('usg')).length,
+    other: orders.filter(o => !['xray', 'x-ray', 'ct', 'mri', 'ultrasound', 'usg'].some(m => o.modality?.toLowerCase().includes(m))).length,
+  };
+
+  return {
+    total_studies_today: orders.length,
+    pending_scheduling: orders.filter(o => o.status === 'ordered').length,
+    scheduled_today: orders.filter(o => o.status === 'scheduled').length,
+    in_progress: orders.filter(o => o.status === 'in_progress').length,
+    reporting_queue: orders.filter(o => o.status === 'completed').length,
+    reports_ready: orders.filter(o => o.status === 'report_ready').length,
+    pending_approval: orders.filter(o => o.status === 'report_ready').length,
+    released_today: orders.filter(o => o.status === 'report_approved').length,
+    stat_critical: orders.filter(o => ['stat', 'emergency', 'urgent'].includes(o.priority) && o.status !== 'cancelled').length,
+    modality_breakdown: modalityCounts,
+  };
+};
+
+const getRadiologyStudyDetails = async (hospitalId, studyId) => {
+  const { data, error } = await supabaseAdmin
+    .from('radiology_orders')
+    .select(`
+      *,
+      patient:patients(id, name, date_of_birth, gender, blood_group, phone),
+      orderingDoctor:doctors!radiology_orders_ordering_doctor_id_fkey(id, name, specialization, profile_image_url),
+      admission:patient_admissions(id, admission_number, chief_complaint, ward_id, bed_id, bed:hospital_beds!patient_admissions_bed_id_fkey(id, bed_number), ward:hospital_wards!patient_admissions_ward_id_fkey(id, name))
+    `)
+    .eq('id', studyId)
+    .eq('hospital_id', hospitalId)
+    .single();
+
+  if (error) throw error;
+  if (!data) throw new ApiError(404, 'Radiology order not found');
+  return data;
+};
+
 const getRadiologyOrders = async (hospitalId, filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
 
@@ -224,19 +331,26 @@ const getRadiologyOrders = async (hospitalId, filters = {}, page = 1, limit = 20
     .select(`
       *,
       patient:patients(id, name, date_of_birth, gender),
-      orderingDoctor:doctors!radiology_orders_ordering_doctor_id_fkey(id, name, specialization, profile_image_url)
+      orderingDoctor:doctors!radiology_orders_ordering_doctor_id_fkey(id, name, specialization, profile_image_url),
+      admission:patient_admissions(id, admission_number, ward_id, bed_id, bed:hospital_beds!patient_admissions_bed_id_fkey(id, bed_number), ward:hospital_wards!patient_admissions_ward_id_fkey(id, name))
     `, { count: 'exact' })
     .eq('hospital_id', hospitalId);
 
   if (filters.status) query = query.eq('status', filters.status);
-  if (filters.modality) query = query.eq('modality', filters.modality);
+  if (filters.modality) query = query.ilike('modality', `%${filters.modality}%`);
   if (filters.doctorId) query = query.eq('ordering_doctor_id', filters.doctorId);
   if (filters.patientId) query = query.eq('patient_id', filters.patientId);
+  if (filters.priority) query = query.eq('priority', filters.priority);
   if (filters.fromDate) query = query.gte('created_at', filters.fromDate);
   if (filters.toDate) query = query.lte('created_at', filters.toDate);
+  if (filters.date) {
+    const dayStart = `${filters.date}T00:00:00.000Z`;
+    const dayEnd = `${filters.date}T23:59:59.999Z`;
+    query = query.gte('created_at', dayStart).lte('created_at', dayEnd);
+  }
   if (filters.search) {
     const s = filters.search;
-    query = query.or(`modality.ilike.%${s}%,body_part.ilike.%${s}%,order_number.ilike.%${s}%`);
+    query = query.or(`modality.ilike.%${s}%,body_part.ilike.%${s}%,order_number.ilike.%${s}%,study_description.ilike.%${s}%`);
   }
 
   const { data, error, count } = await query
@@ -260,13 +374,15 @@ const updateRadiologyOrderStatus = async (hospitalId, orderId, status, statusDat
   const nowIso = new Date().toISOString();
 
   if (status === 'scheduled') {
-    updates.scheduled_at = statusData.scheduledAt || statusData.scheduled_at || null;
+    updates.scheduled_at = statusData.scheduledAt || statusData.scheduled_at || nowIso;
+  } else if (status === 'in_progress') {
+    updates.updated_at = nowIso;
   } else if (status === 'completed') {
     updates.completed_at = nowIso;
   } else if (status === 'report_ready') {
     updates.report_url = statusData.reportUrl || statusData.report_url || null;
     updates.findings = statusData.findings || {};
-    updates.impression = statusData.impression || null;
+    updates.impression = statusData.impression || statusData.resultNotes || null;
     updates.reported_by = statusData.reportedBy || statusData.reported_by || null;
     updates.reported_at = nowIso;
     updates.image_urls = statusData.imageUrls || statusData.image_urls || [];
@@ -337,10 +453,14 @@ module.exports = {
   createLabOrder,
   createLabOrdersBulk,
   getLabOrders,
+  getLabOrderDetails,
+  getLabKpis,
   updateLabOrderStatus,
   // Radiology
   createRadiologyOrder,
   getRadiologyOrders,
+  getRadiologyStudyDetails,
+  getRadiologyKpis,
   updateRadiologyOrderStatus,
   // Analytics
   getLabTurnaroundTime,

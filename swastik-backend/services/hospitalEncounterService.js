@@ -40,7 +40,7 @@ const getEncounters = async (hospitalId, filters = {}, page = 1, limit = 20) => 
     .from('patient_encounters')
     .select(`
       *,
-      patient:patients(id, name, date_of_birth, gender, profile_image_url),
+      patient:patients(id, name, date_of_birth, gender, blood_group, profile_image_url),
       doctor:doctors(id, name, specialization, profile_image_url),
       department:hospital_departments(id, name)
     `, { count: 'exact' })
@@ -59,7 +59,7 @@ const getEncounters = async (hospitalId, filters = {}, page = 1, limit = 20) => 
   if (filters.fromDate) query = query.gte('created_at', filters.fromDate);
   if (filters.toDate) query = query.lte('created_at', filters.toDate);
   if (filters.search) {
-    const s = filters.search;
+    const s = filters.search.toLowerCase();
     query = query.or(`encounter_number.ilike.%${s}%,chief_complaint.ilike.%${s}%`);
   }
 
@@ -71,6 +71,37 @@ const getEncounters = async (hospitalId, filters = {}, page = 1, limit = 20) => 
   return {
     data: data || [],
     pagination: { page, limit, total: count || 0, totalPages: count > 0 ? Math.ceil(count / limit) : 1 },
+  };
+};
+
+const getEncounterStats = async (hospitalId) => {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayStartIso = todayStart.toISOString();
+
+  const [
+    todayResult,
+    opdTodayResult,
+    ipdTodayResult,
+    emergencyTodayResult,
+    activeResult,
+    completedTodayResult,
+  ] = await Promise.all([
+    supabaseAdmin.from('patient_encounters').select('id', { count: 'exact', head: true }).eq('hospital_id', hospitalId).gte('created_at', todayStartIso),
+    supabaseAdmin.from('patient_encounters').select('id', { count: 'exact', head: true }).eq('hospital_id', hospitalId).eq('encounter_type', 'opd'),
+    supabaseAdmin.from('patient_encounters').select('id', { count: 'exact', head: true }).eq('hospital_id', hospitalId).eq('encounter_type', 'ipd'),
+    supabaseAdmin.from('patient_encounters').select('id', { count: 'exact', head: true }).eq('hospital_id', hospitalId).eq('encounter_type', 'emergency'),
+    supabaseAdmin.from('patient_encounters').select('id', { count: 'exact', head: true }).eq('hospital_id', hospitalId).in('status', ['registered', 'in_queue', 'in_progress']),
+    supabaseAdmin.from('patient_encounters').select('id', { count: 'exact', head: true }).eq('hospital_id', hospitalId).in('status', ['completed', 'discharged']).gte('completed_at', todayStartIso),
+  ]);
+
+  return {
+    today: todayResult.count || 0,
+    opd: opdTodayResult.count || 0,
+    ipd: ipdTodayResult.count || 0,
+    emergency: emergencyTodayResult.count || 0,
+    active: activeResult.count || 0,
+    completed_today: completedTodayResult.count || 0,
   };
 };
 
@@ -219,6 +250,6 @@ const getPatientEncounterHistory = async (hospitalId, patientId, page = 1, limit
 };
 
 module.exports = {
-  createEncounter, getEncounters, getEncounterDetail, updateEncounter,
+  createEncounter, getEncounters, getEncounterStats, getEncounterDetail, updateEncounter,
   addEncounterService, getEncounterBill, getPatientEncounterHistory,
 };

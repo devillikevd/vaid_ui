@@ -10,13 +10,20 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const hospitalManagerService = require('../../services/hospitalManagerService');
 const hospitalEncounterService = require('../../services/hospitalEncounterService');
 
-const ownerOrManager = requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER);
+const encounterAuthorized = requireRole(
+  ROLES.HOSPITAL_OWNER,
+  ROLES.HOSPITAL_MANAGER,
+  ROLES.ADMIN,
+  ROLES.SUPER_ADMIN,
+  ROLES.DOCTOR
+);
+
 const getHospitalId = async (userId) => {
   const hospital = await hospitalManagerService.getHospitalByOwner(userId);
   return hospital.id;
 };
 
-router.post('/', ownerOrManager, requireApproval, [
+router.post('/', encounterAuthorized, requireApproval, [
   body('patientId').notEmpty(),
   validate,
 ], asyncHandler(async (req, res) => {
@@ -25,14 +32,20 @@ router.post('/', ownerOrManager, requireApproval, [
   res.status(201).json({ success: true, encounter });
 }));
 
-router.get('/', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
+router.get('/stats', encounterAuthorized, requireApproval, asyncHandler(async (req, res) => {
+  const hospitalId = await getHospitalId(req.user.id);
+  const stats = await hospitalEncounterService.getEncounterStats(hospitalId);
+  res.json({ success: true, ...stats });
+}));
+
+router.get('/', encounterAuthorized, requireApproval, asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);
   const { page = 1, limit = 20, ...filters } = req.query;
   const result = await hospitalEncounterService.getEncounters(hospitalId, filters, parseInt(page), parseInt(limit));
   res.json({ success: true, ...result });
 }));
 
-router.get('/:id', ownerOrManager, requireApproval, [
+router.get('/:id', encounterAuthorized, requireApproval, [
   param('id').isUUID(), validate,
 ], asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);
@@ -40,7 +53,7 @@ router.get('/:id', ownerOrManager, requireApproval, [
   res.json({ success: true, encounter });
 }));
 
-router.put('/:id', ownerOrManager, requireApproval, [
+router.put('/:id', encounterAuthorized, requireApproval, [
   param('id').isUUID(), validate,
 ], asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);
@@ -48,7 +61,7 @@ router.put('/:id', ownerOrManager, requireApproval, [
   res.json({ success: true, encounter });
 }));
 
-router.post('/:id/services', ownerOrManager, requireApproval, [
+router.post('/:id/services', encounterAuthorized, requireApproval, [
   param('id').isUUID(),
   body('serviceName').notEmpty(),
   body('rate').isFloat({ min: 0 }),
@@ -58,7 +71,7 @@ router.post('/:id/services', ownerOrManager, requireApproval, [
   res.status(201).json({ success: true, service });
 }));
 
-router.get('/:id/bill', ownerOrManager, requireApproval, [
+router.get('/:id/bill', encounterAuthorized, requireApproval, [
   param('id').isUUID(), validate,
 ], asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);
@@ -66,7 +79,7 @@ router.get('/:id/bill', ownerOrManager, requireApproval, [
   res.json({ success: true, bill });
 }));
 
-router.get('/patient/:patientId', ownerOrManager, requireApproval, [
+router.get('/patient/:patientId', encounterAuthorized, requireApproval, [
   param('patientId').isUUID(), validate,
 ], asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);

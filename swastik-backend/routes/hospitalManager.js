@@ -100,6 +100,28 @@ router.put('/er-wait-time', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MAN
 router.use(requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), requireApproval);
 
 // Doctors
+router.get('/doctors/stats', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const stats = await hospitalManagerService.getDoctorStats(hospital.id);
+    res.json({ success: true, ...stats });
+}));
+
+router.get('/doctors/invites', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const { status = 'pending', page = 1, limit = 20 } = req.query;
+    const result = await hospitalManagerService.getHospitalDoctorInvites(hospital.id, req.user.id, parseInt(page), parseInt(limit), status);
+    res.json({ success: true, ...result });
+}));
+
+router.delete('/doctors/invites/:inviteId', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    param('inviteId').isUUID().withMessage('Invalid invite ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const result = await hospitalManagerService.cancelHospitalDoctorInvite(hospital.id, req.user.id, req.params.inviteId);
+    res.json({ success: true, ...result });
+}));
+
 router.get('/doctors', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
     const { specialization, isAvailable, search, page = 1, limit = 20 } = req.query;
@@ -377,6 +399,12 @@ router.put('/partnerships/referrals/:id/status', requireRole(ROLES.HOSPITAL_OWNE
 }));
 
 // Departments
+router.get('/departments/kpis', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const kpis = await hospitalManagerService.getDepartmentKpis(hospital.id, req.user.id);
+    res.json({ success: true, ...kpis });
+}));
+
 router.get('/departments', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
     const result = await hospitalManagerService.getDepartments(hospital.id, req.user.id);
@@ -418,19 +446,91 @@ router.delete('/departments/:departmentId', requireRole(ROLES.HOSPITAL_OWNER, RO
 }));
 
 // Appointments
+router.get('/appointments/kpis', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+  const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+  const kpis = await hospitalManagerService.getAppointmentKpis(hospital.id, req.user.id);
+  res.json({ success: true, data: kpis });
+}));
+
 router.get('/appointments', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
   const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
-  const { status, doctorId, date, fromDate, toDate, search, page = 1, limit = 20 } = req.query;
+  const { status, doctorId, department, date, fromDate, toDate, search, page = 1, limit = 20 } = req.query;
 
   const result = await hospitalManagerService.getAppointments(
     hospital.id,
     req.user.id,
-    { status, doctorId, date, fromDate, toDate, search },
+    { status, doctorId, department, date, fromDate, toDate, search },
     parseInt(page),
     parseInt(limit)
   );
 
-    res.json({ success: true, ...result });
+  res.json({ success: true, ...result });
+}));
+
+router.put('/appointments/:appointmentId/status', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+  param('appointmentId').isUUID().withMessage('Invalid appointment ID'),
+  body('status').isIn(['confirmed', 'waiting', 'in_consultation', 'completed', 'cancelled', 'no_show']).withMessage('Invalid status'),
+  body('reason').optional().isString().trim(),
+  validate,
+], asyncHandler(async (req, res) => {
+  const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+  const updated = await hospitalManagerService.updateAppointmentStatusForHospital(
+    hospital.id,
+    req.user.id,
+    req.params.appointmentId,
+    req.body.status,
+    req.body.reason
+  );
+  res.json({ success: true, data: updated });
+}));
+
+router.post('/appointments/:appointmentId/reschedule', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+  param('appointmentId').isUUID().withMessage('Invalid appointment ID'),
+  body('date').isDate().withMessage('Valid date is required'),
+  body('timeSlot').notEmpty().withMessage('Time slot is required'),
+  validate,
+], asyncHandler(async (req, res) => {
+  const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+  const updated = await hospitalManagerService.rescheduleHospitalAppointment(
+    hospital.id,
+    req.user.id,
+    req.params.appointmentId,
+    req.body.date,
+    req.body.timeSlot
+  );
+  res.json({ success: true, data: updated });
+}));
+
+router.post('/appointments/:appointmentId/check-in', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+  param('appointmentId').isUUID().withMessage('Invalid appointment ID'),
+  validate,
+], asyncHandler(async (req, res) => {
+  const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+  const updated = await hospitalManagerService.checkInHospitalAppointment(
+    hospital.id,
+    req.user.id,
+    req.params.appointmentId
+  );
+  res.json({ success: true, data: updated });
+}));
+
+router.post('/appointments', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+  body('doctorId').isUUID().withMessage('Valid doctorId is required'),
+  body('patientName').isString().trim().notEmpty().withMessage('Patient name is required'),
+  body('patientPhone').isString().trim().notEmpty().withMessage('Patient phone is required'),
+  body('date').isDate().withMessage('Valid date is required'),
+  body('timeSlot').notEmpty().withMessage('Time slot is required'),
+  body('reason').optional().isString().trim(),
+  body('type').optional().isIn(['hospital', 'in_person', 'video']),
+  validate,
+], asyncHandler(async (req, res) => {
+  const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+  const created = await hospitalManagerService.createHospitalWalkInAppointment(
+    hospital.id,
+    req.user.id,
+    req.body
+  );
+  res.status(201).json({ success: true, data: created });
 }));
 
 // Analytics
@@ -527,10 +627,22 @@ router.delete('/ambulances/:ambulanceId', requireRole(ROLES.HOSPITAL_OWNER, ROLE
     res.json({ success: true });
 }));
 
-// Consultations — view all consultations by hospital-affiliated doctors
+// Consultations KPIs — Today summary and flow breakdown
+router.get('/consultations/kpis', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const kpis = await hospitalManagerService.getConsultationKpis(hospital.id, req.user.id);
+    res.json({ success: true, data: kpis });
+}));
+
+// Consultations — view all clinical consultations by hospital-affiliated doctors
 router.get('/consultations', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
-    const { status, search, page = 1, limit = 20 } = req.query;
-    const result = await hospitalManagerService.getConsultations(req.user.id, parseInt(page), parseInt(limit), status, search);
+    const { status, doctorId, department, date, fromDate, toDate, type, search, page = 1, limit = 20 } = req.query;
+    const result = await hospitalManagerService.getConsultations(
+        req.user.id,
+        parseInt(page),
+        parseInt(limit),
+        { status, doctorId, department, date, fromDate, toDate, type, search }
+    );
     res.json({ success: true, ...result });
 }));
 

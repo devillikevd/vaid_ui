@@ -58,25 +58,83 @@ const updateOtRoom = async (hospitalId, roomId, updates) => {
 
 // ── OT SCHEDULING ──
 
-const scheduleOt = async (hospitalId, data) => {
-  // Check for scheduling conflicts
-  const scheduledStart = data.scheduledStart || data.scheduled_start;
-  const scheduledEnd = data.scheduledEnd || data.scheduled_end;
-  const otRoomId = data.otRoomId || data.ot_room_id;
+const checkOtConflict = async (hospitalId, { otRoomId, scheduledStart, scheduledEnd, surgeonId, excludeId }) => {
+  if (!scheduledStart || !scheduledEnd) return { hasConflict: false };
 
-  if (scheduledEnd) {
-    const { data: conflicts } = await supabaseAdmin
+  // 1. Check OT Room Overlap
+  if (otRoomId) {
+    let roomQuery = supabaseAdmin
       .from('ot_schedules')
-      .select('id')
+      .select('id, surgery_name, scheduled_start, scheduled_end, otRoom:ot_rooms(name)')
+      .eq('hospital_id', hospitalId)
       .eq('ot_room_id', otRoomId)
       .not('status', 'in', '("cancelled","postponed")')
       .lt('scheduled_start', scheduledEnd)
-      .gt('scheduled_end', scheduledStart)
-      .limit(1);
+      .gt('scheduled_end', scheduledStart);
 
-    if (conflicts && conflicts.length > 0) {
-      throw new ApiError(409, 'This OT room has a scheduling conflict at the requested time');
+    if (excludeId) roomQuery = roomQuery.neq('id', excludeId);
+
+    const { data: roomConflicts } = await roomQuery.limit(1);
+    if (roomConflicts && roomConflicts.length > 0) {
+      return {
+        hasConflict: true,
+        conflictType: 'room',
+        message: `OT Room is already scheduled for "${roomConflicts[0].surgery_name}" between ${new Date(roomConflicts[0].scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} and ${new Date(roomConflicts[0].scheduled_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        conflictingSurgery: roomConflicts[0],
+      };
     }
+  }
+
+  // 2. Check Primary Surgeon Overlap
+  if (surgeonId) {
+    let surgeonQuery = supabaseAdmin
+      .from('ot_schedules')
+      .select('id, surgery_name, scheduled_start, scheduled_end, primarySurgeon:doctors!ot_schedules_primary_surgeon_id_fkey(name)')
+      .eq('hospital_id', hospitalId)
+      .eq('primary_surgeon_id', surgeonId)
+      .not('status', 'in', '("cancelled","postponed")')
+      .lt('scheduled_start', scheduledEnd)
+      .gt('scheduled_end', scheduledStart);
+
+    if (excludeId) surgeonQuery = surgeonQuery.neq('id', excludeId);
+
+    const { data: surgeonConflicts } = await surgeonQuery.limit(1);
+    if (surgeonConflicts && surgeonConflicts.length > 0) {
+      return {
+        hasConflict: true,
+        conflictType: 'surgeon',
+        message: `Dr. ${surgeonConflicts[0].primarySurgeon?.name || 'Surgeon'} is already scheduled for "${surgeonConflicts[0].surgery_name}" during this time window`,
+        conflictingSurgery: surgeonConflicts[0],
+      };
+    }
+  }
+
+  return { hasConflict: false };
+};
+
+const scheduleOt = async (hospitalId, data) => {
+  const scheduledStart = data.scheduledStart || data.scheduled_start;
+  const duration = parseInt(data.estimatedDuration || data.estimated_duration_minutes || 60, 10);
+  let scheduledEnd = data.scheduledEnd || data.scheduled_end;
+
+  if (!scheduledEnd && scheduledStart) {
+    const end = new Date(new Date(scheduledStart).getTime() + duration * 60000);
+    scheduledEnd = end.toISOString();
+  }
+
+  const otRoomId = data.otRoomId || data.ot_room_id;
+  const surgeonId = data.primarySurgeonId || data.primary_surgeon_id;
+
+  // Run comprehensive conflict check
+  const conflict = await checkOtConflict(hospitalId, {
+    otRoomId,
+    scheduledStart,
+    scheduledEnd,
+    surgeonId,
+  });
+
+  if (conflict.hasConflict) {
+    throw new ApiError(409, conflict.message || 'Scheduling conflict detected');
   }
 
   const { data: schedule, error } = await supabaseAdmin
@@ -87,7 +145,7 @@ const scheduleOt = async (hospitalId, data) => {
       patient_id: data.patientId || data.patient_id,
       admission_id: data.admissionId || data.admission_id || null,
       encounter_id: data.encounterId || data.encounter_id || null,
-      primary_surgeon_id: data.primarySurgeonId || data.primary_surgeon_id,
+      primary_surgeon_id: surgeonId,
       assistant_surgeon_ids: data.assistantSurgeonIds || data.assistant_surgeon_ids || [],
       anesthetist_id: data.anesthetistId || data.anesthetist_id || null,
       scrub_nurse: data.scrubNurse || data.scrub_nurse || null,
@@ -101,7 +159,7 @@ const scheduleOt = async (hospitalId, data) => {
       position: data.position || null,
       scheduled_start: scheduledStart,
       scheduled_end: scheduledEnd || null,
-      estimated_duration_minutes: data.estimatedDuration || data.estimated_duration_minutes || 60,
+      estimated_duration_minutes: duration,
       priority: data.priority || 'elective',
       pre_op_diagnosis: data.preOpDiagnosis || data.pre_op_diagnosis || null,
       consent_obtained: data.consentObtained || data.consent_obtained || false,
@@ -118,6 +176,125 @@ const scheduleOt = async (hospitalId, data) => {
 
   if (error) throw error;
   return schedule;
+};
+
+const rescheduleOt = async (hospitalId, scheduleId, data) => {
+  const scheduledStart = data.scheduledStart || data.scheduled_start;
+  const duration = parseInt(data.estimatedDuration || data.estimated_duration_minutes || 60, 10);
+  let scheduledEnd = data.scheduledEnd || data.scheduled_end;
+
+  if (!scheduledEnd && scheduledStart) {
+    const end = new Date(new Date(scheduledStart).getTime() + duration * 60000);
+    scheduledEnd = end.toISOString();
+  }
+
+  const otRoomId = data.otRoomId || data.ot_room_id;
+  const surgeonId = data.primarySurgeonId || data.primary_surgeon_id;
+
+  const conflict = await checkOtConflict(hospitalId, {
+    otRoomId,
+    scheduledStart,
+    scheduledEnd,
+    surgeonId,
+    excludeId: scheduleId,
+  });
+
+  if (conflict.hasConflict) {
+    throw new ApiError(409, conflict.message || 'Rescheduling conflict detected');
+  }
+
+  const updates = {
+    scheduled_start: scheduledStart,
+    scheduled_end: scheduledEnd,
+    estimated_duration_minutes: duration,
+  };
+  if (otRoomId) updates.ot_room_id = otRoomId;
+  if (surgeonId) updates.primary_surgeon_id = surgeonId;
+  if (data.anesthetistId) updates.anesthetist_id = data.anesthetistId;
+  if (data.priority) updates.priority = data.priority;
+  if (data.specialInstructions) updates.special_instructions = data.specialInstructions;
+
+  const { data: schedule, error } = await supabaseAdmin
+    .from('ot_schedules')
+    .update(updates)
+    .eq('id', scheduleId)
+    .eq('hospital_id', hospitalId)
+    .select(`
+      *,
+      otRoom:ot_rooms(id, name, room_type),
+      patient:patients(id, name, date_of_birth, gender),
+      primarySurgeon:doctors!ot_schedules_primary_surgeon_id_fkey(id, name, specialization)
+    `)
+    .single();
+
+  if (error) throw error;
+  return schedule;
+};
+
+const getOtKpis = async (hospitalId, date = null) => {
+  const targetDate = date || new Date().toISOString().split('T')[0];
+  const dayStart = `${targetDate}T00:00:00.000Z`;
+  const dayEnd = `${targetDate}T23:59:59.999Z`;
+
+  const [schedulesRes, roomsRes] = await Promise.all([
+    supabaseAdmin
+      .from('ot_schedules')
+      .select('id, status, priority, scheduled_start, ot_room_id')
+      .eq('hospital_id', hospitalId)
+      .gte('scheduled_start', dayStart)
+      .lte('scheduled_start', dayEnd),
+    supabaseAdmin
+      .from('ot_rooms')
+      .select('id, is_active')
+      .eq('hospital_id', hospitalId)
+      .eq('is_active', true),
+  ]);
+
+  const schedules = schedulesRes.data || [];
+  const rooms = roomsRes.data || [];
+
+  return {
+    total_surgeries_today: schedules.length,
+    scheduled: schedules.filter(s => s.status === 'scheduled').length,
+    in_preparation: schedules.filter(s => s.status === 'pre_op' || s.status === 'ready').length,
+    in_surgery: schedules.filter(s => s.status === 'in_progress').length,
+    recovery: schedules.filter(s => s.status === 'post_op').length,
+    completed: schedules.filter(s => s.status === 'completed').length,
+    cancelled: schedules.filter(s => s.status === 'cancelled' || s.status === 'postponed').length,
+    emergency: schedules.filter(s => ['emergency', 'stat', 'urgent'].includes(s.priority) && s.status !== 'cancelled').length,
+    active_rooms: rooms.length,
+  };
+};
+
+const getSurgeryDetails = async (hospitalId, scheduleId) => {
+  const [scheduleRes, checklistsRes] = await Promise.all([
+    supabaseAdmin
+      .from('ot_schedules')
+      .select(`
+        *,
+        otRoom:ot_rooms(id, name, room_type, floor, equipment),
+        patient:patients(id, name, date_of_birth, gender, blood_group, phone),
+        primarySurgeon:doctors!ot_schedules_primary_surgeon_id_fkey(id, name, specialization, profile_image_url),
+        anesthetist:doctors!ot_schedules_anesthetist_id_fkey(id, name, specialization),
+        admission:patient_admissions(id, admission_number, chief_complaint, ward_id, bed_id, bed:hospital_beds!patient_admissions_bed_id_fkey(id, bed_number), ward:hospital_wards!patient_admissions_ward_id_fkey(id, name))
+      `)
+      .eq('id', scheduleId)
+      .eq('hospital_id', hospitalId)
+      .single(),
+    supabaseAdmin
+      .from('ot_checklists')
+      .select('*')
+      .eq('schedule_id', scheduleId)
+      .order('created_at', { ascending: true }),
+  ]);
+
+  if (scheduleRes.error) throw scheduleRes.error;
+  if (!scheduleRes.data) throw new ApiError(404, 'Surgery schedule not found');
+
+  return {
+    ...scheduleRes.data,
+    checklists: checklistsRes.data || [],
+  };
 };
 
 const getOtSchedules = async (hospitalId, filters = {}, page = 1, limit = 20) => {
@@ -243,6 +420,6 @@ const getOtAvailability = async (hospitalId, date) => {
 
 module.exports = {
   getOtRooms, createOtRoom, updateOtRoom,
-  scheduleOt, getOtSchedules, updateOtStatus,
+  scheduleOt, rescheduleOt, getOtSchedules, getSurgeryDetails, getOtKpis, checkOtConflict, updateOtStatus,
   addOtChecklist, getOtAvailability,
 };

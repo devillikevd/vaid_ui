@@ -31,7 +31,7 @@ import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { NotificationBell, NotificationPanel } from '@/components/ui/Toast';
 import { ConnectionIndicator } from '@/components/shared/ConnectionIndicator';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
-import { useTheme } from '@/components/shared/ThemeProvider';
+import { ThemeProvider, useTheme } from '@/components/shared/ThemeProvider';
 import GlobalSocketToasts from '@/components/shared/GlobalSocketToasts';
 import { type Notification, useNotifications } from '@/hooks/useSocket';
 import { NotificationDetailModal } from '@/components/shared/NotificationDetailModal';
@@ -383,9 +383,22 @@ function resolveNotificationRoute(notification: Notification, role?: string): st
     }
 }
 
+export function getPortalStorageKey(dataTheme?: string, role?: string | string[]): string {
+    if (dataTheme === 'doctor' || (Array.isArray(role) && role.includes('doctor')) || role === 'doctor') return 'vaididea-theme-doctor';
+    if (dataTheme === 'hospital' || (Array.isArray(role) && role.includes('hospital_owner')) || role === 'hospital_owner') return 'vaididea-theme-hospital';
+    if (dataTheme === 'clinic' || (Array.isArray(role) && role.includes('clinic_owner')) || role === 'clinic_owner') return 'vaididea-theme-clinic';
+    if (dataTheme === 'pharmacy' || (Array.isArray(role) && role.includes('pharmacy_owner')) || role === 'pharmacy_owner') return 'vaididea-theme-pharmacy';
+    if (dataTheme === 'diagnostic-center' || (Array.isArray(role) && role.includes('diagnostic_center_owner')) || role === 'diagnostic_center_owner') return 'vaididea-theme-diagnostic';
+    if (dataTheme === 'wellness' || role === 'wellness_coach') return 'vaididea-theme-wellness';
+    if (dataTheme === 'fitness-center' || role === 'fitness_center_owner') return 'vaididea-theme-fitness';
+    if (dataTheme === 'admin' || role === 'admin') return 'vaididea-theme-admin';
+    if (dataTheme === 'patient' || role === 'patient') return 'vaididea-theme-patient';
+    return `vaididea-theme-${dataTheme || 'portal'}`;
+}
+
 // ----- Component -----
 
-export function BaseDashboardLayout({
+function BaseDashboardLayoutContent({
     config,
     children,
 }: {
@@ -396,6 +409,7 @@ export function BaseDashboardLayout({
     const pathname = usePathname();
     const { user, isAuthenticated, _hasHydrated, logout } = useAuthStore();
     const doctorStore = useDoctorStore();
+    const { resolvedTheme } = useTheme();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [desktopCollapsed, setDesktopCollapsed] = useState(false);
@@ -653,7 +667,7 @@ export function BaseDashboardLayout({
         : roleFilteredNavItems;
 
     return (
-        <div className="min-h-screen bg-[var(--surface-page)]" data-theme={config.theme.dataTheme}>
+        <div className={cn("min-h-screen bg-[var(--surface-page)]", resolvedTheme === 'dark' ? 'dark' : '')} data-theme={config.theme.dataTheme}>
             {/* Socket listener — only active on dashboard pages (not login/register/etc.) */}
             <GlobalSocketToasts />
 
@@ -1473,6 +1487,21 @@ export function BaseDashboardLayout({
     );
 }
 
+export function BaseDashboardLayout({
+    config,
+    children,
+}: {
+    config: DashboardConfig;
+    children: ReactNode;
+}) {
+    const storageKey = getPortalStorageKey(config.theme?.dataTheme, config.role);
+    return (
+        <ThemeProvider storageKey={storageKey}>
+            <BaseDashboardLayoutContent config={config}>{children}</BaseDashboardLayoutContent>
+        </ThemeProvider>
+    );
+}
+
 // ----- Auth Guard Wrapper -----
 export default function DashboardLayout({
     config,
@@ -1514,3 +1543,4 @@ export default function DashboardLayout({
 
     return <BaseDashboardLayout config={config}>{children}</BaseDashboardLayout>;
 }
+

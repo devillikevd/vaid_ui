@@ -67,9 +67,14 @@ export interface HospitalAppointment {
     patientId?: string | null;
     patientName: string;
     patientPhone?: string;
+    patientUhid?: string | null;
+    patientGender?: string | null;
+    patientDob?: string | null;
+    patientBloodGroup?: string | null;
     doctorId?: string | null;
     doctorName: string;
     doctorSpecialization?: string;
+    doctorDepartment?: string;
     doctorProfileImageUrl?: string;
     date?: string | null;
     time?: string | null;
@@ -77,6 +82,9 @@ export interface HospitalAppointment {
     type?: string;
     fee?: number | null;
     reason?: string;
+    symptoms?: string[] | string | null;
+    notes?: string | null;
+    checkedInAt?: string | null;
     createdAt?: string | null;
 }
 
@@ -97,19 +105,126 @@ function normalizeHospitalAppointment(raw: Record<string, any>): HospitalAppoint
         ...raw,
         id: raw.id || '',
         patientId: raw.patientId || raw.patient_id || raw.patient?.id || null,
-        patientName: raw.patientName || raw.patient?.name || 'Patient',
-        patientPhone: raw.patientPhone || raw.patient?.user?.phone || '',
+        patientName: raw.patientName || raw.patient?.name || raw.patient_name || 'Patient',
+        patientPhone: raw.patientPhone || raw.patient?.user?.phone || raw.patient?.phone || raw.patient_phone || '',
+        patientUhid: raw.patientUhid || raw.patient?.uhid || (raw.patientId || raw.patient?.id ? `UHID-${(raw.patientId || raw.patient?.id).slice(0, 8).toUpperCase()}` : null),
+        patientGender: raw.patientGender || raw.patient?.gender || raw.patient_gender || null,
+        patientDob: raw.patientDob || raw.patient?.date_of_birth || null,
+        patientBloodGroup: raw.patientBloodGroup || raw.patient?.blood_group || null,
         doctorId: raw.doctorId || raw.doctor_id || raw.doctor?.id || null,
         doctorName: raw.doctorName || raw.doctor?.name || 'Doctor',
         doctorSpecialization: raw.doctorSpecialization || raw.doctor?.specialization || '',
+        doctorDepartment: raw.doctorDepartment || raw.department || raw.doctorSpecialization || 'General',
         doctorProfileImageUrl: raw.doctorProfileImageUrl || raw.doctor?.profile_image_url || '',
         date: raw.date || raw.appointment_date || null,
         time: raw.time || raw.time_slot || null,
         status: raw.status || 'scheduled',
         type: raw.type || 'hospital',
         fee: raw.fee ?? null,
-        reason: raw.reason || '',
+        reason: raw.reason || raw.reason_for_visit || '',
+        symptoms: raw.symptoms || null,
+        notes: raw.notes || raw.patient_notes || null,
+        checkedInAt: raw.checkedInAt || raw.checked_in_at || null,
         createdAt: raw.createdAt || raw.created_at || null,
+    };
+}
+
+export interface HospitalConsultation {
+    id: string;
+    appointmentId?: string | null;
+    patientId?: string | null;
+    patientName: string;
+    patientPhone?: string;
+    patientUhid?: string | null;
+    patientGender?: string | null;
+    patientDob?: string | null;
+    patientBloodGroup?: string | null;
+    doctorId: string | null;
+    doctorName: string;
+    doctorSpecialization: string;
+    doctorDepartment: string;
+    doctorProfileImageUrl?: string | null;
+    date?: string | null;
+    scheduledTime?: string | null;
+    startedAt?: string | null;
+    endedAt?: string | null;
+    durationMinutes?: number | null;
+    status: string;
+    type: string;
+    chiefComplaint?: string | null;
+    symptoms?: string[] | string | null;
+    diagnosis?: string | null;
+    diagnosisCodes?: string[] | string | null;
+    notes?: string | null;
+    advice?: string | null;
+    followUpDate?: string | null;
+    followUpNotes?: string | null;
+    rating?: number | null;
+    review?: string | null;
+    createdAt?: string | null;
+    appointment?: {
+        id: string;
+        appointment_date?: string | null;
+        time_slot?: string | null;
+        type?: string;
+        fee?: number | null;
+        reason?: string | null;
+        symptoms?: string[] | string | null;
+        notes?: string | null;
+    } | null;
+}
+
+export function normalizeHospitalConsultation(raw: Record<string, any>): HospitalConsultation {
+    const patient = raw.patient || {};
+    const doctor = raw.doctor || {};
+    const appointment = raw.appointment || {};
+
+    const patientId = raw.patientId || raw.patient_id || patient.id || null;
+    const uhid = raw.patientUhid || (patientId ? `UHID-${patientId.slice(0, 8).toUpperCase()}` : (raw.id ? `UHID-${raw.id.slice(0, 8).toUpperCase()}` : 'UHID-N/A'));
+
+    return {
+        id: raw.id || '',
+        appointmentId: raw.appointmentId || raw.appointment_id || appointment.id || null,
+        patientId,
+        patientName: raw.patientName || patient.name || 'Patient',
+        patientPhone: raw.patientPhone || patient.phone || patient.users?.phone || patient.user?.phone || '',
+        patientUhid: uhid,
+        patientGender: raw.patientGender || raw.patient_gender || patient.gender || null,
+        patientDob: raw.patientDob || raw.patient_dob || patient.date_of_birth || null,
+        patientBloodGroup: raw.patientBloodGroup || raw.patient_blood_group || patient.blood_group || null,
+        doctorId: raw.doctorId || raw.doctor_id || doctor.id || null,
+        doctorName: raw.doctorName || doctor.name || 'Doctor',
+        doctorSpecialization: raw.doctorSpecialization || doctor.specialization || '',
+        doctorDepartment: raw.doctorDepartment || doctor.department || 'General',
+        doctorProfileImageUrl: raw.doctorProfileImageUrl || doctor.profile_image_url || null,
+        date: raw.date || appointment.appointment_date || (raw.started_at ? raw.started_at.split('T')[0] : (raw.created_at ? raw.created_at.split('T')[0] : null)),
+        scheduledTime: raw.scheduledTime || appointment.time_slot || null,
+        startedAt: raw.startedAt || raw.started_at || null,
+        endedAt: raw.endedAt || raw.ended_at || null,
+        durationMinutes: raw.durationMinutes || raw.duration_minutes || null,
+        status: raw.status || 'scheduled',
+        type: raw.type || appointment.type || 'video',
+        chiefComplaint: raw.chiefComplaint || raw.chief_complaint || appointment.reason || null,
+        symptoms: raw.symptoms || appointment.symptoms || null,
+        diagnosis: raw.diagnosis || null,
+        diagnosisCodes: raw.diagnosisCodes || raw.diagnosis_codes || null,
+        notes: raw.notes || appointment.notes || null,
+        advice: raw.advice || null,
+        followUpDate: raw.followUpDate || raw.follow_up_date || null,
+        followUpNotes: raw.followUpNotes || raw.follow_up_notes || null,
+        rating: raw.rating ?? null,
+        review: raw.review || null,
+        createdAt: raw.createdAt || raw.created_at || null,
+        appointment: appointment.id ? {
+            id: appointment.id,
+            appointment_date: appointment.appointment_date || null,
+            time_slot: appointment.time_slot || null,
+            type: appointment.type || raw.type || 'video',
+            fee: appointment.fee ?? null,
+            reason: appointment.reason || null,
+            symptoms: appointment.symptoms || null,
+            notes: appointment.notes || null,
+        } : null,
     };
 }
 
@@ -118,14 +233,17 @@ interface HospitalState {
     departments: Department[];
     doctors: HospitalDoctor[];
     appointments: HospitalAppointment[];
+    consultations: HospitalConsultation[];
     isLoading: boolean;
     loadingDashboard: boolean;
     loadingDepartments: boolean;
     loadingDoctors: boolean;
     loadingAppointments: boolean;
+    loadingConsultations: boolean;
     error: string | null;
     doctorsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
     appointmentsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
+    consultationsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
     invitesPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
     joinRequestsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
     reviews: Review[];
@@ -134,6 +252,11 @@ interface HospitalState {
     joinRequests: any[];
     loadingInvites: boolean;
     loadingJoinRequests: boolean;
+    appointmentKpis: any | null;
+    loadingAppointmentKpis: boolean;
+    consultationKpis: any | null;
+    loadingConsultationKpis: boolean;
+    consultationKpisError: string | null;
 
     fetchDashboardData: () => Promise<void>;
     fetchDepartments: () => Promise<void>;
@@ -144,7 +267,28 @@ interface HospitalState {
         search?: string;
         status?: string;
         date?: string;
+        doctorId?: string;
+        department?: string;
+        fromDate?: string;
+        toDate?: string;
     }) => Promise<void>;
+    fetchAppointmentKpis: () => Promise<void>;
+    fetchConsultations: (params?: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        status?: string;
+        doctorId?: string;
+        department?: string;
+        date?: string;
+        fromDate?: string;
+        toDate?: string;
+        type?: string;
+    }) => Promise<void>;
+    fetchConsultationKpis: () => Promise<void>;
+    updateAppointmentStatus: (appointmentId: string, status: string, reason?: string) => Promise<boolean>;
+    rescheduleAppointment: (appointmentId: string, date: string, timeSlot: string) => Promise<boolean>;
+    checkInAppointment: (appointmentId: string) => Promise<boolean>;
     fetchReviews: (page?: number) => Promise<void>;
     fetchInvites: (params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
     fetchJoinRequests: (params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
@@ -167,14 +311,17 @@ const hospitalInitialState = {
     departments: [] as Department[],
     doctors: [] as HospitalDoctor[],
     appointments: [] as HospitalAppointment[],
+    consultations: [] as HospitalConsultation[],
     isLoading: false,
     loadingDashboard: false,
     loadingDepartments: false,
     loadingDoctors: false,
     loadingAppointments: false,
+    loadingConsultations: false,
     error: null as string | null,
     doctorsPagination: { page: 1, totalPages: 1, total: 0, hasMore: false },
     appointmentsPagination: { page: 1, totalPages: 1, total: 0, hasMore: false },
+    consultationsPagination: { page: 1, totalPages: 1, total: 0, hasMore: false },
     reviews: [] as Review[],
     loadingReviews: false,
     invites: [],
@@ -183,6 +330,11 @@ const hospitalInitialState = {
     loadingJoinRequests: false,
     invitesPagination: { page: 1, totalPages: 1, total: 0, hasMore: false },
     joinRequestsPagination: { page: 1, totalPages: 1, total: 0, hasMore: false },
+    appointmentKpis: null as any | null,
+    loadingAppointmentKpis: false,
+    consultationKpis: null as any | null,
+    loadingConsultationKpis: false,
+    consultationKpisError: null as string | null,
 };
 
 const defaultPagination = { page: 1, totalPages: 1, total: 0, hasMore: false };
@@ -487,6 +639,10 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
                 search: params.search,
                 status: params.status,
                 date: params.date,
+                doctorId: params.doctorId,
+                department: params.department,
+                fromDate: params.fromDate,
+                toDate: params.toDate,
             });
             if (!response.success) {
                 set({ error: response.error || 'Failed to load appointments', loadingAppointments: false });
@@ -504,10 +660,127 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
                     hasMore: (pagination.page || page) < (pagination.totalPages || 1),
                 } : { ...defaultPagination, total: appointments.length },
                 loadingAppointments: false,
+                error: null,
             });
         } catch (error) {
             console.error('Error fetching appointments:', error);
             set({ error: 'Failed to load appointments.', loadingAppointments: false, appointmentsPagination: { ...defaultPagination } });
+        }
+    },
+
+    fetchAppointmentKpis: async () => {
+        set({ loadingAppointmentKpis: true });
+        try {
+            const response = await hospitalApi.getAppointmentKpis();
+            if (response.success) {
+                set({ appointmentKpis: response.data ?? response, loadingAppointmentKpis: false });
+            } else {
+                set({ loadingAppointmentKpis: false });
+            }
+        } catch (error) {
+            console.error('Error fetching appointment KPIs:', error);
+            set({ loadingAppointmentKpis: false });
+        }
+    },
+
+    fetchConsultations: async (params = {}) => {
+        set({ loadingConsultations: true, error: null });
+        try {
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await hospitalApi.getConsultations({
+                page,
+                limit,
+                search: params.search,
+                status: params.status,
+                doctorId: params.doctorId,
+                department: params.department,
+                date: params.date,
+                fromDate: params.fromDate,
+                toDate: params.toDate,
+                type: params.type,
+            });
+
+            if (!response.success) {
+                set({ error: response.error || 'Failed to load consultations', loadingConsultations: false });
+                return;
+            }
+
+            const rawData = response.data;
+            const consultations = (Array.isArray(rawData) ? rawData : (rawData as any)?.consultations || (rawData as any)?.data || []) as Record<string, any>[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
+
+            set({
+                consultations: consultations.map(normalizeHospitalConsultation),
+                consultationsPagination: pagination ? {
+                    page: pagination.page || page,
+                    totalPages: pagination.totalPages || 1,
+                    total: pagination.total || consultations.length,
+                    hasMore: (pagination.page || page) < (pagination.totalPages || 1),
+                } : { ...defaultPagination, total: consultations.length },
+                loadingConsultations: false,
+                error: null,
+            });
+        } catch (error) {
+            console.error('Error fetching consultations:', error);
+            set({ error: 'Failed to load consultations.', loadingConsultations: false, consultationsPagination: { ...defaultPagination } });
+        }
+    },
+
+    fetchConsultationKpis: async () => {
+        set({ loadingConsultationKpis: true, consultationKpisError: null });
+        try {
+            const response = await hospitalApi.getConsultationKpis();
+            if (response.success) {
+                set({ consultationKpis: response.data ?? response, loadingConsultationKpis: false, consultationKpisError: null });
+            } else {
+                set({ loadingConsultationKpis: false, consultationKpisError: response.error || 'Failed to load KPI metrics' });
+            }
+        } catch (error) {
+            console.error('Error fetching consultation KPIs:', error);
+            set({ loadingConsultationKpis: false, consultationKpisError: 'Failed to load KPI metrics' });
+        }
+    },
+
+    updateAppointmentStatus: async (appointmentId: string, status: string, reason?: string) => {
+        try {
+            const response = await hospitalApi.updateAppointmentStatus(appointmentId, status, reason);
+            if (response.success) {
+                get().fetchAppointmentKpis();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error updating appointment status:', error);
+            return false;
+        }
+    },
+
+    rescheduleAppointment: async (appointmentId: string, date: string, timeSlot: string) => {
+        try {
+            const response = await hospitalApi.rescheduleAppointment(appointmentId, date, timeSlot);
+            if (response.success) {
+                get().fetchAppointmentKpis();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error rescheduling appointment:', error);
+            return false;
+        }
+    },
+
+    checkInAppointment: async (appointmentId: string) => {
+        try {
+            const response = await hospitalApi.checkInAppointment(appointmentId);
+            if (response.success) {
+                get().fetchAppointmentKpis();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error checking in appointment:', error);
+            return false;
         }
     },
 

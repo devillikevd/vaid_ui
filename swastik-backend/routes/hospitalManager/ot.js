@@ -41,6 +41,20 @@ router.put('/rooms/:id', ownerOrManager, requireApproval, [
   res.json({ success: true, room });
 }));
 
+// ── OT KPIS & CONFLICT CHECK ──
+
+router.get('/kpis', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
+  const hospitalId = await getHospitalId(req.user.id);
+  const kpis = await otService.getOtKpis(hospitalId, req.query.date);
+  res.json({ success: true, ...kpis });
+}));
+
+router.post('/check-conflict', ownerOrManager, requireApproval, asyncHandler(async (req, res) => {
+  const hospitalId = await getHospitalId(req.user.id);
+  const result = await otService.checkOtConflict(hospitalId, req.body);
+  res.json({ success: true, ...result });
+}));
+
 // ── OT SCHEDULES ──
 
 router.post('/schedules', ownerOrManager, requireApproval, [
@@ -61,6 +75,24 @@ router.get('/schedules', ownerOrManager, requireApproval, asyncHandler(async (re
   const { page = 1, limit = 20, ...filters } = req.query;
   const result = await otService.getOtSchedules(hospitalId, filters, parseInt(page), parseInt(limit));
   res.json({ success: true, ...result });
+}));
+
+router.get('/schedules/:id', ownerOrManager, requireApproval, [
+  param('id').isUUID(), validate,
+], asyncHandler(async (req, res) => {
+  const hospitalId = await getHospitalId(req.user.id);
+  const schedule = await otService.getSurgeryDetails(hospitalId, req.params.id);
+  res.json({ success: true, schedule });
+}));
+
+router.post('/schedules/:id/reschedule', ownerOrManager, requireApproval, [
+  param('id').isUUID(),
+  body('scheduledStart').notEmpty(),
+  validate,
+], asyncHandler(async (req, res) => {
+  const hospitalId = await getHospitalId(req.user.id);
+  const schedule = await otService.rescheduleOt(hospitalId, req.params.id, req.body);
+  res.json({ success: true, schedule });
 }));
 
 router.put('/schedules/:id/status', ownerOrManager, requireApproval, [

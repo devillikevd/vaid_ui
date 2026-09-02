@@ -3,10 +3,10 @@ import { Cormorant_Garamond, Great_Vibes, Inter, Outfit, Playfair_Display } from
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import { ToastProvider } from "@/components/ui/Toast";
-import { ThemeProvider } from "@/components/shared/ThemeProvider";
 import '@/lib/env'; // Validates env vars on server startup
 
 import { GlobalSocketToastsDynamic } from '@/components/shared/GlobalSocketToastsDynamic';
+import { PublicThemeGuard } from '@/components/shared/PublicThemeGuard';
 
 // M020: fonts are self-hosted via next/font — no third-party CDN assets are
 // loaded (previously Google Fonts was fetched at runtime, outside SRI control).
@@ -48,29 +48,13 @@ export default function RootLayout({
             --font-heading: var(--vd-font-heading);
           }
         `}</style>
-        {/* Inline script to prevent flash of wrong theme */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var t = localStorage.getItem('swastik-theme');
-                  var dark = t === 'dark';
-                  document.documentElement.classList.add(dark ? 'dark' : 'light');
-                  document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
-                } catch(e) {}
-              })();
-            `,
-          }}
-        />
       </head>
       <body className="font-sans antialiased">
-        <ThemeProvider>
-          <ToastProvider>
-            {children}
-            <GlobalSocketToastsDynamic />
-          </ToastProvider>
-        </ThemeProvider>
+        <PublicThemeGuard />
+        <ToastProvider>
+          {children}
+          <GlobalSocketToastsDynamic />
+        </ToastProvider>
       </body>
     </html>
   );

@@ -6,6 +6,59 @@ const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 
 /**
+ * Get pharmacy operational KPIs
+ */
+const getPharmacyKpis = async (hospitalId, date = null) => {
+  const targetDate = date || new Date().toISOString().split('T')[0];
+  const dayStart = `${targetDate}T00:00:00.000Z`;
+  const dayEnd = `${targetDate}T23:59:59.999Z`;
+
+  const [dispRes, invRes] = await Promise.all([
+    supabaseAdmin
+      .from('hospital_pharmacy_dispensations')
+      .select('id, status, created_at, total_amount')
+      .eq('hospital_id', hospitalId)
+      .gte('created_at', dayStart)
+      .lte('created_at', dayEnd),
+    supabaseAdmin
+      .from('hospital_inhouse_inventory')
+      .select('id, stock_quantity, min_alert_quantity, expiry_date')
+      .eq('hospital_id', hospitalId)
+      .eq('is_active', true),
+  ]);
+
+  if (dispRes.error) throw dispRes.error;
+  if (invRes.error) throw invRes.error;
+
+  const dispensations = dispRes.data || [];
+  const inventory = invRes.data || [];
+
+  const now = new Date();
+  const thirtyDaysLater = new Date();
+  thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+
+  const lowStock = inventory.filter(i => i.stock_quantity > 0 && i.stock_quantity <= (i.min_alert_quantity || 10)).length;
+  const outOfStock = inventory.filter(i => i.stock_quantity === 0).length;
+  const expiringSoon = inventory.filter(i => {
+    if (!i.expiry_date) return false;
+    const exp = new Date(i.expiry_date);
+    return exp >= now && exp <= thirtyDaysLater;
+  }).length;
+
+  return {
+    total_prescriptions_today: dispensations.length,
+    pending_verification: dispensations.filter(d => d.status === 'pending').length,
+    waiting_dispensing: dispensations.filter(d => d.status === 'pending' || d.status === 'verified').length,
+    dispensed_today: dispensations.filter(d => d.status === 'dispensed').length,
+    partial_dispensing: dispensations.filter(d => d.status === 'partially_dispensed').length,
+    returns_today: dispensations.filter(d => d.status === 'returned').length,
+    low_stock_count: lowStock,
+    expiring_soon_count: expiringSoon,
+    out_of_stock_count: outOfStock,
+  };
+};
+
+/**
  * Get in-house inventory
  */
 const getInventory = async (hospitalId, filters = {}, page = 1, limit = 20) => {
@@ -24,6 +77,9 @@ const getInventory = async (hospitalId, filters = {}, page = 1, limit = 20) => {
   }
   if (filters.lowStock === 'true' || filters.lowStock === true) {
     query = query.filter('stock_quantity', 'lte', 'min_alert_quantity');
+  }
+  if (filters.outOfStock === 'true' || filters.outOfStock === true) {
+    query = query.eq('stock_quantity', 0);
   }
 
   const { data, count, error } = await query
@@ -93,7 +149,7 @@ const addOrUpdateInventory = async (hospitalId, itemData) => {
  * Get pending prescriptions for in-house dispensing
  */
 const getPendingPrescriptions = async (hospitalId) => {
-  // Get active encounters or admissions in this hospital with prescriptions
+  // Get active encounters in this hospital with prescription items or chief complaints
   const { data: encounters, error } = await supabaseAdmin
     .from('patient_encounters')
     .select(`
@@ -101,9 +157,12 @@ const getPendingPrescriptions = async (hospitalId) => {
       patient_id,
       doctor_id,
       encounter_type,
+      encounter_number,
       chief_complaint,
+      prescriptions,
+      diagnosis,
       created_at,
-      patient:patients(id, name, age, gender, phone),
+      patient:patients(id, name, date_of_birth, gender, blood_group),
       doctor:doctors(id, name, specialization)
     `)
     .eq('hospital_id', hospitalId)
@@ -112,7 +171,7 @@ const getPendingPrescriptions = async (hospitalId) => {
 
   if (error) throw error;
 
-  // Also get recent active admissions
+  // Also get recent active admissions with explicit foreign keys
   const { data: admissions, error: admError } = await supabaseAdmin
     .from('patient_admissions')
     .select(`
@@ -123,9 +182,10 @@ const getPendingPrescriptions = async (hospitalId) => {
       status,
       provisional_diagnosis,
       admitted_at,
-      patient:patients(id, name, age, gender, phone),
-      ward:hospital_wards(name),
-      bed:hospital_beds(bed_number)
+      patient:patients(id, name, date_of_birth, gender, blood_group),
+      ward:hospital_wards!patient_admissions_ward_id_fkey(id, name),
+      bed:hospital_beds!patient_admissions_bed_id_fkey(id, bed_number),
+      attendingDoctor:doctors!patient_admissions_attending_doctor_id_fkey(id, name, specialization)
     `)
     .eq('hospital_id', hospitalId)
     .eq('status', 'admitted')
@@ -254,7 +314,7 @@ const getDispensations = async (hospitalId, filters = {}, page = 1, limit = 20) 
     .from('hospital_pharmacy_dispensations')
     .select(`
       *,
-      patient:patients(id, name, phone),
+      patient:patients(id, name, date_of_birth, gender, blood_group),
       dispenser:users(id, name)
     `, { count: 'exact' })
     .eq('hospital_id', hospitalId);
@@ -287,6 +347,7 @@ const getDispensations = async (hospitalId, filters = {}, page = 1, limit = 20) 
 };
 
 module.exports = {
+  getPharmacyKpis,
   getInventory,
   addOrUpdateInventory,
   getPendingPrescriptions,

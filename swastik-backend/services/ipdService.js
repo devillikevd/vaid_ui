@@ -261,7 +261,7 @@ const dischargePatient = async (hospitalId, admissionId, dischargeData) => {
       .select(`
         *,
         patient:patients(id, name, date_of_birth, gender),
-        bed:hospital_beds(id, bed_number, ward:hospital_wards(id, name, ward_type)),
+        bed:hospital_beds!patient_admissions_bed_id_fkey(id, bed_number, ward:hospital_wards(id, name, ward_type)),
         admittingDoctor:doctors!patient_admissions_admitting_doctor_id_fkey(id, name, specialization)
       `)
       .single(),
@@ -299,7 +299,7 @@ const getAdmissions = async (hospitalId, filters = {}, page = 1, limit = 20) => 
     .select(`
       *,
       patient:patients(id, name, date_of_birth, gender, blood_group, profile_image_url),
-      bed:hospital_beds(id, bed_number),
+      bed:hospital_beds!patient_admissions_bed_id_fkey(id, bed_number),
       ward:hospital_wards(id, name, ward_type, floor),
       admittingDoctor:doctors!patient_admissions_admitting_doctor_id_fkey(id, name, specialization, profile_image_url),
       attendingDoctor:doctors!patient_admissions_attending_doctor_id_fkey(id, name, specialization, profile_image_url),
@@ -344,7 +344,7 @@ const getAdmissionDetail = async (hospitalId, admissionId) => {
     .select(`
       *,
       patient:patients(id, name, date_of_birth, gender, blood_group, profile_image_url, phone, user:users(email, phone)),
-      bed:hospital_beds(id, bed_number, bed_type, features, ward:hospital_wards(id, name, ward_type, floor, wing)),
+      bed:hospital_beds!patient_admissions_bed_id_fkey(id, bed_number, bed_type, features, ward:hospital_wards(id, name, ward_type, floor, wing)),
       ward:hospital_wards(id, name, ward_type, floor, wing),
       admittingDoctor:doctors!patient_admissions_admitting_doctor_id_fkey(id, name, specialization, profile_image_url),
       attendingDoctor:doctors!patient_admissions_attending_doctor_id_fkey(id, name, specialization, profile_image_url),
@@ -366,24 +366,65 @@ const getAdmissionDetail = async (hospitalId, admissionId) => {
 };
 
 const getIPDCensus = async (hospitalId) => {
-  const { data, error, count } = await supabaseAdmin
-    .from('patient_admissions')
-    .select(`
-      id, admission_number, status, admitted_at, admission_type, chief_complaint,
-      patient:patients(id, name, date_of_birth, gender),
-      bed:hospital_beds(id, bed_number),
-      ward:hospital_wards(id, name, ward_type, floor),
-      attendingDoctor:doctors!patient_admissions_attending_doctor_id_fkey(id, name, specialization)
-    `, { count: 'exact' })
-    .eq('hospital_id', hospitalId)
-    .eq('status', 'admitted')
-    .order('admitted_at', { ascending: true });
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayStartIso = todayStart.toISOString();
 
-  if (error) throw error;
+  const [
+    admittedResult,
+    pendingAdmissionsResult,
+    pendingDischargeResult,
+    admissionsTodayResult,
+    dischargesTodayResult,
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('patient_admissions')
+      .select(`
+        id, admission_number, status, admitted_at, admission_type, chief_complaint,
+        patient:patients(id, name, date_of_birth, gender),
+        bed:hospital_beds!patient_admissions_bed_id_fkey(id, bed_number),
+        ward:hospital_wards(id, name, ward_type, floor),
+        attendingDoctor:doctors!patient_admissions_attending_doctor_id_fkey(id, name, specialization)
+      `, { count: 'exact' })
+      .eq('hospital_id', hospitalId)
+      .eq('status', 'admitted')
+      .order('admitted_at', { ascending: true }),
+
+    supabaseAdmin
+      .from('patient_admissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('hospital_id', hospitalId)
+      .eq('status', 'pre_admission'),
+
+    supabaseAdmin
+      .from('patient_admissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('hospital_id', hospitalId)
+      .eq('status', 'discharge_pending'),
+
+    supabaseAdmin
+      .from('patient_admissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('hospital_id', hospitalId)
+      .gte('admitted_at', todayStartIso),
+
+    supabaseAdmin
+      .from('patient_admissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('hospital_id', hospitalId)
+      .eq('status', 'discharged')
+      .gte('discharged_at', todayStartIso),
+  ]);
+
+  if (admittedResult.error) throw admittedResult.error;
 
   return {
-    total_admitted: count || 0,
-    patients: data || [],
+    total_admitted: admittedResult.count || 0,
+    pending_admissions: pendingAdmissionsResult.count || 0,
+    pending_discharge: pendingDischargeResult.count || 0,
+    admissions_today: admissionsTodayResult.count || 0,
+    discharges_today: dischargesTodayResult.count || 0,
+    patients: admittedResult.data || [],
   };
 };
 
@@ -448,7 +489,7 @@ const getDischargeSummary = async (admissionId) => {
     .select(`
       *,
       patient:patients(id, name, date_of_birth, gender, blood_group, phone),
-      bed:hospital_beds(id, bed_number, ward:hospital_wards(id, name, ward_type)),
+      bed:hospital_beds!patient_admissions_bed_id_fkey(id, bed_number, ward:hospital_wards(id, name, ward_type)),
       admittingDoctor:doctors!patient_admissions_admitting_doctor_id_fkey(id, name, specialization, registration_number),
       attendingDoctor:doctors!patient_admissions_attending_doctor_id_fkey(id, name, specialization, registration_number),
       department:hospital_departments(id, name),

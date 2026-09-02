@@ -1162,14 +1162,43 @@ export const hospitalApi = {
             body: JSON.stringify({ waitMinutes }),
         }),
 
-    getDoctors: (page: number = 1, search: string = '', limit: number = 20) => {
+    getDoctors: (page: number = 1, search: string = '', limit: number = 20, filters: Record<string, string | boolean | undefined> = {}) => {
         const params = new URLSearchParams({
             page: page.toString(),
             limit: limit.toString(),
         });
         if (search.trim()) params.set('search', search.trim());
+        Object.entries(filters).forEach(([k, v]) => {
+            if (v !== undefined && v !== '') params.set(k, String(v));
+        });
         return fetchWithAuth(`/hospital-manager/doctors?${params}`);
     },
+
+    getDoctorStats: () => fetchWithAuth('/hospital-manager/doctors/stats'),
+
+    getDoctorInvites: (params: { page?: number; limit?: number; status?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 20),
+        });
+        if (params.status) query.set('status', params.status);
+        return fetchWithAuth(`/hospital-manager/doctors/invites?${query}`);
+    },
+
+    getInvites: (params: { page?: number; limit?: number; status?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 20),
+        });
+        if (params.status) query.set('status', params.status);
+        return fetchWithAuth(`/hospital-manager/doctors/invites?${query}`);
+    },
+
+    cancelDoctorInvite: (inviteId: string) =>
+        fetchWithAuth(`/hospital-manager/doctors/invites/${inviteId}`, { method: 'DELETE' }),
+
+    cancelInvite: (inviteId: string) =>
+        fetchWithAuth(`/hospital-manager/doctors/invites/${inviteId}`, { method: 'DELETE' }),
 
     inviteDoctor: (data: Record<string, unknown> | string) =>
         fetchWithAuth('/hospital-manager/doctors/invite', {
@@ -1196,19 +1225,91 @@ export const hospitalApi = {
             body: JSON.stringify({ decision, message }),
         }),
 
-    getInvites: (params: { page?: number; limit?: number; status?: string } = {}) => {
+    // ── Departments ──
+    getDepartments: () => fetchWithAuth('/hospital-manager/departments'),
+    getDepartmentKpis: () => fetchWithAuth('/hospital-manager/departments/kpis'),
+    addDepartment: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/departments', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+    updateDepartment: (departmentId: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/departments/${departmentId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+    deleteDepartment: (departmentId: string) =>
+        fetchWithAuth(`/hospital-manager/departments/${departmentId}`, { method: 'DELETE' }),
+
+    // ── Nursing Station & Tasks ──
+    getNursingTasks: (params: { page?: number; limit?: number; status?: string; wardId?: string; priority?: string; taskType?: string; nurseId?: string; date?: string; admissionId?: string } = {}) => {
         const query = new URLSearchParams({
             page: String(params.page ?? 1),
-            limit: String(params.limit ?? 20),
+            limit: String(params.limit ?? 30),
         });
         if (params.status) query.set('status', params.status);
-        return fetchWithAuth(`/hospital-manager/invites?${query}`);
+        if (params.wardId) query.set('wardId', params.wardId);
+        if (params.priority) query.set('priority', params.priority);
+        if (params.taskType) query.set('taskType', params.taskType);
+        if (params.nurseId) query.set('nurseId', params.nurseId);
+        if (params.date) query.set('date', params.date);
+        if (params.admissionId) query.set('admissionId', params.admissionId);
+        return fetchWithAuth(`/hospital-manager/nursing/tasks?${query}`);
     },
 
-    cancelInvite: (inviteId: string) =>
-        fetchWithAuth(`/hospital-manager/invites/${inviteId}/cancel`, {
+    getNursingKpis: () => fetchWithAuth('/hospital-manager/nursing/kpis'),
+
+    getNursingAdmissions: () => fetchWithAuth('/hospital-manager/nursing/admissions'),
+
+    createNursingTask: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/nursing/tasks', {
             method: 'POST',
+            body: JSON.stringify(data),
         }),
+
+    updateNursingTaskStatus: (taskId: string, status: string, extraData?: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/nursing/tasks/${taskId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status, ...(extraData || {}) }),
+        }),
+
+    updateNursingTask: (taskId: string, status: string, extraData?: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/nursing/tasks/${taskId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status, ...(extraData || {}) }),
+        }),
+
+    getMarSchedule: (admissionId: string, date?: string) =>
+        fetchWithAuth(`/hospital-manager/nursing/mar/${admissionId}${date ? `?date=${encodeURIComponent(date)}` : ''}`),
+
+    getMedicationSchedule: (admissionId: string, date?: string) =>
+        fetchWithAuth(`/hospital-manager/nursing/mar/${admissionId}${date ? `?date=${encodeURIComponent(date)}` : ''}`),
+
+    addMarRecord: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/nursing/mar', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    addMedication: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/nursing/mar', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    updateMarStatus: (marId: string, status: string, extraData?: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/nursing/mar/${marId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status, ...(extraData || {}) }),
+        }),
+
+    updateMedication: (marId: string, status: string, extraData?: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/nursing/mar/${marId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status, ...(extraData || {}) }),
+        }),
+
+    getWardDashboard: (wardId: string) => fetchWithAuth(`/hospital-manager/nursing/ward-dashboard/${wardId}`),
 
     // ── Platform Invites ──
     sendPlatformInvite: (email: string, message?: string) =>
@@ -1262,6 +1363,7 @@ export const hospitalApi = {
         status?: string;
         date?: string;
         doctorId?: string;
+        department?: string;
         fromDate?: string;
         toDate?: string;
     } = {}) => {
@@ -1272,11 +1374,37 @@ export const hospitalApi = {
         if (params.status) query.set('status', params.status);
         if (params.date) query.set('date', params.date);
         if (params.doctorId) query.set('doctorId', params.doctorId);
+        if (params.department) query.set('department', params.department);
         if (params.fromDate) query.set('fromDate', params.fromDate);
         if (params.toDate) query.set('toDate', params.toDate);
         const suffix = query.toString() ? `?${query.toString()}` : '';
         return fetchWithAuth(`/hospital-manager/appointments${suffix}`);
     },
+
+    getAppointmentKpis: () => fetchWithAuth('/hospital-manager/appointments/kpis'),
+
+    updateAppointmentStatus: (appointmentId: string, status: string, reason?: string) =>
+        fetchWithAuth(`/hospital-manager/appointments/${appointmentId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status, reason }),
+        }),
+
+    rescheduleAppointment: (appointmentId: string, date: string, timeSlot: string) =>
+        fetchWithAuth(`/hospital-manager/appointments/${appointmentId}/reschedule`, {
+            method: 'POST',
+            body: JSON.stringify({ date, timeSlot }),
+        }),
+
+    checkInAppointment: (appointmentId: string) =>
+        fetchWithAuth(`/hospital-manager/appointments/${appointmentId}/check-in`, {
+            method: 'POST',
+        }),
+
+    createAppointment: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/appointments', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
 
     getAnalytics: (period: string = '30d') => fetchWithAuth(`/hospital-manager/analytics?period=${encodeURIComponent(period)}`),
 
@@ -1307,14 +1435,45 @@ export const hospitalApi = {
 
     getEmergencies: () => fetchWithAuth('/hospital-manager/emergencies'),
 
-    getConsultations: (page: number = 1, status?: string, search: string = '', limit: number = 20) => {
-        const params = new URLSearchParams({
-            page: page.toString(),
-            limit: limit.toString(),
-        });
-        if (status) params.set('status', status);
-        if (search.trim()) params.set('search', search.trim());
-        return fetchWithAuth(`/hospital-manager/consultations?${params}`);
+    getConsultationKpis: () => fetchWithAuth('/hospital-manager/consultations/kpis'),
+
+    getConsultations: (
+        paramsOrPage: {
+            page?: number;
+            limit?: number;
+            status?: string;
+            doctorId?: string;
+            department?: string;
+            date?: string;
+            fromDate?: string;
+            toDate?: string;
+            type?: string;
+            search?: string;
+        } | number = 1,
+        status?: string,
+        search: string = '',
+        limit: number = 20
+    ) => {
+        const query = new URLSearchParams();
+        if (typeof paramsOrPage === 'object' && paramsOrPage !== null) {
+            query.set('page', (paramsOrPage.page ?? 1).toString());
+            query.set('limit', (paramsOrPage.limit ?? 20).toString());
+            if (paramsOrPage.status) query.set('status', paramsOrPage.status);
+            if (paramsOrPage.doctorId) query.set('doctorId', paramsOrPage.doctorId);
+            if (paramsOrPage.department) query.set('department', paramsOrPage.department);
+            if (paramsOrPage.date) query.set('date', paramsOrPage.date);
+            if (paramsOrPage.fromDate) query.set('fromDate', paramsOrPage.fromDate);
+            if (paramsOrPage.toDate) query.set('toDate', paramsOrPage.toDate);
+            if (paramsOrPage.type) query.set('type', paramsOrPage.type);
+            if (paramsOrPage.search?.trim()) query.set('search', paramsOrPage.search.trim());
+        } else {
+            query.set('page', (paramsOrPage ?? 1).toString());
+            query.set('limit', (limit ?? 20).toString());
+            if (status) query.set('status', status);
+            if (search?.trim()) query.set('search', search.trim());
+        }
+        const qs = query.toString();
+        return fetchWithAuth(`/hospital-manager/consultations${qs ? `?${qs}` : ''}`);
     },
 
     // ── Ambulance Dispatch (Hospital-Controlled) ──
@@ -1340,24 +1499,6 @@ export const hospitalApi = {
 
     removeAffiliatedAmbulance: (ambulanceId: string) =>
         fetchWithAuth(`/hospital-manager/ambulances/${ambulanceId}`, { method: 'DELETE' }),
-
-    // ── Departments ──
-    getDepartments: () => fetchWithAuth('/hospital-manager/departments'),
-
-    addDepartment: (data: Record<string, unknown>) =>
-        fetchWithAuth('/hospital-manager/departments', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        }),
-
-    updateDepartment: (departmentId: string, data: Record<string, unknown>) =>
-        fetchWithAuth(`/hospital-manager/departments/${departmentId}`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-        }),
-
-    deleteDepartment: (departmentId: string) =>
-        fetchWithAuth(`/hospital-manager/departments/${departmentId}`, { method: 'DELETE' }),
 
     // ── Outbreak Alerts (read-only) ──
     getOutbreakAlerts: (city?: string) => {
@@ -1449,6 +1590,9 @@ export const hospitalApi = {
         fetchWithAuth('/hospital-manager/lab/orders', { method: 'POST', body: JSON.stringify(data) }),
     createLabOrdersBulk: (orders: Record<string, unknown>[]) =>
         fetchWithAuth('/hospital-manager/lab/orders/bulk', { method: 'POST', body: JSON.stringify({ orders }) }),
+    getLabKpis: (date?: string) =>
+        fetchWithAuth(`/hospital-manager/lab/kpis${date ? `?date=${encodeURIComponent(date)}` : ''}`),
+    getLabOrderDetails: (id: string) => fetchWithAuth(`/hospital-manager/lab/orders/${id}`),
     getLabOrders: (params: Record<string, string | number> = {}) => {
         const p = new URLSearchParams();
         Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
@@ -1462,6 +1606,10 @@ export const hospitalApi = {
     // ── Radiology ──
     createRadiologyOrder: (data: Record<string, unknown>) =>
         fetchWithAuth('/hospital-manager/radiology/orders', { method: 'POST', body: JSON.stringify(data) }),
+    getRadiologyKpis: (date?: string) =>
+        fetchWithAuth(`/hospital-manager/radiology/kpis${date ? `?date=${encodeURIComponent(date)}` : ''}`),
+    getRadiologyStudyDetails: (id: string) =>
+        fetchWithAuth(`/hospital-manager/radiology/orders/${id}`),
     getRadiologyOrders: (params: Record<string, string | number> = {}) => {
         const p = new URLSearchParams();
         Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
@@ -1476,38 +1624,26 @@ export const hospitalApi = {
         fetchWithAuth('/hospital-manager/ot/rooms', { method: 'POST', body: JSON.stringify(data) }),
     updateOtRoom: (id: string, data: Record<string, unknown>) =>
         fetchWithAuth(`/hospital-manager/ot/rooms/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    getOtKpis: (date?: string) =>
+        fetchWithAuth(`/hospital-manager/ot/kpis${date ? `?date=${encodeURIComponent(date)}` : ''}`),
+    checkOtConflict: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospital-manager/ot/check-conflict', { method: 'POST', body: JSON.stringify(data) }),
     getOtSchedules: (params: Record<string, string | number> = {}) => {
         const p = new URLSearchParams();
         Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
         return fetchWithAuth(`/hospital-manager/ot/schedules?${p}`);
     },
+    getSurgeryDetails: (id: string) => fetchWithAuth(`/hospital-manager/ot/schedules/${id}`),
     scheduleOt: (data: Record<string, unknown>) =>
         fetchWithAuth('/hospital-manager/ot/schedules', { method: 'POST', body: JSON.stringify(data) }),
+    rescheduleOt: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/hospital-manager/ot/schedules/${id}/reschedule`, { method: 'POST', body: JSON.stringify(data) }),
     updateOtStatus: (id: string, status: string, data?: Record<string, unknown>) =>
         fetchWithAuth(`/hospital-manager/ot/schedules/${id}/status`, { method: 'PUT', body: JSON.stringify({ status, ...data }) }),
     addOtChecklist: (id: string, data: Record<string, unknown>) =>
         fetchWithAuth(`/hospital-manager/ot/schedules/${id}/checklist`, { method: 'POST', body: JSON.stringify(data) }),
     getOtAvailability: (date?: string) =>
         fetchWithAuth(`/hospital-manager/ot/availability${date ? `?date=${date}` : ''}`),
-
-    // ── Nursing ──
-    createNursingTask: (data: Record<string, unknown>) =>
-        fetchWithAuth('/hospital-manager/nursing/tasks', { method: 'POST', body: JSON.stringify(data) }),
-    getNursingTasks: (params: Record<string, string | number> = {}) => {
-        const p = new URLSearchParams();
-        Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
-        return fetchWithAuth(`/hospital-manager/nursing/tasks?${p}`);
-    },
-    updateNursingTask: (id: string, status: string, data?: Record<string, unknown>) =>
-        fetchWithAuth(`/hospital-manager/nursing/tasks/${id}`, { method: 'PUT', body: JSON.stringify({ status, ...data }) }),
-    addMedication: (data: Record<string, unknown>) =>
-        fetchWithAuth('/hospital-manager/nursing/mar', { method: 'POST', body: JSON.stringify(data) }),
-    updateMedication: (id: string, status: string, data?: Record<string, unknown>) =>
-        fetchWithAuth(`/hospital-manager/nursing/mar/${id}`, { method: 'PUT', body: JSON.stringify({ status, ...data }) }),
-    getMedicationSchedule: (admissionId: string, date?: string) =>
-        fetchWithAuth(`/hospital-manager/nursing/mar/${admissionId}${date ? `?date=${date}` : ''}`),
-    getWardDashboard: (wardId: string) =>
-        fetchWithAuth(`/hospital-manager/nursing/ward-dashboard/${wardId}`),
 
     // ── Service Catalog ──
     getHospitalServices: (params: Record<string, string | number> = {}) => {
@@ -1531,6 +1667,7 @@ export const hospitalApi = {
         Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
         return fetchWithAuth(`/hospital-manager/encounters?${p}`);
     },
+    getEncounterStats: () => fetchWithAuth('/hospital-manager/encounters/stats'),
     getEncounterDetail: (id: string) => fetchWithAuth(`/hospital-manager/encounters/${id}`),
     updateEncounter: (id: string, data: Record<string, unknown>) =>
         fetchWithAuth(`/hospital-manager/encounters/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -1611,6 +1748,8 @@ export const hospitalApi = {
     getMyStaffRole: () => fetchWithAuth('/hospital-manager/my-role'),
 
     // ── In-House Pharmacy ──
+    getInhousePharmacyKpis: (date?: string) =>
+        fetchWithAuth(`/hospital-manager/inhouse-pharmacy/kpis${date ? `?date=${encodeURIComponent(date)}` : ''}`),
     getInhouseInventory: (params: Record<string, string | number | boolean> = {}) => {
         const p = new URLSearchParams();
         Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') p.set(k, String(v)); });
