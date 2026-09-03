@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   title: "VAIDIDEA Healthcare Platform",
   description: "Multi-role healthcare management platform for doctors, hospitals, clinics, pharmacies, and emergency services.",
   manifest: "/manifest.json",
+  verification: {
+    google: "iwvaIpdhxt1FHnnyRxgAwOXG5sNYpN7OfhHwscsFSd4",
+  },
 };
 
 export const viewport: Viewport = {
