@@ -1,48 +1,79 @@
-'use client';
+import type { Metadata } from 'next';
 
-import { ReactNode } from 'react';
-import {
-    CalendarCheck,
-    ClipboardList,
-    Dumbbell,
-    Film,
-    LayoutDashboard,
-    MessageCircle,
-    Settings,
-    Star,
-    Store,
-    Users,
-    Video,
-    Clock,
-} from 'lucide-react';
-import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
-
-const WELLNESS_CONFIG: DashboardConfig = {
-    role: 'wellness_coach',
-    loginPath: '/login/wellness',
-    portalTitle: 'Wellness Portal',
-    portalSubtitle: 'Coaching Console',
-    portalIcon: Dumbbell,
-    theme: { color: 'lime', dataTheme: 'wellness' },
-    showApprovalBanner: true,
-    showFullDropdown: true,
-    settingsHref: '/wellness/settings',
-    userDisplayName: 'Coach',
-    navItems: [
-        { name: 'Dashboard', href: '/wellness', icon: LayoutDashboard },
-        { name: 'Schedule', href: '/wellness/schedule', icon: Clock },
-        { name: 'Sessions', href: '/wellness/sessions', icon: CalendarCheck },
-        { name: 'Consultations', href: '/wellness/consultations', icon: Video },
-        { name: 'Clients', href: '/wellness/clients', icon: Users },
-        { name: 'Plans', href: '/wellness/plans', icon: ClipboardList },
-        { name: 'Marketplace', href: '/wellness/marketplace', icon: Store },
-        { name: 'Reels', href: '/wellness/reels', icon: Film },
-        { name: 'Community', href: '/wellness/community', icon: MessageCircle },
-        { name: 'Reviews', href: '/wellness/reviews', icon: Star },
-        { name: 'Settings', href: '/wellness/settings', icon: Settings },
-    ],
+export const metadata: Metadata = {
+  title: 'Wellness & Preventive Health',
+  description:
+    'Personalized wellness coaching, fitness routines, and preventive health routines integrated with the Vaididea connected healthcare ecosystem.',
+  alternates: {
+    canonical: '/wellness',
+  },
+  openGraph: {
+    title: 'Wellness & Preventive Health | Vaididea',
+    description:
+      'Personalized wellness coaching, fitness routines, and preventive health routines integrated with the Vaididea connected healthcare ecosystem.',
+    url: 'https://www.vaididea.in/wellness',
+    siteName: 'Vaididea',
+    locale: 'en_IN',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Wellness & Preventive Health | Vaididea',
+    description:
+      'Personalized wellness coaching, fitness routines, and preventive health routines integrated with the Vaididea connected healthcare ecosystem.',
+  },
 };
 
-export default function WellnessLayout({ children }: { children: ReactNode }) {
-    return <DashboardLayout config={WELLNESS_CONFIG}>{children}</DashboardLayout>;
+const wellnessJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebPage',
+      '@id': 'https://www.vaididea.in/wellness#webpage',
+      'url': 'https://www.vaididea.in/wellness',
+      'name': 'Wellness & Preventive Health | Vaididea',
+      'description':
+        'Personalized wellness coaching, fitness routines, and preventive health routines integrated with the Vaididea connected healthcare ecosystem.',
+      'isPartOf': {
+        '@id': 'https://www.vaididea.in/#website',
+      },
+      'breadcrumb': {
+        '@id': 'https://www.vaididea.in/wellness#breadcrumb',
+      },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      '@id': 'https://www.vaididea.in/wellness#breadcrumb',
+      'itemListElement': [
+        {
+          '@type': 'ListItem',
+          'position': 1,
+          'name': 'Home',
+          'item': 'https://www.vaididea.in',
+        },
+        {
+          '@type': 'ListItem',
+          'position': 2,
+          'name': 'Wellness',
+          'item': 'https://www.vaididea.in/wellness',
+        },
+      ],
+    },
+  ],
+};
+
+export default function WellnessLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(wellnessJsonLd) }}
+      />
+      {children}
+    </>
+  );
 }

@@ -36,14 +36,74 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-    title: "Vision & Healthcare Ecosystem — Vaididea",
+    title: "Vision & Healthcare Ecosystem",
     description:
         "Vaididea is building a connected healthcare infrastructure where patients and healthcare providers operate together across one unified ecosystem.",
+    alternates: {
+        canonical: "/vision",
+    },
+    openGraph: {
+        title: "Vision & Healthcare Ecosystem | Vaididea",
+        description:
+            "Vaididea is building a connected healthcare infrastructure where patients and healthcare providers operate together across one unified ecosystem.",
+        url: "https://www.vaididea.in/vision",
+        siteName: "Vaididea",
+        locale: "en_IN",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "Vision & Healthcare Ecosystem | Vaididea",
+        description:
+            "Vaididea is building a connected healthcare infrastructure where patients and healthcare providers operate together across one unified ecosystem.",
+    },
+};
+
+const visionJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+        {
+            "@type": "AboutPage",
+            "@id": "https://www.vaididea.in/vision#webpage",
+            "url": "https://www.vaididea.in/vision",
+            "name": "Vision & Healthcare Ecosystem | Vaididea",
+            "description":
+                "Vaididea is building a connected healthcare infrastructure where patients and healthcare providers operate together across one unified ecosystem.",
+            "isPartOf": {
+                "@id": "https://www.vaididea.in/#website",
+            },
+            "breadcrumb": {
+                "@id": "https://www.vaididea.in/vision#breadcrumb",
+            },
+        },
+        {
+            "@type": "BreadcrumbList",
+            "@id": "https://www.vaididea.in/vision#breadcrumb",
+            "itemListElement": [
+                {
+                    "@type": "ListItem",
+                    "position": 1,
+                    "name": "Home",
+                    "item": "https://www.vaididea.in",
+                },
+                {
+                    "@type": "ListItem",
+                    "position": 2,
+                    "name": "Vision",
+                    "item": "https://www.vaididea.in/vision",
+                },
+            ],
+        },
+    ],
 };
 
 export default function VisionPage() {
     return (
         <div className="min-h-screen bg-[#FAF8F4] text-stone-900 font-sans selection:bg-vd-sage/20 selection:text-vd-forest">
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(visionJsonLd) }}
+            />
             {/* Global Navigation */}
             <Navbar />
 
@@ -861,19 +921,30 @@ export default function VisionPage() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {[
-                            { layer: "CARE", desc: "Doctors, Hospitals, Clinics, and Multi-Specialty Consultation.", icon: Stethoscope },
+                            { layer: "CARE", desc: "Doctors, Hospitals, Clinics, and Multi-Specialty Consultation.", icon: Stethoscope, href: "/patient/doctors", linkText: "Find Verified Doctors" },
                             { layer: "DIAGNOSTICS", desc: "Diagnostic Centers, Pathology Labs, and Automated PDF Reports.", icon: Microscope },
                             { layer: "TREATMENT", desc: "Verified E-Prescriptions, Local Pharmacies, and Medicine Delivery.", icon: Pill },
                             { layer: "EMERGENCY", desc: "1-Tap SOS, Geolocation Dispatch, Hospital ER Alerts, and Emergency QR.", icon: Siren },
-                            { layer: "PREVENTION & WELLNESS", desc: "Activity tracking, nutrition advice, wellness studios, and lifestyle health.", icon: Flame },
-                            { layer: "INTELLIGENCE & COMMUNITY", desc: "AI Health Assistant, verified Health Library, community Q&A, and health awareness.", icon: Sparkles },
+                            { layer: "PREVENTION & WELLNESS", desc: "Activity tracking, nutrition advice, wellness studios, and lifestyle health.", icon: Flame, href: "/wellness", linkText: "Explore Preventive Wellness" },
+                            { layer: "INTELLIGENCE & COMMUNITY", desc: "AI Health Assistant, verified Health Library, community Q&A, and health awareness.", icon: Sparkles, href: "/health-library", linkText: "Explore the Health Library" },
                         ].map((card, idx) => (
-                            <div key={idx} className="bg-white p-7 rounded-3xl border border-stone-200 shadow-2xs">
-                                <div className="w-10 h-10 rounded-2xl bg-vd-forest text-white flex items-center justify-center mb-4">
-                                    <card.icon className="w-5 h-5" />
+                            <div key={idx} className="bg-white p-7 rounded-3xl border border-stone-200 shadow-2xs flex flex-col justify-between">
+                                <div>
+                                    <div className="w-10 h-10 rounded-2xl bg-vd-forest text-white flex items-center justify-center mb-4">
+                                        <card.icon className="w-5 h-5" />
+                                    </div>
+                                    <h4 className="font-heading text-lg font-bold text-vd-forest mb-2">{card.layer}</h4>
+                                    <p className="text-xs text-stone-600 font-light leading-relaxed">{card.desc}</p>
                                 </div>
-                                <h4 className="font-heading text-lg font-bold text-vd-forest mb-2">{card.layer}</h4>
-                                <p className="text-xs text-stone-600 font-light leading-relaxed">{card.desc}</p>
+                                {card.href && (
+                                    <Link
+                                        href={card.href}
+                                        className="mt-5 text-xs font-bold text-vd-forest hover:text-vd-sage inline-flex items-center gap-1 transition-colors"
+                                    >
+                                        <span>{card.linkText}</span>
+                                        <ArrowRight className="w-3.5 h-3.5" />
+                                    </Link>
+                                )}
                             </div>
                         ))}
                     </div>

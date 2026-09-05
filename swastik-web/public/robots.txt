@@ -2,15 +2,17 @@
 User-agent: *
 Allow: /
 
-# Dashboard areas require authentication — don't index
+# Private dashboard areas require authentication — don't index
 Disallow: /admin/*
 Disallow: /doctor/*
 Disallow: /hospital/*
 Disallow: /pharmacy/*
 Disallow: /clinic/*
 Disallow: /diagnostic-center/*
+Disallow: /fitness-center/*
+Disallow: /health-card/*
 
 # API routes
 Disallow: /api/*
 
-Sitemap: https://vaididea.in/sitemap.xml
+Sitemap: https://www.vaididea.in/sitemap.xml

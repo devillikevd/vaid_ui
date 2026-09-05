@@ -104,7 +104,7 @@ export default function FinalCtaSection() {
             <div className="bg-white p-4 rounded-2xl flex justify-center mb-6 shadow-xs border border-gray-100">
               <img
                 src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&color=0F5F50&data=https://vaididea.com/download/patient"
-                alt="QR Code"
+                alt="QR code to download Vaididea Patient mobile application"
                 className="w-44 h-44 rounded-xl"
               />
             </div>

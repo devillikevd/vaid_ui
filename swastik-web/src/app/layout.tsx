@@ -18,16 +18,73 @@ const outfit = Outfit({ subsets: ["latin"], variable: "--vd-font-outfit", displa
 const cormorant = Cormorant_Garamond({ weight: ["300", "400", "500", "600", "700"], subsets: ["latin"], variable: "--vd-font-heading", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "VAIDIDEA Healthcare Platform",
-  description: "Multi-role healthcare management platform for doctors, hospitals, clinics, pharmacies, and emergency services.",
+  metadataBase: new URL("https://www.vaididea.in"),
+  title: {
+    default: "Vaididea — Connected Healthcare Ecosystem",
+    template: "%s | Vaididea",
+  },
+  description: "Connected healthcare ecosystem for patients, doctors, hospitals, clinics, pharmacies, and emergency services.",
   manifest: "/manifest.json",
   verification: {
     google: "iwvaIpdhxt1FHnnyRxgAwOXG5sNYpN7OfhHwscsFSd4",
+  },
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Vaididea — Connected Healthcare Ecosystem",
+    description: "Connected healthcare ecosystem for patients, doctors, hospitals, clinics, pharmacies, and emergency services.",
+    url: "https://www.vaididea.in",
+    siteName: "Vaididea",
+    locale: "en_IN",
+    type: "website",
+    images: [
+      {
+        url: "/logo.png",
+        width: 512,
+        height: 512,
+        alt: "Vaididea Healthcare Platform",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Vaididea — Connected Healthcare Ecosystem",
+    description: "Connected healthcare ecosystem for patients, doctors, hospitals, clinics, pharmacies, and emergency services.",
+    images: ["/logo.png"],
   },
 };
 
 export const viewport: Viewport = {
   themeColor: "#0ea5e9",
+};
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "MedicalOrganization",
+      "@id": "https://www.vaididea.in/#organization",
+      "name": "Vaididea",
+      "url": "https://www.vaididea.in",
+      "logo": "https://www.vaididea.in/logo.png",
+      "description": "Connected healthcare ecosystem integrating telemedicine, clinical workflows, hospital operations, pharmacies, and emergency response.",
+      "sameAs": [
+        "https://www.instagram.com/vaididea/",
+        "https://www.youtube.com/@vaididea",
+        "https://www.linkedin.com/company/vaididea-healthcare/"
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://www.vaididea.in/#website",
+      "url": "https://www.vaididea.in",
+      "name": "Vaididea",
+      "publisher": {
+        "@id": "https://www.vaididea.in/#organization",
+      },
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -42,6 +99,10 @@ export default function RootLayout({
       className={`${inter.variable} ${playfair.variable} ${greatVibes.variable} ${outfit.variable} ${cormorant.variable}`}
     >
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
         <style>{`
           :root {
             --font-sans: var(--vd-font-inter);

@@ -176,7 +176,7 @@ export default function Hero() {
             <div className="bg-white p-4 rounded-2xl flex justify-center mb-6 shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100">
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&color=0F5F50&data=https://vaididea.com/download/${scannerType?.toLowerCase()}`}
-                alt="QR Code"
+                alt={`QR code to download Vaididea ${scannerType || "Patient"} mobile application`}
                 className="w-44 h-44 rounded-xl"
               />
             </div>
