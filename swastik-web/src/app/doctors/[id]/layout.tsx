@@ -175,11 +175,18 @@ export default async function DoctorDetailLayout({
     '@graph': graphItems,
   };
 
+  const sanitizedDoctorJsonLd = JSON.stringify(doctorJsonLd).replace(/</g, '\\u003c');
+
   return (
     <>
+      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(doctorJsonLd) }}
+        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        dangerouslySetInnerHTML={{
+          // nosemgrep
+          __html: sanitizedDoctorJsonLd,
+        }}
       />
       {children}
     </>
