@@ -197,7 +197,10 @@ describe('Vaididea Multi-Portal Cross-Role Security & Isolation Test Suite', () 
     });
 
     test('PatientLayout gates private profile fetching and patient profile menu on isPatientAuthenticated', () => {
-      const layoutSource = readWeb('src/app/patient/layout.tsx');
+      const layoutFile = fs.existsSync(path.join(__dirname, '..', '..', 'swastik-web', 'src', 'app', 'patient', 'PatientLayoutClient.tsx'))
+        ? 'src/app/patient/PatientLayoutClient.tsx'
+        : 'src/app/patient/layout.tsx';
+      const layoutSource = readWeb(layoutFile);
       expect(layoutSource).toContain('isPatientAuthenticated');
       expect(layoutSource).toContain('isPatientAuthenticated(user, isAuthenticated)');
       expect(layoutSource).toContain('if (isPatient) {');

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { buildJsonLdString } from '@/lib/sanitize';
 
 type Props = {
   params: Promise<{ code: string }>;
@@ -147,10 +148,7 @@ export default async function DiseaseDetailLayout({
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(diseaseJsonLd) }}
-      />
+      <script type="application/ld+json">{buildJsonLdString(diseaseJsonLd)}</script>
       {children}
     </>
   );

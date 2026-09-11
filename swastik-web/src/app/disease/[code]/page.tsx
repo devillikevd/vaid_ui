@@ -79,17 +79,33 @@ function mapChapterToSpecialty(chapter: string = '', bodySystem: string = ''): {
   return { name: 'General Physicians', specialty: 'General Physician' };
 }
 
-import { sanitizeHtml } from '@/lib/sanitize';
-
 function renderHtmlContent(htmlString?: string) {
   if (!htmlString) return null;
-  // If content contains <li> or tags, render safely as sanitized HTML
-  if (htmlString.includes('<') && htmlString.includes('>')) {
+  // If content contains list items or HTML tags, parse into native React elements safely
+  if (htmlString.includes('<li') || (htmlString.includes('<') && htmlString.includes('>'))) {
+    if (htmlString.includes('<li')) {
+      const items = htmlString
+        .match(/<li[^>]*>([\s\S]*?)<\/li>/gi)
+        ?.map((m) => m.replace(/<\/?li[^>]*>/gi, '').replace(/<[^>]+>/g, '').trim())
+        .filter(Boolean);
+      if (items && items.length > 0) {
+        return (
+          <ul className="list-disc pl-5 space-y-1.5 text-stone-700 leading-relaxed text-sm">
+            {items.map((item, idx) => (
+              <li key={idx}>{item}</li>
+            ))}
+          </ul>
+        );
+      }
+    }
+    const cleanText = htmlString.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim();
+    const paragraphs = cleanText.split(/\n\s*\n/).filter(Boolean);
     return (
-      <div
-        className="prose prose-sm max-w-none text-stone-700 leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1.5 [&_strong]:text-stone-900"
-        dangerouslySetInnerHTML={{ __html: sanitizeHtml(htmlString) }}
-      />
+      <div className="space-y-2 text-sm text-stone-700 leading-relaxed">
+        {paragraphs.map((para, idx) => (
+          <p key={idx}>{para.trim()}</p>
+        ))}
+      </div>
     );
   }
   return <p className="text-sm text-stone-700 leading-relaxed">{htmlString}</p>;

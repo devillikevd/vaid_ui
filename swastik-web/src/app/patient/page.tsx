@@ -332,7 +332,24 @@ export default function PatientPortalPage() {
                             </Link>
                         </div>
 
-                        {upcomingAppointments.length === 0 ? (
+                        {!isPatient ? (
+                            <div className="py-10 text-center space-y-3 bg-stone-50/50 dark:bg-gray-800/30 rounded-2xl border border-dashed border-stone-200 dark:border-gray-800 p-6">
+                                <Calendar className="w-10 h-10 text-stone-300 dark:text-stone-600 mx-auto" />
+                                <h4 className="text-xs font-bold text-stone-800 dark:text-stone-200">Sign in to view your appointments</h4>
+                                <p className="text-[11px] text-stone-400 dark:text-stone-500 max-w-sm mx-auto">
+                                    Track upcoming video consultations and in-clinic appointments with certified doctors.
+                                </p>
+                                <div className="pt-2 flex items-center justify-center gap-2">
+                                    <Link
+                                        href="/login/patient?redirect=/patient"
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-vd-forest text-white rounded-xl text-xs font-bold hover:bg-vd-forest-deep transition-all shadow-xs cursor-pointer"
+                                    >
+                                        <Lock className="w-3.5 h-3.5" />
+                                        <span>Sign In as Patient</span>
+                                    </Link>
+                                </div>
+                            </div>
+                        ) : upcomingAppointments.length === 0 ? (
                             <div className="py-10 text-center space-y-3 bg-stone-50/50 dark:bg-gray-800/30 rounded-2xl border border-dashed border-stone-200 dark:border-gray-800 p-6">
                                 <Calendar className="w-10 h-10 text-stone-300 dark:text-stone-600 mx-auto" />
                                 <p className="text-xs font-semibold text-stone-700 dark:text-stone-300">
@@ -506,7 +523,24 @@ export default function PatientPortalPage() {
                             </div>
                         </div>
 
-                        {prescriptions.length === 0 ? (
+                        {!isPatient ? (
+                            <div className="p-6 text-center bg-stone-50/50 dark:bg-gray-800/30 rounded-2xl border border-dashed border-stone-200 dark:border-gray-800 space-y-2">
+                                <Pill className="w-8 h-8 text-stone-300 dark:text-stone-600 mx-auto" />
+                                <h4 className="text-xs font-bold text-stone-800 dark:text-stone-200">Sign in to view prescriptions & medicine</h4>
+                                <p className="text-[11px] text-stone-400 dark:text-stone-500 max-w-xs mx-auto">
+                                    Access verified electronic prescriptions, medication schedules, and order doorstep pharmacy delivery.
+                                </p>
+                                <div className="pt-2 flex items-center justify-center gap-2">
+                                    <Link
+                                        href="/login/patient?redirect=/patient"
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-vd-forest text-white rounded-xl text-xs font-bold hover:bg-vd-forest-deep transition-all shadow-xs"
+                                    >
+                                        <Lock className="w-3.5 h-3.5" />
+                                        <span>Sign In</span>
+                                    </Link>
+                                </div>
+                            </div>
+                        ) : prescriptions.length === 0 ? (
                             <p className="text-xs text-stone-400 dark:text-stone-500 italic py-2">
                                 No active prescriptions on file. Prescriptions are issued by doctors after consultations.
                             </p>
