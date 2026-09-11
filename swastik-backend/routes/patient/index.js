@@ -264,7 +264,12 @@ router.post('/abha/generate-otp',
     await cacheSet(otpKey, otp, 300);
 
     // In a real scenario, this would send an SMS. For testing, we return it in dev environment.
-    res.json({ success: true, message: 'OTP sent to registered mobile number', dev_otp: otp });
+    const otpResponse = { success: true, message: 'OTP sent to registered mobile number' };
+    // SECURITY: Never expose OTP in production — only include in development for testing convenience
+    if (process.env.NODE_ENV !== 'production') {
+      otpResponse.dev_otp = otp;
+    }
+    res.json(otpResponse);
   })
 );
 

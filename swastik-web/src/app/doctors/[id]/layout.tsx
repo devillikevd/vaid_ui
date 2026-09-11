@@ -80,6 +80,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+/**
+ * Safely serialises a plain JS object as JSON-LD text.
+ *
+ * JSON.stringify produces a valid JSON string.  The only characters that
+ * could break out of a <script> tag in HTML are `<`, `>`, and `&`, so we
+ * replace them with their Unicode escape equivalents.  This is the same
+ * technique recommended by the OWASP XSS Prevention Cheat Sheet and used
+ * internally by frameworks like Next.js for this exact purpose.
+ *
+ * No dangerouslySetInnerHTML is used – we pass the serialised string as a
+ * React child (plain text node inside <script>), which React renders
+ * without any HTML parsing, making it safe by construction.
+ */
+function buildJsonLdString(data: unknown): string {
+  return JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026');
+}
+
 export default async function DoctorDetailLayout({
   params,
   children,
@@ -102,101 +122,68 @@ export default async function DoctorDetailLayout({
     {
       '@type': 'BreadcrumbList',
       '@id': `https://www.vaididea.in/doctors/${id}#breadcrumb`,
-      'itemListElement': [
-        {
-          '@type': 'ListItem',
-          'position': 1,
-          'name': 'Home',
-          'item': 'https://www.vaididea.in',
-        },
-        {
-          '@type': 'ListItem',
-          'position': 2,
-          'name': 'Find Doctors',
-          'item': 'https://www.vaididea.in/doctors',
-        },
-        {
-          '@type': 'ListItem',
-          'position': 3,
-          'name': name,
-          'item': `https://www.vaididea.in/doctors/${id}`,
-        },
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home',         item: 'https://www.vaididea.in' },
+        { '@type': 'ListItem', position: 2, name: 'Find Doctors', item: 'https://www.vaididea.in/doctors' },
+        { '@type': 'ListItem', position: 3, name: name,           item: `https://www.vaididea.in/doctors/${id}` },
       ],
     },
   ];
 
-  if (doc) {
-    const physicianEntity: Record<string, any> = {
-      '@type': 'Physician',
-      '@id': `https://www.vaididea.in/doctors/${id}#physician`,
-      'name': name,
-      'url': `https://www.vaididea.in/doctors/${id}`,
-      'memberOf': {
-        '@id': 'https://www.vaididea.in/#organization',
-      },
-    };
-
-    const photo = doc.image || doc.avatar_url || doc.profile_photo || doc.photo_url;
-    if (photo) {
-      physicianEntity.image = photo;
-    }
-
-    if (doc.bio) {
-      physicianEntity.description = doc.bio;
-    }
-
-    if (specialty) {
-      physicianEntity.medicalSpecialty = specialty;
-    }
-
-    if (doc.qualifications) {
-      physicianEntity.hasCredential = {
-        '@type': 'EducationalOccupationalCredential',
-        'credentialCategory': 'degree',
-        'name': doc.qualifications,
-      };
-    }
-
-    if (Array.isArray(doc.languages) && doc.languages.length > 0) {
-      physicianEntity.knowsLanguage = doc.languages;
-    } else if (typeof doc.languages === 'string' && doc.languages.trim()) {
-      physicianEntity.knowsLanguage = doc.languages.split(',').map((l: string) => l.trim()).filter(Boolean);
-    }
-
-    const facilityName = doc.hospital_name || doc.clinic_name || doc.facility_name;
-    if (facilityName) {
-      physicianEntity.affiliation = {
-        '@type': 'MedicalOrganization',
-        'name': facilityName,
-        ...(doc.hospital_address || doc.clinic_address || doc.address
-          ? {
-              'address': doc.hospital_address || doc.clinic_address || doc.address,
-            }
-          : {}),
-      };
-    }
-
-    graphItems.push(physicianEntity);
-  }
-
-  const doctorJsonLd = {
-    '@context': 'https://schema.org',
-    '@graph': graphItems,
+  const physicianEntity: Record<string, any> = {
+    '@type': 'Physician',
+    '@id': `https://www.vaididea.in/doctors/${id}#physician`,
+    name,
+    url: `https://www.vaididea.in/doctors/${id}`,
+    memberOf: { '@id': 'https://www.vaididea.in/#organization' },
   };
 
-  const sanitizedDoctorJsonLd = JSON.stringify(doctorJsonLd).replace(/</g, '\\u003c');
+  const photo = doc.image || doc.avatar_url || doc.profile_photo || doc.photo_url;
+  if (photo)                                physicianEntity.image           = photo;
+  if (doc.bio)                              physicianEntity.description     = doc.bio;
+  if (specialty)                            physicianEntity.medicalSpecialty = specialty;
+  if (doc.qualifications) {
+    physicianEntity.hasCredential = {
+      '@type': 'EducationalOccupationalCredential',
+      credentialCategory: 'degree',
+      name: doc.qualifications,
+    };
+  }
+  if (Array.isArray(doc.languages) && doc.languages.length > 0) {
+    physicianEntity.knowsLanguage = doc.languages;
+  } else if (typeof doc.languages === 'string' && doc.languages.trim()) {
+    physicianEntity.knowsLanguage = doc.languages.split(',').map((l: string) => l.trim()).filter(Boolean);
+  }
+
+  const facilityName = doc.hospital_name || doc.clinic_name || doc.facility_name;
+  if (facilityName) {
+    physicianEntity.affiliation = {
+      '@type': 'MedicalOrganization',
+      name: facilityName,
+      ...(doc.hospital_address || doc.clinic_address || doc.address
+        ? { address: doc.hospital_address || doc.clinic_address || doc.address }
+        : {}),
+    };
+  }
+
+  graphItems.push(physicianEntity);
+
+  const jsonLdString = buildJsonLdString({
+    '@context': 'https://schema.org',
+    '@graph': graphItems,
+  });
 
   return (
     <>
-      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
-      <script
-        type="application/ld+json"
-        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-        dangerouslySetInnerHTML={{
-          // nosemgrep
-          __html: sanitizedDoctorJsonLd,
-        }}
-      />
+      {/*
+        We pass the serialised JSON-LD as a React text child of <script>.
+        React renders text children of <script> as a raw text node (no HTML
+        escaping applied by the browser to script content), which is both
+        correct per the HTML spec and completely avoids dangerouslySetInnerHTML.
+        Special characters are Unicode-escaped by buildJsonLdString so the
+        string is safe even if it is ever moved into an HTML attribute context.
+      */}
+      <script type="application/ld+json">{jsonLdString}</script>
       {children}
     </>
   );

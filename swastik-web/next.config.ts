@@ -96,7 +96,37 @@ const nextConfig: NextConfig = {
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=31536000; includeSubDomains',
-          }
+          },
+          {
+            // CSP: restrict resource loading to known trusted origins.
+            // 'unsafe-inline' is required for Next.js inline scripts/styles and CSS-in-JS.
+            // 'unsafe-eval' is excluded — Next.js does NOT require it in production.
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "img-src 'self' data: blob: https://*.supabase.co https://*.vaididea.in https://images.unsplash.com https://cdnjs.cloudflare.com",
+              "connect-src 'self' https://api.vaididea.in wss://api.vaididea.in https://*.supabase.co",
+              "media-src 'self' blob: https://*.vaididea.in https://*.supabase.co",
+              "frame-src 'none'",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'",
+            ].join('; '),
+          },
+          {
+            // Restrict browser feature APIs to same-origin only.
+            // Allows camera/microphone for telemedicine video consultations.
+            key: 'Permissions-Policy',
+            value: 'camera=(self), microphone=(self), geolocation=(self), payment=(self)',
+          },
+          {
+            key: 'X-Permitted-Cross-Domain-Policies',
+            value: 'none',
+          },
         ],
       },
     ];

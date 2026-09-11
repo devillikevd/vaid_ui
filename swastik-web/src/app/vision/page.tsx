@@ -2,6 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { Metadata } from "next";
+import { buildJsonLdString } from '@/lib/sanitize';
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 import {
@@ -100,10 +101,7 @@ const visionJsonLd = {
 export default function VisionPage() {
     return (
         <div className="min-h-screen bg-[#FAF8F4] text-stone-900 font-sans selection:bg-vd-sage/20 selection:text-vd-forest">
-            <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(visionJsonLd) }}
-            />
+            <script type="application/ld+json">{buildJsonLdString(visionJsonLd)}</script>
             {/* Global Navigation */}
             <Navbar />
 

@@ -442,8 +442,8 @@ export default function PharmacyPOSPage() {
         </div>
       </div>
       
-      {/* Print Styles */}
-      <style dangerouslySetInnerHTML={{__html: `
+      {/* Print Styles — static CSS only, passed as React text child (no dangerouslySetInnerHTML needed) */}
+      <style>{`
         @media print {
           body * {
             visibility: hidden;
@@ -460,7 +460,7 @@ export default function PharmacyPOSPage() {
             box-shadow: none;
           }
         }
-      `}} />
+      `}</style>
     </div>
   );
 }

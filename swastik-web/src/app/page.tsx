@@ -1,5 +1,6 @@
 import React from "react";
 import type { Metadata } from "next";
+import { buildJsonLdString } from '@/lib/sanitize';
 import Navbar from "@/components/landing/Navbar";
 import Hero from "@/components/landing/Hero";
 import WhyChooseSection from "@/components/landing/WhyChooseSection";
@@ -46,10 +47,7 @@ const homeJsonLd = {
 export default function HomePage() {
   return (
     <main className="bg-white min-h-screen selection:bg-vd-forest selection:text-white">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeJsonLd) }}
-      />
+      <script type="application/ld+json">{buildJsonLdString(homeJsonLd)}</script>
       {/* 01. Navbar */}
       <Navbar />
 

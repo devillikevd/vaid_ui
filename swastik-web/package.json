@@ -10,9 +10,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@types/dompurify": "^3.0.5",
     "clsx": "^2.1.1",
     "crypto-js": "^4.2.0",
     "framer-motion": "^12.42.0",
+    "isomorphic-dompurify": "^3.19.0",
     "jose": "^6.2.0",
     "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",

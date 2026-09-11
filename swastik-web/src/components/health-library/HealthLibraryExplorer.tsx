@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { sanitizeHtml } from '@/lib/sanitize';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1219,9 +1220,10 @@ export default function HealthLibraryExplorer({
                                                             <div
                                                                 className="text-stone-600 font-light flex flex-col gap-2.5"
                                                                 dangerouslySetInnerHTML={{
-                                                                    __html:
+                                                                    __html: sanitizeHtml(
                                                                         diseaseDetails.overview ||
                                                                         'Detailed clinical overview is being compiled for this condition.',
+                                                                    ),
                                                                 }}
                                                             />
                                                         </div>
@@ -1238,7 +1240,7 @@ export default function HealthLibraryExplorer({
                                                                                 key={idx}
                                                                                 className="bg-white border border-stone-200/80 rounded-xl p-3.5 shadow-2xs"
                                                                                 dangerouslySetInnerHTML={{
-                                                                                    __html: item,
+                                                                                    __html: sanitizeHtml(item),
                                                                                 }}
                                                                             />
                                                                         )
@@ -1272,7 +1274,7 @@ export default function HealthLibraryExplorer({
                                                                             <div
                                                                                 className="text-stone-700"
                                                                                 dangerouslySetInnerHTML={{
-                                                                                    __html: item,
+                                                                                    __html: sanitizeHtml(item),
                                                                                 }}
                                                                             />
                                                                         </li>
@@ -1320,7 +1322,7 @@ export default function HealthLibraryExplorer({
                                                                             <div
                                                                                 className="text-stone-700"
                                                                                 dangerouslySetInnerHTML={{
-                                                                                    __html: item,
+                                                                                    __html: sanitizeHtml(item),
                                                                                 }}
                                                                             />
                                                                         </li>
@@ -1347,7 +1349,7 @@ export default function HealthLibraryExplorer({
                                                                                 <div
                                                                                     className="text-stone-700"
                                                                                     dangerouslySetInnerHTML={{
-                                                                                        __html: item,
+                                                                                        __html: sanitizeHtml(item),
                                                                                     }}
                                                                                 />
                                                                             </li>
@@ -1380,7 +1382,7 @@ export default function HealthLibraryExplorer({
                                                                                 <div
                                                                                     className="text-stone-700"
                                                                                     dangerouslySetInnerHTML={{
-                                                                                        __html: item,
+                                                                                        __html: sanitizeHtml(item),
                                                                                     }}
                                                                                 />
                                                                             </li>
@@ -1408,7 +1410,7 @@ export default function HealthLibraryExplorer({
                                                                                 <div
                                                                                     className="text-stone-700"
                                                                                     dangerouslySetInnerHTML={{
-                                                                                        __html: item,
+                                                                                        __html: sanitizeHtml(item),
                                                                                     }}
                                                                                 />
                                                                             </li>
@@ -1436,7 +1438,7 @@ export default function HealthLibraryExplorer({
                                                                                 <div
                                                                                     className="text-stone-700"
                                                                                     dangerouslySetInnerHTML={{
-                                                                                        __html: item,
+                                                                                        __html: sanitizeHtml(item),
                                                                                     }}
                                                                                 />
                                                                             </li>
@@ -1468,7 +1470,7 @@ export default function HealthLibraryExplorer({
                                                                             <div
                                                                                 className="text-stone-700"
                                                                                 dangerouslySetInnerHTML={{
-                                                                                    __html: item,
+                                                                                    __html: sanitizeHtml(item),
                                                                                 }}
                                                                             />
                                                                         </li>
@@ -1495,8 +1497,8 @@ export default function HealthLibraryExplorer({
                                                                                 <div
                                                                                     className="text-stone-700"
                                                                                     dangerouslySetInnerHTML={{
-                                                                                        __html: item,
-                                                                                        }}
+                                                                                        __html: sanitizeHtml(item),
+                                                                                    }}
                                                                                 />
                                                                             </li>
                                                                         )

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { buildJsonLdString } from '@/lib/sanitize';
 export const metadata: Metadata = {
   title: 'Health Library & Clinical Guidance',
   description:
@@ -69,10 +70,7 @@ export default function HealthLibraryLayout({
 }) {
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(healthLibraryJsonLd) }}
-      />
+      <script type="application/ld+json">{buildJsonLdString(healthLibraryJsonLd)}</script>
       {children}
     </>
   );

@@ -79,14 +79,16 @@ function mapChapterToSpecialty(chapter: string = '', bodySystem: string = ''): {
   return { name: 'General Physicians', specialty: 'General Physician' };
 }
 
+import { sanitizeHtml } from '@/lib/sanitize';
+
 function renderHtmlContent(htmlString?: string) {
   if (!htmlString) return null;
-  // If content contains <li> or tags, render safely as HTML
+  // If content contains <li> or tags, render safely as sanitized HTML
   if (htmlString.includes('<') && htmlString.includes('>')) {
     return (
       <div
         className="prose prose-sm max-w-none text-stone-700 leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1.5 [&_strong]:text-stone-900"
-        dangerouslySetInnerHTML={{ __html: htmlString }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(htmlString) }}
       />
     );
   }
