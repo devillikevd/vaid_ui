@@ -1,185 +1,267 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import VaidideaLogo from "@/components/shared/VaidideaLogo";
+import { Instagram, Linkedin, Youtube, ChevronDown } from "lucide-react";
 
+// ─── Accordion section data (single source of truth) ────────────────────────
+const footerSections = [
+  {
+    id: "patients",
+    label: "FOR PATIENTS",
+    links: [
+      { label: "Find Doctors", href: "/doctors" },
+      { label: "Specialties", href: "/specialties" },
+      { label: "Health Library", href: "/health-library" },
+    ],
+  },
+  {
+    id: "providers",
+    label: "FOR PROVIDERS",
+    links: [
+      { label: "Provider Overview", href: "/providers", highlight: true },
+      { label: "Doctor Registration", href: "/register/doctor" },
+      { label: "Hospital Registration", href: "/register/hospital" },
+      { label: "Clinic Registration", href: "/register/clinic" },
+      { label: "Diagnostic Registration", href: "/register/diagnostic-center" },
+      { label: "Pharmacy Registration", href: "/register/pharmacy" },
+      { label: "Fitness Center Registration", href: "/register/fitness-center" },
+      { label: "Wellness Coach Registration", href: "/register/wellness" },
+    ],
+  },
+  {
+    id: "resources",
+    label: "RESOURCES",
+    links: [
+      { label: "Health Library", href: "/health-library" },
+      { label: "Specialties Directory", href: "/specialties" },
+      { label: "Doctor Directory", href: "/doctors" },
+    ],
+  },
+  {
+    id: "company",
+    label: "COMPANY",
+    links: [
+      { label: "About & Vision", href: "/vision" },
+      { label: "Contact", href: "/vision#contact" },
+      { label: "Sign In", href: "/login" },
+    ],
+  },
+];
+
+// ─── Social icons data ────────────────────────────────────────────────────────
+const socialLinks = [
+  {
+    href: "https://www.instagram.com/vaididea/",
+    label: "Follow Vaididea on Instagram",
+    Icon: Instagram,
+  },
+  {
+    href: "https://www.linkedin.com/company/vaididea-healthcare/",
+    label: "Follow Vaididea on LinkedIn",
+    Icon: Linkedin,
+  },
+  {
+    href: "https://www.youtube.com/@vaididea",
+    label: "Follow Vaididea on YouTube",
+    Icon: Youtube,
+  },
+];
+
+// ─── Accordion row (mobile only) ─────────────────────────────────────────────
+function AccordionSection({
+  section,
+  isOpen,
+  onToggle,
+}: {
+  section: (typeof footerSections)[number];
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="border-t border-white/10">
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        aria-controls={`footer-section-${section.id}`}
+        onClick={onToggle}
+        className="w-full flex items-center justify-between py-3.5 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400"
+      >
+        <span className="text-[11px] font-bold uppercase tracking-wider text-white">
+          {section.label}
+        </span>
+        <ChevronDown
+          className={`w-4 h-4 text-emerald-300/70 transition-transform duration-250 shrink-0 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {/* Collapsible links — CSS max-height transition */}
+      <div
+        id={`footer-section-${section.id}`}
+        role="region"
+        aria-label={section.label}
+        style={{
+          maxHeight: isOpen ? `${section.links.length * 48 + 16}px` : "0px",
+          overflow: "hidden",
+          transition: "max-height 0.28s ease-out",
+        }}
+      >
+        <ul className="pb-3 space-y-3">
+          {section.links.map((link) => (
+            <li key={link.href + link.label}>
+              <Link
+                href={link.href}
+                className={`text-sm transition-colors duration-150 ${
+                  link.highlight
+                    ? "font-semibold text-emerald-300 hover:text-white"
+                    : "text-emerald-100/70 hover:text-white"
+                }`}
+              >
+                {link.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+// ─── Social icons row ────────────────────────────────────────────────────────
+function SocialRow() {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-emerald-100/90 font-medium text-xs">
+        Follow Vaididea
+      </span>
+      <div className="flex items-center gap-2">
+        {socialLinks.map(({ href, label, Icon }) => (
+          <a
+            key={href}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={label}
+            className="w-8 h-8 rounded-full border border-white/15 bg-white/10 text-emerald-100 hover:text-white hover:border-emerald-400 hover:bg-white/20 flex items-center justify-center transition-colors duration-150"
+          >
+            <Icon className="w-4 h-4" />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Footer ─────────────────────────────────────────────────────────────
 export default function Footer() {
   const currentYear = new Date().getFullYear();
 
+  // Track which accordion section is open on mobile (null = all collapsed)
+  const [openSection, setOpenSection] = useState<string | null>(null);
+
+  const toggleSection = (id: string) => {
+    setOpenSection((prev) => (prev === id ? null : id));
+  };
+
   return (
-    <footer className="bg-vd-forest text-emerald-100/90 pt-8 pb-5 sm:pt-9 sm:pb-6 border-t border-emerald-900/60">
-      <div className="max-w-6xl mx-auto px-5 sm:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-6 sm:gap-8 gap-y-7">
-          {/* Brand Column (lg: 4 cols) */}
-          <div className="col-span-2 lg:col-span-4 pr-0 lg:pr-6">
-            <Link href="/" className="flex items-center gap-2.5 mb-2.5 group inline-flex">
-              <VaidideaLogo className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
-              <span className="font-heading text-lg sm:text-xl font-bold text-white uppercase tracking-tight">
-                VAIDIDEA
-              </span>
-            </Link>
-            <p className="text-xs sm:text-[13px] text-emerald-100/90 font-normal leading-relaxed max-w-sm mb-3.5">
-              One intelligent healthcare ecosystem connecting patients, doctors, hospitals, clinics,
-              pharmacies, diagnostic labs, wellness providers, fitness centres, and emergency response.
-            </p>
+    <footer className="w-full bg-vd-forest-deep text-emerald-100/80 border-t border-emerald-900/30">
 
-            {/* Social Links */}
-            <div className="flex gap-2">
-              <a
-                href="https://www.instagram.com/vaididea/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors border border-white/10"
-                aria-label="Instagram"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
-                  <rect x="2" y="2" width="20" height="20" rx="5" />
-                  <circle cx="12" cy="12" r="4" />
-                  <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />
-                </svg>
-              </a>
-              <a
-                href="https://www.youtube.com/@vaididea"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors border border-white/10"
-                aria-label="YouTube"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
-                  <path d="M2.5 7.1C2.6 5.9 3.5 5 4.7 4.9 8.2 4.5 12 4.5 15.3 4.9c1.2.1 2.1 1 2.2 2.2.4 2.8.4 6 0 8.8-.1 1.2-1 2.1-2.2 2.2-3.3.4-7.1.4-10.6 0-1.2-.1-2.1-1-2.2-2.2-.4-2.8-.4-6 0-8.8Z" />
-                  <polygon points="9.5 15.5 15.5 12 9.5 8.5" fill="currentColor" />
-                </svg>
-              </a>
-              <a
-                href="https://www.linkedin.com/company/vaididea-healthcare/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors border border-white/10"
-                aria-label="LinkedIn"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
-                  <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-4 0v7h-4v-7a6 6 0 016-6z" />
-                  <rect x="2" y="9" width="4" height="12" />
-                  <circle cx="4" cy="4" r="2" fill="currentColor" />
-                </svg>
-              </a>
+      {/* ════════════════════════════════════════════════════════════════════
+          DESKTOP / TABLET (sm+): Original multi-column grid — UNCHANGED
+          ════════════════════════════════════════════════════════════════════ */}
+      <div className="hidden sm:block pt-12 pb-10">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 mb-10">
+            {/* Brand column */}
+            <div className="space-y-3 col-span-2 md:col-span-3 lg:col-span-1">
+              <Link href="/" className="inline-flex items-center gap-2.5 group">
+                <VaidideaLogo className="w-8 h-8 text-emerald-300" />
+                <span className="font-heading text-xl font-bold tracking-tight text-white">
+                  Vaididea
+                </span>
+              </Link>
+              <p className="text-sm text-emerald-100/70 leading-relaxed max-w-sm font-light">
+                Modern healthcare discovery and booking platform connecting
+                patients with verified doctors, hospitals, clinics, diagnostics,
+                and pharmacies.
+              </p>
             </div>
+
+            {/* Link columns */}
+            {footerSections.map((section) => (
+              <div key={section.id} className="space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                  {section.label}
+                </h4>
+                <ul className="space-y-2.5 text-sm text-emerald-100/70">
+                  {section.links.map((link) => (
+                    <li key={link.href + link.label}>
+                      <Link
+                        href={link.href}
+                        className={`hover:text-white transition-colors duration-150 ${
+                          link.highlight ? "font-semibold text-emerald-300" : ""
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
 
-          {/* Platform Column (lg: 2.5 cols) */}
-          <div className="col-span-1 lg:col-span-3">
-            <h4 className="text-white font-semibold mb-2.5 text-xs tracking-widest uppercase">
-              Platform
-            </h4>
-            <ul className="space-y-1.5 text-xs sm:text-[13px] font-medium">
-              <li>
-                <a href="#patient-app" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Patient App
-                </a>
-              </li>
-              <li>
-                <Link href="/patient/doctors" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Find Doctors
-                </Link>
-              </li>
-              <li>
-                <Link href="/health-library" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Health Library
-                </Link>
-              </li>
-              <li>
-                <a href="#emergency-sos" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Emergency SOS
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          {/* Provider Portals (All 7 Categories) (lg: 3 cols) */}
-          <div className="col-span-1 lg:col-span-3">
-            <h4 className="text-white font-semibold mb-2.5 text-xs tracking-widest uppercase">
-              Providers
-            </h4>
-            <ul className="space-y-1.5 text-xs sm:text-[13px] font-medium">
-              <li>
-                <Link href="/register/doctor" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Doctor Portal
-                </Link>
-              </li>
-              <li>
-                <Link href="/register/hospital" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Hospital Portal
-                </Link>
-              </li>
-              <li>
-                <Link href="/register/clinic" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Clinic Portal
-                </Link>
-              </li>
-              <li>
-                <Link href="/register/pharmacy" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Pharmacy Portal
-                </Link>
-              </li>
-              <li>
-                <Link href="/register/diagnostic-center" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Diagnostic Center
-                </Link>
-              </li>
-              <li>
-                <Link href="/wellness" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Wellness Portal
-                </Link>
-              </li>
-              <li>
-                <Link href="/fitness-center" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Fitness Center
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Company Column (lg: 2 cols) */}
-          <div className="col-span-1 lg:col-span-2">
-            <h4 className="text-white font-semibold mb-2.5 text-xs tracking-widest uppercase">
-              Company
-            </h4>
-            <ul className="space-y-1.5 text-xs sm:text-[13px] font-medium">
-              <li>
-                <Link href="/vision" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Our Vision
-                </Link>
-              </li>
-              <li>
-                <a href="#trust" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Security & Trust
-                </a>
-              </li>
-              <li>
-                <Link href="/login" className="text-emerald-100/90 hover:text-white transition-colors">
-                  Account Login
-                </Link>
-              </li>
-            </ul>
+          {/* Bottom row */}
+          <div className="pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-emerald-100/70">
+            <p>© {currentYear} Vaididea. All rights reserved.</p>
+            <SocialRow />
           </div>
         </div>
+      </div>
 
-        {/* Bottom Bar */}
-        <div className="mt-6 sm:mt-7 pt-4 border-t border-white/15 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs text-emerald-100/75">
-          <p>© {currentYear} Vaididea Healthcare. All rights reserved.</p>
-          <div className="flex items-center gap-3.5 text-xs text-emerald-100/75">
-            <a href="#trust" className="hover:text-white text-emerald-100/80 transition-colors">
-              Privacy & Consent
-            </a>
-            <span className="w-1 h-1 rounded-full bg-emerald-100/50" />
-            <a href="#trust" className="hover:text-white text-emerald-100/80 transition-colors">
-              Terms & Standards
-            </a>
-          </div>
+      {/* ════════════════════════════════════════════════════════════════════
+          MOBILE (<sm): Compact accordion footer
+          ════════════════════════════════════════════════════════════════════ */}
+      <div className="sm:hidden px-4 pt-7 pb-6">
+        {/* Brand */}
+        <div className="mb-5">
+          <Link href="/" className="inline-flex items-center gap-2 mb-2.5">
+            <VaidideaLogo className="w-7 h-7 text-emerald-300" />
+            <span className="font-heading text-lg font-bold tracking-tight text-white">
+              Vaididea
+            </span>
+          </Link>
+          <p className="text-xs text-emerald-100/65 leading-relaxed font-light">
+            Modern healthcare discovery and booking platform connecting patients
+            with verified doctors, hospitals, and pharmacies.
+          </p>
+        </div>
+
+        {/* Accordion sections */}
+        <div className="mb-5">
+          {footerSections.map((section) => (
+            <AccordionSection
+              key={section.id}
+              section={section}
+              isOpen={openSection === section.id}
+              onToggle={() => toggleSection(section.id)}
+            />
+          ))}
+          {/* Bottom border after last section */}
+          <div className="border-t border-white/10" />
+        </div>
+
+        {/* Bottom: copyright + social */}
+        <div className="flex flex-col gap-3">
+          <SocialRow />
+          <p className="text-[11px] text-emerald-100/50">
+            © {currentYear} Vaididea. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>
   );
 }
-

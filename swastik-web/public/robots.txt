@@ -2,17 +2,26 @@
 User-agent: *
 Allow: /
 
-# Private dashboard areas require authentication — don't index
-Disallow: /admin/*
-Disallow: /doctor/*
-Disallow: /hospital/*
-Disallow: /pharmacy/*
-Disallow: /clinic/*
-Disallow: /diagnostic-center/*
-Disallow: /fitness-center/*
-Disallow: /health-card/*
+# Private dashboard and administrative areas
+Disallow: /api/
+Disallow: /admin/
+Disallow: /doctor/
+Disallow: /hospital/
+Disallow: /clinic/
+Disallow: /diagnostic-center/
+Disallow: /pharmacy/
+Disallow: /fitness-center/
+Disallow: /wellness/
+Disallow: /patient/
+Disallow: /consultation/
+Disallow: /health-card/
+Disallow: /agent/
 
-# API routes
-Disallow: /api/*
+# Authentication and account management
+Disallow: /login/
+Disallow: /register/
+Disallow: /forgot-password/
+Disallow: /reset-password/
+Disallow: /verify-email/
 
 Sitemap: https://www.vaididea.in/sitemap.xml

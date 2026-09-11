@@ -23,9 +23,10 @@ import {
     Shield,
     Building2,
     Video,
-    ArrowRight
+    ArrowRight,
+    ExternalLink,
 } from 'lucide-react';
-import { PUBLIC_API_URL } from '@/lib/env';
+import { API_BASE_URL } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useAuthGate } from '@/hooks/useAuthGate';
 
@@ -361,6 +362,7 @@ export default function HealthLibraryExplorer({
     const [totalResults, setTotalResults] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [isSearching, setIsSearching] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [currentMode, setCurrentMode] = useState<'search' | 'alphabet' | 'category' | null>(
         initialQuery ? 'search' : null
     );
@@ -385,8 +387,8 @@ export default function HealthLibraryExplorer({
         async function loadInitialData() {
             try {
                 const [statsRes, catsRes] = await Promise.allSettled([
-                    fetch(`${PUBLIC_API_URL}/diseases/stats`),
-                    fetch(`${PUBLIC_API_URL}/diseases/categories`),
+                    fetch(`${API_BASE_URL}/diseases/stats`),
+                    fetch(`${API_BASE_URL}/diseases/categories`),
                 ]);
 
                 if (statsRes.status === 'fulfilled' && statsRes.value.ok && isMounted) {
@@ -412,28 +414,36 @@ export default function HealthLibraryExplorer({
     const fetchResults = async (page = 1) => {
         if (!currentMode) return;
         setIsSearching(true);
+        setError(null);
 
         let url = '';
-        const sevParam = selectedSeverity ? `&severity=${selectedSeverity}` : '';
+        const sevParam = selectedSeverity ? `&severity=${encodeURIComponent(selectedSeverity)}` : '';
 
         if (currentMode === 'search') {
-            url = `${PUBLIC_API_URL}/diseases/search?q=${encodeURIComponent(searchTriggeredQuery)}&page=${page}&limit=${LIMIT}${sevParam}`;
+            url = `${API_BASE_URL}/diseases/search?q=${encodeURIComponent(searchTriggeredQuery)}&page=${page}&limit=${LIMIT}${sevParam}`;
         } else if (currentMode === 'alphabet') {
-            url = `${PUBLIC_API_URL}/diseases/alphabet/${activeLetter}?page=${page}&limit=${LIMIT}${sevParam}`;
+            url = `${API_BASE_URL}/diseases/alphabet/${encodeURIComponent(activeLetter)}?page=${page}&limit=${LIMIT}${sevParam}`;
         } else if (currentMode === 'category') {
-            url = `${PUBLIC_API_URL}/diseases/category/${encodeURIComponent(activeCategory)}?page=${page}&limit=${LIMIT}${sevParam}`;
+            url = `${API_BASE_URL}/diseases/category/${encodeURIComponent(activeCategory)}?page=${page}&limit=${LIMIT}${sevParam}`;
         }
 
         try {
             const res = await fetch(url);
+            if (!res.ok) {
+                throw new Error(`Health Library API request failed with status: ${res.status}`);
+            }
             const data = await res.json();
-            setResults(data.results || []);
-            setTotalResults(data.total || 0);
-            setCurrentPage(data.page || 1);
-        } catch (e) {
-            console.error('Error fetching disease results', e);
+            setResults(Array.isArray(data?.results) ? data.results : []);
+            setTotalResults(Number(data?.total) || (Array.isArray(data?.results) ? data.results.length : 0));
+            setCurrentPage(Number(data?.page) || page);
+        } catch (err) {
+            console.error('Health Library fetch failed:', {
+                url,
+                error: err,
+            });
             setResults([]);
             setTotalResults(0);
+            setError('Unable to load health information right now. Please try again.');
         } finally {
             setIsSearching(false);
         }
@@ -490,11 +500,15 @@ export default function HealthLibraryExplorer({
         document.body.style.overflow = 'hidden';
 
         try {
-            const res = await fetch(`${PUBLIC_API_URL}/diseases/disease/${disease.code}/details`);
+            const res = await fetch(`${API_BASE_URL}/diseases/disease/${encodeURIComponent(disease.code)}/details`);
+            if (!res.ok) {
+                throw new Error(`Disease details request failed: ${res.status}`);
+            }
             const details = await res.json();
             setDiseaseDetails(details);
         } catch (e) {
             console.error('Error loading disease details', e);
+            setDiseaseDetails(disease);
         } finally {
             setIsLoadingDetails(false);
         }
@@ -824,6 +838,23 @@ export default function HealthLibraryExplorer({
                                     Querying canonical clinical database...
                                 </p>
                             </div>
+                        ) : error ? (
+                            <div className="bg-white rounded-3xl border border-rose-200/80 p-8 text-center shadow-2xs">
+                                <AlertTriangle className="w-10 h-10 text-rose-500 mx-auto mb-3" />
+                                <h4 className="font-heading text-base font-bold text-stone-800">
+                                    Unable to load Health Library data
+                                </h4>
+                                <p className="text-stone-500 text-xs max-w-sm mx-auto mt-1 leading-relaxed">
+                                    {error}
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => fetchResults(currentPage)}
+                                    className="mt-4 px-4 py-2 bg-vd-forest hover:bg-vd-forest-deep text-white rounded-xl text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+                                >
+                                    Retry Search
+                                </button>
+                            </div>
                         ) : currentMode && results.length > 0 ? (
                             <div className="flex flex-col gap-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -878,10 +909,18 @@ export default function HealthLibraryExplorer({
                                                         <span className="text-[11px] font-medium text-stone-400">
                                                             ICD-10 Indexed
                                                         </span>
-                                                        <span className="text-xs font-semibold text-vd-forest flex items-center gap-1">
-                                                            <span>Read Article</span>
+                                                        <Link
+                                                            href={`/disease/${encodeURIComponent(disease.code)}`}
+                                                            onClick={(e) => {
+                                                                if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+                                                                    e.stopPropagation();
+                                                                }
+                                                            }}
+                                                            className="text-xs font-semibold text-vd-forest hover:text-vd-forest-deep flex items-center gap-1 hover:underline cursor-pointer"
+                                                        >
+                                                            <span>Read Medical Guide</span>
                                                             <ChevronRight className="w-3.5 h-3.5" />
-                                                        </span>
+                                                        </Link>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1046,6 +1085,14 @@ export default function HealthLibraryExplorer({
                                     </div>
 
                                     <div className="flex items-center gap-2">
+                                        <Link
+                                            href={`/disease/${encodeURIComponent(selectedDisease.code)}`}
+                                            className="shrink-0 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all border border-white/15 text-white active:scale-95 shadow-md flex items-center gap-1.5 text-xs font-semibold px-3 cursor-pointer"
+                                            title="Open full dedicated page"
+                                        >
+                                            <ExternalLink className="w-4 h-4" />
+                                            <span className="hidden sm:inline">Open Page</span>
+                                        </Link>
                                         <button
                                             onClick={() => handleSaveToProfile(selectedDisease.name)}
                                             className="shrink-0 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all border border-white/15 text-white active:scale-95 shadow-md flex items-center gap-1.5 text-xs font-semibold px-3 cursor-pointer"

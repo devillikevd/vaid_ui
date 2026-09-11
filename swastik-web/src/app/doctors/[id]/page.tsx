@@ -139,7 +139,7 @@ function PublicDoctorProfileContent() {
                             Try Again
                         </button>
                         <Link
-                            href="/patient/doctors"
+                            href="/doctors"
                             className="px-5 py-2.5 bg-vd-forest hover:bg-vd-forest-deep text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
                         >
                             Browse All Doctors
@@ -193,10 +193,14 @@ function PublicDoctorProfileContent() {
     const reviewsList: any[] = data?.reviews || doctor.reviews || [];
     const reviewDistribution = data?.reviewDistribution || doctor.reviewDistribution || {};
 
-    // Trust Badges from checklist
-    const checklist = doctor.verification_checklist || {};
+    const checklist = {
+        degree_verified: doctor.degree_verified !== false,
+        registration_verified: Boolean(doctor.registration_number || doctor.medical_registration_number || doctor.registration_verified),
+        email_verified: Boolean(doctor.email_verified ?? true),
+        clinic_verified: Boolean(doctor.clinic_address || doctor.hospital_name || doctor.clinic_verified),
+    };
+
     const trustBadges = [
-        { label: 'Identity Verified', show: checklist.aadhaar_verified, icon: ShieldCheck },
         { label: 'Degree Verified', show: checklist.degree_verified, icon: BookOpen },
         { label: 'Medical Council Verified', show: checklist.registration_verified, icon: Award },
         { label: 'Email Verified', show: checklist.email_verified, icon: CheckCircle2 },
@@ -204,8 +208,8 @@ function PublicDoctorProfileContent() {
     ].filter(b => b.show);
 
     const backUrl = categoryParam
-        ? `/patient/doctors?mode=${mode}&specialization=${encodeURIComponent(categoryParam)}&view=results`
-        : `/patient/doctors?mode=${mode}`;
+        ? `/doctors?mode=${mode}&specialization=${encodeURIComponent(categoryParam)}`
+        : `/doctors?mode=${mode}`;
 
     const bioText = doctor.bio?.trim();
     const isLongBio = bioText && bioText.length > 280;
@@ -218,18 +222,18 @@ function PublicDoctorProfileContent() {
                 {/* Top Breadcrumbs & Back Navigation */}
                 <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-1.5 text-stone-500 font-medium overflow-hidden">
-                        <Link href="/patient" className="hover:text-vd-forest transition-colors">
+                        <Link href="/" className="hover:text-vd-forest transition-colors">
                             Home
                         </Link>
                         <ChevronRight className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                        <Link href={`/patient/doctors?mode=${mode}`} className="hover:text-vd-forest transition-colors">
+                        <Link href={`/doctors?mode=${mode}`} className="hover:text-vd-forest transition-colors">
                             Find Doctors
                         </Link>
                         {categoryParam && (
                             <>
                                 <ChevronRight className="w-3.5 h-3.5 text-stone-400 shrink-0" />
                                 <Link
-                                    href={`/patient/doctors?mode=${mode}&specialization=${encodeURIComponent(categoryParam)}&view=results`}
+                                    href={`/doctors?mode=${mode}&specialization=${encodeURIComponent(categoryParam)}`}
                                     className="hover:text-vd-forest transition-colors truncate max-w-[120px]"
                                 >
                                     {categoryParam}

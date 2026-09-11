@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
     Stethoscope, Mail, Lock, User, Phone, CheckCircle,
-    ArrowLeft, Eye, EyeOff, Upload, Camera, FileText, IndianRupee, MapPin, Edit3, Clock, Save
+    ArrowLeft, Eye, EyeOff, Upload, Camera, FileText, IndianRupee, MapPin, Edit3, Clock, Save,
+    Loader2, AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
-import { authApi, doctorApi } from '@/lib/api';
+import { authApi, doctorApi, uploadApi } from '@/lib/api';
 import { FileUpload } from '@/components/shared/FileUpload';
 import { LiveSelfie } from './LiveSelfie';
 
@@ -98,6 +99,10 @@ export default function DoctorRegistrationWizard() {
     const [digitalSignature, setDigitalSignature] = useState<File | null>(null);
     const [selfieData, setSelfieData] = useState<string | null>(null);
     
+    // Document Upload Statuses
+    const [uploadStatuses, setUploadStatuses] = useState<Record<string, 'idle' | 'uploading' | 'success' | 'failed'>>({});
+    const [uploadProgressText, setUploadProgressText] = useState<string>('');
+
     // Auto-save Status
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
@@ -258,10 +263,25 @@ export default function DoctorRegistrationWizard() {
         setStep(4);
     };
 
-    const uploadFile = async (file: File | string | null, type: string) => {
-        if (!file) return null;
-        await new Promise(r => setTimeout(r, 1000));
-        return `https://storage.vaididea.com/${type}/${Date.now()}`;
+    const dataURLtoFile = (dataurl: string, filename: string): File => {
+        const arr = dataurl.split(',');
+        const mimeMatch = arr[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new File([u8arr], filename, { type: mime });
+    };
+
+    const extractStorageUrl = (res: any): string | null => {
+        if (!res || !res.success) return null;
+        const d = res.data;
+        if (!d) return null;
+        if (typeof d === 'string') return d;
+        return (d.storageUrl || d.storage_url || d.url || d.fileUrl || d.resolvedUrl || d.objectName || null) as string | null;
     };
 
     const handleFinalSubmit = async () => {
@@ -270,35 +290,122 @@ export default function DoctorRegistrationWizard() {
             return;
         }
 
+        if (!medicalDegree || !registrationCert || !govtIdFile || !selfieData) {
+            setError('Missing mandatory documents. Please go back to Step 3 and provide Medical Degree, Registration Certificate, Government ID, and Live Selfie.');
+            return;
+        }
+
         setIsLoading(true);
         setError('');
 
-        try {
-            const urls = {
-                profile_image_url: await uploadFile(profilePhoto, 'profile'),
-                degree_certificate_url: await uploadFile(medicalDegree, 'degree'),
-                license_document_url: await uploadFile(registrationCert, 'registration'),
-                government_id_type: govtIdType,
-                government_id_url: await uploadFile(govtIdFile, 'govtid'),
-                pan_card_url: await uploadFile(panCard, 'pan'),
-                cancelled_cheque_url: await uploadFile(cancelledCheque, 'cheque'),
-                clinic_license_url: await uploadFile(clinicLicense, 'clinic_license'),
-                digital_signature_url: await uploadFile(digitalSignature, 'signature'),
-                live_selfie_url: await uploadFile(selfieData, 'selfie')
-            };
+        const newStatuses: Record<string, 'idle' | 'uploading' | 'success' | 'failed'> = {
+            degree: 'idle',
+            registration: 'idle',
+            govtid: 'idle',
+            selfie: 'idle',
+        };
+        if (profilePhoto) newStatuses.profile = 'idle';
+        if (panCard) newStatuses.pan = 'idle';
+        if (cancelledCheque) newStatuses.cheque = 'idle';
+        if (clinicLicense) newStatuses.clinicLicense = 'idle';
+        if (digitalSignature) newStatuses.signature = 'idle';
+        setUploadStatuses(newStatuses);
 
-            await autoSaveProfile(urls);
-            const res = await doctorApi.submitForApproval();
-            
-            if (res.success) {
-                setIsSubmitted(true);
-            } else {
-                setError(res.error || 'Failed to submit profile');
+        const uploadedUrls: Record<string, string | null> = {};
+
+        const uploadSingle = async (
+            file: File,
+            type: string,
+            key: string,
+            label: string,
+            isMandatory: boolean
+        ): Promise<boolean> => {
+            setUploadProgressText(`Uploading ${label}...`);
+            setUploadStatuses(prev => ({ ...prev, [key]: 'uploading' }));
+            try {
+                const res = await uploadApi.uploadFile(file, type);
+                const url = extractStorageUrl(res);
+                if (res.success && url) {
+                    uploadedUrls[key] = url;
+                    setUploadStatuses(prev => ({ ...prev, [key]: 'success' }));
+                    return true;
+                } else {
+                    const err = res.error || res.message || 'No storage URL returned from server';
+                    console.error(`Upload failed for ${label}:`, err);
+                    setUploadStatuses(prev => ({ ...prev, [key]: 'failed' }));
+                    if (isMandatory) {
+                        throw new Error(`Failed to upload ${label}: ${err}`);
+                    }
+                    return false;
+                }
+            } catch (err: any) {
+                setUploadStatuses(prev => ({ ...prev, [key]: 'failed' }));
+                if (isMandatory) {
+                    throw err;
+                }
+                console.warn(`Optional upload failed for ${label}:`, err.message);
+                return false;
             }
+        };
+
+        try {
+            // 1. Mandatory uploads — must all succeed
+            await uploadSingle(medicalDegree, 'document', 'degree', 'Medical Degree Certificate', true);
+            await uploadSingle(registrationCert, 'license', 'registration', 'Registration Certificate', true);
+            await uploadSingle(govtIdFile, 'document', 'govtid', `${govtIdType} ID Document`, true);
+            
+            const selfieFile = dataURLtoFile(selfieData, 'live-selfie.jpg');
+            await uploadSingle(selfieFile, 'profile', 'selfie', 'Live Verification Selfie', true);
+
+            // 2. Optional uploads — non-fatal
+            if (profilePhoto) {
+                await uploadSingle(profilePhoto, 'profile', 'profile', 'Profile Photo', false);
+            }
+            if (panCard) {
+                await uploadSingle(panCard, 'document', 'pan', 'PAN Card', false);
+            }
+            if (cancelledCheque) {
+                await uploadSingle(cancelledCheque, 'document', 'cheque', 'Bank Cheque', false);
+            }
+            if (clinicLicense) {
+                await uploadSingle(clinicLicense, 'license', 'clinicLicense', 'Clinic License', false);
+            }
+            if (digitalSignature) {
+                await uploadSingle(digitalSignature, 'document', 'signature', 'Digital Signature', false);
+            }
+
+            setUploadProgressText('Saving doctor profile...');
+
+            const profilePayload: Record<string, any> = {
+                degree_certificate_url: uploadedUrls['degree'],
+                license_document_url: uploadedUrls['registration'],
+                government_id_type: govtIdType,
+                government_id_url: uploadedUrls['govtid'],
+                live_selfie_url: uploadedUrls['selfie'],
+            };
+            if (uploadedUrls['profile']) profilePayload.profile_image_url = uploadedUrls['profile'];
+            if (uploadedUrls['pan']) profilePayload.pan_card_url = uploadedUrls['pan'];
+            if (uploadedUrls['cheque']) profilePayload.cancelled_cheque_url = uploadedUrls['cheque'];
+            if (uploadedUrls['clinicLicense']) profilePayload.clinic_license_url = uploadedUrls['clinicLicense'];
+            if (uploadedUrls['signature']) profilePayload.digital_signature_url = uploadedUrls['signature'];
+
+            const saveRes = await doctorApi.updateProfile(profilePayload);
+            if (!saveRes.success) {
+                throw new Error(saveRes.error || saveRes.message || 'Failed to save uploaded documents to your doctor profile.');
+            }
+
+            setUploadProgressText('Submitting application for administrative approval...');
+            const approvalRes = await doctorApi.submitForApproval();
+            if (!approvalRes.success) {
+                throw new Error(approvalRes.error || approvalRes.message || 'Failed to submit application for approval.');
+            }
+
+            setIsSubmitted(true);
         } catch (err: any) {
-            setError(err.message || 'An error occurred during submission');
+            setError(err.message || 'An error occurred during submission. Please retry.');
         } finally {
             setIsLoading(false);
+            setUploadProgressText('');
         }
     };
 
@@ -327,13 +434,13 @@ export default function DoctorRegistrationWizard() {
     }
 
     return (
-        <div className="min-h-screen relative flex flex-col items-center justify-center bg-[#050505] overflow-hidden font-sans text-slate-200 py-12 px-4">
+        <div className="min-h-screen relative flex flex-col items-center justify-center bg-[#050505] overflow-hidden font-sans text-slate-200 py-6 sm:py-12 px-3 sm:px-4">
             <div className="w-full max-w-4xl z-10 flex flex-col items-center">
-                <Link href={`/login/doctor`} className="inline-flex items-center gap-2 text-white/60 hover:text-white mb-6 self-start">
+                <Link href={`/login/doctor`} className="inline-flex items-center gap-2 text-white/60 hover:text-white mb-4 sm:mb-6 self-start text-xs sm:text-sm">
                     <ArrowLeft className="h-4 w-4" /> <span>Back to Login</span>
                 </Link>
 
-                <div className="w-full bg-[#0A0A0A]/80 backdrop-blur-2xl border border-white/10 p-8 rounded-[2rem] shadow-2xl">
+                <div className="w-full bg-[#0A0A0A]/80 backdrop-blur-2xl border border-white/10 p-4 sm:p-8 rounded-2xl sm:rounded-[2rem] shadow-2xl">
                     {/* Progress Bar Header */}
                     <div className="mb-8">
                         <div className="flex justify-between items-end mb-3">
@@ -444,7 +551,7 @@ export default function DoctorRegistrationWizard() {
                                     </select>
                                 </div>
                                 <Input label="Registration Number *" value={registrationNumber} onChange={e => setRegistrationNumber(e.target.value)} error={fieldErrors.registrationNumber} />
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                     <Input label="Registration Date" type="date" value={registrationDate} onChange={e => setRegistrationDate(e.target.value)} />
                                     <Input label="Valid Till (Optional)" type="date" value={validTill} onChange={e => setValidTill(e.target.value)} />
                                 </div>
@@ -455,33 +562,33 @@ export default function DoctorRegistrationWizard() {
                                 {fieldErrors.consultationTypes && <p className="text-red-400 text-xs">{fieldErrors.consultationTypes}</p>}
                                 
                                 <div className="space-y-2">
-                                    <div className="flex items-center justify-between p-3 border border-white/10 rounded-xl bg-[#0A0A0A]">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border border-white/10 rounded-xl bg-[#0A0A0A]">
                                         <label className="flex items-center gap-2 text-white">
                                             <input type="checkbox" checked={consultationTypes.video} onChange={e => setConsultationTypes({...consultationTypes, video: e.target.checked})} />
                                             Video Consultation
                                         </label>
-                                        {consultationTypes.video && <Input placeholder="Fee (₹)" className="w-24" value={videoFee} onChange={e => setVideoFee(e.target.value)} />}
+                                        {consultationTypes.video && <Input placeholder="Fee (₹)" className="w-full sm:w-24" value={videoFee} onChange={e => setVideoFee(e.target.value)} />}
                                     </div>
-                                    <div className="flex items-center justify-between p-3 border border-white/10 rounded-xl bg-[#0A0A0A]">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border border-white/10 rounded-xl bg-[#0A0A0A]">
                                         <label className="flex items-center gap-2 text-white">
                                             <input type="checkbox" checked={consultationTypes.clinic} onChange={e => setConsultationTypes({...consultationTypes, clinic: e.target.checked})} />
                                             Clinic Visit
                                         </label>
-                                        {consultationTypes.clinic && <Input placeholder="Fee (₹)" className="w-24" value={clinicFee} onChange={e => setClinicFee(e.target.value)} />}
+                                        {consultationTypes.clinic && <Input placeholder="Fee (₹)" className="w-full sm:w-24" value={clinicFee} onChange={e => setClinicFee(e.target.value)} />}
                                     </div>
-                                    <div className="flex items-center justify-between p-3 border border-white/10 rounded-xl bg-[#0A0A0A]">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border border-white/10 rounded-xl bg-[#0A0A0A]">
                                         <label className="flex items-center gap-2 text-white">
                                             <input type="checkbox" checked={consultationTypes.home} onChange={e => setConsultationTypes({...consultationTypes, home: e.target.checked})} />
                                             Home Visit
                                         </label>
-                                        {consultationTypes.home && <Input placeholder="Fee (₹)" className="w-24" value={homeFee} onChange={e => setHomeFee(e.target.value)} />}
+                                        {consultationTypes.home && <Input placeholder="Fee (₹)" className="w-full sm:w-24" value={homeFee} onChange={e => setHomeFee(e.target.value)} />}
                                     </div>
-                                    <div className="flex items-center justify-between p-3 border border-white/10 rounded-xl bg-[#0A0A0A]">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border border-white/10 rounded-xl bg-[#0A0A0A]">
                                         <label className="flex items-center gap-2 text-white">
                                             <input type="checkbox" checked={consultationTypes.emergency} onChange={e => setConsultationTypes({...consultationTypes, emergency: e.target.checked})} />
                                             Emergency Services
                                         </label>
-                                        {consultationTypes.emergency && <Input placeholder="Fee (₹)" className="w-24" value={emergencyFee} onChange={e => setEmergencyFee(e.target.value)} />}
+                                        {consultationTypes.emergency && <Input placeholder="Fee (₹)" className="w-full sm:w-24" value={emergencyFee} onChange={e => setEmergencyFee(e.target.value)} />}
                                     </div>
                                 </div>
 
@@ -591,17 +698,87 @@ export default function DoctorRegistrationWizard() {
 
                                 <Card className="bg-white/[0.02] border-white/10 p-5">
                                     <div className="flex justify-between items-center mb-4">
-                                        <h3 className="font-medium text-emerald-400">Documents Uploaded</h3>
+                                        <h3 className="font-medium text-emerald-400">Documents Verification & Upload</h3>
                                         <Button variant="ghost" size="sm" onClick={() => setStep(3)} className="text-white/60 hover:text-white h-auto p-1"><Edit3 className="h-4 w-4"/></Button>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2 text-sm text-white/80">
-                                        <div className="flex items-center gap-2"><CheckCircle className="h-3 w-3 text-emerald-500"/> Live Selfie Captured</div>
-                                        {medicalDegree && <div className="flex items-center gap-2"><CheckCircle className="h-3 w-3 text-emerald-500"/> Medical Degree</div>}
-                                        {registrationCert && <div className="flex items-center gap-2"><CheckCircle className="h-3 w-3 text-emerald-500"/> Registration Cert</div>}
-                                        {govtIdFile && <div className="flex items-center gap-2"><CheckCircle className="h-3 w-3 text-emerald-500"/> {govtIdType}</div>}
-                                        {panCard && <div className="flex items-center gap-2"><CheckCircle className="h-3 w-3 text-emerald-500"/> PAN Card</div>}
-                                        {cancelledCheque && <div className="flex items-center gap-2"><CheckCircle className="h-3 w-3 text-emerald-500"/> Bank Cheque</div>}
+                                        <div className="flex items-center gap-2">
+                                            {uploadStatuses['selfie'] === 'uploading' ? <Loader2 className="h-3.5 w-3.5 text-emerald-400 animate-spin" /> :
+                                             uploadStatuses['selfie'] === 'failed' ? <AlertCircle className="h-3.5 w-3.5 text-red-400" /> :
+                                             <CheckCircle className={`h-3.5 w-3.5 ${uploadStatuses['selfie'] === 'success' ? 'text-emerald-500' : 'text-white/30'}`} />}
+                                            Live Selfie
+                                        </div>
+                                        {medicalDegree && (
+                                            <div className="flex items-center gap-2">
+                                                {uploadStatuses['degree'] === 'uploading' ? <Loader2 className="h-3.5 w-3.5 text-emerald-400 animate-spin" /> :
+                                                 uploadStatuses['degree'] === 'failed' ? <AlertCircle className="h-3.5 w-3.5 text-red-400" /> :
+                                                 <CheckCircle className={`h-3.5 w-3.5 ${uploadStatuses['degree'] === 'success' ? 'text-emerald-500' : 'text-white/30'}`} />}
+                                                Medical Degree
+                                            </div>
+                                        )}
+                                        {registrationCert && (
+                                            <div className="flex items-center gap-2">
+                                                {uploadStatuses['registration'] === 'uploading' ? <Loader2 className="h-3.5 w-3.5 text-emerald-400 animate-spin" /> :
+                                                 uploadStatuses['registration'] === 'failed' ? <AlertCircle className="h-3.5 w-3.5 text-red-400" /> :
+                                                 <CheckCircle className={`h-3.5 w-3.5 ${uploadStatuses['registration'] === 'success' ? 'text-emerald-500' : 'text-white/30'}`} />}
+                                                Registration Cert
+                                            </div>
+                                        )}
+                                        {govtIdFile && (
+                                            <div className="flex items-center gap-2">
+                                                {uploadStatuses['govtid'] === 'uploading' ? <Loader2 className="h-3.5 w-3.5 text-emerald-400 animate-spin" /> :
+                                                 uploadStatuses['govtid'] === 'failed' ? <AlertCircle className="h-3.5 w-3.5 text-red-400" /> :
+                                                 <CheckCircle className={`h-3.5 w-3.5 ${uploadStatuses['govtid'] === 'success' ? 'text-emerald-500' : 'text-white/30'}`} />}
+                                                {govtIdType}
+                                            </div>
+                                        )}
+                                        {profilePhoto && (
+                                            <div className="flex items-center gap-2">
+                                                {uploadStatuses['profile'] === 'uploading' ? <Loader2 className="h-3.5 w-3.5 text-emerald-400 animate-spin" /> :
+                                                 uploadStatuses['profile'] === 'failed' ? <AlertCircle className="h-3.5 w-3.5 text-red-400" /> :
+                                                 <CheckCircle className={`h-3.5 w-3.5 ${uploadStatuses['profile'] === 'success' ? 'text-emerald-500' : 'text-white/30'}`} />}
+                                                Profile Photo
+                                            </div>
+                                        )}
+                                        {panCard && (
+                                            <div className="flex items-center gap-2">
+                                                {uploadStatuses['pan'] === 'uploading' ? <Loader2 className="h-3.5 w-3.5 text-emerald-400 animate-spin" /> :
+                                                 uploadStatuses['pan'] === 'failed' ? <AlertCircle className="h-3.5 w-3.5 text-red-400" /> :
+                                                 <CheckCircle className={`h-3.5 w-3.5 ${uploadStatuses['pan'] === 'success' ? 'text-emerald-500' : 'text-white/30'}`} />}
+                                                PAN Card
+                                            </div>
+                                        )}
+                                        {cancelledCheque && (
+                                            <div className="flex items-center gap-2">
+                                                {uploadStatuses['cheque'] === 'uploading' ? <Loader2 className="h-3.5 w-3.5 text-emerald-400 animate-spin" /> :
+                                                 uploadStatuses['cheque'] === 'failed' ? <AlertCircle className="h-3.5 w-3.5 text-red-400" /> :
+                                                 <CheckCircle className={`h-3.5 w-3.5 ${uploadStatuses['cheque'] === 'success' ? 'text-emerald-500' : 'text-white/30'}`} />}
+                                                Bank Cheque
+                                            </div>
+                                        )}
+                                        {clinicLicense && (
+                                            <div className="flex items-center gap-2">
+                                                {uploadStatuses['clinicLicense'] === 'uploading' ? <Loader2 className="h-3.5 w-3.5 text-emerald-400 animate-spin" /> :
+                                                 uploadStatuses['clinicLicense'] === 'failed' ? <AlertCircle className="h-3.5 w-3.5 text-red-400" /> :
+                                                 <CheckCircle className={`h-3.5 w-3.5 ${uploadStatuses['clinicLicense'] === 'success' ? 'text-emerald-500' : 'text-white/30'}`} />}
+                                                Clinic License
+                                            </div>
+                                        )}
+                                        {digitalSignature && (
+                                            <div className="flex items-center gap-2">
+                                                {uploadStatuses['signature'] === 'uploading' ? <Loader2 className="h-3.5 w-3.5 text-emerald-400 animate-spin" /> :
+                                                 uploadStatuses['signature'] === 'failed' ? <AlertCircle className="h-3.5 w-3.5 text-red-400" /> :
+                                                 <CheckCircle className={`h-3.5 w-3.5 ${uploadStatuses['signature'] === 'success' ? 'text-emerald-500' : 'text-white/30'}`} />}
+                                                Digital Signature
+                                            </div>
+                                        )}
                                     </div>
+                                    {uploadProgressText && (
+                                        <div className="mt-3 pt-3 border-t border-white/10 flex items-center gap-2 text-xs text-emerald-400">
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                            <span>{uploadProgressText}</span>
+                                        </div>
+                                    )}
                                 </Card>
                             </div>
 

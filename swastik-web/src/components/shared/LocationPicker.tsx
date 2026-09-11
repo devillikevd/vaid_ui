@@ -99,6 +99,10 @@ export default function LocationPicker({
         red:    { bg: 'bg-red-600',    hover: 'hover:bg-red-700' },
         amber:  { bg: 'bg-amber-600',  hover: 'hover:bg-amber-700' },
         cyan:   { bg: 'bg-cyan-600',   hover: 'hover:bg-cyan-700' },
+        // 'black' is passed from registration pages that use the dark Vaididea theme;
+        // map it to the brand green so the Search button is visible on dark backgrounds.
+        black:  { bg: 'bg-green-600',  hover: 'hover:bg-green-700' },
+        gray:   { bg: 'bg-gray-600',   hover: 'hover:bg-gray-700' },
     };
     const accent = accentClasses[accentColor] || accentClasses.blue;
     const mapRef = useRef<L.Map | null>(null);
@@ -321,7 +325,11 @@ export default function LocationPicker({
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                             placeholder="Search location"
-                            className="w-full px-3 py-2 pl-9 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            // Explicit text/bg colors so typed text is always visible regardless
+                            // of whether the Tailwind 'dark' class is active on <html>.
+                            // Registration pages use hard-coded dark backgrounds (#09090B) without
+                            // class="dark", so dark:text-* alone would leave text invisible.
+                            className="w-full px-3 py-2 pl-9 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-gray-900 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                         />
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                         {searchQuery && (

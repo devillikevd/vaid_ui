@@ -517,6 +517,12 @@ function BaseDashboardLayoutContent({
         return () => document.removeEventListener('keydown', handler);
     }, [dropdownOpen]);
 
+    // Automatically close mobile sidebar and dropdown on route change
+    useEffect(() => {
+        setSidebarOpen(false);
+        setDropdownOpen(false);
+    }, [pathname]);
+
     // Focus trap inside mobile sidebar
     useEffect(() => {
         if (!sidebarOpen || !sidebarRef.current) return;
@@ -685,7 +691,7 @@ function BaseDashboardLayoutContent({
                 ref={sidebarRef}
                 className={cn(
                     'fixed top-0 left-0 z-50 h-full transition-all duration-300 lg:translate-x-0 flex flex-col border-r',
-                    desktopCollapsed ? 'w-full max-w-sm lg:w-20' : 'w-full max-w-sm lg:w-64',
+                    desktopCollapsed ? 'w-[85vw] max-w-xs sm:max-w-sm lg:w-20' : 'w-[85vw] max-w-xs sm:max-w-sm lg:w-64',
                     colors.sidebar,
                     colors.border,
                     sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -699,6 +705,7 @@ function BaseDashboardLayoutContent({
                     <Link
                         href="/"
                         aria-label="Vaididea Home"
+                        onClick={() => setSidebarOpen(false)}
                         className={cn("flex items-center gap-3 overflow-hidden group cursor-pointer p-1 -ml-1 rounded-xl hover:bg-gray-100 dark:hover:bg-white/[0.04] transition-all", desktopCollapsed ? "lg:hidden" : "")}
                     >
                         <VaidideaLogo className="w-9 h-9 shrink-0 transition-transform group-hover:scale-105" />
@@ -796,7 +803,10 @@ function BaseDashboardLayoutContent({
                                                     <Link
                                                         key={item.name}
                                                         href={item.href}
-                                                        onClick={item.onClick}
+                                                        onClick={() => {
+                                                            item.onClick?.();
+                                                            setSidebarOpen(false);
+                                                        }}
                                                         title={desktopCollapsed ? item.name : undefined}
                                                         className={cn(
                                                             'relative flex items-center gap-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
@@ -855,17 +865,17 @@ function BaseDashboardLayoutContent({
             >
                 {/* Header */}
                 <header className="sticky top-0 z-30 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
-                    <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+                    <div className="flex min-w-0 flex-1 sm:flex-initial items-center gap-2 sm:gap-4">
                         <button
                             ref={menuButtonRef}
                             onClick={() => setSidebarOpen(true)}
-                            className="shrink-0 lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                            className="shrink-0 lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center"
                             aria-label="Open sidebar"
                         >
                             <Menu className="h-5 w-5" />
                         </button>
                         {/* Active page icon + name */}
-                        <div className="min-w-0 flex items-center gap-2.5">
+                        <div className="min-w-0 flex-1 sm:flex-initial flex items-center gap-2 sm:gap-2.5">
                             {showBackButton && (
                                 <button
                                     onClick={() => router.back()}
@@ -882,7 +892,7 @@ function BaseDashboardLayoutContent({
                                     </span>
                                 );
                             })()}
-                            <h2 className="truncate text-sm font-bold text-gray-900 dark:text-gray-100 sm:text-base capitalize">
+                            <h2 className="truncate text-sm font-bold text-gray-900 dark:text-gray-100 sm:text-base capitalize min-w-0">
                                 {navItemToDisplay?.name || 'Dashboard'}
                                 {showBackButton && ' Details'}
                             </h2>
@@ -935,6 +945,7 @@ function BaseDashboardLayoutContent({
                                                             router.push(item.href);
                                                             setSearchOpen(false);
                                                             setSearchQuery('');
+                                                            setSidebarOpen(false);
                                                         }}
                                                     >
                                                         <Icon className="h-4 w-4 shrink-0 text-gray-700 dark:text-gray-400" />
@@ -1017,7 +1028,7 @@ function BaseDashboardLayoutContent({
                                         role="presentation"
                                     />
                                     <div className={cn(
-                                        "absolute right-0 mt-2 w-[calc(100vw-32px)] sm:w-[420px] max-w-[420px] bg-white/95 dark:bg-[#0B1020]/95 backdrop-blur-xl rounded-[18px] border border-gray-200 dark:border-gray-800 shadow-2xl z-50 overflow-hidden ring-1 ring-black/5 dark:ring-white/5 flex flex-col max-h-[85vh]",
+                                        "absolute right-0 mt-2 w-[calc(100vw-24px)] max-w-[360px] sm:w-[420px] sm:max-w-[420px] bg-white/95 dark:bg-[#0B1020]/95 backdrop-blur-xl rounded-[18px] border border-gray-200 dark:border-gray-800 shadow-2xl z-50 overflow-hidden ring-1 ring-black/5 dark:ring-white/5 flex flex-col max-h-[85vh]",
                                         config.theme?.dataTheme === 'diagnostic-center' ? 'sm:w-[320px]' : ''
                                     )}>
                                         {user?.role === 'doctor' ? (

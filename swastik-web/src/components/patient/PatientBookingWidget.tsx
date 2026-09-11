@@ -103,14 +103,31 @@ function BookingStepper({ currentStep }: { currentStep: BookingStep }) {
 export function PatientBookingWidget({ doctor, initialConsultationType, mode }: PatientBookingWidgetProps) {
     const router = useRouter();
 
+    const docSlots = (doctor.slots || doctor.schedules || []) as any[];
+    const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+
+    const upcomingSlots = React.useMemo(() => {
+        return docSlots.filter((s: any) => s.is_active !== false && (!s.slot_date || s.slot_date >= todayIST));
+    }, [docSlots, todayIST]);
+
+    const hasUpcomingVideo = upcomingSlots.some((s: any) => s.is_video_enabled === true);
+    const hasUpcomingClinic = upcomingSlots.some((s: any) => s.is_clinic_enabled === true);
+
+    const hasVideoSlots = docSlots.some((s: any) => s.is_video_enabled === true);
+    const hasClinicSlots = docSlots.some((s: any) => s.is_clinic_enabled === true);
+
     const rawVideoFee = doctor.video_consultation_fee ?? doctor.videoConsultationFee;
     const rawClinicFee = doctor.consultation_fee ?? doctor.consultationFee;
 
     const hasVideo =
+        hasVideoSlots ||
+        hasUpcomingVideo ||
         (rawVideoFee !== null && rawVideoFee !== undefined) ||
         doctor.consultation_types?.includes('Video') ||
         doctor.consultation_types?.includes('video');
     const hasClinic =
+        hasClinicSlots ||
+        hasUpcomingClinic ||
         (rawClinicFee !== null && rawClinicFee !== undefined) ||
         doctor.consultation_types?.includes('Clinic') ||
         doctor.consultation_types?.includes('clinic') ||
@@ -118,11 +135,16 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
 
     const computeDefaultType = useCallback((): 'clinic' | 'video' => {
         if (initialConsultationType) return initialConsultationType;
-        if (mode === 'video') return 'video';
-        if (mode === 'in_person') return 'clinic';
+        if (mode === 'video' && hasVideo) return 'video';
+        if (mode === 'in_person' && hasClinic) return 'clinic';
+        // Check upcoming scheduled availability
+        if (hasUpcomingVideo && !hasUpcomingClinic) return 'video';
+        if (hasUpcomingClinic && !hasUpcomingVideo) return 'clinic';
+        if (hasVideoSlots && !hasClinicSlots) return 'video';
+        if (hasClinicSlots && !hasVideoSlots) return 'clinic';
         if (hasVideo && !hasClinic) return 'video';
         return 'clinic';
-    }, [initialConsultationType, mode, hasVideo, hasClinic]);
+    }, [initialConsultationType, mode, hasVideo, hasClinic, hasUpcomingVideo, hasUpcomingClinic, hasVideoSlots, hasClinicSlots]);
 
     const searchParams = useSearchParams();
     const { user, isAuthenticated } = useAuthStore();
@@ -147,6 +169,7 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
         return today;
     });
     const [slots, setSlots] = useState<TimeSlotItem[]>([]);
+    const [alternateModeSlots, setAlternateModeSlots] = useState<{ mode: 'clinic' | 'video'; count: number } | null>(null);
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<string | null>(() => searchParams.get('slot') || null);
     const [consultationType, setConsultationType] = useState<'clinic' | 'video'>(() => {
@@ -171,7 +194,7 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
     const [isSearchingNextAvailable, setIsSearchingNextAvailable] = useState(false);
     const [nextAvailableSuggestion, setNextAvailableSuggestion] = useState<NextAvailableSuggestion | null>(null);
 
-    // In-memory slot cache: `${doctorId}_${type}_${dateStr}` → TimeSlotItem[]
+    // In-memory slot cache: `${doctorId}_${dateStr}` → TimeSlotItem[] (all raw slots)
     const slotCacheRef = useRef<Map<string, TimeSlotItem[]>>(new Map());
 
     // Sync consultationType when props change
@@ -206,10 +229,21 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
         return slot.is_available !== false && slot.isAvailable !== false;
     };
 
+    // Filter slots for a given consultation mode
+    const filterSlotsForMode = (rawSlots: TimeSlotItem[], mode: 'clinic' | 'video'): TimeSlotItem[] => {
+        return rawSlots.filter((s: any) => {
+            if (mode === 'video') {
+                return s.is_video_enabled !== false;
+            } else {
+                return s.is_clinic_enabled === true;
+            }
+        });
+    };
+
     // ─── Slot Fetching ────────────────────────────────────────────────────────
-    const getSlotsForDate = useCallback(
-        async (doctorId: string, targetDateStr: string, slotMode: 'clinic' | 'video'): Promise<TimeSlotItem[]> => {
-            const cacheKey = `${doctorId}_${slotMode}_${targetDateStr}`;
+    const getRawSlotsForDate = useCallback(
+        async (doctorId: string, targetDateStr: string): Promise<TimeSlotItem[]> => {
+            const cacheKey = `${doctorId}_${targetDateStr}`;
             if (slotCacheRef.current.has(cacheKey)) {
                 return slotCacheRef.current.get(cacheKey) || [];
             }
@@ -217,12 +251,11 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
             const res = await patientApi.getDoctorSlots(
                 doctorId,
                 targetDateStr,
-                slotMode === 'video' ? 'video' : 'clinic'
+                'all'
             );
 
             if (res.success && res.data) {
                 const raw = Array.isArray(res.data) ? res.data : ((res.data as any).slots || []);
-                // Store ALL slots (available + unavailable) for full display
                 slotCacheRef.current.set(cacheKey, raw || []);
                 return raw || [];
             }
@@ -244,14 +277,15 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
                     const candidate = new Date(baseDate);
                     candidate.setDate(baseDate.getDate() + i);
                     const candidateStr = formatDateToYMD(candidate);
-                    const candidateSlots = await getSlotsForDate(doctor.id, candidateStr, slotMode);
-                    const availableCount = candidateSlots.filter(isSlotAvailable).length;
+                    const rawSlots = await getRawSlotsForDate(doctor.id, candidateStr);
+                    const modeSlots = filterSlotsForMode(rawSlots, slotMode);
+                    const availableCount = modeSlots.filter(isSlotAvailable).length;
                     if (availableCount > 0) {
                         setNextAvailableSuggestion({
                             dateStr: candidateStr,
                             dateObj: candidate,
                             availableSlotCount: availableCount,
-                            firstSlot: getSlotTimeString(candidateSlots.find(isSlotAvailable)!),
+                            firstSlot: getSlotTimeString(modeSlots.find(isSlotAvailable)!),
                         });
                         break;
                     }
@@ -262,8 +296,11 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
                 setIsSearchingNextAvailable(false);
             }
         },
-        [doctor.id, getSlotsForDate]
+        [doctor.id, getRawSlotsForDate]
     );
+
+    // Track whether the current mode was explicitly chosen by user interaction
+    const isExplicitModeChoiceRef = useRef(false);
 
     // Load slots for the currently selected date
     const loadSelectedDateSlots = useCallback(
@@ -272,15 +309,31 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
             setSlotError('');
             setSelectedSlot(null);
             setNextAvailableSuggestion(null);
+            setAlternateModeSlots(null);
 
             try {
                 const dateStr = formatDateToYMD(date);
-                const fetchedSlots = await getSlotsForDate(doctor.id, dateStr, slotMode);
-                setSlots(fetchedSlots);
+                const rawSlots = await getRawSlotsForDate(doctor.id, dateStr);
+                const currentModeSlots = filterSlotsForMode(rawSlots, slotMode);
+                const alternateMode = slotMode === 'video' ? 'clinic' : 'video';
+                const alternateSlots = filterSlotsForMode(rawSlots, alternateMode);
 
-                const hasAnyAvailable = fetchedSlots.some(isSlotAvailable);
-                if (!hasAnyAvailable) {
-                    scanNextAvailable(date, slotMode);
+                const hasCurrentAvailable = currentModeSlots.some(isSlotAvailable);
+                const hasAlternateAvailable = alternateSlots.some(isSlotAvailable);
+
+                if (!hasCurrentAvailable && hasAlternateAvailable && !isExplicitModeChoiceRef.current) {
+                    // Auto-align to the date's available consultation mode
+                    setConsultationType(alternateMode);
+                    setSlots(alternateSlots);
+                    setAlternateModeSlots(null);
+                } else {
+                    setSlots(currentModeSlots);
+                    if (!hasCurrentAvailable) {
+                        scanNextAvailable(date, slotMode);
+                        if (hasAlternateAvailable) {
+                            setAlternateModeSlots({ mode: alternateMode, count: alternateSlots.filter(isSlotAvailable).length });
+                        }
+                    }
                 }
             } catch (err: any) {
                 console.error('Failed to load slots:', err);
@@ -290,7 +343,7 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
                 setLoadingSlots(false);
             }
         },
-        [doctor.id, getSlotsForDate, scanNextAvailable]
+        [doctor.id, getRawSlotsForDate, scanNextAvailable]
     );
 
     // Reload when date or consultation type changes
@@ -303,8 +356,9 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
         slotCacheRef.current.clear();
     }, [doctor.id]);
 
-    // ─── Navigation Helpers ───────────────────────────────────────────────────
+    // Reset explicit choice flag when switching dates so date-specific modes can resolve seamlessly
     const handleJumpToDate = (targetDate: Date) => {
+        isExplicitModeChoiceRef.current = false;
         setSelectedDate(targetDate);
         setSelectedSlot(null);
     };
@@ -315,6 +369,7 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (prev >= today) {
+            isExplicitModeChoiceRef.current = false;
             setSelectedDate(prev);
             setSelectedSlot(null);
         }
@@ -323,6 +378,7 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
     const handleNextDay = () => {
         const next = new Date(selectedDate);
         next.setDate(next.getDate() + 1);
+        isExplicitModeChoiceRef.current = false;
         setSelectedDate(next);
         setSelectedSlot(null);
     };
@@ -683,7 +739,7 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
                     {hasClinic && (
                         <button
                             type="button"
-                            onClick={() => { setConsultationType('clinic'); setSelectedSlot(null); }}
+                            onClick={() => { isExplicitModeChoiceRef.current = true; setConsultationType('clinic'); setSelectedSlot(null); }}
                             className={`flex-1 py-2 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                                 consultationType === 'clinic'
                                     ? 'bg-white shadow-xs text-stone-900'
@@ -702,7 +758,7 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
                     {hasVideo && (
                         <button
                             type="button"
-                            onClick={() => { setConsultationType('video'); setSelectedSlot(null); }}
+                            onClick={() => { isExplicitModeChoiceRef.current = true; setConsultationType('video'); setSelectedSlot(null); }}
                             className={`flex-1 py-2 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                                 consultationType === 'video'
                                     ? 'bg-white shadow-xs text-stone-900'
@@ -721,7 +777,7 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
                 <div className="flex items-center justify-between mb-3 px-1">
                     <div className="flex items-center gap-1.5 text-stone-900">
                         <Calendar className="w-4 h-4 text-vd-forest" />
-                        <span className="font-heading font-bold text-xs">Select Date</span>
+                        <span className="font-bold text-xs sm:text-sm">Select Date</span>
                     </div>
                     <div className="flex items-center gap-1">
                         <button
@@ -733,7 +789,7 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
                         >
                             <ChevronLeft className="w-4 h-4" />
                         </button>
-                        <span className="text-xs font-semibold text-stone-700 min-w-[85px] text-center">
+                        <span className="text-xs font-semibold text-stone-800 min-w-[85px] text-center">
                             {formatDisplayDate(selectedDate)}
                         </span>
                         <button
@@ -753,10 +809,10 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
                         const isSelected = formatDateToYMD(d) === formatDateToYMD(selectedDate);
                         const isToday = formatDateToYMD(d) === formatDateToYMD(today);
                         const dStr = formatDateToYMD(d);
-                        const cacheKey = `${doctor.id}_${consultationType}_${dStr}`;
-                        const cachedSlots = slotCacheRef.current.get(cacheKey);
-                        const hasCachedAvailability = cachedSlots && cachedSlots.some(isSlotAvailable);
-                        const isCachedEmpty = cachedSlots && !cachedSlots.some(isSlotAvailable);
+                        const rawCached = slotCacheRef.current.get(`${doctor.id}_${dStr}`);
+                        const modeCached = rawCached ? filterSlotsForMode(rawCached, consultationType) : undefined;
+                        const hasCachedAvailability = modeCached && modeCached.some(isSlotAvailable);
+                        const isCachedEmpty = modeCached && !modeCached.some(isSlotAvailable);
 
                         return (
                             <button
@@ -797,7 +853,7 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
                 <div className="flex items-center justify-between mb-2.5 px-1">
                     <div className="flex items-center gap-1.5 text-stone-900">
                         <Clock className="w-4 h-4 text-vd-forest" />
-                        <span className="font-heading font-bold text-xs">Available Slots</span>
+                        <span className="font-bold text-xs sm:text-sm">Available Slots</span>
                     </div>
                     {slots.length > 0 && !loadingSlots && (
                         <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80">
@@ -864,13 +920,32 @@ export function PatientBookingWidget({ doctor, initialConsultationType, mode }: 
                             📅
                         </div>
                         <div>
-                            <h4 className="font-heading font-bold text-xs text-stone-900">
+                            <h4 className="font-semibold text-xs sm:text-sm text-stone-900">
                                 No appointments available on this date
                             </h4>
-                            <p className="text-[11px] text-stone-500 font-light mt-0.5">
+                            <p className="text-[11px] sm:text-xs text-stone-500 font-normal mt-0.5">
                                 There are no open slots on {formatDisplayDate(selectedDate)}.
                             </p>
                         </div>
+
+                        {alternateModeSlots && alternateModeSlots.count > 0 && (
+                            <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-1.5 text-center">
+                                <p className="text-xs font-semibold text-emerald-900">
+                                    {alternateModeSlots.mode === 'video' ? 'Video consultation' : 'In-clinic visit'} is available today!
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setConsultationType(alternateModeSlots.mode);
+                                        setSelectedSlot(null);
+                                    }}
+                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                                >
+                                    <span>Switch to {alternateModeSlots.mode === 'video' ? 'Video' : 'In-Clinic'} ({alternateModeSlots.count} slots)</span>
+                                    <ArrowRight className="w-3 h-3" />
+                                </button>
+                            </div>
+                        )}
 
                         {isSearchingNextAvailable && (
                             <div className="flex items-center justify-center gap-2 py-2 text-xs text-vd-forest font-medium border-t border-stone-200/60">

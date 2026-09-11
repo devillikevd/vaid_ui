@@ -761,7 +761,9 @@ class DoctorService {
         id, name, specialization, experience_years, rating, total_reviews, total_consultations,
         qualifications, consultation_fee, video_consultation_fee, bio,
         profile_image_url, intro_video_url, languages, is_available, consultation_types,
-        hospital_id, clinic_doctors(clinic_id, is_active, clinic:clinics(id, name, city, address, latitude, longitude, is_approved)),
+        hospital_id, is_approved, approval_status,
+        user:users!doctors_user_id_fkey(id, role, is_active, is_verified),
+        clinic_doctors(clinic_id, is_active, clinic:clinics(id, name, city, address, latitude, longitude, is_approved)),
         hospital:hospitals(id, name, city, address, latitude, longitude, is_approved)
       `, { count: 'exact' })
       .eq('is_approved', true);
@@ -893,7 +895,20 @@ class DoctorService {
       throw new ApiError(400, 'Failed to fetch doctors');
     }
 
-    let result = doctors || [];
+    let result = (doctors || [])
+      .filter(doc => {
+        const isApproved = doc.is_approved === true && (!doc.approval_status || doc.approval_status === 'approved');
+        const userRole = doc.user?.role;
+        const isRoleDoctor = !doc.user || userRole === 'doctor';
+        const isActiveUser = !doc.user || doc.user.is_active !== false;
+        const isVerifiedUser = !doc.user || doc.user.is_verified === true;
+        return isApproved && isRoleDoctor && isActiveUser && isVerifiedUser;
+      })
+      .map(doc => ({
+        ...doc,
+        is_verified: doc.user?.is_verified ?? true,
+        approval_status: doc.approval_status || 'approved',
+      }));
 
     if (hasLocation) {
       result = result.map(doc => {
@@ -1204,7 +1219,23 @@ class DoctorService {
     // Organization-specific leaves
     const orgLeaves = activeLeaves.filter(l => l.scope === 'organization' && (l.organization_id || l.clinic_id || l.hospital_id));
 
-    // Get doctor's slot configuration
+    // 2. Fetch manual doctor schedule blocks for this date
+    let blockedTimes = new Set();
+    try {
+      const { data: manualBlocks } = await supabaseAdmin
+        .from('doctor_schedule_blocks')
+        .select('time_slot')
+        .eq('doctor_id', doctorId)
+        .eq('block_date', date);
+
+      if (manualBlocks && manualBlocks.length > 0) {
+        blockedTimes = new Set(manualBlocks.map(b => (b.time_slot || '').slice(0, 5)));
+      }
+    } catch (bErr) {
+      blockedTimes = new Set();
+    }
+
+    // 3. Get doctor's slot configuration from doctor_slots
     let query = supabaseAdmin
       .from('doctor_slots')
       .select('*')
@@ -1226,7 +1257,7 @@ class DoctorService {
       return [];
     }
 
-    // Get booked appointments for the date
+    // 4. Get booked appointments for the date
     const { data: bookedAppointments } = await supabaseAdmin
       .from('appointments')
       .select('time_slot, duration_minutes')
@@ -1243,9 +1274,10 @@ class DoctorService {
       return { start: startMin, end: startMin + duration };
     }).filter(Boolean);
 
-    // Generate available time slots
+    // 5. Generate available time slots
     const availableSlots = [];
     const pastSlots = [];
+    const seenTimes = new Set();
 
     slotConfig.forEach(config => {
       const [startHour, startMin] = config.start_time.split(':').map(Number);
@@ -1256,49 +1288,6 @@ class DoctorService {
       // Check for organization-specific leave matching this slot
       const slotOrgId = config.organization_id || (config.is_clinic_enabled ? config.clinic_id : config.hospital_id);
       const matchingOrgLeave = slotOrgId ? orgLeaves.find(l => l.organization_id === slotOrgId || l.clinic_id === slotOrgId || l.hospital_id === slotOrgId) : null;
-
-      // If it's an in-person slot (window) and we are requesting in-person slots, we don't break it into 15m intervals
-      // Instead, we return the entire window as a single slot.
-      if (type === 'in_person' && config.is_clinic_enabled && !config.is_video_enabled && !config.is_home_enabled) {
-        const timeSlot = `${config.start_time.slice(0, 5)}-${config.end_time.slice(0, 5)}`;
-        const period = startHour < 12 ? 'Morning' : startHour < 17 ? 'Afternoon' : 'Evening';
-        const slotDateStr = `${date}T${config.end_time.slice(0, 5)}:00+05:30`;
-        const slotTimeMs = Date.parse(slotDateStr);
-        const isPast = !isNaN(slotTimeMs) && slotTimeMs < Date.now();
-        
-        let isLeaveBlocked = false;
-        const windowStartMins = startHour * 60 + (startMin || 0);
-        const windowEndMins = endHour * 60 + (endMin || 0);
-
-        if (globalPartialLeaves.some(l => Math.max(windowStartMins, l.start) < Math.min(windowEndMins, l.end))) {
-          isLeaveBlocked = true;
-        } else if (matchingOrgLeave) {
-          if (!matchingOrgLeave.leave_type || matchingOrgLeave.leave_type === 'full_day') {
-            isLeaveBlocked = true;
-          } else if (matchingOrgLeave.start_time && matchingOrgLeave.end_time) {
-            const lStart = toMinutes(matchingOrgLeave.start_time.slice(0, 5));
-            const lEnd = toMinutes(matchingOrgLeave.end_time.slice(0, 5));
-            if (lStart !== null && lEnd !== null && Math.max(windowStartMins, lStart) < Math.min(windowEndMins, lEnd)) {
-              isLeaveBlocked = true;
-            }
-          }
-        }
-
-        if (isLeaveBlocked) {
-          return; // Blocked by leave
-        }
-
-        if (isPast) {
-          pastSlots.push({ time: timeSlot, period, is_available: false });
-        } else {
-          availableSlots.push({
-            time: timeSlot,
-            period: period,
-            is_available: true, // We allow multiple bookings per window
-          });
-        }
-        return; // Skip 15-min breakdown
-      }
 
       let currentTotalMins = startHour * 60 + (startMin || 0);
       const endTotalMins = endHour * 60 + (endMin || 0);
@@ -1333,7 +1322,7 @@ class DoctorService {
           }
         }
 
-        // Check for overlaps with globally booked intervals
+        // Check for overlaps with booked intervals
         let isBooked = false;
         for (const interval of bookedIntervals) {
           if (Math.max(slotStartMins, interval.start) < Math.min(slotEndMins, interval.end)) {
@@ -1342,22 +1331,32 @@ class DoctorService {
           }
         }
 
+        // Check manual doctor slot block
+        const isManuallyBlocked = blockedTimes.has(timeSlot);
+
+        const slotItem = {
+          time: timeSlot,
+          period: period,
+          is_available: !isBooked && !isLeaveBlocked && !isManuallyBlocked,
+          is_video_enabled: config.is_video_enabled,
+          is_clinic_enabled: config.is_clinic_enabled,
+          organization_type: config.organization_type || (config.is_clinic_enabled ? 'clinic' : null),
+          organization_id: config.clinic_id || config.hospital_id || config.organization_id || null,
+          department_name: config.department_name || null,
+        };
+
         if (isPast) {
-          // Already-elapsed slot
-          pastSlots.push({ time: timeSlot, period, is_available: false });
+          slotItem.is_available = false;
+          pastSlots.push(slotItem);
         } else {
-          availableSlots.push({
-            time: timeSlot,
-            period: period,
-            is_available: !isBooked && !isLeaveBlocked,
-          });
+          availableSlots.push(slotItem);
         }
         currentTotalMins += (duration + buffer);
       }
     });
 
-    // Keep only the most recent elapsed slots (MAX_PAST_SLOTS_SHOWN).
-    pastSlots.sort((a, b) => b.time.localeCompare(a.time)); // most recent first
+    // Keep only the most recent elapsed slots (MAX_PAST_SLOTS_SHOWN)
+    pastSlots.sort((a, b) => b.time.localeCompare(a.time));
     const keptPastSlots = pastSlots.slice(0, MAX_PAST_SLOTS_SHOWN);
 
     const allSlots = availableSlots.concat(keptPastSlots);

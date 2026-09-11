@@ -1,16 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
     Calendar,
     Stethoscope,
-    FileText,
-    Pill,
-    Microscope,
-    HeartPulse,
-    Bot,
-    Plus,
     Clock,
     Video,
     Building2,
@@ -18,244 +12,239 @@ import {
     AlertCircle,
     ChevronRight,
     ArrowRight,
-    Loader2,
-    Activity,
-    Shield,
-    PhoneCall,
-    Sparkles,
     RefreshCw,
+    Smartphone,
     QrCode,
-    MessageSquare,
-    Users,
+    User,
+    Mail,
+    Phone,
+    Shield,
+    Edit3,
+    FileText,
     Check,
+    Loader2,
+    Sparkles,
+    Activity,
     Lock,
-    X,
-    BookOpen
+    Pill
 } from 'lucide-react';
-import { patientApi, chatbotApi, communityApi } from '@/lib/api';
+import { patientApi } from '@/lib/api';
 import { useAuthStore, isPatientAuthenticated } from '@/stores/authStore';
-import { useAuthGate } from '@/hooks/useAuthGate';
-import RecommendedDoctorCarousel from '@/components/patient/RecommendedDoctorCarousel';
+import AppDownloadModal from '@/components/shared/AppDownloadModal';
 
-const QUICK_ACTIONS = [
-    {
-        id: 'hospital',
-        title: 'Find Hospital',
-        sub: 'Nearby facilities',
-        image: '/images/patient/find_hospital.webp',
-        alt: 'Find nearby hospitals',
-        href: '/patient/doctors',
-    },
-    {
-        id: 'clinic',
-        title: 'Find Clinic',
-        sub: 'In-clinic visits',
-        image: '/images/patient/clinic_visit.webp',
-        alt: 'Find clinic consultation',
-        href: '/patient/doctors?mode=in_person',
-    },
-    {
-        id: 'pharmacy',
-        title: 'Order Medicine',
-        sub: 'Doorstep delivery',
-        image: '/images/patient/order_medicine.webp',
-        alt: 'Order medicines online',
-        href: '/patient/pharmacy',
-    },
-    {
-        id: 'diagnostics',
-        title: 'Book Lab Test',
-        sub: 'Home sample collection',
-        color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-        badge: 'Popular',
-    },
-    {
-        title: 'Book Diagnostics',
-        description: 'Schedule home collection or diagnostic center lab tests',
-        icon: Microscope,
-        href: '/patient/diagnostics',
-        color: 'text-indigo-700 bg-indigo-50 border-indigo-200',
-    },
-    {
-        title: 'Order Pharmacy',
-        description: 'Get doorstep delivery from licensed local medical stores',
-        icon: Pill,
-        href: '/patient/pharmacy',
-        color: 'text-amber-700 bg-amber-50 border-amber-200',
-    },
-    {
-        title: 'Health Library',
-        description: 'Evidence-based clinical guides and wellness education',
-        icon: BookOpen,
-        href: '/patient/health-library',
-        color: 'text-teal-700 bg-teal-50 border-teal-200',
-    },
-    {
-        title: 'Digital Health Card',
-        description: 'Encrypted clinical QR card for instant doctor scanning',
-        icon: QrCode,
-        href: '/patient/digital-health-card',
-        color: 'text-blue-700 bg-blue-50 border-blue-200',
-        requiresAuth: true,
-    },
-    {
-        title: 'Health Records',
-        description: 'Store prescriptions, lab reports, and vitals history',
-        icon: FileText,
-        href: '/patient/records',
-        color: 'text-purple-700 bg-purple-50 border-purple-200',
-        requiresAuth: true,
-    },
-    {
-        title: 'AI Health Assistant',
-        description: 'AI symptom guidance and triage advice',
-        icon: Bot,
-        href: '/patient/assistant',
-        color: 'text-rose-700 bg-rose-50 border-rose-200',
-        badge: 'AI Smart',
-        requiresAuth: true,
-    },
-    {
-        title: 'Community Q&A',
-        description: 'Ask questions and read doctor answers anonymously',
-        icon: MessageSquare,
-        href: '/patient/community',
-        color: 'text-stone-700 bg-stone-100 border-stone-200',
-    },
-];
+interface AppointmentItem {
+    id: string;
+    appointment_number?: string;
+    appointment_date?: string;
+    date?: string;
+    time_slot?: string;
+    timeSlot?: string;
+    type?: string;
+    status?: string;
+    fee?: number;
+    consultation_fee?: number;
+    payment_status?: string;
+    reason?: string;
+    doctor?: {
+        id?: string;
+        name?: string;
+        specialization?: string;
+        profile_image_url?: string;
+    };
+    clinic?: {
+        name?: string;
+        address?: string;
+        city?: string;
+    };
+    hospital?: {
+        name?: string;
+        address?: string;
+        city?: string;
+    };
+}
 
-export default function PatientDashboard() {
+function formatDisplayDate(dateStr?: string): string {
+    if (!dateStr) return 'Date Pending';
+    const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+    const parts = cleanDate.split('-');
+    if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        if (!isNaN(d.getTime())) {
+            return d.toLocaleDateString(undefined, {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+    }
+    return cleanDate;
+}
+
+function formatTimeSlot(timeSlot?: string): string {
+    if (!timeSlot) return '';
+    const parts = timeSlot.split('-');
+    if (parts.length === 2) {
+        return `${parts[0].trim().slice(0, 5)} - ${parts[1].trim().slice(0, 5)}`;
+    }
+    return timeSlot.slice(0, 5);
+}
+
+function isVideoJoinEligible(appt: AppointmentItem): { canJoin: boolean; reason?: string } {
+    const status = (appt.status || '').toLowerCase();
+    if (status === 'completed') return { canJoin: false, reason: 'Consultation completed' };
+    if (status === 'cancelled' || status === 'rejected') return { canJoin: false, reason: 'Appointment cancelled' };
+    if (appt.type !== 'video') return { canJoin: false };
+
+    const dateVal = appt.appointment_date || appt.date;
+    const timeVal = appt.time_slot || appt.timeSlot;
+    if (!dateVal || !timeVal) return { canJoin: true };
+
+    const cleanDate = dateVal.includes('T') ? dateVal.split('T')[0] : dateVal;
+    const timeMatch = String(timeVal).match(/^(\d{1,2}):(\d{2})/);
+    if (!timeMatch) return { canJoin: true };
+
+    const hours = timeMatch[1].padStart(2, '0');
+    const minutes = timeMatch[2];
+    const istIsoStr = `${cleanDate}T${hours}:${minutes}:00+05:30`;
+    const scheduledStartMs = Date.parse(istIsoStr);
+    if (isNaN(scheduledStartMs)) return { canJoin: true };
+
+    const nowMs = Date.now();
+    const tenMinutesBeforeMs = scheduledStartMs - 10 * 60 * 1000;
+
+    if (nowMs < tenMinutesBeforeMs) {
+        const diffMins = Math.round((scheduledStartMs - nowMs) / (60 * 1000));
+        const diffHours = Math.floor(diffMins / 60);
+        const remainingMins = diffMins % 60;
+        let timeDesc = `${diffMins} mins`;
+        if (diffHours > 24) {
+            const days = Math.floor(diffHours / 24);
+            timeDesc = `${days} day${days > 1 ? 's' : ''}`;
+        } else if (diffHours > 0) {
+            timeDesc = `${diffHours}h ${remainingMins}m`;
+        }
+        return {
+            canJoin: false,
+            reason: `Available in ${timeDesc} (10 min before appointment)`
+        };
+    }
+
+    return { canJoin: true };
+}
+
+export default function PatientPortalPage() {
     const { user, isAuthenticated } = useAuthStore();
     const isPatient = isPatientAuthenticated(user, isAuthenticated);
-    const { requireAuth } = useAuthGate();
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [profile, setProfile] = useState<any>(null);
-    const [dashboardData, setDashboardData] = useState<any>(null);
-    const [healthAlerts, setHealthAlerts] = useState<any[]>([]);
-    const [upcomingAppointments, setUpcomingAppointments] = useState<any[]>([]);
+    const [upcomingAppointments, setUpcomingAppointments] = useState<AppointmentItem[]>([]);
+    const [pastAppointments, setPastAppointments] = useState<AppointmentItem[]>([]);
     const [prescriptions, setPrescriptions] = useState<any[]>([]);
-    const [orders, setOrders] = useState<any[]>([]);
-    const [totalCommunityQuestions, setTotalCommunityQuestions] = useState<number | null>(null);
 
-    // SOS Modal State
-    const [sosModalOpen, setSosModalOpen] = useState(false);
-    const [sosLoading, setSosLoading] = useState(false);
-    const [sosSuccess, setSosSuccess] = useState<any>(null);
-    const [sosError, setSosError] = useState<string | null>(null);
+    // Edit Profile Modal
+    const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+    const [editFormData, setEditFormData] = useState({
+        name: '',
+        phone: '',
+        gender: '',
+        bloodGroup: '',
+        age: ''
+    });
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
 
-    const loadDashboardData = async () => {
+    // App Download Modal
+    const [appModalOpen, setAppModalOpen] = useState(false);
+
+    const loadPortalData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
             if (isPatient) {
-                const [profRes, dashRes, apptsRes, rxRes, ordersRes] = await Promise.allSettled([
+                const [profRes, apptsUpcomingRes, apptsPastRes, rxRes] = await Promise.allSettled([
                     patientApi.getProfile(),
-                    patientApi.getDashboard(),
-                    patientApi.getAppointments({ status: 'upcoming', limit: 3 }),
-                    patientApi.getPrescriptions({ limit: 3 }),
-                    patientApi.getOrders({ limit: 3 }),
+                    patientApi.getAppointments({ status: 'upcoming', limit: 5 }),
+                    patientApi.getAppointments({ status: 'completed', limit: 5 }),
+                    patientApi.getPrescriptions({ limit: 4 }),
                 ]);
 
                 if (profRes.status === 'fulfilled' && profRes.value.success) {
-                    setProfile(profRes.value.data as any);
+                    const pData = profRes.value.data as any;
+                    setProfile(pData);
+                    setEditFormData({
+                        name: pData?.name || user?.name || '',
+                        phone: pData?.phone || user?.phone || '',
+                        gender: pData?.gender || '',
+                        bloodGroup: pData?.blood_group || pData?.bloodGroup || '',
+                        age: pData?.age ? String(pData.age) : ''
+                    });
                 }
-                if (dashRes.status === 'fulfilled' && dashRes.value.success) {
-                    setDashboardData(dashRes.value.data as any);
+                if (apptsUpcomingRes.status === 'fulfilled' && apptsUpcomingRes.value.success) {
+                    setUpcomingAppointments((apptsUpcomingRes.value.data as AppointmentItem[]) || []);
                 }
-                if (apptsRes.status === 'fulfilled' && apptsRes.value.success) {
-                    setUpcomingAppointments((apptsRes.value.data as any[]) || []);
+                if (apptsPastRes.status === 'fulfilled' && apptsPastRes.value.success) {
+                    setPastAppointments((apptsPastRes.value.data as AppointmentItem[]) || []);
                 }
                 if (rxRes.status === 'fulfilled' && rxRes.value.success) {
                     setPrescriptions((rxRes.value.data as any[]) || []);
                 }
-                if (ordersRes.status === 'fulfilled' && ordersRes.value.success) {
-                    setOrders((ordersRes.value.data as any[]) || []);
-                }
-
-                try {
-                    const alertsRes = await patientApi.getHealthAlerts();
-                    if (alertsRes.success && Array.isArray(alertsRes.data)) {
-                        setHealthAlerts(alertsRes.data as any[]);
-                    }
-                } catch {
-                    // Non-fatal
-                }
-            }
-
-            // Load community questions count (matches Android fetchTotalQuestions)
-            try {
-                const commRes = await communityApi.getQuestions({ page: 1, limit: 1 });
-                if (commRes.success && commRes.data) {
-                    setTotalCommunityQuestions(commRes.data.total ?? commRes.data.questions?.length ?? null);
-                }
-            } catch {
-                // Non-fatal
             }
         } catch (err: any) {
             if (isPatient) {
-                setError(err.message || 'Failed to load patient dashboard. Please try again.');
+                setError(err.message || 'Failed to load patient information.');
             }
         } finally {
             setLoading(false);
         }
-    };
+    }, [isPatient, user]);
 
     useEffect(() => {
-        loadDashboardData();
-    }, [isPatient]);
+        loadPortalData();
+    }, [loadPortalData]);
 
-    const handleTriggerSOS = async () => {
-        setSosLoading(true);
-        setSosError(null);
-        setSosSuccess(null);
-
-        if (!navigator.geolocation) {
-            setSosError('Geolocation is not supported by your browser');
-            setSosLoading(false);
-            return;
+    const handleProfileSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSavingProfile(true);
+        try {
+            const res = await patientApi.updateProfile({
+                name: editFormData.name,
+                phone: editFormData.phone,
+                gender: editFormData.gender,
+                bloodGroup: editFormData.bloodGroup,
+                age: editFormData.age ? parseInt(editFormData.age) : undefined
+            });
+            if (res.success) {
+                setSaveSuccess(true);
+                setTimeout(() => {
+                    setSaveSuccess(false);
+                    setIsEditProfileOpen(false);
+                    loadPortalData();
+                }, 800);
+            }
+        } catch (err: any) {
+            console.error('Error updating profile:', err);
+        } finally {
+            setIsSavingProfile(false);
         }
-
-        navigator.geolocation.getCurrentPosition(
-            async (pos) => {
-                try {
-                    const res = await patientApi.requestSOS({
-                        latitude: pos.coords.latitude,
-                        longitude: pos.coords.longitude,
-                        emergencyType: 'medical',
-                    });
-
-                    if (res.success) {
-                        setSosSuccess(res.data || { status: 'dispatched' });
-                    } else {
-                        setSosError(res.message || res.error || 'Failed to dispatch SOS alert');
-                    }
-                } catch (err: any) {
-                    setSosError(err.message || 'Error contacting emergency services');
-                } finally {
-                    setSosLoading(false);
-                }
-            },
-            (err) => {
-                setSosError(`Location permission required: ${err.message}`);
-                setSosLoading(false);
-            },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
     };
+
+    const patientDisplayName = profile?.name || user?.name || 'Patient';
+    const patientEmail = profile?.email || user?.email || 'No email attached';
+    const patientPhone = profile?.phone || user?.phone || 'Not provided';
+    const patientBloodGroup = profile?.blood_group || profile?.bloodGroup || null;
+    const patientGender = profile?.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : null;
+    const patientAge = profile?.age || null;
 
     if (loading) {
         return (
-            <div className="space-y-6 animate-pulse">
-                <div className="h-14 bg-white rounded-2xl border border-stone-200/80" />
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                        <div key={i} className="h-28 bg-white rounded-2xl border border-stone-200/80" />
-                    ))}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="h-44 bg-white rounded-3xl border border-stone-200/80" />
-                    <div className="h-44 bg-white rounded-3xl border border-stone-200/80" />
+            <div className="space-y-6 max-w-5xl mx-auto animate-pulse">
+                <div className="h-28 bg-white dark:bg-gray-900 rounded-3xl border border-stone-200/80 dark:border-gray-800" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2 h-72 bg-white dark:bg-gray-900 rounded-3xl border border-stone-200/80 dark:border-gray-800" />
+                    <div className="h-72 bg-white dark:bg-gray-900 rounded-3xl border border-stone-200/80 dark:border-gray-800" />
                 </div>
             </div>
         );
@@ -263,13 +252,13 @@ export default function PatientDashboard() {
 
     if (error) {
         return (
-            <div className="bg-white rounded-3xl p-8 border border-stone-200 text-center space-y-4">
+            <div className="max-w-2xl mx-auto bg-white dark:bg-gray-900 rounded-3xl p-8 border border-stone-200 dark:border-gray-800 text-center space-y-4">
                 <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
-                <h3 className="text-lg font-bold text-stone-900">Unable to Load Dashboard</h3>
-                <p className="text-stone-600 text-sm max-w-md mx-auto">{error}</p>
+                <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100">Unable to Load Portal Data</h3>
+                <p className="text-stone-600 dark:text-stone-400 text-sm">{error}</p>
                 <button
-                    onClick={loadDashboardData}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-vd-forest text-white rounded-xl font-semibold text-sm hover:bg-vd-forest-deep transition-all shadow-xs cursor-pointer"
+                    onClick={loadPortalData}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-vd-forest text-white rounded-xl font-semibold text-sm hover:bg-vd-forest-deep transition-all cursor-pointer shadow-xs"
                 >
                     <RefreshCw className="w-4 h-4" />
                     <span>Try Again</span>
@@ -279,628 +268,555 @@ export default function PatientDashboard() {
     }
 
     return (
-        <div className="space-y-6">
-            {/* 1. Compact Page Heading & Quick Header Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
-                <div>
-                    <h1 className="font-heading text-2xl sm:text-3xl font-bold text-vd-forest tracking-tight">
-                        How can we help you today?
+        <div className="max-w-5xl mx-auto space-y-8">
+            {/* 1. Welcome & Header Area */}
+            <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 sm:p-8 border border-stone-200/80 dark:border-gray-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-1.5">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-vd-forest dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800 text-xs font-semibold">
+                        <User className="w-3.5 h-3.5" />
+                        <span>Patient Account</span>
+                    </div>
+                    <h1 className="font-heading text-2xl sm:text-3xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
+                        Welcome back, {patientDisplayName}
                     </h1>
-                    <p className="text-xs sm:text-sm text-stone-500 font-normal mt-0.5">
-                        Access care, services and wellness from one connected healthcare platform.
+                    <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 font-normal">
+                        Manage your upcoming appointments, video visits, and basic account profile.
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+                <div className="flex flex-wrap items-center gap-3 shrink-0">
                     <Link
-                        href="/patient/health-library"
-                        className="px-3.5 py-2 bg-white border border-stone-300 hover:border-vd-forest/50 text-vd-forest hover:bg-emerald-50/50 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        href="/doctors"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-vd-forest hover:bg-vd-forest-deep text-white rounded-2xl text-xs sm:text-sm font-bold transition-all shadow-xs cursor-pointer"
                     >
-                        <BookOpen className="w-3.5 h-3.5" />
-                        <span>Health Library</span>
+                        <Stethoscope className="w-4 h-4" />
+                        <span>Find Doctors</span>
                     </Link>
                     <button
-                        onClick={() => setSosModalOpen(true)}
-                        className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        type="button"
+                        onClick={() => setAppModalOpen(true)}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-stone-100 dark:bg-gray-800 hover:bg-stone-200 dark:hover:bg-gray-700 text-stone-800 dark:text-stone-200 rounded-2xl text-xs sm:text-sm font-semibold transition-all cursor-pointer border border-stone-200 dark:border-gray-700"
                     >
-                        <PhoneCall className="w-3.5 h-3.5" />
-                        <span>Emergency SOS</span>
+                        <Smartphone className="w-4 h-4 text-vd-forest" />
+                        <span>Get App</span>
                     </button>
                 </div>
             </div>
 
-            {/* 2. App-Style Quick Action Cards (5 Compact Healthcare Shortcut Tiles) */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-3.5">
-                {/* 01 — Find Hospital */}
-                <Link
-                    href="/patient/hospitals"
-                    className="bg-gradient-to-b from-emerald-50/60 via-white to-emerald-50/20 hover:from-emerald-100/70 hover:to-white p-3.5 sm:p-4 rounded-2xl border border-emerald-200/70 hover:border-emerald-400/80 shadow-2xs hover:shadow-md hover:shadow-emerald-950/5 hover:-translate-y-1 transition-all duration-200 ease-out group flex flex-col justify-between cursor-pointer min-h-[125px] sm:min-h-[135px] motion-reduce:hover:transform-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:outline-none"
-                >
-                    <div className="flex items-center justify-between">
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/95 border border-emerald-200 text-emerald-700 flex items-center justify-center shadow-2xs group-hover:scale-108 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600 group-hover:shadow-sm group-hover:shadow-emerald-600/30 transition-all duration-200">
-                            <Building2 className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-200" />
-                        </div>
-                        <ArrowRight className="w-3.5 h-3.5 text-emerald-500/60 group-hover:text-emerald-700 group-hover:translate-x-1 transition-all duration-200" />
-                    </div>
-
-                    <div className="pt-2">
-                        <h3 className="font-heading font-bold text-stone-900 text-xs sm:text-sm group-hover:text-emerald-950 transition-colors leading-tight">
-                            Find Hospital
-                        </h3>
-                        <p className="text-[11px] text-emerald-800/70 group-hover:text-emerald-800 font-medium mt-0.5 transition-colors">
-                            Explore nearby
-                        </p>
-                    </div>
-                </Link>
-
-                {/* 02 — Find Clinic */}
-                <Link
-                    href="/patient/clinics"
-                    className="bg-gradient-to-b from-teal-50/60 via-white to-teal-50/20 hover:from-teal-100/70 hover:to-white p-3.5 sm:p-4 rounded-2xl border border-teal-200/70 hover:border-teal-400/80 shadow-2xs hover:shadow-md hover:shadow-teal-950/5 hover:-translate-y-1 transition-all duration-200 ease-out group flex flex-col justify-between cursor-pointer min-h-[125px] sm:min-h-[135px] motion-reduce:hover:transform-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
-                >
-                    <div className="flex items-center justify-between">
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/95 border border-teal-200 text-teal-700 flex items-center justify-center shadow-2xs group-hover:scale-108 group-hover:bg-teal-600 group-hover:text-white group-hover:border-teal-600 group-hover:shadow-sm group-hover:shadow-teal-600/30 transition-all duration-200">
-                            <Stethoscope className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-200" />
-                        </div>
-                        <ArrowRight className="w-3.5 h-3.5 text-teal-500/60 group-hover:text-teal-700 group-hover:translate-x-1 transition-all duration-200" />
-                    </div>
-
-                    <div className="pt-2">
-                        <h3 className="font-heading font-bold text-stone-900 text-xs sm:text-sm group-hover:text-teal-950 transition-colors leading-tight">
-                            Find Clinic
-                        </h3>
-                        <p className="text-[11px] text-teal-800/70 group-hover:text-teal-800 font-medium mt-0.5 transition-colors">
-                            Verified centers
-                        </p>
-                    </div>
-                </Link>
-
-                {/* 03 — Order Medicine */}
-                <Link
-                    href="/patient/pharmacy"
-                    className="bg-gradient-to-b from-amber-50/60 via-white to-amber-50/20 hover:from-amber-100/70 hover:to-white p-3.5 sm:p-4 rounded-2xl border border-amber-200/70 hover:border-amber-400/80 shadow-2xs hover:shadow-md hover:shadow-amber-950/5 hover:-translate-y-1 transition-all duration-200 ease-out group flex flex-col justify-between cursor-pointer min-h-[125px] sm:min-h-[135px] motion-reduce:hover:transform-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:outline-none"
-                >
-                    <div className="flex items-center justify-between">
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/95 border border-amber-200 text-amber-700 flex items-center justify-center shadow-2xs group-hover:scale-108 group-hover:bg-amber-600 group-hover:text-white group-hover:border-amber-600 group-hover:shadow-sm group-hover:shadow-amber-600/30 transition-all duration-200">
-                            <Pill className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-200" />
-                        </div>
-                        <ArrowRight className="w-3.5 h-3.5 text-amber-500/60 group-hover:text-amber-700 group-hover:translate-x-1 transition-all duration-200" />
-                    </div>
-
-                    <div className="pt-2">
-                        <h3 className="font-heading font-bold text-stone-900 text-xs sm:text-sm group-hover:text-amber-950 transition-colors leading-tight">
-                            Order Medicine
-                        </h3>
-                        <p className="text-[11px] text-amber-800/70 group-hover:text-amber-800 font-medium mt-0.5 transition-colors">
-                            Doorstep delivery
-                        </p>
-                    </div>
-                </Link>
-
-                {/* 04 — Book Lab Test */}
-                <Link
-                    href="/patient/diagnostics"
-                    className="bg-gradient-to-b from-indigo-50/60 via-white to-indigo-50/20 hover:from-indigo-100/70 hover:to-white p-3.5 sm:p-4 rounded-2xl border border-indigo-200/70 hover:border-indigo-400/80 shadow-2xs hover:shadow-md hover:shadow-indigo-950/5 hover:-translate-y-1 transition-all duration-200 ease-out group flex flex-col justify-between cursor-pointer min-h-[125px] sm:min-h-[135px] motion-reduce:hover:transform-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:outline-none"
-                >
-                    <div className="flex items-center justify-between">
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/95 border border-indigo-200 text-indigo-700 flex items-center justify-center shadow-2xs group-hover:scale-108 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600 group-hover:shadow-sm group-hover:shadow-indigo-600/30 transition-all duration-200">
-                            <Microscope className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-200" />
-                        </div>
-                        <ArrowRight className="w-3.5 h-3.5 text-indigo-500/60 group-hover:text-indigo-700 group-hover:translate-x-1 transition-all duration-200" />
-                    </div>
-
-                    <div className="pt-2">
-                        <h3 className="font-heading font-bold text-stone-900 text-xs sm:text-sm group-hover:text-indigo-950 transition-colors leading-tight">
-                            Book Lab Test
-                        </h3>
-                        <p className="text-[11px] text-indigo-800/70 group-hover:text-indigo-800 font-medium mt-0.5 transition-colors">
-                            Home collection
-                        </p>
-                    </div>
-                </Link>
-
-                {/* 05 — Gym & Coaches */}
-                <Link
-                    href="/fitness-center"
-                    className="bg-gradient-to-b from-purple-50/60 via-white to-purple-50/20 hover:from-purple-100/70 hover:to-white p-3.5 sm:p-4 rounded-2xl border border-purple-200/70 hover:border-purple-400/80 shadow-2xs hover:shadow-md hover:shadow-purple-950/5 hover:-translate-y-1 transition-all duration-200 ease-out group flex flex-col justify-between cursor-pointer min-h-[125px] sm:min-h-[135px] motion-reduce:hover:transform-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-purple-600 focus-visible:outline-none"
-                >
-                    <div className="flex items-center justify-between">
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/95 border border-purple-200 text-purple-700 flex items-center justify-center shadow-2xs group-hover:scale-108 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-600 group-hover:shadow-sm group-hover:shadow-purple-600/30 transition-all duration-200">
-                            <Activity className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-200" />
-                        </div>
-                        <ArrowRight className="w-3.5 h-3.5 text-purple-500/60 group-hover:text-purple-700 group-hover:translate-x-1 transition-all duration-200" />
-                    </div>
-
-                    <div className="pt-2">
-                        <h3 className="font-heading font-bold text-stone-900 text-xs sm:text-sm group-hover:text-purple-950 transition-colors leading-tight">
-                            Gym & Coaches
-                        </h3>
-                        <p className="text-[11px] text-purple-800/70 group-hover:text-purple-800 font-medium mt-0.5 transition-colors">
-                            Fitness & plans
-                        </p>
-                    </div>
-                </Link>
-            </div>
-
-            {/* Section Divider: Consultation Header */}
-            <div className="flex items-center gap-3 pt-0">
-                <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-vd-forest/80">
-                    Your Consultation Options
-                </span>
-                <div className="h-px flex-1 bg-stone-200/80" />
-            </div>
-
-            {/* 3. Primary Consultation Cards (In-Person & Video Consultation) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
-                {/* Card 1: In-Person Consultation */}
-                <Link
-                    href="/patient/doctors?mode=in_person"
-                    className="bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/40 hover:from-emerald-100/90 hover:via-white hover:to-teal-50/60 rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-emerald-200/80 hover:border-emerald-400 shadow-2xs hover:shadow-md hover:shadow-emerald-950/5 hover:-translate-y-1 transition-all duration-200 ease-out group flex flex-col justify-between cursor-pointer motion-reduce:hover:transform-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:outline-none"
-                >
-                    <div className="space-y-2.5">
-                        <div className="flex items-center justify-between gap-2">
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100/80 group-hover:bg-emerald-200/90 text-vd-forest text-[10px] font-bold uppercase tracking-wider border border-emerald-200 transition-colors">
-                                <span>🏥</span>
-                                <span>IN-PERSON CONSULTATION</span>
-                            </div>
-                            <span className="text-[10px] font-bold text-emerald-800 bg-white/90 group-hover:bg-emerald-100/90 px-2 py-0.5 rounded-md border border-emerald-200/70 transition-colors">
-                                120 km Radius
-                            </span>
-                        </div>
-
-                        <div>
-                            <h2 className="font-heading text-base sm:text-lg font-bold text-stone-900 group-hover:text-vd-forest transition-colors leading-snug">
-                                Visit a doctor in person
-                            </h2>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-stone-700 font-medium">
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/70 border border-emerald-100/70 group-hover:bg-white transition-colors">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                <span>Verified doctors</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/70 border border-emerald-100/70 group-hover:bg-white transition-colors">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                <span>Clinic appointments</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="pt-3 mt-2 border-t border-emerald-100/80 flex items-center justify-between">
-                        <span className="text-xs font-bold text-vd-forest group-hover:text-vd-forest-deep flex items-center gap-1.5 transition-colors">
-                            <span>Explore Consultation</span>
-                            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                        </span>
-                        <span className="text-[11px] text-emerald-800/80 font-medium">Hospital & Clinic</span>
-                    </div>
-                </Link>
-
-                {/* Card 2: Video Consultation */}
-                <Link
-                    href="/patient/doctors?mode=video"
-                    className="bg-gradient-to-br from-teal-50/80 via-white to-blue-50/40 hover:from-teal-100/90 hover:via-white hover:to-blue-50/60 rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-teal-200/80 hover:border-teal-400 shadow-2xs hover:shadow-md hover:shadow-teal-950/5 hover:-translate-y-1 transition-all duration-200 ease-out group flex flex-col justify-between cursor-pointer motion-reduce:hover:transform-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:outline-none"
-                >
-                    <div className="space-y-2.5">
-                        <div className="flex items-center justify-between gap-2">
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-100/80 group-hover:bg-teal-200/90 text-teal-800 text-[10px] font-bold uppercase tracking-wider border border-teal-200 transition-colors">
-                                <span>📹</span>
-                                <span>VIDEO CONSULTATION</span>
-                            </div>
-                            <span className="text-[10px] font-bold text-teal-800 bg-white/90 group-hover:bg-teal-100/90 px-2 py-0.5 rounded-md border border-teal-200/70 transition-colors">
-                                Remote Online
-                            </span>
-                        </div>
-
-                        <div>
-                            <h2 className="font-heading text-base sm:text-lg font-bold text-stone-900 group-hover:text-teal-900 transition-colors leading-snug">
-                                Consult from anywhere
-                            </h2>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-stone-700 font-medium">
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/70 border border-teal-100/70 group-hover:bg-white transition-colors">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                                <span>Instant video</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/70 border border-teal-100/70 group-hover:bg-white transition-colors">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                                <span>Digital Rx</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/70 border border-teal-100/70 group-hover:bg-white transition-colors">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                                <span>Secure HD call</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="pt-3 mt-2 border-t border-teal-100/80 flex items-center justify-between">
-                        <span className="text-xs font-bold text-teal-800 group-hover:text-teal-950 flex items-center gap-1.5 transition-colors">
-                            <span>Explore Consultation</span>
-                            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                        </span>
-                        <span className="text-[11px] text-teal-800/80 font-medium">Pan-India Access</span>
-                    </div>
-                </Link>
-            </div>
-
-            {/* Health Outbreak Warnings (if any active alerts) */}
-            {healthAlerts.length > 0 && (
-                <div className="bg-amber-50 border border-amber-200/80 rounded-3xl p-4 sm:p-5 flex items-start gap-4">
-                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 mb-1">
-                            Regional Health Advisory
-                        </h4>
-                        <p className="text-xs text-amber-900 leading-relaxed font-light">
-                            {healthAlerts[0]?.message || 'Health advisory active for your area. Practice preventive care.'}
-                        </p>
-                    </div>
-                </div>
-            )}
-
-            {/* Dashboard Main Grid: Left & Right Columns */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Left Section: Appointments & Health Records */}
-                <div className="lg:col-span-7 space-y-6">
-                    {/* Upcoming Consultations */}
-                    <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-xs">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4 text-vd-forest" />
-                                <h2 className="font-heading text-lg font-bold text-stone-900">
-                                    Upcoming Consultations
-                                </h2>
+            {/* 2. Main Grid: Appointments & Profile */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left (2 Cols): Upcoming Consultations & Appointment History */}
+                <div className="lg:col-span-2 space-y-8">
+                    {/* Section: Upcoming Appointments */}
+                    <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 sm:p-7 border border-stone-200/80 dark:border-gray-800 shadow-xs space-y-5">
+                        <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-gray-800">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-vd-forest dark:text-emerald-300 flex items-center justify-center">
+                                    <Calendar className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <h2 className="font-heading text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
+                                        Upcoming Appointments
+                                    </h2>
+                                    <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                                        Scheduled in-clinic and video consultations
+                                    </p>
+                                </div>
                             </div>
                             <Link
                                 href="/patient/appointments"
-                                className="text-xs font-semibold text-vd-forest hover:text-vd-sage flex items-center gap-1"
+                                className="text-xs font-semibold text-vd-forest hover:text-vd-forest-deep dark:text-emerald-400 flex items-center gap-1"
                             >
                                 <span>View all</span>
                                 <ChevronRight className="w-3.5 h-3.5" />
                             </Link>
                         </div>
 
-                        {!isPatient ? (
-                            <div className="p-8 text-center bg-stone-50/60 rounded-2xl border border-stone-100 space-y-2">
-                                <Calendar className="w-8 h-8 text-stone-300 mx-auto" />
-                                <h4 className="text-xs font-bold text-stone-800">Sign in to view your appointments</h4>
-                                <p className="text-[11px] text-stone-500 font-light max-w-xs mx-auto">
-                                     Track upcoming video consultations and in-clinic appointments with certified doctors.
+                        {upcomingAppointments.length === 0 ? (
+                            <div className="py-10 text-center space-y-3 bg-stone-50/50 dark:bg-gray-800/30 rounded-2xl border border-dashed border-stone-200 dark:border-gray-800 p-6">
+                                <Calendar className="w-10 h-10 text-stone-300 dark:text-stone-600 mx-auto" />
+                                <p className="text-xs font-semibold text-stone-700 dark:text-stone-300">
+                                    No upcoming appointments scheduled
                                 </p>
-                                <div className="pt-2 flex items-center justify-center gap-2">
+                                <p className="text-[11px] text-stone-400 dark:text-stone-500 max-w-sm mx-auto">
+                                    Find certified doctors for in-person clinic visits or instant online video consultations.
+                                </p>
+                                <div className="pt-2">
                                     <Link
-                                        href="/login/patient?redirect=/patient"
-                                        className="px-4 py-2 bg-vd-forest text-white rounded-xl text-xs font-bold shadow-xs hover:bg-vd-forest-deep transition-all"
+                                        href="/doctors"
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-vd-forest text-white rounded-xl text-xs font-bold hover:bg-vd-forest-deep transition-all shadow-xs"
                                     >
-                                        Sign In
-                                    </Link>
-                                    <Link
-                                        href="/patient/doctors"
-                                        className="px-4 py-2 bg-white border border-stone-200 text-stone-700 rounded-xl text-xs font-semibold hover:bg-stone-50 transition-all"
-                                    >
-                                        Find Doctors
+                                        <Stethoscope className="w-3.5 h-3.5" />
+                                        <span>Book an Appointment</span>
                                     </Link>
                                 </div>
                             </div>
-                        ) : upcomingAppointments.length === 0 ? (
-                            <div className="p-8 text-center bg-stone-50/60 rounded-2xl border border-stone-100">
-                                <Calendar className="w-8 h-8 text-stone-300 mx-auto mb-2" />
-                                <p className="text-xs font-medium text-stone-600 mb-1">
-                                    No upcoming appointments scheduled
-                                </p>
-                                <p className="text-[11px] text-stone-400 font-light mb-4">
-                                    Connect with certified doctors via video or book an in-clinic consultation.
-                                </p>
-                                <Link
-                                    href="/patient/doctors"
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-vd-forest text-white rounded-xl text-xs font-bold hover:bg-vd-forest-deep transition-all"
-                                >
-                                    <Plus className="w-3.5 h-3.5" />
-                                    <span>Find a Doctor</span>
-                                </Link>
-                            </div>
                         ) : (
-                            <div className="space-y-3">
-                                {upcomingAppointments.map((appt) => (
-                                    <div
-                                        key={appt.id}
-                                        className="p-4 rounded-2xl bg-stone-50 border border-stone-100 hover:border-vd-forest/30 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-vd-forest flex items-center justify-center font-bold text-xs shrink-0">
-                                                {appt.doctor?.name ? appt.doctor.name.charAt(0) : 'Dr'}
-                                            </div>
-                                            <div>
-                                                <h4 className="font-semibold text-stone-900 text-sm">
-                                                    {appt.doctor?.name || 'Doctor Appointment'}
-                                                </h4>
-                                                <p className="text-[11px] text-stone-500 font-light">
-                                                    {appt.doctor?.specialization || 'General Physician'}
-                                                </p>
-                                                <div className="flex items-center gap-3 text-[10px] text-stone-600 mt-1">
-                                                    <span className="flex items-center gap-1 font-mono">
-                                                        <Clock className="w-3 h-3 text-stone-400" />
-                                                        {appt.appointment_date || appt.date} • {appt.time_slot || appt.timeSlot}
-                                                    </span>
-                                                    <span className="flex items-center gap-1 capitalize font-medium text-vd-forest">
-                                                        {appt.type === 'video' ? (
-                                                            <>
-                                                                <Video className="w-3 h-3" /> Video Call
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Building2 className="w-3 h-3" /> Clinic Visit
-                                                            </>
-                                                        )}
-                                                    </span>
+                            <div className="space-y-4">
+                                {upcomingAppointments.map((appt) => {
+                                    const isVideo = appt.type === 'video';
+                                    const joinState = isVideo ? isVideoJoinEligible(appt) : { canJoin: false };
+                                    const displayDate = formatDisplayDate(appt.appointment_date || appt.date);
+                                    const displayTime = formatTimeSlot(appt.time_slot || appt.timeSlot);
+                                    const docName = appt.doctor?.name || 'Doctor';
+                                    const specialty = appt.doctor?.specialization || 'General Practitioner';
+                                    const facility = appt.clinic?.name || appt.hospital?.name;
+
+                                    return (
+                                        <div
+                                            key={appt.id}
+                                            className="p-5 rounded-2xl bg-stone-50/80 dark:bg-gray-800/50 border border-stone-200/80 dark:border-gray-700/80 hover:border-vd-forest/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                                        >
+                                            <div className="flex items-start gap-3.5">
+                                                <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-vd-forest dark:text-emerald-300 font-bold text-sm flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-800">
+                                                    {docName.charAt(0)}
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="font-heading font-bold text-sm sm:text-base text-stone-900 dark:text-stone-100">
+                                                            {docName}
+                                                        </h3>
+                                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                                            {appt.status || 'Scheduled'}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-vd-forest dark:text-emerald-400 font-medium">
+                                                        {specialty}
+                                                    </p>
+                                                    <div className="flex flex-wrap items-center gap-3 text-xs text-stone-600 dark:text-stone-400 pt-0.5">
+                                                        <span className="flex items-center gap-1 font-mono font-medium">
+                                                            <Calendar className="w-3.5 h-3.5 text-stone-400" />
+                                                            {displayDate}
+                                                        </span>
+                                                        <span className="flex items-center gap-1 font-mono font-medium">
+                                                            <Clock className="w-3.5 h-3.5 text-stone-400" />
+                                                            {displayTime}
+                                                        </span>
+                                                        <span className="flex items-center gap-1 font-semibold">
+                                                            {isVideo ? (
+                                                                <span className="inline-flex items-center gap-1 text-vd-forest dark:text-emerald-400">
+                                                                    <Video className="w-3.5 h-3.5" />
+                                                                    <span>Video Call</span>
+                                                                </span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center gap-1 text-teal-800 dark:text-teal-300">
+                                                                    <Building2 className="w-3.5 h-3.5" />
+                                                                    <span>In-Clinic {facility ? `(${facility})` : ''}</span>
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        <div className="flex items-center gap-2 self-end sm:self-center">
-                                            {appt.type === 'video' && (
+                                            {/* Action Button: Join Call or Details */}
+                                            <div className="flex items-center gap-2 self-end sm:self-center">
+                                                {isVideo && joinState.canJoin && (
+                                                    <Link
+                                                        href={`/consultation/${appt.id}`}
+                                                        className="px-4 py-2 bg-vd-forest hover:bg-vd-forest-deep text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer animate-pulse"
+                                                    >
+                                                        <Video className="w-3.5 h-3.5" />
+                                                        <span>Join Video Consultation</span>
+                                                    </Link>
+                                                )}
+                                                {isVideo && !joinState.canJoin && (
+                                                    <span
+                                                        className="px-3 py-1.5 bg-stone-100 dark:bg-gray-800 text-stone-400 dark:text-stone-500 rounded-xl text-[11px] font-medium"
+                                                        title={joinState.reason}
+                                                    >
+                                                        {joinState.reason || 'Video Call Pending'}
+                                                    </span>
+                                                )}
                                                 <Link
-                                                    href={`/consultation/${appt.id}`}
-                                                    className="px-3.5 py-1.5 bg-vd-forest text-white rounded-xl text-xs font-bold hover:bg-vd-forest-deep transition-all shadow-xs"
+                                                    href="/patient/appointments"
+                                                    className="px-3.5 py-2 bg-white dark:bg-gray-800 border border-stone-200 dark:border-gray-700 text-stone-700 dark:text-stone-300 rounded-xl text-xs font-semibold hover:bg-stone-50 dark:hover:bg-gray-700 transition-colors"
                                                 >
-                                                    Join Call
+                                                    Manage
                                                 </Link>
-                                            )}
-                                            <Link
-                                                href="/patient/appointments"
-                                                className="px-3 py-1.5 bg-white border border-stone-200 text-stone-700 rounded-xl text-xs font-medium hover:bg-stone-50"
-                                            >
-                                                Details
-                                            </Link>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
 
-                    {/* Recent Prescriptions & Pharmacy Activity */}
-                    <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-xs">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <Pill className="w-4 h-4 text-orange-600" />
-                                <h2 className="font-heading text-lg font-bold text-stone-900">
-                                    Prescriptions & Medicine
+                    {/* Section: Appointment History */}
+                    <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 sm:p-7 border border-stone-200/80 dark:border-gray-800 shadow-xs space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-gray-800">
+                            <div>
+                                <h2 className="font-heading text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
+                                    Recent Appointment History
                                 </h2>
+                                <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                                    Past consultations and visits
+                                </p>
                             </div>
                             <Link
-                                href="/patient/records"
-                                className="text-xs font-semibold text-vd-forest hover:text-vd-sage flex items-center gap-1"
+                                href="/patient/appointments"
+                                className="text-xs font-semibold text-vd-forest hover:text-vd-forest-deep dark:text-emerald-400 flex items-center gap-1"
                             >
-                                <span>All Prescriptions</span>
+                                <span>Full History</span>
                                 <ChevronRight className="w-3.5 h-3.5" />
                             </Link>
                         </div>
 
-                        {!isPatient ? (
-                            <div className="p-8 text-center bg-stone-50/60 rounded-2xl border border-stone-100 space-y-2">
-                                <Pill className="w-8 h-8 text-stone-300 mx-auto" />
-                                <h4 className="text-xs font-bold text-stone-800">Sign in to view prescriptions & medicine</h4>
-                                <p className="text-[11px] text-stone-500 font-light max-w-xs mx-auto">
-                                    Access verified electronic prescriptions, medication schedules, and order doorstep pharmacy delivery.
-                                </p>
-                                <div className="pt-2 flex items-center justify-center gap-2">
-                                    <Link
-                                        href="/login/patient?redirect=/patient"
-                                        className="px-4 py-2 bg-vd-forest text-white rounded-xl text-xs font-bold shadow-xs hover:bg-vd-forest-deep transition-all"
-                                    >
-                                        Sign In
-                                    </Link>
-                                    <Link
-                                        href="/patient/pharmacy"
-                                        className="px-4 py-2 bg-white border border-stone-200 text-stone-700 rounded-xl text-xs font-semibold hover:bg-stone-50 transition-all"
-                                    >
-                                        Explore Pharmacy
-                                    </Link>
-                                </div>
-                            </div>
-
-                        ) : prescriptions.length === 0 ? (
-                            <div className="p-6 text-center bg-stone-50/60 rounded-2xl border border-stone-100">
-                                <FileText className="w-6 h-6 text-stone-300 mx-auto mb-1.5" />
-                                <p className="text-xs text-stone-500 font-light">No prescriptions on file yet.</p>
-                            </div>
+                        {pastAppointments.length === 0 ? (
+                            <p className="text-xs text-stone-400 dark:text-stone-500 italic py-2">
+                                No past appointments recorded.
+                            </p>
                         ) : (
-                            <div className="space-y-3">
-                                {prescriptions.map((rx) => (
+                            <div className="divide-y divide-stone-100 dark:divide-gray-800">
+                                {pastAppointments.map((appt) => (
                                     <div
-                                        key={rx.id}
-                                        className="p-4 rounded-2xl bg-stone-50 border border-stone-100 flex items-center justify-between gap-4"
+                                        key={appt.id}
+                                        className="py-3.5 flex items-center justify-between gap-4"
                                     >
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-mono text-[10px] font-bold px-2 py-0.5 bg-white rounded border border-stone-200 text-stone-700">
-                                                    {rx.prescription_number || 'RX'}
-                                                </span>
-                                                <span className="text-xs font-semibold text-stone-900">
-                                                    {rx.diagnosis || 'Clinical Prescription'}
-                                                </span>
-                                            </div>
-                                            <p className="text-[11px] text-stone-500 font-light">
-                                                Prescribed by {rx.doctor?.name || 'Practitioner'} •{' '}
-                                                {new Date(rx.created_at).toLocaleDateString()}
+                                        <div className="space-y-0.5">
+                                            <p className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                                                {appt.doctor?.name || 'Doctor Consultation'}
+                                            </p>
+                                            <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                                                {formatDisplayDate(appt.appointment_date || appt.date)} • {appt.type === 'video' ? 'Video' : 'In-Clinic'}
                                             </p>
                                         </div>
-
-                                        <Link
-                                            href={`/patient/records?tab=prescriptions`}
-                                            className="px-3 py-1.5 rounded-xl bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 text-xs font-medium shrink-0"
-                                        >
-                                            View RX
-                                        </Link>
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-100 dark:bg-gray-800 text-stone-600 dark:text-stone-400">
+                                            Completed
+                                        </span>
                                     </div>
                                 ))}
                             </div>
                         )}
                     </div>
+
+                    {/* Section: Basic Prescriptions & Consultation Notes */}
+                    <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 sm:p-7 border border-stone-200/80 dark:border-gray-800 shadow-xs space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-gray-800">
+                            <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-vd-forest" />
+                                <div>
+                                    <h2 className="font-heading text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
+                                        Recent Prescriptions
+                                    </h2>
+                                    <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                                        Summary of prescriptions from completed consultations
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {prescriptions.length === 0 ? (
+                            <p className="text-xs text-stone-400 dark:text-stone-500 italic py-2">
+                                No active prescriptions on file. Prescriptions are issued by doctors after consultations.
+                            </p>
+                        ) : (
+                            <div className="space-y-3">
+                                {prescriptions.slice(0, 3).map((rx) => (
+                                    <div
+                                        key={rx.id}
+                                        className="p-3.5 rounded-2xl bg-stone-50 dark:bg-gray-800/40 border border-stone-100 dark:border-gray-800 flex items-center justify-between gap-4"
+                                    >
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono text-[10px] font-bold px-2 py-0.5 bg-white dark:bg-gray-800 rounded border border-stone-200 dark:border-gray-700 text-stone-800 dark:text-stone-200">
+                                                    {rx.prescription_number || 'RX'}
+                                                </span>
+                                                <span className="text-xs font-semibold text-stone-900 dark:text-stone-100">
+                                                    {rx.diagnosis || 'Clinical Prescription'}
+                                                </span>
+                                            </div>
+                                            <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1">
+                                                By {rx.doctor?.name || 'Practitioner'} • {rx.created_at ? new Date(rx.created_at).toLocaleDateString() : 'Recent'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200/70 dark:border-emerald-800/60 text-xs text-emerald-900 dark:text-emerald-200 flex items-center justify-between gap-3">
+                            <span className="text-[11px] leading-relaxed">
+                                💡 To view complete medical records, laboratory diagnostic reports, and doorstep medicine refills, open the <strong>Vaididea Patient App</strong>.
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setAppModalOpen(true)}
+                                className="px-3 py-1 bg-vd-forest text-white rounded-lg font-bold text-[11px] shrink-0 cursor-pointer shadow-2xs"
+                            >
+                                Open App
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Right Section: Vitals & Health Insights */}
-                <div className="lg:col-span-5 space-y-6">
-                    {/* Digital Health Card Widget (Matches Android Smart Health Card - Light/Clean Design) */}
-                    <Link
-                        href="/patient/digital-health-card"
-                        className="block relative overflow-hidden bg-gradient-to-r from-emerald-50/70 via-white to-teal-50/40 hover:from-emerald-100/80 hover:via-white hover:to-teal-50/60 rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-emerald-200/80 hover:border-emerald-400/80 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 transition-all duration-200 ease-out group cursor-pointer motion-reduce:hover:transform-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:outline-none"
-                    >
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
-                                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-emerald-100/80 border border-emerald-200/80 text-vd-forest flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600 transition-all duration-200">
-                                    <QrCode className="w-5 h-5 sm:w-6 sm:h-6 transition-colors" />
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <h3 className="font-heading font-bold text-sm sm:text-base text-stone-900 group-hover:text-vd-forest transition-colors truncate">
-                                            Digital Health Card
-                                        </h3>
-                                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-vd-forest border border-emerald-200/90 uppercase tracking-wider shrink-0">
-                                            QR ENABLED
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-stone-500 font-normal mt-0.5 truncate sm:whitespace-normal">
-                                        Tap to view 24h QR code & emergency vitals
-                                    </p>
-                                </div>
+                {/* Right (1 Col): Basic Profile Settings & App Promotion */}
+                <div className="space-y-8" id="profile">
+                    {/* Basic Profile Card */}
+                    <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 border border-stone-200/80 dark:border-gray-800 shadow-xs space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-gray-800">
+                            <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-vd-forest" />
+                                <h3 className="font-heading text-base font-bold text-stone-900 dark:text-stone-100">
+                                    Account Profile
+                                </h3>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-emerald-600/70 group-hover:text-vd-forest group-hover:translate-x-1 transition-all duration-200 shrink-0" />
+                            <button
+                                type="button"
+                                onClick={() => setIsEditProfileOpen(true)}
+                                className="inline-flex items-center gap-1 text-xs font-bold text-vd-forest hover:text-vd-forest-deep dark:text-emerald-400 cursor-pointer"
+                            >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Edit</span>
+                            </button>
                         </div>
-                    </Link>
 
-                    {/* Recommended Doctors Carousel */}
-                    <RecommendedDoctorCarousel />
+                        <div className="space-y-3 text-xs">
+                            <div>
+                                <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider">
+                                    Full Name
+                                </span>
+                                <p className="font-semibold text-stone-900 dark:text-stone-100 text-sm mt-0.5">
+                                    {patientDisplayName}
+                                </p>
+                            </div>
 
-                    {/* Community Health Q&A Card (Replaces AI Symptom Assistant card, matches Android CommunityQABanner) */}
-                    <div className="bg-white rounded-3xl p-6 border border-emerald-100/90 shadow-xs space-y-4 relative overflow-hidden bg-gradient-to-br from-emerald-50/40 via-white to-stone-50/50">
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                                <div className="w-11 h-11 rounded-2xl bg-emerald-100/80 text-vd-forest flex items-center justify-center shrink-0 border border-emerald-200/80 shadow-2xs">
-                                    <MessageSquare className="w-5 h-5 text-vd-forest" />
+                            <div>
+                                <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider">
+                                    Email Address
+                                </span>
+                                <p className="font-medium text-stone-700 dark:text-stone-300 mt-0.5">
+                                    {patientEmail}
+                                </p>
+                            </div>
+
+                            <div>
+                                <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider">
+                                    Phone Number
+                                </span>
+                                <p className="font-medium text-stone-700 dark:text-stone-300 mt-0.5">
+                                    {patientPhone}
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-stone-100 dark:border-gray-800">
+                                <div>
+                                    <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider">
+                                        Blood Group
+                                    </span>
+                                    <p className="font-semibold text-rose-600 dark:text-rose-400 mt-0.5">
+                                        {patientBloodGroup ? `🩸 ${patientBloodGroup}` : 'Not Specified'}
+                                    </p>
                                 </div>
                                 <div>
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="font-heading text-base font-bold text-stone-900">
-                                            Community Health Q&A
-                                        </h3>
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100/80 text-emerald-800 text-[9px] font-bold tracking-wider uppercase border border-emerald-200">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                            <span>LIVE</span>
-                                        </span>
-                                    </div>
-                                    <p className="text-[11px] text-vd-forest font-semibold mt-0.5">
-                                        {totalCommunityQuestions ? `${totalCommunityQuestions}+ active discussions` : 'Verified doctor answers & patient discussions'}
+                                    <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider">
+                                        Gender / Age
+                                    </span>
+                                    <p className="font-semibold text-stone-800 dark:text-stone-200 mt-0.5">
+                                        {[patientGender, patientAge ? `${patientAge} yrs` : null].filter(Boolean).join(' • ') || 'Not Set'}
                                     </p>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <p className="text-xs text-stone-600 leading-relaxed font-light">
-                            Ask health questions, learn from verified answers, and explore conversations from the Vaididea community.
-                        </p>
+                    {/* Prominent Vaididea Patient App Promotion Banner */}
+                    <div className="bg-gradient-to-br from-vd-forest via-emerald-900 to-stone-900 text-white rounded-3xl p-6 sm:p-7 shadow-lg relative overflow-hidden space-y-5">
+                        <div className="space-y-2">
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-emerald-200 border border-white/20 text-[11px] font-bold uppercase tracking-wider">
+                                <Sparkles className="w-3.5 h-3.5" />
+                                <span>Patient Mobile App</span>
+                            </div>
+                            <h3 className="font-heading text-xl sm:text-2xl font-bold tracking-tight text-white leading-snug">
+                                Your healthcare, all in one app.
+                            </h3>
+                            <p className="text-xs text-emerald-100/90 leading-relaxed font-light">
+                                Download the <strong>Vaididea Patient App</strong> for advanced personal healthcare management:
+                            </p>
+                        </div>
 
-                        <div className="pt-1 flex flex-wrap items-center gap-2.5">
-                            <Link
-                                href="/patient/community?action=ask"
-                                className="px-4 py-2.5 bg-vd-forest hover:bg-vd-forest-deep text-white rounded-xl text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+                        <div className="grid grid-cols-2 gap-2 text-[11px] text-emerald-50">
+                            <div className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                                <span>Health Records & EHR</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                                <span>Digital Health Card</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                                <span>ABHA Health ID</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                                <span>Doorstep Medicines</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                                <span>Home Lab Diagnostics</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                                <span>AI Health Assistant</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                                <span>Doctor Community Q&A</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                                <span>Emergency SOS Alert</span>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 space-y-2">
+                            <button
+                                type="button"
+                                onClick={() => setAppModalOpen(true)}
+                                className="w-full py-3 bg-white hover:bg-stone-100 text-vd-forest font-bold rounded-2xl text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
                             >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>Ask a Question</span>
-                            </Link>
+                                <Smartphone className="w-4 h-4" />
+                                <span>Download Vaididea App</span>
+                            </button>
 
-                            <Link
-                                href="/patient/community"
-                                className="px-4 py-2.5 bg-stone-100 hover:bg-emerald-50 text-stone-800 hover:text-vd-forest border border-stone-200 hover:border-emerald-200 rounded-xl text-xs font-semibold transition-all inline-flex items-center gap-1 cursor-pointer"
+                            <button
+                                type="button"
+                                onClick={() => setAppModalOpen(true)}
+                                className="w-full py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-2xl text-xs transition-all border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
                             >
-                                <span>Explore Q&A</span>
-                                <ArrowRight className="w-3.5 h-3.5" />
-                            </Link>
+                                <QrCode className="w-4 h-4" />
+                                <span>Scan QR Code</span>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-
-
-            {/* Emergency SOS Modal */}
-            {sosModalOpen && (
+            {/* Edit Profile Modal */}
+            {isEditProfileOpen && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
-                    onClick={() => setSosModalOpen(false)}
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
+                    onClick={() => setIsEditProfileOpen(false)}
                 >
                     <div
-                        className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-rose-200 text-center"
+                        className="bg-white dark:bg-gray-900 rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-stone-200 dark:border-gray-800 space-y-4"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <button
-                            onClick={() => setSosModalOpen(false)}
-                            className="absolute top-4 right-4 p-1 rounded-lg text-stone-400 hover:text-stone-700"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-
-                        <div className="w-16 h-16 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4 animate-pulse">
-                            <PhoneCall className="w-8 h-8" />
-                        </div>
-
-                        <h3 className="font-heading font-bold text-xl text-stone-900 mb-2">
-                            Emergency SOS Dispatch
+                        <h3 className="font-heading font-bold text-lg text-stone-900 dark:text-stone-100">
+                            Update Account Profile
                         </h3>
 
-                        <p className="text-xs text-stone-600 leading-relaxed font-light mb-6 max-w-sm mx-auto">
-                            Pressing confirm will capture your current GPS location and send an immediate emergency
-                            broadcast to registered ambulances, nearby hospitals, and your emergency contacts.
-                        </p>
-
-                        {sosError && (
-                            <div className="p-3 mb-4 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
-                                {sosError}
+                        <form onSubmit={handleProfileSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                                    Full Name
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={editFormData.name}
+                                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                                    className="w-full p-2.5 rounded-xl border border-stone-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                />
                             </div>
-                        )}
 
-                        {sosSuccess && (
-                            <div className="p-4 mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 text-left space-y-1">
-                                <p className="font-bold flex items-center gap-1.5 text-emerald-900">
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                    <span>Emergency Broadcast Activated</span>
-                                </p>
-                                <p className="text-[11px] text-emerald-700">
-                                    Status: {sosSuccess.status || 'Broadcasting'} • Round: {sosSuccess.broadcast_round || 1}
-                                </p>
+                            <div>
+                                <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                                    Phone Number
+                                </label>
+                                <input
+                                    type="tel"
+                                    value={editFormData.phone}
+                                    onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                                    className="w-full p-2.5 rounded-xl border border-stone-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                />
                             </div>
-                        )}
 
-                        <div className="flex flex-col gap-2">
-                            {!sosSuccess ? (
-                                <button
-                                    onClick={handleTriggerSOS}
-                                    disabled={sosLoading}
-                                    className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-                                >
-                                    {sosLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                                    <span>Confirm & Send SOS Now</span>
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={() => setSosModalOpen(false)}
-                                    className="w-full py-3 bg-vd-forest text-white rounded-xl font-bold text-xs"
-                                >
-                                    Done
-                                </button>
-                            )}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                                        Gender
+                                    </label>
+                                    <select
+                                        value={editFormData.gender}
+                                        onChange={(e) => setEditFormData({ ...editFormData, gender: e.target.value })}
+                                        className="w-full p-2.5 rounded-xl border border-stone-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                    >
+                                        <option value="">Select Gender</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
 
-                            <button
-                                onClick={() => setSosModalOpen(false)}
-                                className="w-full py-2.5 text-stone-500 hover:text-stone-800 text-xs font-semibold"
-                            >
-                                Close
-                            </button>
-                        </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                                        Blood Group
+                                    </label>
+                                    <select
+                                        value={editFormData.bloodGroup}
+                                        onChange={(e) => setEditFormData({ ...editFormData, bloodGroup: e.target.value })}
+                                        className="w-full p-2.5 rounded-xl border border-stone-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="A+">A+</option>
+                                        <option value="A-">A-</option>
+                                        <option value="B+">B+</option>
+                                        <option value="B-">B-</option>
+                                        <option value="AB+">AB+</option>
+                                        <option value="AB-">AB-</option>
+                                        <option value="O+">O+</option>
+                                        <option value="O-">O-</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                                    Age (Years)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="120"
+                                    value={editFormData.age}
+                                    onChange={(e) => setEditFormData({ ...editFormData, age: e.target.value })}
+                                    className="w-full p-2.5 rounded-xl border border-stone-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-2 border-t border-stone-100 dark:border-gray-800">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsEditProfileOpen(false)}
+                                    className="px-4 py-2 text-xs font-semibold text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-gray-800 rounded-xl cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSavingProfile}
+                                    className="px-5 py-2 bg-vd-forest text-white rounded-xl text-xs font-bold hover:bg-vd-forest-deep transition-all flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+                                >
+                                    {isSavingProfile ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : saveSuccess ? (
+                                        <Check className="w-3.5 h-3.5" />
+                                    ) : null}
+                                    <span>{saveSuccess ? 'Saved!' : 'Save Changes'}</span>
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
+
+            {/* Shared App Download Modal */}
+            <AppDownloadModal
+                isOpen={appModalOpen}
+                onClose={() => setAppModalOpen(false)}
+            />
         </div>
     );
 }

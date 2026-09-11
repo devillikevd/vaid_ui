@@ -12,7 +12,7 @@ import { Step3Clinic } from './Step3Clinic';
 import { Step4Documents } from './Step4Documents';
 import { Step5Preview } from './Step5Preview';
 import { Step6Success } from './Step6Success';
-import { authApi, uploadApi } from '@/lib/api';
+import { authApi, uploadApi, doctorApi } from '@/lib/api';
 
 const STEPS = [
     { id: 1, title: 'Basic Information' },
@@ -35,6 +35,7 @@ const FEATURES = [
 export default function PremiumDoctorWizard() {
     const [step, setStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
+    const [isAccountCreated, setIsAccountCreated] = useState(false);
     
     const [formData, setFormData] = useState({
         name: '', email: '', phone: '', password: '', confirmPassword: '',
@@ -58,62 +59,125 @@ export default function PremiumDoctorWizard() {
     const handleNext = () => { if (step < 6) setStep(s => s + 1); };
     const handleBack = () => { if (step > 1) setStep(s => s - 1); };
     
+    const extractStorageUrl = (res: any): string | null => {
+        if (!res || !res.success) return null;
+        const d = res.data;
+        if (!d) return null;
+        if (typeof d === 'string') return d;
+        return (d.storageUrl || d.storage_url || d.url || d.fileUrl || d.resolvedUrl || d.objectName || null) as string | null;
+    };
+
     const handleSubmit = async () => {
         setIsLoading(true);
         setErrors({ submit: '' });
+
+        // Required documents check before initiating submission
+        if (!formData.registrationCert) {
+            setErrors({ submit: 'Medical Registration Certificate is required. Please go back to Step 4 to select your certificate.' });
+            setIsLoading(false);
+            return;
+        }
+        if (!formData.mbbsCert) {
+            setErrors({ submit: 'MBBS/Degree Certificate is required. Please go back to Step 4 to select your certificate.' });
+            setIsLoading(false);
+            return;
+        }
+
         try {
-            // 1. Register
-            const regRes = await authApi.register({
-                email: formData.email,
-                phone: formData.phone,
-                password: formData.password,
-                name: formData.name,
-                role: 'doctor',
-                specialization: formData.primarySpecialization || formData.specializations[0] || '',
-                specializations: formData.specializations,
-                medicalCouncil: formData.medicalCouncil,
-                registrationNumber: formData.registrationNumber,
-                licenseNumber: formData.registrationNumber, // Backend requires this field
-                qualifications: formData.qualifications,
-                experienceYears: formData.experienceYears || 0,
-                consultationFee: formData.clinicFee || 0,
-                videoConsultationFee: formData.videoFee || 0,
-                languages: formData.languages,
-                // Clinic Info
-                clinicName: formData.clinicName,
-                address: formData.address,
-                city: formData.city,
-                state: formData.state,
-                pincode: formData.pincode,
-                latitude: formData.latitude,
-                longitude: formData.longitude,
-            });
+            // Step 1: Create the doctor account if not already created (prevents duplicate error on retry)
+            if (!isAccountCreated) {
+                const regRes = await authApi.register({
+                    email: formData.email,
+                    phone: formData.phone,
+                    password: formData.password,
+                    name: formData.name,
+                    role: 'doctor',
+                    specialization: formData.primarySpecialization || formData.specializations[0] || '',
+                    specializations: formData.specializations,
+                    medicalCouncil: formData.medicalCouncil,
+                    registrationNumber: formData.registrationNumber,
+                    licenseNumber: formData.registrationNumber,
+                    qualifications: formData.qualifications,
+                    experienceYears: formData.experienceYears || 0,
+                    consultationFee: formData.clinicFee || 0,
+                    videoConsultationFee: formData.videoFee || 0,
+                    languages: formData.languages,
+                    clinicName: formData.clinicName,
+                    address: formData.address,
+                    city: formData.city,
+                    state: formData.state,
+                    pincode: formData.pincode,
+                    latitude: formData.latitude,
+                    longitude: formData.longitude,
+                });
 
-            if (!regRes.success && regRes.error) {
-                throw new Error(regRes.error);
+                if (!regRes.success && regRes.error) {
+                    throw new Error(regRes.error);
+                }
+                setIsAccountCreated(true);
             }
 
-            // 2. Login to get token
-            const loginRes = await authApi.login(formData.email, formData.password, 'doctor');
-            if (!loginRes.success) {
-                throw new Error('Account created, but failed to log in automatically. Please sign in manually to upload documents.');
+            // Step 2: Upload mandatory documents — both must succeed
+            const regCertRes = await uploadApi.uploadFile(formData.registrationCert, 'license');
+            const regCertUrl = extractStorageUrl(regCertRes);
+            if (!regCertRes.success || !regCertUrl) {
+                throw new Error(`Failed to upload Registration Certificate: ${regCertRes.error || regCertRes.message || 'No storage URL returned'}`);
             }
 
-            // 3. Upload Documents
-            try {
-                if (formData.profilePhoto) await uploadApi.uploadFile(formData.profilePhoto, 'profile');
-                if (formData.registrationCert) await uploadApi.uploadFile(formData.registrationCert, 'license');
-                if (formData.mbbsCert) await uploadApi.uploadFile(formData.mbbsCert, 'document');
-                if (formData.aadhaarCard) await uploadApi.uploadFile(formData.aadhaarCard, 'document');
-            } catch (uploadErr) {
-                console.error("Document upload error:", uploadErr);
-                // We don't block success if upload fails slightly, they can upload later
+            const mbbsRes = await uploadApi.uploadFile(formData.mbbsCert, 'document');
+            const mbbsUrl = extractStorageUrl(mbbsRes);
+            if (!mbbsRes.success || !mbbsUrl) {
+                throw new Error(`Failed to upload MBBS/Degree Certificate: ${mbbsRes.error || mbbsRes.message || 'No storage URL returned'}`);
             }
 
+            // Step 3: Upload optional documents — non-fatal warnings
+            let profileUrl: string | undefined;
+            if (formData.profilePhoto) {
+                try {
+                    const profileRes = await uploadApi.uploadFile(formData.profilePhoto, 'profile');
+                    profileUrl = extractStorageUrl(profileRes) || undefined;
+                } catch (pErr: any) {
+                    console.warn('[PremiumDoctorWizard] Profile photo upload warning:', pErr.message);
+                }
+            }
+
+            let aadhaarUrl: string | undefined;
+            if (formData.aadhaarCard) {
+                try {
+                    const aadhaarRes = await uploadApi.uploadFile(formData.aadhaarCard, 'document');
+                    aadhaarUrl = extractStorageUrl(aadhaarRes) || undefined;
+                } catch (aErr: any) {
+                    console.warn('[PremiumDoctorWizard] Aadhaar card upload warning:', aErr.message);
+                }
+            }
+
+            // Step 4: Persist uploaded document URLs into doctor profile in DB
+            const updatePayload: Record<string, any> = {
+                license_document_url: regCertUrl,
+                degree_certificate_url: mbbsUrl,
+            };
+            if (profileUrl) updatePayload.profile_image_url = profileUrl;
+            if (aadhaarUrl) {
+                updatePayload.government_id_url = aadhaarUrl;
+                updatePayload.government_id_type = 'Aadhaar';
+            }
+
+            const updateRes = await doctorApi.updateProfile(updatePayload);
+            if (!updateRes.success) {
+                throw new Error(updateRes.error || updateRes.message || 'Failed to save uploaded documents to your profile.');
+            }
+
+            // Step 5: Submit profile for administrative approval
+            const approvalRes = await doctorApi.submitForApproval();
+            if (!approvalRes.success) {
+                throw new Error(approvalRes.error || approvalRes.message || 'Failed to submit application for approval.');
+            }
+
+            // Step 6: Registration & document submission complete! Proceed to success screen
             setStep(6);
         } catch (error: any) {
             console.error('Registration failed:', error);
-            setErrors({ submit: error.message || 'An unexpected error occurred during registration.' });
+            setErrors({ submit: error.message || 'An unexpected error occurred during registration. Please retry.' });
         } finally {
             setIsLoading(false);
         }

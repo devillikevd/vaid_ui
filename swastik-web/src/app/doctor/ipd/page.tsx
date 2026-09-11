@@ -414,18 +414,18 @@ export default function DoctorIpdPage() {
 
             {/* LOG DAILY WARD ROUND MODAL */}
             {showRoundModal && selectedAdmission && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl border border-gray-200 dark:border-gray-800 max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
-                            <div>
-                                <h3 className="font-extrabold text-lg text-gray-900 dark:text-white">Log Daily Ward Round Note</h3>
-                                <p className="text-xs text-gray-500 font-medium">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl max-w-xl w-full p-4 sm:p-6 space-y-4 shadow-2xl border border-gray-200 dark:border-gray-800 max-h-[92dvh] overflow-y-auto">
+                        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3 gap-2">
+                            <div className="min-w-0 flex-1">
+                                <h3 className="font-extrabold text-base sm:text-lg text-gray-900 dark:text-white truncate">Log Daily Ward Round Note</h3>
+                                <p className="text-[11px] sm:text-xs text-gray-500 font-medium truncate">
                                     Patient: <strong>{selectedAdmission.patient?.name}</strong> • Bed: {selectedAdmission.bed?.bed_number} ({selectedAdmission.ward?.name})
                                 </p>
                             </div>
                             <button
                                 onClick={() => setShowRoundModal(false)}
-                                className="p-1 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"
+                                className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 shrink-0"
                             >
                                 <X className="h-5 w-5" />
                             </button>
@@ -434,7 +434,7 @@ export default function DoctorIpdPage() {
                         {/* Vitals Snapshot */}
                         <div>
                             <label className="text-xs font-extrabold text-gray-700 dark:text-gray-300 mb-1.5 block">Vitals Snapshot at Round</label>
-                            <div className="grid grid-cols-5 gap-2 text-xs">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
                                 <div>
                                     <span className="text-gray-500 font-semibold">BP (mmHg)</span>
                                     <Input value={roundForm.bp} onChange={e => setRoundForm({ ...roundForm, bp: e.target.value })} placeholder="120/80" className="h-9 text-xs rounded-xl" />

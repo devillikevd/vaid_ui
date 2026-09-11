@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
   },
   // Required for Docker standalone builds (Dockerfile copies from .next/standalone)
   output: 'standalone',
+  devIndicators: false,
   turbopack: {
     root: rootDir,
   },

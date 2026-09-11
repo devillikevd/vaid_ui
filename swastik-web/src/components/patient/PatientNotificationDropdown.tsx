@@ -245,7 +245,7 @@ export default function PatientNotificationDropdown() {
 
             {/* Dropdown Popover */}
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-3xl shadow-2xl border border-stone-200/90 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute right-0 mt-2 w-[min(calc(100vw-24px),24rem)] bg-white rounded-3xl shadow-2xl border border-stone-200/90 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                     {/* Popover Header */}
                     <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/60">
                         <div className="flex items-center gap-2">

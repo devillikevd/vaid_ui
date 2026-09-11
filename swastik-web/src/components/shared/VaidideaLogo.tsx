@@ -56,7 +56,7 @@ interface VaidideaBrandProps {
 export function VaidideaBrand({
   className = '',
   logoClassName = 'w-9 h-9',
-  textClassName = 'text-xl font-bold tracking-tight text-white font-heading uppercase',
+  textClassName = 'text-xl font-bold tracking-tight text-white uppercase',
   href = '/',
   ariaLabel = 'Vaididea Home',
   wordmark = 'VAIDIDEA',

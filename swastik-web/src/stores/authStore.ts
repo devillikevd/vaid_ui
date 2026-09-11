@@ -256,9 +256,10 @@ export const useAuthStore = create<AuthState>()(
             },
 
             logout: () => {
-                if (!IS_PRESENTATION_MODE && typeof document !== 'undefined') {
+                if (typeof document !== 'undefined') {
                     document.cookie = 'swastik-role=; path=/; max-age=0';
                     document.cookie = 'swastik-token=; path=/; max-age=0';
+                    document.cookie = 'accessToken=; path=/; max-age=0';
                 }
                 // Sync clear to api.ts module + storage
                 syncClearTokens();

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -24,34 +25,37 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!doc) {
     return {
-      title: 'Doctor Profile',
-      description: 'Book verified doctor appointments and consultations on the Vaididea healthcare platform.',
-      alternates: {
-        canonical: `/doctors/${id}`,
-      },
-      openGraph: {
-        title: 'Doctor Profile | Vaididea',
-        description: 'Book verified doctor appointments and consultations on the Vaididea healthcare platform.',
-        url: `https://www.vaididea.in/doctors/${id}`,
-        siteName: 'Vaididea',
-        type: 'profile',
-      },
-      twitter: {
-        card: 'summary_large_image',
-        title: 'Doctor Profile | Vaididea',
-        description: 'Book verified doctor appointments and consultations on the Vaididea healthcare platform.',
+      title: 'Doctor Not Found | Vaididea',
+      description: 'The requested doctor profile could not be found on Vaididea.',
+      robots: {
+        index: false,
+        follow: false,
       },
     };
   }
 
   const name = doc.name || (doc.first_name ? `Dr. ${doc.first_name} ${doc.last_name || ''}`.trim() : 'Doctor');
   const specialty = doc.specialization || doc.department || 'Healthcare Specialist';
-  const qualifications = doc.qualifications ? ` (${doc.qualifications})` : '';
+  const qualifications = doc.qualifications
+    ? Array.isArray(doc.qualifications)
+      ? ` (${doc.qualifications.join(', ')})`
+      : ` (${doc.qualifications})`
+    : '';
 
-  const title = `${name}${qualifications} — ${specialty}`;
-  const description = doc.bio
-    ? doc.bio.slice(0, 160)
-    : `Book an in-person or video consultation with ${name}, ${specialty} on the Vaididea healthcare network.`;
+  const facility = doc.hospital_name || doc.clinic_name || (doc.hospital && doc.hospital.name) || '';
+  const experienceYears = doc.experience_years ?? doc.experienceYears ?? doc.experience;
+
+  const title = `Dr. ${name.replace(/^(Dr\.|Dr)\s+/i, '')}${qualifications} — ${specialty} | Vaididea`;
+  
+  let description = doc.bio ? doc.bio.slice(0, 160) : '';
+  if (!description) {
+    const details = [
+      specialty,
+      experienceYears ? `${experienceYears}+ years experience` : null,
+      facility ? `practicing at ${facility}` : null,
+    ].filter(Boolean).join(', ');
+    description = `Book an in-person or video consultation with ${name}${details ? ` (${details})` : ''} on the Vaididea healthcare platform.`;
+  }
 
   return {
     title,
@@ -60,16 +64,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       canonical: `/doctors/${id}`,
     },
     openGraph: {
-      title: `${title} | Vaididea`,
+      title,
       description,
       url: `https://www.vaididea.in/doctors/${id}`,
       siteName: 'Vaididea',
       type: 'profile',
+      images: doc.profile_image_url || doc.avatar_url ? [{ url: doc.profile_image_url || doc.avatar_url, alt: name }] : undefined,
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${title} | Vaididea`,
+      title,
       description,
+      images: doc.profile_image_url || doc.avatar_url ? [doc.profile_image_url || doc.avatar_url] : undefined,
     },
   };
 }
@@ -78,16 +84,19 @@ export default async function DoctorDetailLayout({
   params,
   children,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<any>;
   children: React.ReactNode;
 }) {
   const { id } = await params;
   const doc = await fetchDoctor(id);
 
-  const name = doc
-    ? doc.name || (doc.first_name ? `Dr. ${doc.first_name} ${doc.last_name || ''}`.trim() : 'Doctor')
-    : 'Doctor Profile';
-  const specialty = doc ? doc.specialization || doc.department || undefined : undefined;
+  if (!doc) {
+    notFound();
+  }
+
+  const rawName = doc.name || (doc.first_name ? `Dr. ${doc.first_name} ${doc.last_name || ''}`.trim() : 'Doctor');
+  const name = rawName.startsWith('Dr.') || rawName.startsWith('Dr ') ? rawName : `Dr. ${rawName}`;
+  const specialty = doc.specialization || doc.department || undefined;
 
   const graphItems: any[] = [
     {
@@ -103,8 +112,8 @@ export default async function DoctorDetailLayout({
         {
           '@type': 'ListItem',
           'position': 2,
-          'name': 'Doctors',
-          'item': 'https://www.vaididea.in/patient/doctors',
+          'name': 'Find Doctors',
+          'item': 'https://www.vaididea.in/doctors',
         },
         {
           '@type': 'ListItem',
@@ -175,11 +184,18 @@ export default async function DoctorDetailLayout({
     '@graph': graphItems,
   };
 
+  const sanitizedDoctorJsonLd = JSON.stringify(doctorJsonLd).replace(/</g, '\\u003c');
+
   return (
     <>
+      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(doctorJsonLd) }}
+        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        dangerouslySetInnerHTML={{
+          // nosemgrep
+          __html: sanitizedDoctorJsonLd,
+        }}
       />
       {children}
     </>

@@ -161,10 +161,10 @@ router.post('/me/reviews/:id/respond',
   })
 );
 
-// Update doctor profile
+// Update doctor profile (also accessible during registration wizard by doctor_pending)
 router.put('/me/profile',
   authenticate,
-  authorize('doctor'),
+  authorize('doctor', 'doctor_pending'),
   [
     body('name').optional().notEmpty(),
     body('specialization').optional().notEmpty(),
@@ -198,6 +198,14 @@ router.put('/me/profile',
     body('clinic_pincode').optional().isString().trim(),
     body('clinic_map_url').optional().isString().trim(),
     body('clinic_photo_url').optional().isString().trim(),
+    body('pan_card_url').optional().isString().trim(),
+    body('cancelled_cheque_url').optional().isString().trim(),
+    body('clinic_license_url').optional().isString().trim(),
+    body('digital_signature_url').optional().isString().trim(),
+    body('bank_account_number').optional().isString().trim(),
+    body('bank_ifsc').optional().isString().trim(),
+    body('bank_upi').optional().isString().trim(),
+    body('consultation_types').optional().isArray(),
   ],
   validate,
   asyncHandler(async (req, res) => {
@@ -206,20 +214,20 @@ router.put('/me/profile',
   })
 );
 
-// Submit profile for approval
+// Submit profile for approval (accessible by doctor_pending during registration wizard)
 router.post('/me/submit-for-approval',
   authenticate,
-  authorize('doctor'),
+  authorize('doctor', 'doctor_pending'),
   asyncHandler(async (req, res) => {
     const result = await doctorService.submitForApproval(req.user.id);
     res.json({ success: true, ...result });
   })
 );
 
-// Update verification documents
+// Update verification documents (accessible by doctor_pending during registration wizard)
 router.put('/me/verification-documents',
   authenticate,
-  authorize('doctor'),
+  authorize('doctor', 'doctor_pending'),
   [
     body('degree_certificate_url').optional().isString().trim(),
     body('license_document_url').optional().isString().trim(),

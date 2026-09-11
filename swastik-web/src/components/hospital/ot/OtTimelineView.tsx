@@ -72,23 +72,23 @@ export function OtTimelineView({
     }
 
     return (
-        <div className="bg-white dark:bg-gray-900 rounded-3xl border border-slate-200/80 dark:border-gray-800 p-4 shadow-2xs space-y-4 overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-3xl border border-slate-200/80 dark:border-gray-800 p-4 shadow-2xs space-y-4 overflow-hidden w-full max-w-full">
             
             {/* Header & Time Grid Bar */}
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-gray-800 pb-2">
-                <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-teal-600" />
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-gray-800 pb-2 gap-1.5 sm:gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                    <Clock className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
                         Operational Theatre Schedule Timeline (08:00 AM – 08:00 PM)
                     </span>
                 </div>
-                <span className="text-[11px] text-slate-500 font-medium">
+                <span className="text-[11px] text-slate-500 font-medium shrink-0">
                     Date: {new Date(selectedDate).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
                 </span>
             </div>
 
             {/* Timeline Container */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto w-full max-w-full pb-2">
                 <div className="min-w-[850px] space-y-4">
                     
                     {/* Time Header Scale */}

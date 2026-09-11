@@ -1,16 +1,16 @@
 {
-  "name": "VAIDIDEA Doctor Dashboard",
-  "short_name": "VAIDIDEA",
-  "description": "Telemedicine Dashboard for VAIDIDEA Healthcare System",
+  "name": "Vaididea — Find Trusted Doctors & Healthcare Services",
+  "short_name": "Vaididea",
+  "description": "Discover verified doctors, compare consultation fees, find hospitals, book lab tests and clinic visits on Vaididea.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#0ea5e9",
+  "theme_color": "#0F5F50",
   "icons": [
     {
-      "src": "/favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ]
 }

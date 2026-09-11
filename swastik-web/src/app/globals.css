@@ -30,11 +30,11 @@
   --color-vd-dark: #0F1F18;
   --color-vd-muted: #6B7B75;
 
-  --font-sans: "Inter", sans-serif;
-  --font-serif: "Playfair Display", serif;
-  --font-cursive: "Great Vibes", cursive;
-  --font-outfit: "Outfit", sans-serif;
-  --font-heading: "Cormorant Garamond", serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-cursive: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-outfit: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   /* ===== Semantic Surface/Text Design Tokens ===== */
   /* These are exposed as CSS variables; Tailwind utilities below reference them. */
@@ -55,7 +55,7 @@
 /* ===== Design Token CSS Variables ===== */
 /* Light mode (default) */
 :root {
-  --font-inter: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-inter: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   /* Surface tokens */
   --surface-page:      #F0F4F8;
@@ -884,5 +884,96 @@ option {
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* scrollbar-none: alias used in various landing components */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ===== Vaididea Centralized Typography Hierarchy ===== */
+  .text-display {
+    font-size: 2.5rem;
+    line-height: 1.12;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+  @media (min-width: 640px) {
+    .text-display {
+      font-size: 3.25rem;
+      line-height: 1.08;
+    }
+  }
+
+  .text-h1 {
+    font-size: 1.875rem;
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  @media (min-width: 640px) {
+    .text-h1 {
+      font-size: 2.375rem;
+    }
+  }
+
+  .text-h2 {
+    font-size: 1.5rem;
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+  @media (min-width: 640px) {
+    .text-h2 {
+      font-size: 1.875rem;
+    }
+  }
+
+  .text-h3 {
+    font-size: 1.25rem;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  @media (min-width: 640px) {
+    .text-h3 {
+      font-size: 1.375rem;
+    }
+  }
+
+  .text-body-lg {
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    font-weight: 400;
+  }
+
+  .text-body {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    font-weight: 400;
+  }
+
+  .text-small {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    font-weight: 400;
+  }
+
+  .text-label {
+    font-size: 0.75rem;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .text-button {
+    font-size: 0.875rem;
+    line-height: 1.25;
+    font-weight: 600;
   }
 }

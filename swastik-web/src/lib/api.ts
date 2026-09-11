@@ -124,22 +124,20 @@ export const setTokens = (
             }
         } catch { /* ignore */ }
 
-        // In presentation mode, skip global cookie synchronization to prevent cross-tab session contamination
-        if (!IS_PRESENTATION_MODE) {
-            syncCookie('swastik-token', accessToken, options.cookieMaxAge);
-            syncCookie('accessToken', accessToken, options.cookieMaxAge);
-            if (refreshToken) {
-                syncCookie('refreshToken', refreshToken, options.cookieMaxAge);
-                syncCookie('swastik-refresh-token', refreshToken, options.cookieMaxAge);
-            }
-            if (options.aiServiceToken) {
-                syncCookie('swastik-ai-token', aiServiceToken, 60 * 15);
-            } else {
-                syncCookie('swastik-ai-token', null);
-            }
-            if (options.role) {
-                syncCookie('swastik-role', options.role, options.cookieMaxAge);
-            }
+        // Synchronize cookies so Next.js server middleware (src/proxy.ts) can authenticate protected route transitions
+        syncCookie('swastik-token', accessToken, options.cookieMaxAge);
+        syncCookie('accessToken', accessToken, options.cookieMaxAge);
+        if (refreshToken) {
+            syncCookie('refreshToken', refreshToken, options.cookieMaxAge);
+            syncCookie('swastik-refresh-token', refreshToken, options.cookieMaxAge);
+        }
+        if (options.aiServiceToken) {
+            syncCookie('swastik-ai-token', aiServiceToken, 60 * 15);
+        } else {
+            syncCookie('swastik-ai-token', null);
+        }
+        if (options.role) {
+            syncCookie('swastik-role', options.role, options.cookieMaxAge);
         }
     }
 };
@@ -193,14 +191,12 @@ export const clearTokens = () => {
             storage?.removeItem('swastik-ai-token');
         } catch { /* ignore */ }
 
-        if (!IS_PRESENTATION_MODE) {
-            syncCookie('swastik-role', null);
-            syncCookie('swastik-token', null);
-            syncCookie('accessToken', null);
-            syncCookie('refreshToken', null);
-            syncCookie('swastik-refresh-token', null);
-            syncCookie('swastik-ai-token', null);
-        }
+        syncCookie('swastik-role', null);
+        syncCookie('swastik-token', null);
+        syncCookie('accessToken', null);
+        syncCookie('refreshToken', null);
+        syncCookie('swastik-refresh-token', null);
+        syncCookie('swastik-ai-token', null);
     }
 };
 
@@ -418,7 +414,19 @@ export const authApi = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(userData),
         });
-        return response.json();
+        const data = await response.json();
+        // Store the short-lived registration token if the backend issued one.
+        // This happens for doctor_pending registrations so the wizard can make
+        // authenticated calls (profile save, document upload, submit-for-approval).
+        // The token is 2h and is invalidated server-side on admin approval/rejection.
+        const tokenPayload = data.data || data;
+        const token = resolveAccessToken(tokenPayload);
+        const rToken = resolveRefreshToken(tokenPayload);
+        const userRole = data.data?.user?.role || data.user?.role || null;
+        if (response.ok && token) {
+            setTokens(token, rToken, { role: userRole });
+        }
+        return data;
     },
 
     sendRegistrationOtp: async (email: string, name?: string, role?: string) => {

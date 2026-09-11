@@ -418,7 +418,7 @@ export default function RevenuePage() {
                             {[1,2,3,4].map(i => <div key={i} className="animate-pulse h-10 bg-slate-100 dark:bg-slate-800 rounded"></div>)}
                         </div>
                     ) : analytics?.trends?.length ? (
-                        <table className="w-full text-sm text-left whitespace-nowrap">
+                        <table className="w-full text-sm text-left whitespace-nowrap min-w-[600px]">
                             <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-800/50/80 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
                                 <tr>
                                     <th className="px-6 py-4 font-semibold">Period Date</th>

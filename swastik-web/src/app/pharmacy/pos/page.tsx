@@ -171,18 +171,18 @@ export default function PharmacyPOSPage() {
 
   if (receiptOrder) {
     return (
-      <div className="max-w-3xl mx-auto p-8">
-        <div className="bg-white dark:bg-gray-900 p-8 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800" id="receipt-area">
+      <div className="max-w-3xl mx-auto p-4 sm:p-8">
+        <div className="bg-white dark:bg-gray-900 p-4 sm:p-8 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800" id="receipt-area">
           <div className="flex flex-col items-center justify-center mb-6">
             <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mb-4">
               <CheckCircle className="w-8 h-8" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Sale Completed</h2>
-            <p className="text-gray-500 dark:text-gray-400">Order #{receiptOrder.order_number}</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Sale Completed</h2>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Order #{receiptOrder.order_number}</p>
           </div>
           
-          <div className="border-t border-b border-gray-100 dark:border-gray-800 py-6 my-6">
-            <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mb-4">
+          <div className="border-t border-b border-gray-100 dark:border-gray-800 py-4 sm:py-6 my-6">
+            <div className="flex justify-between text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-4">
               <div>
                 <p>Date: {new Date(receiptOrder.created_at).toLocaleString()}</p>
                 <p>Source: POS Walk-in</p>
@@ -193,31 +193,33 @@ export default function PharmacyPOSPage() {
               </div>
             </div>
             
-            <table className="w-full text-left mt-4">
-              <thead>
-                <tr className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
-                  <th className="pb-3">Item</th>
-                  <th className="pb-3 text-center">Qty</th>
-                  <th className="pb-3 text-right">Price</th>
-                  <th className="pb-3 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
-                {receiptOrder.items.map((item: any, idx: number) => (
-                  <tr key={idx}>
-                    <td className="py-3">
-                      <p className="font-medium text-gray-900 dark:text-gray-100">{item.name}</p>
-                    </td>
-                    <td className="py-3 text-center text-gray-700 dark:text-gray-300">{item.quantity}</td>
-                    <td className="py-3 text-right text-gray-700 dark:text-gray-300">₹{item.price.toFixed(2)}</td>
-                    <td className="py-3 text-right font-medium text-gray-900 dark:text-gray-100">₹{(item.price * item.quantity).toFixed(2)}</td>
+            <div className="overflow-x-auto w-full max-w-full">
+              <table className="w-full text-left mt-4 min-w-[320px]">
+                <thead>
+                  <tr className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
+                    <th className="pb-3">Item</th>
+                    <th className="pb-3 text-center">Qty</th>
+                    <th className="pb-3 text-right">Price</th>
+                    <th className="pb-3 text-right">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
+                  {receiptOrder.items.map((item: any, idx: number) => (
+                    <tr key={idx}>
+                      <td className="py-3">
+                        <p className="font-medium text-gray-900 dark:text-gray-100">{item.name}</p>
+                      </td>
+                      <td className="py-3 text-center text-gray-700 dark:text-gray-300">{item.quantity}</td>
+                      <td className="py-3 text-right text-gray-700 dark:text-gray-300">₹{item.price.toFixed(2)}</td>
+                      <td className="py-3 text-right font-medium text-gray-900 dark:text-gray-100">₹{(item.price * item.quantity).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
           
-          <div className="flex justify-between items-center text-lg font-bold text-gray-900 dark:text-gray-100">
+          <div className="flex justify-between items-center text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
             <span>Total Amount</span>
             <span>₹{receiptOrder.total_amount.toFixed(2)}</span>
           </div>
@@ -243,41 +245,41 @@ export default function PharmacyPOSPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-[#080e1a] flex-col overflow-hidden">
+    <div className="flex min-h-screen lg:h-screen bg-gray-50 dark:bg-[#080e1a] flex-col overflow-y-auto lg:overflow-hidden">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4 flex items-center justify-between shrink-0">
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between shrink-0 gap-2">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center space-x-2">
-            <Package className="w-6 h-6 text-orange-600 dark:text-orange-500" />
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center space-x-2">
+            <Package className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-500 shrink-0" />
             <span>Pharmacy POS</span>
           </h1>
         </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+        <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-medium truncate">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-visible lg:overflow-hidden">
         
         {/* Left Side: Search & Results */}
-        <div className="flex-1 flex flex-col border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 relative">
-          <div className="p-4 shrink-0 border-b border-gray-100 dark:border-gray-800">
+        <div className="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 relative min-w-0">
+          <div className="p-3 sm:p-4 shrink-0 border-b border-gray-100 dark:border-gray-800">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5 pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by medicine name, generic name, or scan barcode..."
-                className="w-full pl-10 pr-4 py-4 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-900/40 transition-all text-lg shadow-sm"
+                className="w-full pl-10 pr-4 py-3.5 sm:py-4 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-900/40 transition-all text-base sm:text-lg shadow-sm"
               />
             </div>
             {isSearching && <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Searching...</p>}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 bg-gray-50/50 dark:bg-gray-950/30">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-gray-50/50 dark:bg-gray-950/30">
             {searchResults.length === 0 && !isSearching && searchTerm.length >= 2 ? (
               <div className="text-center text-gray-500 dark:text-gray-400 mt-10">
                 No matching medicine found.
@@ -339,7 +341,7 @@ export default function PharmacyPOSPage() {
         </div>
 
         {/* Right Side: Cart */}
-        <div className="w-[400px] flex flex-col bg-white dark:bg-gray-900 shrink-0">
+        <div className="w-full lg:w-[400px] flex flex-col bg-white dark:bg-gray-900 shrink-0">
           <div className="p-4 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 shrink-0">
             <h2 className="font-bold text-lg text-gray-900 dark:text-gray-100 flex items-center space-x-2">
               <span>Current Sale</span>

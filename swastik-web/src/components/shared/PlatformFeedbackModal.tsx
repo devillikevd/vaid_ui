@@ -70,54 +70,54 @@ export default function PlatformFeedbackModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-lg shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden"
+                className="bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl w-full max-w-lg shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden max-h-[92dvh] flex flex-col"
             >
                 {/* Header */}
-                <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
+                <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20 shrink-0 gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
                             <MessageSquare className="w-5 h-5" />
                         </div>
-                        <div>
-                            <h3 className="font-black text-xl text-gray-900 dark:text-white">
+                        <div className="min-w-0 flex-1">
+                            <h3 className="font-black text-lg sm:text-xl text-gray-900 dark:text-white truncate">
                                 Platform Feedback
                             </h3>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-[11px] sm:text-xs text-gray-500 truncate">
                                 Send direct suggestions, bug reports, and UX ideas to Vaididea Admins
                             </p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shrink-0"
                     >
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 {submitted ? (
-                    <div className="p-12 text-center space-y-3">
+                    <div className="p-8 sm:p-12 text-center space-y-3">
                         <motion.div
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
-                            className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto"
+                            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto"
                         >
-                            <CheckCircle2 className="w-10 h-10" />
+                            <CheckCircle2 className="w-8 h-8 sm:w-10 sm:h-10" />
                         </motion.div>
-                        <h4 className="text-2xl font-black text-gray-900 dark:text-white">Feedback Received!</h4>
-                        <p className="text-sm text-gray-500 max-w-sm mx-auto">
+                        <h4 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">Feedback Received!</h4>
+                        <p className="text-xs sm:text-sm text-gray-500 max-w-sm mx-auto">
                             Thank you for helping us improve Vaididea. Our product team reviews all submissions directly.
                         </p>
                     </div>
                 ) : (
-                    <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                    <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto custom-scrollbar flex-1">
                         {error && (
-                            <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 text-xs font-bold flex items-center gap-2 border border-red-200/50">
+                            <div className="p-3.5 sm:p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 text-xs font-bold flex items-center gap-2 border border-red-200/50">
                                 <AlertCircle className="w-4 h-4 shrink-0" />
                                 {error}
                             </div>
@@ -128,7 +128,7 @@ export default function PlatformFeedbackModal({
                             <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
                                 Feedback Type
                             </label>
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 {[
                                     { id: 'Report a Problem', label: 'Report Bug', icon: Bug },
                                     { id: 'Suggest an Improvement', label: 'Improvement', icon: Lightbulb },
@@ -141,14 +141,14 @@ export default function PlatformFeedbackModal({
                                             key={item.id}
                                             type="button"
                                             onClick={() => setType(item.id)}
-                                            className={`p-3 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all ${
+                                            className={`p-2.5 sm:p-3 rounded-2xl border text-xs font-bold flex flex-row sm:flex-col items-center justify-start sm:justify-center gap-2 sm:gap-1.5 transition-all ${
                                                 isSelected
                                                     ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-950/40 dark:border-blue-500 dark:text-blue-300 shadow-sm'
                                                     : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
                                             }`}
                                         >
-                                            <Icon className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
-                                            {item.label}
+                                            <Icon className={`w-4 h-4 shrink-0 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
+                                            <span>{item.label}</span>
                                         </button>
                                     );
                                 })}

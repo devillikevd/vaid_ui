@@ -453,7 +453,8 @@ function ClinicAppointmentsContent() {
                     
                     {/* Desktop View Table */}
                     <div className="hidden lg:block bg-white dark:bg-[#111c2e] rounded-3xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm">
-                        <table className="w-full text-left border-collapse">
+                        <div className="overflow-x-auto w-full max-w-full">
+                            <table className="w-full text-left border-collapse min-w-[700px]">
                             <thead>
                                 <tr className="border-b border-gray-100 dark:border-gray-800 text-[11px] font-extrabold uppercase tracking-wider text-gray-400 bg-gray-50/50 dark:bg-[#0f172a]/50">
                                     <th className="py-4 px-6">Date &amp; Time</th>
@@ -593,6 +594,7 @@ function ClinicAppointmentsContent() {
                                 })}
                             </tbody>
                         </table>
+                        </div>
                     </div>
 
                     {/* Mobile & Tablet Card Layout */}

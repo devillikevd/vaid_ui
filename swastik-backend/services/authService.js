@@ -113,6 +113,7 @@ const validateRoleRegistrationPayload = (role, data) => {
   }
 
   if (role !== 'doctor') return;
+  if (data.is_draft || data.isDraft) return;
 
   const specialization = normalizeText(data.specialization); // Still used as Primary
   const specializations = normalizeTextArray(firstProvided(data.specializations, data.specialties));
@@ -384,8 +385,9 @@ const toUserFacingRegistrationError = (error, fallbackMessage = 'Failed to compl
 };
 
 // Generate JWT tokens
-const generateTokens = (user) => {
-  const expiresInStr = config.jwt.expiresIn || '7d';
+const generateTokens = (user, customExpiresIn = null) => {
+  const expiresInStr = customExpiresIn || config.jwt.expiresIn || '7d';
+  const refreshExpiresInStr = customExpiresIn || config.jwt.refreshExpiresIn || '30d';
   const now = Math.floor(Date.now() / 1000);
   const userId = String(user.id);
 
@@ -415,7 +417,7 @@ const generateTokens = (user) => {
       iat: now,
     },
     config.jwt.refreshSecret,
-    { expiresIn: config.jwt.refreshExpiresIn || '30d' }
+    { expiresIn: refreshExpiresInStr }
   );
 
   const tokens = { accessToken, refreshToken, expiresIn: parseExpiresIn(expiresInStr) };
@@ -633,7 +635,51 @@ const register = async (userData) => {
 
   const { password_hash: _, ...safeUser } = user;
 
+  // Issue a short-lived registration token for doctor_pending so the
+  // multi-step wizard can make authenticated calls (profile save, document
+  // upload, submit-for-approval) without granting normal provider access.
+  //
+  // Security properties:
+  //   • Access token expires in 2h — enough for wizard completion.
+  //   • Refresh token ALSO expires in 2h — prevents the client from silently
+  //     extending the session to a normal long-lived provider session.
+  //   • The token carries role='doctor_pending', which is blocked by
+  //     authorize('doctor') on all doctor-portal routes.
+  //   • On admin approval OR rejection, revokeProviderAuthSessions() increments
+  //     users.token_version, instantly invalidating this token server-side.
+  //   • No changes to the login endpoint — doctor_pending cannot login normally.
+  if (finalRole === 'doctor_pending') {
+    const REGISTRATION_TOKEN_EXPIRY = '2h';
+    const regExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+
+    const regTokens = generateTokens(user, REGISTRATION_TOKEN_EXPIRY);
+
+    try {
+      await supabaseAdmin.from('refresh_tokens').insert({
+        user_id: user.id,
+        token: regTokens.refreshToken,
+        family_id: require('crypto').randomUUID(),
+        expires_at: regExpiresAt,
+        is_revoked: false,
+      });
+    } catch (rtErr) {
+      console.warn('[Registration] Failed to persist registration refresh token:', rtErr.message);
+    }
+
+    return {
+      success: true,
+      user: safeUser,
+      message: 'Registration successful.',
+      accessToken: regTokens.accessToken,
+      refreshToken: regTokens.refreshToken,
+      requiresVerification: false,
+      verificationEmailSent: false,
+      isRegistrationToken: true,
+    };
+  }
+
   return {
+    success: true,
     user: safeUser,
     message: 'Registration successful.',
     requiresVerification: false,
@@ -674,9 +720,9 @@ const createRoleProfile = async (userId, role, data) => {
       await insertProfile('doctors', {
         user_id: userId,
         name: data.name,
-        specialization: normalizeText(data.specialization),
-        specializations: doctorSpecializations.length > 0 ? doctorSpecializations : [normalizeText(data.specialization)],
-        license_number: normalizeText(firstProvided(data.licenseNumber, data.license_number)),
+        specialization: normalizeText(data.specialization) || (data.is_draft || data.isDraft ? 'General Physician' : ''),
+        specializations: doctorSpecializations.length > 0 ? doctorSpecializations : [normalizeText(data.specialization) || (data.is_draft || data.isDraft ? 'General Physician' : '')],
+        license_number: normalizeText(firstProvided(data.licenseNumber, data.license_number)) || (data.is_draft || data.isDraft ? 'PENDING_REGISTRATION' : ''),
         registration_number: normalizeText(firstProvided(data.registrationNumber, data.registration_number)) || null,
         qualifications: doctorQualifications,
         experience_years: Number.isFinite(doctorExperience) ? doctorExperience : 0,
@@ -1370,7 +1416,14 @@ const refreshToken = async (token) => {
       throw err;
     }
 
-    const tokens = generateTokens(user);
+    const isPendingRegistration = user.role === 'doctor_pending';
+    const tokens = isPendingRegistration
+      ? generateTokens(user, '2h')
+      : generateTokens(user);
+
+    if (isPendingRegistration) {
+      tokens.isRegistrationToken = true;
+    }
 
     if (storedToken) {
       await supabaseAdmin
@@ -1384,13 +1437,16 @@ const refreshToken = async (token) => {
     }
 
     const familyId = storedToken.family_id || require('crypto').randomUUID();
+    const sessionExpiresAt = isPendingRegistration
+      ? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     try {
       await supabaseAdmin.from('refresh_tokens').insert({
         user_id: user.id,
         token: tokens.refreshToken,
         family_id: familyId,
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        expires_at: sessionExpiresAt,
         is_revoked: false,
       });
     } catch (_) { /* non-fatal */ }

@@ -117,62 +117,64 @@ export default function UnmappedInventoryPage() {
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-600 dark:text-gray-400">
-                        <tr>
-                            <th className="px-4 py-3 font-medium">Pharmacy</th>
-                            <th className="px-4 py-3 font-medium">Legacy Name</th>
-                            <th className="px-4 py-3 font-medium">Generic / Manufacturer</th>
-                            <th className="px-4 py-3 font-medium">Stock / Price</th>
-                            <th className="px-4 py-3 font-medium text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {unmappedRecords.length === 0 ? (
+                <div className="overflow-x-auto w-full max-w-full">
+                    <table className="w-full text-left text-sm min-w-[640px]">
+                        <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-600 dark:text-gray-400">
                             <tr>
-                                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                                    <CheckCircle className="h-8 w-8 mx-auto text-green-500 mb-2" />
-                                    No unmapped records found. All inventory is correctly linked.
-                                </td>
+                                <th className="px-4 py-3 font-medium">Pharmacy</th>
+                                <th className="px-4 py-3 font-medium">Legacy Name</th>
+                                <th className="px-4 py-3 font-medium">Generic / Manufacturer</th>
+                                <th className="px-4 py-3 font-medium">Stock / Price</th>
+                                <th className="px-4 py-3 font-medium text-right">Actions</th>
                             </tr>
-                        ) : (
-                            unmappedRecords.map(record => (
-                                <tr key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                    <td className="px-4 py-3 text-gray-900 dark:text-gray-200">
-                                        {record.pharmacy?.name || 'Unknown'}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="font-semibold text-gray-900 dark:text-gray-100">{record.name}</div>
-                                        <div className="text-xs text-yellow-600 dark:text-yellow-400 font-medium mt-0.5">Missing medicine_id</div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="text-gray-700 dark:text-gray-300">{record.generic_name || '-'}</div>
-                                        <div className="text-xs text-gray-500">{record.manufacturer || '-'}</div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="text-gray-900 dark:text-gray-200">Qty: {record.quantity || 0}</div>
-                                        <div className="text-xs text-gray-500">₹{record.price || 0}</div>
-                                    </td>
-                                    <td className="px-4 py-3 text-right">
-                                        <button
-                                            onClick={() => openModal(record)}
-                                            className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors inline-flex items-center gap-1.5"
-                                        >
-                                            <Package className="h-4 w-4" />
-                                            Map to Master
-                                        </button>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                            {unmappedRecords.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                                        <CheckCircle className="h-8 w-8 mx-auto text-green-500 mb-2" />
+                                        No unmapped records found. All inventory is correctly linked.
                                     </td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                            ) : (
+                                unmappedRecords.map((record) => (
+                                    <tr key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                                            {record.pharmacy?.name || 'Unknown'}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="font-semibold text-gray-900 dark:text-gray-100">{record.name}</div>
+                                            <div className="text-xs text-gray-500 font-mono">ID: {record.id.slice(0, 8)}...</div>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="text-gray-900 dark:text-gray-200">{record.generic_name || '-'}</div>
+                                            <div className="text-xs text-gray-500">{record.manufacturer || '-'}</div>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="text-gray-900 dark:text-gray-200">Qty: {record.quantity || 0}</div>
+                                            <div className="text-xs text-gray-500">₹{record.price || 0}</div>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <button
+                                                onClick={() => openModal(record)}
+                                                className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors inline-flex items-center gap-1.5"
+                                            >
+                                                <Package className="h-4 w-4" />
+                                                Map to Master
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* MAPPING MODAL */}
             {showModal && selectedRecord && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-gray-900/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden">
                         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
                             <div>
                                 <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Map Legacy Record</h2>

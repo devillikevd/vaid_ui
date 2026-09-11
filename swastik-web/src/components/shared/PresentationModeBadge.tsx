@@ -1,13 +1,17 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { IS_PRESENTATION_MODE } from '@/lib/presentationMode';
 import { useAuthStore } from '@/stores/authStore';
 
 export function PresentationModeBadge() {
     const { user, isAuthenticated } = useAuthStore();
+    const pathname = usePathname();
 
     if (!IS_PRESENTATION_MODE) return null;
+    // Hide development/demo-only floating control on public homepage
+    if (pathname === '/') return null;
 
     return (
         <aside

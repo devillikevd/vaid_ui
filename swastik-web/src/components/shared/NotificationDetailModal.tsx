@@ -147,44 +147,44 @@ export function NotificationDetailModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 transition={{ duration: 0.15 }}
-                className="bg-white dark:bg-[#111c2e] rounded-3xl max-w-lg w-full border border-gray-200 dark:border-gray-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                className="bg-white dark:bg-[#111c2e] rounded-2xl sm:rounded-3xl max-w-lg w-full border border-gray-200 dark:border-gray-800 shadow-2xl overflow-hidden flex flex-col max-h-[92dvh]"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="notification-modal-title"
             >
                 {/* Modal Header */}
-                <div className="p-5 sm:p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800/60 flex items-center justify-center text-brand-600 dark:text-brand-400">
+                <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800/60 flex items-center justify-center text-brand-600 dark:text-brand-400 shrink-0">
                             {getNotificationIcon(type)}
                         </div>
-                        <div>
-                            <h3 id="notification-modal-title" className="text-base font-extrabold text-gray-900 dark:text-white">
+                        <div className="min-w-0 flex-1">
+                            <h3 id="notification-modal-title" className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white truncate">
                                 {notification.title}
                             </h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                            <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
                                 Received {formatDistanceToNow(timestamp)}
                             </p>
                         </div>
                     </div>
                     <button 
                         type="button" 
-                        onClick={onClose}
+                        onClick={onClose} 
                         aria-label="Close modal"
-                        className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center text-gray-500 transition-colors"
+                        className="w-9 h-9 sm:w-8 sm:h-8 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center text-gray-500 transition-colors shrink-0"
                     >
                         <X className="w-4 h-4" />
                     </button>
                 </div>
 
                 {/* Modal Body */}
-                <div className="p-5 sm:p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+                <div className="p-4 sm:p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
                     {/* CASE 1: REJOIN INVITATION */}
                     {isReinvite ? (
                         <div className="space-y-4">

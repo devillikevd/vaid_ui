@@ -1,10 +1,10 @@
 import type { MetadataRoute } from 'next';
-import { CANONICAL_CONSULTATION_CATEGORIES } from '@/lib/consultationCategoriesData';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://www.vaididea.in';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.vaididea.in';
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
-  // 1. Core Public Hubs
+  // 1. Authoritative Core Public Hubs
   const staticRoutes: MetadataRoute.Sitemap = [
     {
       url: `${baseUrl}/`,
@@ -13,9 +13,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1.0,
     },
     {
-      url: `${baseUrl}/vision`,
+      url: `${baseUrl}/doctors`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: 'daily',
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/specialties`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
       priority: 0.8,
     },
     {
@@ -25,31 +31,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/wellness`,
+      url: `${baseUrl}/providers`,
       lastModified: new Date(),
-      changeFrequency: 'weekly',
+      changeFrequency: 'monthly',
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/patient/doctors`,
+      url: `${baseUrl}/vision`,
       lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.9,
+      changeFrequency: 'monthly',
+      priority: 0.6,
     },
   ];
 
-  // 2. Canonical Doctor Category Discovery Pages
-  const categoryRoutes: MetadataRoute.Sitemap = CANONICAL_CONSULTATION_CATEGORIES.map((cat) => ({
-    url: `${baseUrl}/patient/doctors/category/${cat.slug}`,
-    lastModified: new Date(),
-    changeFrequency: 'weekly',
-    priority: 0.7,
-  }));
-
-  // 3. Dynamic Public Verified Doctor Profiles (Real backend API fetch)
+  // 2. Dynamic Public Verified Doctor Profiles (Real database records)
   let doctorRoutes: MetadataRoute.Sitemap = [];
   try {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.vaididea.in';
     const res = await fetch(`${apiBase}/patients/doctors?global=true&limit=100`, {
       next: { revalidate: 3600 },
     });
@@ -68,9 +65,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
     }
   } catch {
-    // If backend is unavailable during build/request, fallback gracefully
     doctorRoutes = [];
   }
 
-  return [...staticRoutes, ...categoryRoutes, ...doctorRoutes];
+  // 3. Dynamic Genuine ICD-10 Disease Pages
+  let diseaseRoutes: MetadataRoute.Sitemap = [];
+  try {
+    const res = await fetch(`${apiBase}/diseases/alphabet/A?limit=50`, {
+      next: { revalidate: 86400 },
+    });
+    if (res.ok) {
+      const json = await res.json();
+      const results = json.results || [];
+      if (Array.isArray(results)) {
+        diseaseRoutes = results
+          .filter((d: any) => d && d.code)
+          .map((d: any) => ({
+            url: `${baseUrl}/disease/${encodeURIComponent(d.code)}`,
+            lastModified: new Date(),
+            changeFrequency: 'monthly',
+            priority: 0.7,
+          }));
+      }
+    }
+  } catch {
+    diseaseRoutes = [];
+  }
+
+  return [...staticRoutes, ...doctorRoutes, ...diseaseRoutes];
 }

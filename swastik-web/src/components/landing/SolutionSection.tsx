@@ -53,9 +53,9 @@ export default function SolutionSection() {
             </span>
           </div>
 
-          <h2 className="font-heading text-3xl sm:text-5xl md:text-6xl text-vd-forest font-semibold mb-6 tracking-tight max-w-3xl mx-auto">
+          <h2 className="text-display text-vd-forest mb-6 max-w-3xl mx-auto">
             One ecosystem. Every part of your{" "}
-            <em className="text-vd-sage italic font-normal">healthcare journey.</em>
+            <span className="text-vd-sage font-medium">healthcare journey.</span>
           </h2>
 
           <p className="text-base sm:text-lg text-vd-muted max-w-2xl mx-auto font-light leading-relaxed">

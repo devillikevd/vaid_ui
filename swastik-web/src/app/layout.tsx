@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, Great_Vibes, Inter, Outfit, Playfair_Display } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -9,21 +9,33 @@ import { GlobalSocketToastsDynamic } from '@/components/shared/GlobalSocketToast
 import { PublicThemeGuard } from '@/components/shared/PublicThemeGuard';
 import { PresentationModeBadge } from '@/components/shared/PresentationModeBadge';
 
-// M020: fonts are self-hosted via next/font — no third-party CDN assets are
-// loaded (previously Google Fonts was fetched at runtime, outside SRI control).
-const inter = Inter({ subsets: ["latin"], variable: "--vd-font-inter", display: "swap" });
-const playfair = Playfair_Display({ subsets: ["latin"], variable: "--vd-font-serif", display: "swap" });
-const greatVibes = Great_Vibes({ weight: "400", subsets: ["latin"], variable: "--vd-font-cursive", display: "swap" });
-const outfit = Outfit({ subsets: ["latin"], variable: "--vd-font-outfit", display: "swap" });
-const cormorant = Cormorant_Garamond({ weight: ["300", "400", "500", "600", "700"], subsets: ["latin"], variable: "--vd-font-heading", display: "swap" });
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--vd-font-inter",
+  display: "swap"
+});
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.vaididea.in"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.vaididea.in"),
   title: {
-    default: "Vaididea — Connected Healthcare Ecosystem",
+    default: "Vaididea — Find Trusted Doctors & Healthcare Services",
     template: "%s | Vaididea",
   },
-  description: "Connected healthcare ecosystem for patients, doctors, hospitals, clinics, pharmacies, and emergency services.",
+  description:
+    "Discover verified doctors, compare consultation fees, find hospitals, book lab tests and clinic visits on Vaididea.",
+  keywords: [
+    "doctors",
+    "find doctors",
+    "healthcare services",
+    "hospitals",
+    "clinics",
+    "lab tests",
+    "online consultation",
+    "healthcare providers",
+    "telemedicine",
+    "Vaididea",
+  ],
   manifest: "/manifest.json",
   verification: {
     google: "iwvaIpdhxt1FHnnyRxgAwOXG5sNYpN7OfhHwscsFSd4",
@@ -31,9 +43,21 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   openGraph: {
-    title: "Vaididea — Connected Healthcare Ecosystem",
-    description: "Connected healthcare ecosystem for patients, doctors, hospitals, clinics, pharmacies, and emergency services.",
+    title: "Vaididea — Find Trusted Doctors & Healthcare Services",
+    description:
+      "Discover verified doctors, compare consultation fees, find hospitals, book lab tests and clinic visits on Vaididea.",
     url: "https://www.vaididea.in",
     siteName: "Vaididea",
     locale: "en_IN",
@@ -49,14 +73,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Vaididea — Connected Healthcare Ecosystem",
-    description: "Connected healthcare ecosystem for patients, doctors, hospitals, clinics, pharmacies, and emergency services.",
+    title: "Vaididea — Find Trusted Doctors & Healthcare Services",
+    description:
+      "Discover verified doctors, compare consultation fees, find hospitals, book lab tests and clinic visits on Vaididea.",
     images: ["/logo.png"],
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0ea5e9",
+  themeColor: "#0F5F50",
 };
 
 const organizationJsonLd = {
@@ -96,7 +121,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${playfair.variable} ${greatVibes.variable} ${outfit.variable} ${cormorant.variable}`}
+      className={`${inter.variable}`}
     >
       <head>
         <script
@@ -107,10 +132,10 @@ export default function RootLayout({
           :root {
             --font-sans: var(--vd-font-inter);
             --font-inter: var(--vd-font-inter);
-            --font-serif: var(--vd-font-serif);
-            --font-cursive: var(--vd-font-cursive);
-            --font-outfit: var(--vd-font-outfit);
-            --font-heading: var(--vd-font-heading);
+            --font-heading: var(--vd-font-inter);
+            --font-serif: var(--vd-font-inter);
+            --font-outfit: var(--vd-font-inter);
+            --font-cursive: var(--vd-font-inter);
           }
         `}</style>
       </head>
