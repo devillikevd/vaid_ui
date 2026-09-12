@@ -91,6 +91,8 @@ const withApexAndWww = (value) => {
 // Include apex/www variants so the selected Vercel primary domain does not
 // break browser requests when the other form is configured in env.
 const allowedOrigins = Array.from(new Set([
+  'https://vaididea.in',
+  'https://www.vaididea.in',
   ...withApexAndWww(config.frontendWebUrl),
   ...withApexAndWww(config.frontendDoctorWebUrl),
   config.frontendAppUrl,

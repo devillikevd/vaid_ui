@@ -6,16 +6,30 @@ const SQLITE_PATH = path.join(__dirname, '..', 'database', 'health_library.db');
 
 let sqliteDb = null;
 
+class HealthLibraryUnavailableError extends Error {
+  constructor(message = 'Health library service temporarily unavailable') {
+    super(message);
+    this.name = 'HealthLibraryUnavailableError';
+    this.statusCode = 503;
+    this.isOperational = true;
+  }
+}
+
 function getDb() {
   if (!sqliteDb && fs.existsSync(SQLITE_PATH)) {
-    sqliteDb = new DatabaseSync(SQLITE_PATH, { readOnly: true });
+    try {
+      sqliteDb = new DatabaseSync(SQLITE_PATH, { readOnly: true });
+    } catch (err) {
+      console.error('[HealthLibraryService] Failed to open SQLite database:', err.message);
+      return null;
+    }
   }
   return sqliteDb;
 }
 
 function getStats() {
   const db = getDb();
-  if (!db) throw new Error('Database not found');
+  if (!db) throw new HealthLibraryUnavailableError();
 
   const totalDiseases = db.prepare('SELECT COUNT(*) as cnt FROM unique_diseases').get().cnt;
   const totalCategories = db.prepare('SELECT COUNT(*) as cnt FROM categories').get().cnt;
@@ -32,7 +46,7 @@ function getStats() {
 
 function getCategories() {
   const db = getDb();
-  if (!db) throw new Error('Database not found');
+  if (!db) throw new HealthLibraryUnavailableError();
 
   const rows = db.prepare('SELECT id, chapter, body_system, disease_count, icon FROM categories ORDER BY disease_count DESC').all();
   return rows.map(r => ({ ...r, _id: String(r.id) }));
@@ -40,7 +54,7 @@ function getCategories() {
 
 function searchDiseases({ query, page = 1, limit = 50, severity = '' }) {
   const db = getDb();
-  if (!db) throw new Error('Database not found');
+  if (!db) throw new HealthLibraryUnavailableError();
 
   const offset = (page - 1) * limit;
   const q = `%${query.trim()}%`;
@@ -82,7 +96,7 @@ function searchDiseases({ query, page = 1, limit = 50, severity = '' }) {
 
 function getByAlphabet({ letter, page = 1, limit = 50, severity = '' }) {
   const db = getDb();
-  if (!db) throw new Error('Database not found');
+  if (!db) throw new HealthLibraryUnavailableError();
 
   const offset = (page - 1) * limit;
   const l = letter.toUpperCase();
@@ -116,7 +130,7 @@ function getByAlphabet({ letter, page = 1, limit = 50, severity = '' }) {
 
 function getByCategory({ chapter, page = 1, limit = 50, severity = '' }) {
   const db = getDb();
-  if (!db) throw new Error('Database not found');
+  if (!db) throw new HealthLibraryUnavailableError();
 
   const offset = (page - 1) * limit;
 
@@ -149,7 +163,7 @@ function getByCategory({ chapter, page = 1, limit = 50, severity = '' }) {
 
 function getByCode(code) {
   const db = getDb();
-  if (!db) throw new Error('Database not found');
+  if (!db) throw new HealthLibraryUnavailableError();
 
   const row = db.prepare('SELECT * FROM unique_diseases WHERE code = ?').get(code);
   if (!row) return null;
@@ -157,6 +171,7 @@ function getByCode(code) {
 }
 
 module.exports = {
+  HealthLibraryUnavailableError,
   getStats,
   getCategories,
   searchDiseases,

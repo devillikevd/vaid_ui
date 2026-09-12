@@ -29,6 +29,8 @@ const withApexAndWww = (value) => {
 };
 
 const ALLOWED_ORIGINS = new Set([
+  'https://vaididea.in',
+  'https://www.vaididea.in',
   ...withApexAndWww(config.frontendWebUrl),
   ...withApexAndWww(config.frontendDoctorWebUrl),
   config.frontendAppUrl,

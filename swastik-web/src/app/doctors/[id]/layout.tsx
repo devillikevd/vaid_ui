@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
+import { buildCanonicalApiUrl } from '@/lib/env';
+
 type Props = {
   params: Promise<{ id: string }>;
 };
 
 async function fetchDoctor(id: string) {
   try {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.vaididea.in';
-    const res = await fetch(`${apiBase}/doctors/${id}`, {
+    const res = await fetch(buildCanonicalApiUrl(`/doctors/${encodeURIComponent(id)}`), {
       next: { revalidate: 3600 },
     });
     if (!res.ok) return null;

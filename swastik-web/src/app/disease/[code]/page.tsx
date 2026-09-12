@@ -20,6 +20,7 @@ import {
   Stethoscope,
   UserCheck,
 } from 'lucide-react';
+import { buildCanonicalApiUrl } from '@/lib/env';
 
 type Props = {
   params: Promise<{ code: string }>;
@@ -27,8 +28,7 @@ type Props = {
 
 async function fetchDisease(code: string) {
   try {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
-    const res = await fetch(`${apiBase}/diseases/disease/${encodeURIComponent(code)}`, {
+    const res = await fetch(buildCanonicalApiUrl(`/diseases/disease/${encodeURIComponent(code)}`), {
       next: { revalidate: 3600 },
     });
     if (!res.ok) return null;

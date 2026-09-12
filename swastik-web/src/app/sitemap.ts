@@ -1,8 +1,8 @@
 import type { MetadataRoute } from 'next';
+import { getCanonicalApiUrl, buildCanonicalApiUrl } from '@/lib/env';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.vaididea.in';
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
   // 1. Authoritative Core Public Hubs
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -44,10 +44,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
+  // 2. Canonical Specialty Categories
+  const categoryRoutes: MetadataRoute.Sitemap = [
+    'general-physician',
+    'dermatology',
+    'cardiology',
+    'pediatrics',
+    'orthopedics',
+    'gynecology',
+    'ent',
+    'neurology',
+    'psychiatry',
+    'gastroenterology',
+    'pulmonology',
+    'ophthalmology',
+    'dental',
+    'urology',
+    'endocrinology',
+    'ayurveda',
+    'homeopathy',
+    'physiotherapy',
+  ].map((slug) => ({
+    url: `${baseUrl}/patient/doctors/category/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.8,
+  }));
+
   // 2. Dynamic Public Verified Doctor Profiles (Real database records)
   let doctorRoutes: MetadataRoute.Sitemap = [];
   try {
-    const res = await fetch(`${apiBase}/patients/doctors?global=true&limit=100`, {
+    const res = await fetch(buildCanonicalApiUrl('/patients/doctors?global=true&limit=100'), {
       next: { revalidate: 3600 },
     });
     if (res.ok) {
@@ -71,7 +98,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 3. Dynamic Genuine ICD-10 Disease Pages
   let diseaseRoutes: MetadataRoute.Sitemap = [];
   try {
-    const res = await fetch(`${apiBase}/diseases/alphabet/A?limit=50`, {
+    const res = await fetch(buildCanonicalApiUrl('/diseases/alphabet/A?limit=50'), {
       next: { revalidate: 86400 },
     });
     if (res.ok) {
@@ -92,5 +119,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     diseaseRoutes = [];
   }
 
-  return [...staticRoutes, ...doctorRoutes, ...diseaseRoutes];
+  return [...staticRoutes, ...categoryRoutes, ...doctorRoutes, ...diseaseRoutes];
 }

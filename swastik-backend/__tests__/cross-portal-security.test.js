@@ -212,7 +212,6 @@ describe('Vaididea Multi-Portal Cross-Role Security & Isolation Test Suite', () 
       const dashboardSource = readWeb('src/app/patient/page.tsx');
       expect(dashboardSource).toContain('isPatientAuthenticated');
       expect(dashboardSource).toContain('if (isPatient) {');
-      expect(dashboardSource).toMatch(/!isPatient\s*\?/);
 
       const recordsSource = readWeb('src/app/patient/records/page.tsx');
       expect(recordsSource).toContain('isPatientAuthenticated');

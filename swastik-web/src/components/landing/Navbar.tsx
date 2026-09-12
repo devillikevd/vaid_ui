@@ -75,8 +75,8 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* ── Center Nav Links (md+) ── */}
-          <div className="hidden md:flex items-center gap-0.5 lg:gap-1 flex-1 justify-center">
+          {/* ── Center Nav Links (lg+) ── */}
+          <div className="hidden lg:flex items-center gap-0.5 lg:gap-1 flex-1 justify-center">
             {navLinks.map((link) => {
               const isActive =
                 link.href === "/"
@@ -146,7 +146,7 @@ export default function Navbar() {
 
             {/* Mobile Hamburger */}
             <button
-              className="md:hidden p-2 rounded-lg text-stone-600 hover:bg-stone-100 hover:text-stone-900 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest cursor-pointer"
+              className="lg:hidden p-2 rounded-lg text-stone-600 hover:bg-stone-100 hover:text-stone-900 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest cursor-pointer"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
               aria-expanded={mobileMenuOpen}
@@ -165,7 +165,7 @@ export default function Navbar() {
       {/* ── Mobile Navigation Drawer ── */}
       {/* Overlay */}
       <div
-        className={`fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px] transition-opacity duration-200 md:hidden ${
+        className={`fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px] transition-opacity duration-200 lg:hidden ${
           mobileMenuOpen
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
@@ -180,7 +180,7 @@ export default function Navbar() {
         role="dialog"
         aria-label="Navigation menu"
         aria-modal="true"
-        className={`fixed inset-y-0 right-0 z-[70] w-[280px] bg-white shadow-[0_0_40px_rgba(0,0,0,0.12)] flex flex-col transition-transform duration-200 ease-out md:hidden ${
+        className={`fixed inset-y-0 right-0 z-[70] w-[280px] bg-white shadow-[0_0_40px_rgba(0,0,0,0.12)] flex flex-col transition-transform duration-200 ease-out lg:hidden ${
           mobileMenuOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >

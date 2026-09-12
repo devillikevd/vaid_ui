@@ -1,3 +1,5 @@
+
+
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import type { NextConfig } from "next";
@@ -107,7 +109,7 @@ const nextConfig: NextConfig = {
               "script-src 'self' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https://*.supabase.co https://*.vaididea.in https://images.unsplash.com https://cdnjs.cloudflare.com",
+              "img-src 'self' data: blob: https://*.supabase.co https://*.vaididea.in https://*.amazonaws.com https://*.s3.ap-south-1.amazonaws.com https://images.unsplash.com https://cdnjs.cloudflare.com",
               "connect-src 'self' https://api.vaididea.in wss://api.vaididea.in https://*.supabase.co",
               "media-src 'self' blob: https://*.vaididea.in https://*.supabase.co",
               "frame-src 'none'",

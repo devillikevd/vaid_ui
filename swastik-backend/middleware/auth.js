@@ -56,13 +56,11 @@ const authenticate = async (req, res, next) => {
     let user = await cacheGet(cacheKey);
 
     if (!user) {
-      console.log('Querying Supabase for user id:', decoded.userId || decoded.id);
       const { data: dbUser, error } = await supabaseAdmin
         .from('users')
         .select('id, email, name, phone, role, is_active, is_verified, profile_image_url, token_version')
         .eq('id', decoded.userId || decoded.id)
         .single();
-      console.log('Supabase result - dbUser:', dbUser ? dbUser.id : null, 'error:', error);
 
       if (error || !dbUser) {
         return res.status(401).json({

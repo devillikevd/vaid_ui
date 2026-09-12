@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { hospitalApi, getTokens } from '@/lib/api';
+import { hospitalApi, getTokens, API_BASE_URL } from '@/lib/api';
 import { useSocket } from '@/hooks/useSocket';
 import OsmMap from '@/components/shared/OsmMapDynamic';
 import type { MapMarker, MapRoute } from '@/components/shared/OsmMapDynamic';
@@ -322,7 +322,7 @@ export default function HospitalEmergencyPage() {
                 if (!routes[routeId] && destLat && destLng) {
                         const { accessToken: token } = getTokens();
                         const res = await fetch(
-                            `/api/maps/route?originLat=${e.ambulance!.latitude}&originLng=${e.ambulance!.longitude}&destLat=${destLat}&destLng=${destLng}`,
+                            `${API_BASE_URL}/maps/route?originLat=${e.ambulance!.latitude}&originLng=${e.ambulance!.longitude}&destLat=${destLat}&destLng=${destLng}`,
                             { headers: { 'Authorization': `Bearer ${token}` } }
                         );
                         const data = await res.json();

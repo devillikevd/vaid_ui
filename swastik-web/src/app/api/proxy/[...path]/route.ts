@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+import { getCanonicalApiUrl, buildCanonicalApiUrl } from '@/lib/env';
 
 async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
     // Next.js 15+ passes params as a Promise, handle both Promise and object for compatibility
     const resolvedParams = await params;
-    const path = resolvedParams.path.join('/');
-    const targetUrl = new URL(`/api/${path}`, API_BASE_URL);
+    const rawPath = resolvedParams.path.join('/');
+    const path = rawPath;
+    const targetUrl = new URL(buildCanonicalApiUrl(rawPath));
     
     // Copy search params
     req.nextUrl.searchParams.forEach((value, key) => {
@@ -132,7 +132,11 @@ async function proxyHandler(req: NextRequest, { params }: { params: Promise<{ pa
         return nextResponse;
     } catch (error: any) {
         return NextResponse.json(
-            { success: false, message: 'Proxy Error', error: error.message },
+            {
+                success: false,
+                message: 'Proxy Error',
+                error: process.env.NODE_ENV === 'production' ? 'Backend service temporarily unavailable' : error.message,
+            },
             { status: 502 }
         );
     }

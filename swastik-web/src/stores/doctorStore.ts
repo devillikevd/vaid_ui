@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { doctorApi, appointmentsApi, consultationsApi, getTokens } from '../lib/api';
+import { doctorApi, appointmentsApi, consultationsApi } from '../lib/api';
 
 // ==================== Types ====================
 
@@ -1155,19 +1155,11 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
 
     resendOtp: async (appointmentId) => {
         try {
-            const token = getTokens().accessToken;
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}/resend-otp`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token || ''}`,
-                },
-            });
-            const data = await response.json();
-            if (data.success) {
+            const response = await appointmentsApi.resendOtp(appointmentId);
+            if (response.success) {
                 return true;
             }
-            set({ error: data.error || data.message || 'Failed to resend OTP' });
+            set({ error: response.error || response.message || 'Failed to resend OTP' });
             return false;
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Failed to resend OTP';

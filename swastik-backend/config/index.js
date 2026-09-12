@@ -217,9 +217,15 @@ const config = {
   minio: null,
 
   // Frontend URLs
-  frontendWebUrl: normalizeFrontendUrl(process.env.FRONTEND_WEB_URL, 'http://localhost:3000'),
-  frontendDoctorWebUrl: normalizeFrontendUrl(process.env.FRONTEND_DOCTOR_WEB_URL, 'http://localhost:3001'),
-  frontendAppUrl: process.env.FRONTEND_APP_URL || 'exp://localhost:8081',
+  frontendWebUrl: normalizeFrontendUrl(
+    process.env.FRONTEND_WEB_URL,
+    process.env.NODE_ENV === 'production' ? 'https://www.vaididea.in' : 'http://localhost:3000'
+  ),
+  frontendDoctorWebUrl: normalizeFrontendUrl(
+    process.env.FRONTEND_DOCTOR_WEB_URL,
+    process.env.NODE_ENV === 'production' ? 'https://www.vaididea.in' : 'http://localhost:3001'
+  ),
+  frontendAppUrl: process.env.FRONTEND_APP_URL || (process.env.NODE_ENV === 'production' ? 'https://www.vaididea.in' : 'exp://localhost:8081'),
 
   // Rate Limiting
   rateLimit: {

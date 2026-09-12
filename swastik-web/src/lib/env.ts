@@ -1,4 +1,6 @@
-const DEFAULT_API_URL = 'http://localhost:5001/api';
+const DEFAULT_API_URL = process.env.NODE_ENV === 'production'
+    ? 'https://api.vaididea.in/api'
+    : 'http://localhost:5001/api';
 
 type PublicEnv = {
     apiUrl: string;
@@ -33,7 +35,56 @@ function deriveAiWsUrl(apiUrl: string): string {
     return `${protocol}//${url.hostname}${portPart}`;
 }
 
-const rawApiUrl = stripTrailingSlash(process.env.NEXT_PUBLIC_API_URL?.trim() || DEFAULT_API_URL);
+/**
+ * Canonical normalizer for backend API base URLs.
+ * Safely handles:
+ * - https://api.vaididea.in
+ * - https://api.vaididea.in/
+ * - https://api.vaididea.in/api
+ * - https://api.vaididea.in/api/
+ * without producing duplicate /api/api or missing /api.
+ */
+export function normalizeApiUrl(value?: string | null): string {
+    const raw = (value || '').trim() || (process.env.NEXT_PUBLIC_API_URL?.trim() || DEFAULT_API_URL);
+    const clean = raw.replace(/\/+$/, '');
+    return clean.endsWith('/api') ? clean : `${clean}/api`;
+}
+
+export function getCanonicalApiUrl(): string {
+    if (typeof window === 'undefined') {
+        const serverUrl = process.env.API_URL || process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
+        return normalizeApiUrl(serverUrl || DEFAULT_API_URL);
+    }
+    return normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL);
+}
+
+/**
+ * Safely resolves any backend endpoint path against the canonical API URL.
+ * Strips leading redundant '/api/', 'api/', or duplicate '/api/api/' prefixes.
+ * Examples:
+ *   buildCanonicalApiUrl('/doctors/123')     -> https://api.vaididea.in/api/doctors/123
+ *   buildCanonicalApiUrl('/api/doctors/123') -> https://api.vaididea.in/api/doctors/123
+ *   buildCanonicalApiUrl('doctors/123')      -> https://api.vaididea.in/api/doctors/123
+ *   buildCanonicalApiUrl('/api/api/doctors') -> https://api.vaididea.in/api/doctors
+ */
+export function buildCanonicalApiUrl(path: string, baseUrl?: string): string {
+    const base = baseUrl ? normalizeApiUrl(baseUrl) : getCanonicalApiUrl();
+    let clean = (path || '').trim();
+    while (/^(\/)?api(\/|\?|$)/i.test(clean)) {
+        if (/^(\/)?api\?/i.test(clean)) {
+            clean = clean.replace(/^(\/)?api\?/i, '?');
+            break;
+        }
+        clean = clean.replace(/^(\/)?api(\/|$)/i, '');
+    }
+    if (clean.startsWith('?')) {
+        return `${base}${clean}`;
+    }
+    clean = clean.replace(/^\/+/, '');
+    return clean ? `${base}/${clean}` : base;
+}
+
+const rawApiUrl = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL?.trim() || DEFAULT_API_URL);
 const rawSocketUrl = stripTrailingSlash(process.env.NEXT_PUBLIC_SOCKET_URL?.trim() || deriveSocketUrl(rawApiUrl));
 const rawAiWsUrl = stripTrailingSlash(process.env.NEXT_PUBLIC_AI_WS_URL?.trim() || deriveAiWsUrl(rawApiUrl));
 
