@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS patient_admissions (
     -- Admission details
     admission_type admission_type NOT NULL DEFAULT 'elective',
     status admission_status NOT NULL DEFAULT 'pre_admission',
-    admission_number TEXT UNIQUE,           -- auto-generated e.g. ADM-2026-00001
+    admission_number TEXT,                  -- auto-generated e.g. ADM-2026-00001
     uhid TEXT,                              -- unique hospital identifier for patient
 
     -- Clinical
@@ -44,11 +44,9 @@ CREATE TABLE IF NOT EXISTS patient_admissions (
     comorbidities TEXT[] DEFAULT '{}',
     allergies TEXT[] DEFAULT '{}',
     blood_group TEXT,
-
-    -- Timestamps
+    expected_discharge_date DATE,
     admitted_at TIMESTAMPTZ,
     discharged_at TIMESTAMPTZ,
-    expected_discharge_date DATE,
 
     -- Discharge
     discharge_type TEXT,                    -- normal, lama, transfer, expired, absconded, dama
@@ -59,9 +57,10 @@ CREATE TABLE IF NOT EXISTS patient_admissions (
     follow_up_instructions TEXT,
     death_cause TEXT,
 
-    -- MLC
+    -- Medico-Legal
+    is_mlc BOOLEAN DEFAULT false,
     mlc_number TEXT,
-    is_mlc BOOLEAN DEFAULT FALSE,
+    police_station TEXT,
     fir_number TEXT,
 
     -- Attendant / Next of kin
@@ -82,7 +81,9 @@ CREATE TABLE IF NOT EXISTS patient_admissions (
     referred_to TEXT,
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+    CONSTRAINT uq_hospital_admission_number UNIQUE (hospital_id, admission_number)
 );
 
 -- Indexes
@@ -95,10 +96,33 @@ CREATE INDEX IF NOT EXISTS idx_admissions_admitted_at ON patient_admissions(admi
 CREATE INDEX IF NOT EXISTS idx_admissions_discharged_at ON patient_admissions(discharged_at) WHERE discharged_at IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_admissions_number ON patient_admissions(admission_number);
 
--- Now add the FK from hospital_beds to patient_admissions
-ALTER TABLE hospital_beds
-    ADD CONSTRAINT fk_beds_current_admission
-    FOREIGN KEY (current_admission_id) REFERENCES patient_admissions(id) ON DELETE SET NULL;
+-- Now add the FK from hospital_beds to patient_admissions safely (idempotent)
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_beds_current_admission'
+    ) THEN
+        ALTER TABLE hospital_beds
+            ADD CONSTRAINT fk_beds_current_admission
+            FOREIGN KEY (current_admission_id) REFERENCES patient_admissions(id) ON DELETE SET NULL;
+    END IF;
+END $$;
+
+-- Migrate existing patient_admissions table constraints safely if already present
+DO $$ BEGIN
+    -- Drop legacy global unique constraint if present
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'patient_admissions_admission_number_key'
+    ) THEN
+        ALTER TABLE patient_admissions DROP CONSTRAINT patient_admissions_admission_number_key;
+    END IF;
+
+    -- Add compound unique constraint if not present
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'uq_hospital_admission_number'
+    ) THEN
+        ALTER TABLE patient_admissions ADD CONSTRAINT uq_hospital_admission_number UNIQUE (hospital_id, admission_number);
+    END IF;
+END $$;
 
 -- ============================================================
 -- Admission Progress Notes (daily rounds, SOAP)

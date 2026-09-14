@@ -58,11 +58,16 @@ router.post('/check-conflict', ownerOrManager, requireApproval, asyncHandler(asy
 // ── OT SCHEDULES ──
 
 router.post('/schedules', ownerOrManager, requireApproval, [
-  body('otRoomId').notEmpty(),
-  body('patientId').notEmpty(),
-  body('primarySurgeonId').notEmpty(),
-  body('surgeryName').notEmpty(),
-  body('scheduledStart').notEmpty(),
+  body('otRoomId').notEmpty().withMessage('OT room required'),
+  body('patientId').notEmpty().withMessage('Patient required'),
+  body('primarySurgeonId').notEmpty().withMessage('Primary surgeon required'),
+  body('scheduledStart').notEmpty().withMessage('Scheduled start time required'),
+  body().custom((val) => {
+    if (!val.surgeryName && !val.procedureName && !val.surgery_name && !val.procedure_name) {
+      throw new Error('Either surgeryName or procedureName is required');
+    }
+    return true;
+  }),
   validate,
 ], asyncHandler(async (req, res) => {
   const hospitalId = await getHospitalId(req.user.id);

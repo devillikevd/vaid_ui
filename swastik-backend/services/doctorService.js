@@ -9,6 +9,7 @@ const { calculateAge } = require('../utils/patientProfile');
 const eventEmitter = require('./eventEmitter');
 const notificationService = require('./notificationService');
 const { logAudit } = require('../utils/auditLogger');
+const { normalizeTimeSlotToTime } = require('./helpers/timeSlotHelper');
 
 // Cap on how many already-past slots to surface on a given day's booking view.
 // Without this, a full day of elapsed slots floods the UI as "booked".
@@ -1613,18 +1614,27 @@ class DoctorService {
    */
   async checkAffectedAppointments(userId, leaveData) {
     const doctor = await this._resolveDoctor(userId);
-    if (!leaveData.start_date || !leaveData.end_date) {
+    const startDate = leaveData.start_date || leaveData.startDate;
+    const endDate = leaveData.end_date || leaveData.endDate;
+    const leaveType = leaveData.leave_type || leaveData.leaveType || 'full_day';
+    const startTime = leaveData.start_time || leaveData.startTime || null;
+    const endTime = leaveData.end_time || leaveData.endTime || null;
+    const scope = leaveData.scope || 'global';
+    const organizationType = leaveData.organization_type || leaveData.organizationType || null;
+    const organizationId = leaveData.organization_id || leaveData.organizationId || null;
+
+    if (!startDate || !endDate) {
       throw new ApiError(400, 'Start date and end date are required');
     }
 
     const affected = await this._findAffectedAppointments(doctor.id, {
-      startDate: leaveData.start_date,
-      endDate: leaveData.end_date,
-      startTime: leaveData.leave_type === 'partial_day' ? leaveData.start_time : null,
-      endTime: leaveData.leave_type === 'partial_day' ? leaveData.end_time : null,
-      scope: leaveData.scope || 'global',
-      organizationType: leaveData.organization_type || null,
-      organizationId: leaveData.organization_id || null,
+      startDate,
+      endDate,
+      startTime: leaveType === 'partial_day' ? startTime : null,
+      endTime: leaveType === 'partial_day' ? endTime : null,
+      scope,
+      organizationType,
+      organizationId,
     });
 
     return {
@@ -1691,67 +1701,65 @@ class DoctorService {
   async addLeave(userId, leaveData) {
     const doctor = await this._resolveDoctor(userId);
     
-    const {
-      start_date,
-      end_date,
-      reason = null,
-      scope = 'global',
-      organization_type = null,
-      organization_id = null,
-      leave_type = 'full_day',
-      start_time = null,
-      end_time = null,
-    } = leaveData;
+    const startDate = leaveData.start_date || leaveData.startDate;
+    const endDate = leaveData.end_date || leaveData.endDate;
+    const reason = leaveData.reason || null;
+    const scope = leaveData.scope || 'global';
+    const organizationType = leaveData.organization_type || leaveData.organizationType || null;
+    const organizationId = leaveData.organization_id || leaveData.organizationId || null;
+    const leaveType = leaveData.leave_type || leaveData.leaveType || 'full_day';
+    const startTime = leaveData.start_time || leaveData.startTime || null;
+    const endTime = leaveData.end_time || leaveData.endTime || null;
 
-    if (!start_date || !end_date) {
+    if (!startDate || !endDate) {
       throw new ApiError(400, 'Start date and end date are required');
     }
-    if (end_date < start_date) {
+    if (endDate < startDate) {
       throw new ApiError(400, 'End date cannot be earlier than start date');
     }
 
     const today = new Date().toISOString().split('T')[0];
-    if (end_date < today) {
+    if (endDate < today) {
       throw new ApiError(400, 'Cannot request leave in the past');
     }
 
-    if (leave_type === 'partial_day') {
-      if (!start_time || !end_time) {
+    if (leaveType === 'partial_day') {
+      if (!startTime || !endTime) {
         throw new ApiError(400, 'Start time and end time are required for partial-day leave');
       }
-      const sMins = toMinutes(start_time.length > 5 ? start_time.slice(0, 5) : start_time);
-      const eMins = toMinutes(end_time.length > 5 ? end_time.slice(0, 5) : end_time);
+      const sMins = toMinutes(startTime.length > 5 ? startTime.slice(0, 5) : startTime);
+      const eMins = toMinutes(endTime.length > 5 ? endTime.slice(0, 5) : endTime);
       if (sMins === null || eMins === null || eMins <= sMins) {
         throw new ApiError(400, 'End time must be after start time');
       }
     }
 
     if (scope === 'organization') {
-      if (!organization_type || !['clinic', 'hospital'].includes(organization_type)) {
+      if (!organizationType || !['clinic', 'hospital'].includes(organizationType)) {
         throw new ApiError(400, 'Organization type must be clinic or hospital');
       }
-      if (!organization_id) {
+      if (!organizationId) {
         throw new ApiError(400, 'Organization ID is required for organization-specific leave');
       }
 
       // Verify active affiliation with the organization
-      if (organization_type === 'clinic') {
+      if (organizationType === 'clinic') {
         const { data: aff, error: affErr } = await supabaseAdmin
           .from('clinic_doctors')
           .select('id, is_active')
           .eq('doctor_id', doctor.id)
-          .eq('clinic_id', organization_id)
+          .eq('clinic_id', organizationId)
           .maybeSingle();
 
         if (affErr || !aff || !aff.is_active) {
           throw new ApiError(400, 'You do not have an active affiliation with this clinic');
         }
-      } else if (organization_type === 'hospital') {
+      } else if (organizationType === 'hospital') {
         const { data: aff, error: affErr } = await supabaseAdmin
           .from('hospital_doctors')
           .select('id, is_active')
           .eq('doctor_id', doctor.id)
-          .eq('hospital_id', organization_id)
+          .eq('hospital_id', organizationId)
           .maybeSingle();
 
         if (affErr || !aff || !aff.is_active) {
@@ -1766,18 +1774,18 @@ class DoctorService {
         .from('doctor_leaves')
         .select('*')
         .eq('doctor_id', doctor.id)
-        .lte('start_date', end_date)
-        .gte('end_date', start_date);
+        .lte('start_date', endDate)
+        .gte('end_date', startDate);
 
       const activeOnly = (existingActiveLeaves || []).filter(l => !l.status || l.status === 'active');
       
-      const newLeaveStartMins = leave_type === 'partial_day' ? toMinutes(start_time.slice(0, 5)) : 0;
-      const newLeaveEndMins = leave_type === 'partial_day' ? toMinutes(end_time.slice(0, 5)) : 1440;
+      const newLeaveStartMins = leaveType === 'partial_day' ? toMinutes(startTime.slice(0, 5)) : 0;
+      const newLeaveEndMins = leaveType === 'partial_day' ? toMinutes(endTime.slice(0, 5)) : 1440;
 
       for (const ex of activeOnly) {
         const isExGlobal = !ex.scope || ex.scope === 'global';
         const isNewGlobal = scope === 'global';
-        const sameOrg = (ex.organization_id === organization_id) || (ex.clinic_id === organization_id) || (ex.hospital_id === organization_id);
+        const sameOrg = (ex.organization_id === organizationId) || (ex.clinic_id === organizationId) || (ex.hospital_id === organizationId);
 
         // If either is global or both target the same organization
         if (isExGlobal || isNewGlobal || sameOrg) {
@@ -1798,13 +1806,13 @@ class DoctorService {
 
     // ── Find Affected Appointments ──
     const affectedAppointments = await this._findAffectedAppointments(doctor.id, {
-      startDate: start_date,
-      endDate: end_date,
-      startTime: leave_type === 'partial_day' ? start_time : null,
-      endTime: leave_type === 'partial_day' ? end_time : null,
+      startDate,
+      endDate,
+      startTime: leaveType === 'partial_day' ? startTime : null,
+      endTime: leaveType === 'partial_day' ? endTime : null,
       scope,
-      organizationType: organization_type,
-      organizationId: organization_id,
+      organizationType,
+      organizationId,
     });
 
     // ── Insert Leave ──
@@ -1816,15 +1824,15 @@ class DoctorService {
         .insert({
           doctor_id: doctor.id,
           scope,
-          organization_type: scope === 'organization' ? organization_type : null,
-          organization_id: scope === 'organization' ? organization_id : null,
-          clinic_id: (scope === 'organization' && organization_type === 'clinic') ? organization_id : null,
-          hospital_id: (scope === 'organization' && organization_type === 'hospital') ? organization_id : null,
-          leave_type,
-          start_date,
-          end_date,
-          start_time: leave_type === 'partial_day' ? start_time : null,
-          end_time: leave_type === 'partial_day' ? end_time : null,
+          organization_type: scope === 'organization' ? organizationType : null,
+          organization_id: scope === 'organization' ? organizationId : null,
+          clinic_id: (scope === 'organization' && organizationType === 'clinic') ? organizationId : null,
+          hospital_id: (scope === 'organization' && organizationType === 'hospital') ? organizationId : null,
+          leave_type: leaveType,
+          start_date: startDate,
+          end_date: endDate,
+          start_time: leaveType === 'partial_day' ? startTime : null,
+          end_time: leaveType === 'partial_day' ? endTime : null,
           reason: reason || null,
           status: 'active',
           created_at: nowIso,
@@ -4120,14 +4128,16 @@ class DoctorService {
    */
   async toggleSlotBlock(userId, payload) {
     const doctor = await this._resolveDoctor(userId);
-    const { date, timeSlot, action = 'block' } = payload;
+    const date = payload.date || payload.blockDate || payload.block_date || payload.slot_date;
+    const rawTimeSlot = payload.timeSlot || payload.time_slot || payload.slot;
+    const action = payload.action || 'block';
 
-    if (!date || !timeSlot) {
+    if (!date || !rawTimeSlot) {
       throw new ApiError(400, 'date and timeSlot are required');
     }
 
-    const timeSlotShort = timeSlot.length > 5 ? timeSlot.slice(0, 5) : timeSlot;
-    const timeSlotDb = `${timeSlotShort}:00`;
+    const timeSlotDb = normalizeTimeSlotToTime(rawTimeSlot);
+    const timeSlotShort = timeSlotDb.slice(0, 5);
 
     // Past-slot protection: Prevent blocking/unblocking slots that have already started in IST (+05:30)
     const now = new Date();

@@ -983,7 +983,11 @@ const createMedicineRemindersFromPrescription = async (patientId, prescriptionId
 
 // Add prescription
 const addPrescription = async (doctorUserId, options, prescriptionData) => {
-  const { consultationId, appointmentId } = options;
+  const opts = typeof options === 'string'
+    ? { consultationId: options }
+    : (options || {});
+  const consultationId = opts.consultationId || opts.consultation_id;
+  const appointmentId = opts.appointmentId || opts.appointment_id;
   
   if (!consultationId && !appointmentId) {
     throw new ApiError(400, 'Either consultationId or appointmentId must be provided');
@@ -1100,7 +1104,7 @@ const addPrescription = async (doctorUserId, options, prescriptionData) => {
 
   // Validate medicines against drug catalog (non-blocking — warns for unknown)
   let catalogWarnings = [];
-  let enrichedItems = prescriptionData.items || [];
+  let enrichedItems = prescriptionData.items || prescriptionData.medicines || [];
   try {
     const medicineService = require('./medicineService');
     const validation = await medicineService.validatePrescribedMedicines(enrichedItems);
@@ -1112,10 +1116,10 @@ const addPrescription = async (doctorUserId, options, prescriptionData) => {
 
   // Build medicines JSONB for backward compatibility
   const medicinesJson = enrichedItems.map(item => ({
-    medicine_name: item.medicineName,
-    dosage: item.dosage,
-    frequency: item.frequency,
-    duration: item.duration,
+    medicine_name: item.medicineName || item.medicine_name || item.name || '',
+    dosage: item.dosage || '',
+    frequency: item.frequency || '',
+    duration: item.duration || '',
     instructions: item.instructions || null,
     quantity: item.quantity || null,
   }));
@@ -1154,16 +1158,16 @@ const addPrescription = async (doctorUserId, options, prescriptionData) => {
   if (enrichedItems.length > 0) {
     const medicines = enrichedItems.map((item) => ({
       prescription_id: prescription.id,
-      medicine_id: item.medicineId || null,
-      medicine_name: item.medicineName,
-      dosage: item.dosage,
-      frequency: item.frequency,
-      duration: item.duration,
-      instructions: item.instructions,
-      quantity: item.quantity,
-      generic_name: item.generic_name || null,
-      before_food: item.beforeFood || false,
-      is_critical: item.isCritical || false,
+      medicine_id: item.medicineId || item.medicine_id || null,
+      medicine_name: item.medicineName || item.medicine_name || item.name || '',
+      dosage: item.dosage || '',
+      frequency: item.frequency || '',
+      duration: item.duration || '',
+      instructions: item.instructions || null,
+      quantity: item.quantity || null,
+      generic_name: item.generic_name || item.genericName || null,
+      before_food: item.beforeFood || item.before_food || false,
+      is_critical: item.isCritical || item.is_critical || false,
     }));
 
     const { error: medError } = await supabaseAdmin.from('prescription_medicines').insert(medicines);

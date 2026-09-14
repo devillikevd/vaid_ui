@@ -12,6 +12,7 @@ const { sanitizeSearch } = require('../utils/sanitize');
 const eventEmitter = require('./eventEmitter');
 const { buildProviderResubmissionFields } = require('../utils/providerApproval');
 const { signStorageUrlsInPayload } = require('../config/minio');
+const { normalizeTimeSlotToTime } = require('./helpers/timeSlotHelper');
 
 const normalizeDiagnosticBookingStatus = (status) => (
   status === 'booked' ? 'pending' : status
@@ -169,7 +170,7 @@ const getDiagnosticCenterById = async (id) => {
     .from('diagnostic_tests')
     .select('*')
     .eq('center_id', id)
-    .eq('is_available', true);
+    .eq('is_active', true);
 
   const [recordWithPhone] = await enrichMissingPhonesFromOwners([data]);
   const center = recordWithPhone || data;
@@ -594,6 +595,9 @@ const updateBookingStatus = async (centerId, bookingId, status, meta = {}) => {
   const nextStatus = normalizeDiagnosticBookingStatus(status);
   if (current) {
     const currentStatus = normalizeDiagnosticBookingStatus(current.status);
+    if (currentStatus === nextStatus) {
+      return normalizeDiagnosticBookingRecord(current);
+    }
     const allowed = VALID_STATUS_TRANSITIONS[currentStatus] || [];
     if (!allowed.includes(nextStatus)) {
       throw new ApiError(400, `Cannot transition from '${currentStatus}' to '${nextStatus}'`);
@@ -1296,7 +1300,9 @@ const bookTest = async (patientId, centerId, testId, bookingData) => {
       test_id: testId || null,
       prescription_id: bookingData.prescriptionId || bookingData.prescription_id || null,
       booking_date: bookingData.bookingDate || bookingData.booking_date,
-      booking_time: bookingData.bookingTime || bookingData.booking_time || null,
+      booking_time: (bookingData.bookingTime || bookingData.booking_time)
+        ? normalizeTimeSlotToTime(bookingData.bookingTime || bookingData.booking_time)
+        : null,
       collection_type: bookingData.collectionType || bookingData.collection_type || 'walk_in',
       collection_address: bookingData.patientPhone ? `${bookingData.collectionAddress || bookingData.collection_address || ''} | Phone: ${bookingData.patientPhone}` : (bookingData.collectionAddress || bookingData.collection_address || null),
       notes: bookingData.notes || null,
@@ -1368,7 +1374,7 @@ const createClinicDiagnosticBooking = async (clinicId, actorId, bookingData) => 
     const { data: matchedTest } = await supabaseAdmin
       .from('diagnostic_tests')
       .select('id')
-      .eq('diagnostic_center_id', centerId)
+      .eq('center_id', centerId)
       .ilike('name', `%${targetInvestigation}%`)
       .limit(1)
       .maybeSingle();
@@ -1392,7 +1398,7 @@ const createClinicDiagnosticBooking = async (clinicId, actorId, bookingData) => 
       test_id: resolvedTestId,
       prescription_id: prescriptionId || null,
       booking_date: bookingDate || new Date().toISOString().split('T')[0],
-      booking_time: bookingTime || null,
+      booking_time: bookingTime ? normalizeTimeSlotToTime(bookingTime) : null,
       collection_type: collectionType,
       collection_address: collectionAddress || null,
       notes: bookingNotes || 'Clinic Diagnostic Referral',

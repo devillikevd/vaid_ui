@@ -8,6 +8,7 @@ const { cacheDel } = require('../config/redis');
 const eventEmitter = require('./eventEmitter');
 const notificationService = require('./notificationService');
 const { checkAppointmentStartEligibility } = require('../utils/appointmentTiming');
+const { normalizeTimeSlotToTime } = require('./helpers/timeSlotHelper');
 
 const invalidateDashboardCaches = async (patientUserId, doctorUserId) => {
   await Promise.allSettled([
@@ -271,6 +272,7 @@ const bookAppointment = async (patientId, appointmentData) => {
     knownAllergies, currentMedications, medicalHistory, voiceNoteUrl, supportingDocuments,
     reasonForVisit,
   } = appointmentData;
+  const normalizedTimeSlot = normalizeTimeSlotToTime(timeSlot);
   const normalizedType = type === 'in_person' ? 'clinic' : (type || 'clinic');
 
   if (hospitalId && clinicId) {
@@ -398,8 +400,8 @@ const bookAppointment = async (patientId, appointmentData) => {
   }
 
   // --- Global Busy Calendar Conflict Check ---
-  const ts = timeSlot.length > 5 ? timeSlot.slice(0, 5) : timeSlot;
-  const reqStartParts = ts.split(':');
+  const ts = (normalizedTimeSlot && normalizedTimeSlot.length > 5) ? normalizedTimeSlot.slice(0, 5) : (normalizedTimeSlot || timeSlot);
+  const reqStartParts = ts ? ts.split(':') : [];
   const reqStartMins = reqStartParts.length >= 2 ? (parseInt(reqStartParts[0], 10) * 60) + parseInt(reqStartParts[1], 10) : null;
   const reqDuration = appointmentData.duration_minutes || 15;
   
@@ -510,7 +512,7 @@ const bookAppointment = async (patientId, appointmentData) => {
   const seq = String(seqNum).padStart(4, '0');
   const appointmentNumber = `VD-${yyyy}-${mm}${dd}-${seq}`;
 
-  let finalTimeSlot = timeSlot;
+  let finalTimeSlot = normalizedTimeSlot || timeSlot;
 
   const insertPayload = {
     patient_id: patient.id,
@@ -849,6 +851,8 @@ const cancelAppointment = async (patientUserId, appointmentId, reason) => {
 
 // Reschedule appointment
 const rescheduleAppointment = async (userId, role, appointmentId, date, timeSlot) => {
+  const normalizedTimeSlot = normalizeTimeSlotToTime(timeSlot) || timeSlot;
+
   // Fetch current appointment
   const { data: existingAppt } = await supabaseAdmin
     .from('appointments')
@@ -884,7 +888,7 @@ const rescheduleAppointment = async (userId, role, appointmentId, date, timeSlot
     .select('id')
     .eq('doctor_id', existingAppt.doctor_id)
     .eq('appointment_date', date)
-    .eq('time_slot', timeSlot)
+    .eq('time_slot', normalizedTimeSlot)
     .in('status', ['scheduled', 'confirmed'])
     .neq('id', appointmentId)
     .limit(1);
@@ -901,7 +905,7 @@ const rescheduleAppointment = async (userId, role, appointmentId, date, timeSlot
     .from('appointments')
     .update({
       appointment_date: date,
-      time_slot: timeSlot,
+      time_slot: normalizedTimeSlot,
       status: existingAppt.status,
       updated_at: new Date().toISOString(),
     })

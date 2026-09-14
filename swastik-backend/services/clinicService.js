@@ -12,6 +12,7 @@ const { buildProviderResubmissionFields } = require('../utils/providerApproval')
 const eventEmitter = require('./eventEmitter');
 const notificationService = require('./notificationService');
 const { logAudit } = require('../utils/auditLogger');
+const { normalizeTimeSlotToTime } = require('./helpers/timeSlotHelper');
 
 const enrichMissingPhonesFromOwners = async (rows = []) => {
   if (!Array.isArray(rows) || rows.length === 0) return rows;
@@ -65,15 +66,101 @@ const buildUserContactMap = async (userIds = []) => {
 };
 
 const getActiveClinicDoctorIds = async (clinicId) => {
-  const { data, error } = await supabaseAdmin
+  const [clinicDocsRes, facilityAssocsRes, acceptedInvitesRes] = await Promise.all([
+    supabaseAdmin
+      .from('clinic_doctors')
+      .select('doctor_id')
+      .eq('clinic_id', clinicId)
+      .eq('is_active', true),
+    supabaseAdmin
+      .from('facility_provider_associations')
+      .select('provider_id')
+      .eq('facility_id', clinicId)
+      .eq('facility_type', 'clinic')
+      .eq('is_active', true),
+    supabaseAdmin
+      .from('clinic_doctor_invites')
+      .select('doctor_id')
+      .eq('clinic_id', clinicId)
+      .eq('status', 'accepted'),
+  ]);
+
+  if (clinicDocsRes.error) throw clinicDocsRes.error;
+
+  const docIds1 = (clinicDocsRes.data || []).map((row) => row.doctor_id).filter(Boolean);
+  const docIds2 = (acceptedInvitesRes.data || []).map((row) => row.doctor_id).filter(Boolean);
+
+  let facilityDocIds = [];
+  const candidateProviderIds = (facilityAssocsRes.data || []).map((r) => r.provider_id).filter(Boolean);
+  if (candidateProviderIds.length > 0) {
+    const { data: matchedDocs } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .in('id', candidateProviderIds);
+    facilityDocIds = (matchedDocs || []).map((d) => d.id).filter(Boolean);
+  }
+
+  return [...new Set([...docIds1, ...docIds2, ...facilityDocIds])];
+};
+
+const ensureDoctorMirroredInClinic = async (clinicId, doctorId) => {
+  if (!clinicId || !doctorId) return null;
+
+  const { data: existing } = await supabaseAdmin
     .from('clinic_doctors')
-    .select('doctor_id')
+    .select('id, is_active')
     .eq('clinic_id', clinicId)
-    .eq('is_active', true);
+    .eq('doctor_id', doctorId)
+    .maybeSingle();
 
-  if (error) throw error;
+  if (existing) {
+    if (!existing.is_active) {
+      await supabaseAdmin
+        .from('clinic_doctors')
+        .update({ is_active: true, joined_at: new Date().toISOString() })
+        .eq('id', existing.id);
+    }
+    return existing;
+  }
 
-  return (data || []).map((row) => row.doctor_id).filter(Boolean);
+  // Check if doctor has an active association in facility_provider_associations or accepted clinic_doctor_invites
+  const [assocCheck, inviteCheck] = await Promise.all([
+    supabaseAdmin
+      .from('facility_provider_associations')
+      .select('id')
+      .eq('facility_id', clinicId)
+      .eq('facility_type', 'clinic')
+      .eq('provider_id', doctorId)
+      .eq('is_active', true)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('clinic_doctor_invites')
+      .select('id, schedule')
+      .eq('clinic_id', clinicId)
+      .eq('doctor_id', doctorId)
+      .eq('status', 'accepted')
+      .maybeSingle(),
+  ]);
+
+  const hasAffiliation = Boolean(assocCheck?.data || inviteCheck?.data);
+  if (hasAffiliation) {
+    const nowIso = new Date().toISOString();
+    const { data: inserted, error } = await supabaseAdmin
+      .from('clinic_doctors')
+      .insert({
+        clinic_id: clinicId,
+        doctor_id: doctorId,
+        is_active: true,
+        joined_at: nowIso,
+        schedule: inviteCheck?.data?.schedule || {},
+      })
+      .select('id, is_active')
+      .single();
+
+    if (!error && inserted) return inserted;
+  }
+
+  return existing || null;
 };
 
 const mapClinicDoctorAssociation = (association, userContactMap = new Map()) => {
@@ -2654,13 +2741,25 @@ const addDepartment = async (clinicId, userId, deptData) => {
 
   const headDoctorId = deptData.head_doctor_id || deptData.headDoctorId || null;
   if (headDoctorId) {
-    const { data: assoc } = await supabaseAdmin
+    let { data: assoc } = await supabaseAdmin
       .from('clinic_doctors')
       .select('id, is_active')
       .eq('clinic_id', clinicId)
       .eq('doctor_id', headDoctorId)
       .eq('is_active', true)
       .maybeSingle();
+
+    if (!assoc) {
+      await ensureDoctorMirroredInClinic(clinicId, headDoctorId);
+      const { data: syncedAssoc } = await supabaseAdmin
+        .from('clinic_doctors')
+        .select('id, is_active')
+        .eq('clinic_id', clinicId)
+        .eq('doctor_id', headDoctorId)
+        .eq('is_active', true)
+        .maybeSingle();
+      assoc = syncedAssoc;
+    }
 
     if (!assoc) {
       throw new ApiError(400, 'Department head must be an active doctor affiliated with this clinic');
@@ -2734,13 +2833,25 @@ const updateDepartment = async (clinicId, userId, departmentId, updates) => {
   }
 
   if (safeUpdates.head_doctor_id !== undefined && safeUpdates.head_doctor_id !== null) {
-    const { data: assoc } = await supabaseAdmin
+    let { data: assoc } = await supabaseAdmin
       .from('clinic_doctors')
       .select('id, is_active')
       .eq('clinic_id', clinicId)
       .eq('doctor_id', safeUpdates.head_doctor_id)
       .eq('is_active', true)
       .maybeSingle();
+
+    if (!assoc) {
+      await ensureDoctorMirroredInClinic(clinicId, safeUpdates.head_doctor_id);
+      const { data: syncedAssoc } = await supabaseAdmin
+        .from('clinic_doctors')
+        .select('id, is_active')
+        .eq('clinic_id', clinicId)
+        .eq('doctor_id', safeUpdates.head_doctor_id)
+        .eq('is_active', true)
+        .maybeSingle();
+      assoc = syncedAssoc;
+    }
 
     if (!assoc) {
       throw new ApiError(400, 'Department head must be an active doctor affiliated with this clinic');
@@ -2795,7 +2906,7 @@ const assignDoctorToDepartment = async (clinicId, userId, departmentId, doctorId
   if (deptErr || !dept) throw new ApiError(404, 'Department not found for this clinic');
   if (dept.is_active === false) throw new ApiError(400, 'Cannot assign doctor to an inactive department');
 
-  const { data: assoc, error: assocErr } = await supabaseAdmin
+  let { data: assoc, error: assocErr } = await supabaseAdmin
     .from('clinic_doctors')
     .select('id, doctor_id, schedule, is_active')
     .eq('clinic_id', clinicId)
@@ -2803,6 +2914,18 @@ const assignDoctorToDepartment = async (clinicId, userId, departmentId, doctorId
     .maybeSingle();
 
   if (assocErr || !assoc || assoc.is_active === false) {
+    await ensureDoctorMirroredInClinic(clinicId, doctorId);
+    const { data: syncedAssoc } = await supabaseAdmin
+      .from('clinic_doctors')
+      .select('id, doctor_id, schedule, is_active')
+      .eq('clinic_id', clinicId)
+      .eq('doctor_id', doctorId)
+      .maybeSingle();
+
+    assoc = syncedAssoc;
+  }
+
+  if (!assoc || assoc.is_active === false) {
     throw new ApiError(400, 'Only active doctors affiliated with this clinic can be assigned to departments');
   }
 
@@ -3935,7 +4058,18 @@ const getClinicPatientDetails = async (clinicId, userId, patientId) => {
   if (appointmentsError) throw appointmentsError;
 
   if (!appointments || appointments.length === 0) {
-    throw new ApiError(403, 'Patient has no relationship with this clinic');
+    const { data: referral } = await supabaseAdmin
+      .from('universal_referrals')
+      .select('id')
+      .eq('receiver_type', 'clinic')
+      .eq('receiver_id', clinicId)
+      .eq('patient_id', patientId)
+      .limit(1)
+      .maybeSingle();
+
+    if (!referral) {
+      throw new ApiError(403, 'Patient has no relationship with this clinic');
+    }
   }
 
   // Fetch patient profile
@@ -4020,6 +4154,11 @@ const updateAppointmentStatusForClinic = async (clinicId, userId, appointmentId,
 
   const appointment = await getClinicScopedAppointment(clinicId, appointmentId);
 
+  // Idempotent return: if appointment is already in requested status, return early
+  if (appointment.status === status) {
+    return appointment;
+  }
+
   const allowed = CLINIC_STATUS_TRANSITIONS[appointment.status];
   if (!allowed || !allowed.includes(status)) {
     throw new ApiError(400, `Cannot transition clinic appointment from '${appointment.status}' to '${status}'`);
@@ -4082,6 +4221,7 @@ const updateAppointmentStatusForClinic = async (clinicId, userId, appointmentId,
 const rescheduleClinicAppointment = async (clinicId, userId, appointmentId, date, timeSlot) => {
   await assertClinicOwner(clinicId, userId);
 
+  const normalizedTimeSlot = normalizeTimeSlotToTime(timeSlot) || timeSlot;
   const appointment = await getClinicScopedAppointment(clinicId, appointmentId);
 
   if (!['scheduled', 'confirmed'].includes(appointment.status)) {
@@ -4093,7 +4233,7 @@ const rescheduleClinicAppointment = async (clinicId, userId, appointmentId, date
     .select('id')
     .eq('doctor_id', appointment.doctor_id)
     .eq('appointment_date', date)
-    .eq('time_slot', timeSlot)
+    .eq('time_slot', normalizedTimeSlot)
     .in('status', ['scheduled', 'confirmed'])
     .neq('id', appointment.id)
     .limit(1);
@@ -4107,11 +4247,11 @@ const rescheduleClinicAppointment = async (clinicId, userId, appointmentId, date
     .from('appointments')
     .update({
       appointment_date: date,
-      time_slot: timeSlot,
+      time_slot: normalizedTimeSlot,
       status: appointment.status,
       status_history: appendStatusHistory(appointment.status_history, {
         from: 'reschedule',
-        to: `${date} ${timeSlot}`,
+        to: `${date} ${normalizedTimeSlot}`,
         by: 'clinic',
         actor_user_id: userId,
         at: nowIso,

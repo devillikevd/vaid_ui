@@ -137,6 +137,33 @@ class BillingService {
       }
     }
 
+    // 5️⃣ In-House Pharmacy Dispensations (Ward Indents, OT Requisitions & IPD Meds)
+    const { data: pharmacyDispensations } = await supabaseAdmin
+      .from('hospital_pharmacy_dispensations')
+      .select('id, dispensation_number, dispense_type, total_amount, patient_id')
+      .eq('hospital_id', hospitalId)
+      .match(labFilter)
+      .eq('status', 'dispensed');
+
+    for (const disp of (pharmacyDispensations || [])) {
+      if (disp.total_amount && parseFloat(disp.total_amount) > 0) {
+        charges.push({
+          hospital_id: hospitalId,
+          encounter_id: encounterId || null,
+          admission_id: admissionId || null,
+          patient_id: disp.patient_id,
+          service_name: `Pharmacy: ${disp.dispensation_number} (${disp.dispense_type || 'Dispensation'})`,
+          category: 'pharmacy',
+          quantity: 1,
+          unit_rate: parseFloat(disp.total_amount),
+          net_amount: parseFloat(disp.total_amount),
+          source_type: 'pharmacy_dispensation',
+          source_id: disp.id,
+          status: 'pending',
+        });
+      }
+    }
+
     // De-duplicate: skip charges whose source_id already exists
     if (charges.length > 0) {
       const sourceIds = charges.filter((c) => c.source_id).map((c) => c.source_id);

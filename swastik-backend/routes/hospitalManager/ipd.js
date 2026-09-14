@@ -83,7 +83,8 @@ router.post('/admissions/:id/discharge', ipdAuthorized, requireApproval, [
 router.post('/admissions/:id/progress-notes', ipdAuthorized, requireApproval, [
   param('id').isUUID(), validate,
 ], asyncHandler(async (req, res) => {
-  const note = await ipdService.addProgressNote(req.params.id, req.body.doctorId || req.user.id, req.body);
+  const doctorId = req.body.doctorId || req.body.doctor_id || req.user.id;
+  const note = await ipdService.addProgressNote(req.params.id, doctorId, req.body);
   res.status(201).json({ success: true, note });
 }));
 

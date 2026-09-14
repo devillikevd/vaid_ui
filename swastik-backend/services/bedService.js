@@ -226,16 +226,28 @@ const updateBedStatus = async (hospitalId, bedId, status, data = {}) => {
     updates.last_sanitized_at = new Date().toISOString();
   }
 
-  const { data: bed, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('hospital_beds')
     .update(updates)
     .eq('id', bedId)
-    .eq('hospital_id', hospitalId)
+    .eq('hospital_id', hospitalId);
+
+  if (status === 'occupied') {
+    // Atomic check: Ensure bed is available before setting to occupied
+    query = query.eq('status', 'available');
+  }
+
+  const { data: bed, error } = await query
     .select('*, ward:hospital_wards(id, name, ward_type)')
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
-  if (!bed) throw new ApiError(404, 'Bed not found');
+  if (!bed) {
+    if (status === 'occupied') {
+      throw new ApiError(409, 'Bed is no longer available for occupation');
+    }
+    throw new ApiError(404, 'Bed not found');
+  }
   return bed;
 };
 

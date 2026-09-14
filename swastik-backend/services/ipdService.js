@@ -14,9 +14,23 @@ const createAdmission = async (hospitalId, data) => {
   const wardId = data.wardId || data.ward_id || null;
   const nowIso = new Date().toISOString();
 
+  // Pre-generate collision-proof admission_number for multi-tenant isolation
+  let admissionNumber = data.admissionNumber || data.admission_number;
+  if (!admissionNumber) {
+    const yearStr = new Date().getFullYear();
+    const shortHosp = (hospitalId || '').replace(/-/g, '').slice(0, 4).toUpperCase();
+    const { count } = await supabaseAdmin
+      .from('patient_admissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('hospital_id', hospitalId);
+    const seq = (count || 0) + 1;
+    admissionNumber = `ADM-${yearStr}-${shortHosp}-${String(seq).padStart(5, '0')}`;
+  }
+
   const payload = {
     hospital_id: hospitalId,
     patient_id: data.patientId || data.patient_id,
+    admission_number: admissionNumber,
     admitting_doctor_id: data.admittingDoctorId || data.admitting_doctor_id || null,
     attending_doctor_id: data.attendingDoctorId || data.attending_doctor_id || null,
     department_id: data.departmentId || data.department_id || null,
@@ -125,12 +139,27 @@ const admitPatient = async (hospitalId, admissionId, bedId, wardId = null) => {
         current_admission_id: admissionId,
       })
       .eq('id', bedId)
+      .eq('status', 'available') // ATOMIC: Only update if still available
       .select('*')
-      .single(),
+      .maybeSingle(),
   ]);
 
   if (admissionResult.error) throw admissionResult.error;
   if (bedResult.error) throw bedResult.error;
+
+  if (!bedResult.data) {
+    // Rollback admission update
+    await supabaseAdmin
+      .from('patient_admissions')
+      .update({
+        status: 'pre_admission',
+        bed_id: null,
+        ward_id: null,
+        admitted_at: null,
+      })
+      .eq('id', admissionId);
+    throw new ApiError(409, 'Bed was just occupied by another admission. Please select another bed.');
+  }
 
   return { admission: admissionResult.data, bed: bedResult.data };
 };
@@ -139,7 +168,7 @@ const transferBed = async (hospitalId, admissionId, newBedId, reason = '') => {
   // Get current admission
   const { data: admission, error: admError } = await supabaseAdmin
     .from('patient_admissions')
-    .select('id, status, bed_id, patient_id')
+    .select('id, status, bed_id, ward_id, patient_id, admitting_doctor_id, attending_doctor_id')
     .eq('id', admissionId)
     .eq('hospital_id', hospitalId)
     .single();
@@ -162,43 +191,52 @@ const transferBed = async (hospitalId, admissionId, newBedId, reason = '') => {
     throw new ApiError(400, `Target bed is not available (status: ${newBed.status})`);
   }
 
-  // Free old bed, occupy new bed, update admission
-  const promises = [
-    supabaseAdmin
-      .from('patient_admissions')
-      .update({ bed_id: newBedId, ward_id: newBed.ward_id })
-      .eq('id', admissionId)
-      .select('*')
-      .single(),
-    supabaseAdmin
-      .from('hospital_beds')
-      .update({
-        status: 'occupied',
-        current_patient_id: admission.patient_id,
-        current_admission_id: admissionId,
-      })
-      .eq('id', newBedId)
-      .select('*')
-      .single(),
-  ];
+  // Atomically occupy new bed
+  const { data: updatedNewBed, error: newBedUpdateError } = await supabaseAdmin
+    .from('hospital_beds')
+    .update({
+      status: 'occupied',
+      current_patient_id: admission.patient_id,
+      current_admission_id: admissionId,
+    })
+    .eq('id', newBedId)
+    .eq('status', 'available') // ATOMIC: prevent race conditions
+    .select('*')
+    .maybeSingle();
 
-  // Free old bed if it exists
-  if (admission.bed_id) {
-    promises.push(
-      supabaseAdmin
-        .from('hospital_beds')
-        .update({
-          status: 'housekeeping',
-          current_patient_id: null,
-          current_admission_id: null,
-        })
-        .eq('id', admission.bed_id)
-    );
+  if (newBedUpdateError) throw newBedUpdateError;
+  if (!updatedNewBed) {
+    throw new ApiError(409, 'Target bed is no longer available for transfer');
   }
 
-  const results = await Promise.all(promises);
-  if (results[0].error) throw results[0].error;
-  if (results[1].error) throw results[1].error;
+  // Update admission with new bed and ward
+  const { data: updatedAdmission, error: updateAdmError } = await supabaseAdmin
+    .from('patient_admissions')
+    .update({ bed_id: newBedId, ward_id: newBed.ward_id })
+    .eq('id', admissionId)
+    .select('*')
+    .single();
+
+  if (updateAdmError) {
+    // Rollback new bed if admission update failed
+    await supabaseAdmin
+      .from('hospital_beds')
+      .update({ status: 'available', current_patient_id: null, current_admission_id: null })
+      .eq('id', newBedId);
+    throw updateAdmError;
+  }
+
+  // Free old bed if it exists -> transits to housekeeping
+  if (admission.bed_id) {
+    await supabaseAdmin
+      .from('hospital_beds')
+      .update({
+        status: 'housekeeping',
+        current_patient_id: null,
+        current_admission_id: null,
+      })
+      .eq('id', admission.bed_id);
+  }
 
   // Add a transfer progress note
   await supabaseAdmin
@@ -212,7 +250,7 @@ const transferBed = async (hospitalId, admissionId, newBedId, reason = '') => {
     .select()
     .maybeSingle();
 
-  return results[0].data;
+  return updatedAdmission;
 };
 
 const dischargePatient = async (hospitalId, admissionId, dischargeData) => {
@@ -433,11 +471,42 @@ const getIPDCensus = async (hospitalId) => {
 // ──────────────────────────────────────────────
 
 const addProgressNote = async (admissionId, doctorId, noteData) => {
+  let resolvedDoctorId = doctorId || noteData.doctorId || noteData.doctor_id || null;
+
+  // Resolve doctorId if passed as a user_id or if not directly in doctors table
+  if (resolvedDoctorId) {
+    const { data: docById } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('id', resolvedDoctorId)
+      .maybeSingle();
+
+    if (!docById) {
+      const { data: docByUser } = await supabaseAdmin
+        .from('doctors')
+        .select('id')
+        .eq('user_id', resolvedDoctorId)
+        .maybeSingle();
+
+      if (docByUser) {
+        resolvedDoctorId = docByUser.id;
+      } else {
+        // Fallback: check admission's attending or admitting doctor
+        const { data: adm } = await supabaseAdmin
+          .from('patient_admissions')
+          .select('attending_doctor_id, admitting_doctor_id')
+          .eq('id', admissionId)
+          .maybeSingle();
+        resolvedDoctorId = adm?.attending_doctor_id || adm?.admitting_doctor_id || null;
+      }
+    }
+  }
+
   const { data, error } = await supabaseAdmin
     .from('admission_progress_notes')
     .insert({
       admission_id: admissionId,
-      doctor_id: doctorId,
+      doctor_id: resolvedDoctorId,
       note_type: noteData.noteType || noteData.note_type || 'progress',
       note_date: noteData.noteDate || noteData.note_date || new Date().toISOString().split('T')[0],
       subjective: noteData.subjective || null,

@@ -138,6 +138,8 @@ const normalizeOrderRecord = (order) => (
     ...order,
     status: normalizeOrderStatus(order.status),
     facility: order.facility || order.pharmacy || null,
+    discount_amount: order.discount_amount ?? order.discount ?? 0,
+    discount: order.discount ?? order.discount_amount ?? 0,
   } : order
 );
 
@@ -746,7 +748,7 @@ const getInventory = async (pharmacyId, filters = {}, page = 1, limit = 50) => {
 
   if (filters.search) {
     const s = sanitizeSearch(filters.search);
-    if (s) query = query.or(`name.ilike.%${s}%,generic_name.ilike.%${s}%,barcode.eq.${s}`);
+    if (s) query = query.or(`name.ilike.%${s}%,generic_name.ilike.%${s}%,batch_number.ilike.%${s}%,barcode.eq.${s}`);
   }
   // Low-stock filter is applied in JS because PostgREST does not support
   // reliable cross-column comparisons like quantity < reorder_level.
@@ -768,7 +770,7 @@ const getInventory = async (pharmacyId, filters = {}, page = 1, limit = 50) => {
       const allRows = result.data || [];
       const lowStockRows = allRows.filter(i => {
         const available = (i.quantity || 0) - (i.reserved_quantity || 0);
-        return available <= (i.minimum_stock ?? 10); // fallback to 10 if missing
+        return available <= (i.reorder_level ?? i.minimum_stock ?? 10);
       });
       data = lowStockRows.slice(offset, offset + limit);
       error = result.error;
@@ -1081,6 +1083,12 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes, pha
 
   const currentStatus = normalizeOrderStatus(current.status);
   const nextStatus = normalizeOrderStatus(status);
+
+  // Idempotency: if already in requested status, return current record cleanly
+  if (currentStatus === nextStatus) {
+    return normalizeOrderRecord(current);
+  }
+
   const allowed = ORDER_STATUS_TRANSITIONS[currentStatus] || [];
   if (!allowed.includes(nextStatus)) {
     throw new ApiError(400, `Cannot transition order from '${currentStatus}' to '${nextStatus}'`);
@@ -1916,9 +1924,9 @@ const createOrder = async (patientUserId, orderData) => {
     // without a prescription attached to the order.
     const itemName = invItem?.name || item.name || catalogMedicine?.name || reqItemId;
     const requiresRx = Boolean(
-      catalogMedicine?.requires_prescription ??
-      invItem?.requires_prescription ??
-      item.requiresPrescription ??
+      catalogMedicine?.requires_prescription ||
+      invItem?.requires_prescription ||
+      item.requiresPrescription ||
       false
     );
     if (requiresRx && !orderData.prescriptionId) {
@@ -1962,6 +1970,8 @@ const createOrder = async (patientUserId, orderData) => {
    const medcoinsDiscount = requestedCoins > 0 ? Math.min(totalAmount, requestedCoins) : 0;
    const finalTotalAmount = Math.max(0, totalAmount - medcoinsDiscount);
 
+   const totalDiscount = (orderData.discountAmount || orderData.discount || 0) + medcoinsDiscount;
+
    const insertPayload = {
     patient_id: patient.id,
     pharmacy_id: orderData.pharmacyId,
@@ -1971,13 +1981,18 @@ const createOrder = async (patientUserId, orderData) => {
     subtotal: totalAmount,
     delivery_fee: orderData.deliveryFee || 0,
     total_amount: finalTotalAmount + (orderData.deliveryFee || 0),
-    discount_amount: (orderData.discountAmount || 0) + medcoinsDiscount,
-    medcoins_redeemed: medcoinsDiscount,
+    discount: totalDiscount,
     delivery_address: orderData.patientPhone ? `${orderData.deliveryAddress} | Phone: ${orderData.patientPhone}` : orderData.deliveryAddress,
     delivery_type: orderData.deliveryType || 'pickup',
     status: 'pending',
     payment_status: 'pending',
   };
+
+  if (medcoinsDiscount > 0) {
+    insertPayload.notes = orderData.notes ? `${orderData.notes} | MedCoins Redeemed: ₹${medcoinsDiscount}` : `MedCoins Redeemed: ₹${medcoinsDiscount}`;
+  } else if (orderData.notes) {
+    insertPayload.notes = orderData.notes;
+  }
 
   // Link prescription if provided (enables pharmacy prescription view)
   if (orderData.prescriptionId) {
@@ -2043,7 +2058,7 @@ const createOrder = async (patientUserId, orderData) => {
     });
   }
 
-  return { ...order, total: totalAmount };
+  return { ...normalizeOrderRecord(order), total: totalAmount };
 };
 
 // Add reel
