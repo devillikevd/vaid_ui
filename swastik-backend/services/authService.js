@@ -178,11 +178,27 @@ const createEmailNotVerifiedError = () => {
   return error;
 };
 
+const PROVIDER_ROLE_TO_PENDING = {
+  doctor: 'doctor_pending',
+  clinic_owner: 'clinic_owner_pending',
+  hospital_owner: 'hospital_owner_pending',
+  pharmacy_owner: 'pharmacy_owner_pending',
+  diagnostic_center_owner: 'diagnostic_center_owner_pending',
+  wellness_coach: 'wellness_coach_pending',
+  fitness_center_owner: 'fitness_center_owner_pending',
+};
+
 const authRoleMatches = (user, expectedRole) => {
   if (!expectedRole) return true;
   return user.role === expectedRole ||
     user.requested_role === expectedRole ||
     (expectedRole === 'doctor' && user.role === 'doctor_pending') ||
+    (expectedRole === 'clinic_owner' && user.role === 'clinic_owner_pending') ||
+    (expectedRole === 'hospital_owner' && user.role === 'hospital_owner_pending') ||
+    (expectedRole === 'pharmacy_owner' && user.role === 'pharmacy_owner_pending') ||
+    (expectedRole === 'diagnostic_center_owner' && user.role === 'diagnostic_center_owner_pending') ||
+    (expectedRole === 'wellness_coach' && user.role === 'wellness_coach_pending') ||
+    (expectedRole === 'fitness_center_owner' && user.role === 'fitness_center_owner_pending') ||
     (expectedRole === 'admin' && user.role === 'super_admin') ||
     (expectedRole === 'hospital_owner' && user.role === 'hospital_manager') ||
     (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver') ||
@@ -391,6 +407,9 @@ const generateTokens = (user, customExpiresIn = null) => {
   const now = Math.floor(Date.now() / 1000);
   const userId = String(user.id);
 
+  const isRegistration = Boolean(user.role && user.role.endsWith('_pending'));
+  const tokenVersion = Number(user.token_version || 0);
+
   // CVE-002: bind tokens to the issuing service via aud/iss/sub claims so a
   // token minted for one audience is not silently valid in another.
   const accessToken = jwt.sign(
@@ -399,7 +418,9 @@ const generateTokens = (user, customExpiresIn = null) => {
       sub: userId,
       role: user.role,
       email: user.email,
-      type: 'access', tokenVersion: Number(user.token_version || 0),
+      type: 'access',
+      tokenVersion,
+      isRegistrationToken: isRegistration,
       aud: config.jwt.audience,
       iss: config.jwt.issuer,
       iat: now,
@@ -412,6 +433,8 @@ const generateTokens = (user, customExpiresIn = null) => {
       userId: user.id,
       sub: userId,
       type: 'refresh',
+      tokenVersion,
+      isRegistrationToken: isRegistration,
       aud: config.jwt.audience,
       iss: config.jwt.issuer,
       iat: now,
@@ -553,7 +576,7 @@ const register = async (userData) => {
   const password_hash = await bcrypt.hash(password, 12);
 
   const isProvider = role !== 'patient' && role !== 'admin' && role !== 'super_admin';
-  const finalRole = role === 'doctor' ? 'doctor_pending' : (isProvider ? 'patient' : role);
+  const finalRole = PROVIDER_ROLE_TO_PENDING[role] || (isProvider ? 'patient' : role);
   const requestedRole = isProvider ? role : null;
 
   // Enforce Pre-Registration Email OTP Verification
@@ -648,7 +671,7 @@ const register = async (userData) => {
   //   • On admin approval OR rejection, revokeProviderAuthSessions() increments
   //     users.token_version, instantly invalidating this token server-side.
   //   • No changes to the login endpoint — doctor_pending cannot login normally.
-  if (finalRole === 'doctor_pending') {
+  if (finalRole.endsWith('_pending')) {
     const REGISTRATION_TOKEN_EXPIRY = '2h';
     const regExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
 
@@ -1283,13 +1306,24 @@ const login = async (rawEmail, password, expectedRole = null, reqMeta = {}) => {
         throw new ApiError(403, 'Invalid credentials for this portal role');
       }
 
-      if (expectedRole === 'doctor' && user.role === 'doctor_pending') {
-        const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, 'doctor', user.id);
+      if (user.role && user.role.endsWith('_pending')) {
+        const baseRole = user.requested_role || user.role.replace(/_pending$/, '');
+        const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, baseRole, user.id);
         if (providerRecord && providerRecord.approval_status === 'rejected') {
           throw new ApiError(403, 'Your account application was rejected. Please contact support.');
         } else {
           throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
         }
+      }
+    }
+
+    if (user.role && user.role.endsWith('_pending')) {
+      const baseRole = user.requested_role || user.role.replace(/_pending$/, '');
+      const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, baseRole, user.id);
+      if (providerRecord && providerRecord.approval_status === 'rejected') {
+        throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+      } else {
+        throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
       }
     }
 
@@ -1376,7 +1410,7 @@ const refreshToken = async (token) => {
 
     const { data: storedToken } = await supabaseAdmin
       .from('refresh_tokens')
-      .select('id, is_revoked, family_id')
+      .select('id, is_revoked, family_id, expires_at')
       .eq('token', token)
       .eq('user_id', decoded.userId)
       .single();
@@ -1410,19 +1444,45 @@ const refreshToken = async (token) => {
       throw new ApiError(401, 'User not found or inactive');
     }
 
+    if (decoded.tokenVersion !== undefined && decoded.tokenVersion !== Number(user.token_version || 0)) {
+      throw new ApiError(401, 'Token revoked. Please login again.');
+    }
+
+    if (decoded.isRegistrationToken && (!user.role || !user.role.endsWith('_pending'))) {
+      throw new ApiError(401, 'Registration session has ended. Please login again with your approved account.');
+    }
+
     if (!user.is_verified) {
       const err = new ApiError(403, 'Email not verified');
       err.code = 'EMAIL_NOT_VERIFIED';
       throw err;
     }
 
-    const isPendingRegistration = user.role === 'doctor_pending';
-    const tokens = isPendingRegistration
-      ? generateTokens(user, '2h')
-      : generateTokens(user);
+    const isPendingRegistration = Boolean(user.role && user.role.endsWith('_pending'));
+    let tokens;
+    let sessionExpiresAt;
 
     if (isPendingRegistration) {
+      // Guardrail 3: Registration token has an ABSOLUTE 2-hour expiry from session start.
+      // Refreshing MUST NOT reset the clock.
+      let remainingSeconds = 7200; // default 2h fallback for legacy or test mocks
+      if (storedToken?.expires_at) {
+        const absoluteExpiryMs = new Date(storedToken.expires_at).getTime();
+        const remainingMs = absoluteExpiryMs - Date.now();
+        if (remainingMs <= 0) {
+          throw new ApiError(401, 'Registration session has expired. Please register again.');
+        }
+        remainingSeconds = Math.max(1, Math.floor(remainingMs / 1000));
+        sessionExpiresAt = storedToken.expires_at; // Preserved absolute expiry
+      } else {
+        sessionExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+      }
+
+      tokens = generateTokens(user, remainingSeconds);
       tokens.isRegistrationToken = true;
+    } else {
+      tokens = generateTokens(user);
+      sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     }
 
     if (storedToken) {
@@ -1437,9 +1497,6 @@ const refreshToken = async (token) => {
     }
 
     const familyId = storedToken.family_id || require('crypto').randomUUID();
-    const sessionExpiresAt = isPendingRegistration
-      ? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
-      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     try {
       await supabaseAdmin.from('refresh_tokens').insert({
@@ -1964,4 +2021,5 @@ module.exports = {
   logoutDevice,
   logoutAllDevices,
   getLoginHistory,
+  generateTokens,
 };

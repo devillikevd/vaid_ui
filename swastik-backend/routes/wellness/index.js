@@ -696,6 +696,92 @@ router.post('/trainer-invites/preview',
   })
 );
 
+// Coach registration profile, status, and submit-for-approval
+router.get('/coaches/me/registration-status',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH, ROLES.WELLNESS_COACH_PENDING),
+  asyncHandler(async (req, res) => {
+    const coach = await wellnessService.getMyCoachProfile(req.user.id);
+    res.json({
+      success: true,
+      data: {
+        id: coach.id,
+        name: coach.name,
+        approval_status: coach.approval_status || 'pending',
+        is_approved: coach.is_approved || false,
+        certification_document_url: coach.certification_document_url || null,
+        registration_number: coach.registration_number || null,
+        license_number: coach.license_number || null,
+      },
+    });
+  })
+);
+
+router.put('/coaches/me/registration-profile',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH, ROLES.WELLNESS_COACH_PENDING),
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.updateMyCoachProfile(req.user.id, req.body);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/coaches/me/submit-for-approval',
+  authenticate,
+  requireRole(ROLES.WELLNESS_COACH, ROLES.WELLNESS_COACH_PENDING),
+  asyncHandler(async (req, res) => {
+    const result = await wellnessService.submitCoachForApproval(req.user.id);
+    res.json({ success: true, ...result });
+  })
+);
+
+// Fitness center owner registration profile, status, and submit-for-approval
+router.get('/owner/registration-status',
+  authenticate,
+  requireRole(ROLES.FITNESS_CENTER_OWNER, ROLES.FITNESS_CENTER_OWNER_PENDING),
+  asyncHandler(async (req, res) => {
+    const center = await wellnessService.getOwnedFitnessCenterProfile(req.user.id);
+    res.json({
+      success: true,
+      data: {
+        id: center.id,
+        name: center.name,
+        approval_status: center.approval_status || 'pending',
+        is_approved: center.is_approved || false,
+        registration_number: center.registration_number || null,
+        license_document_url: center.license_document_url || null,
+      },
+    });
+  })
+);
+
+router.get('/owner/registration-profile',
+  authenticate,
+  requireRole(ROLES.FITNESS_CENTER_OWNER, ROLES.FITNESS_CENTER_OWNER_PENDING),
+  asyncHandler(async (req, res) => {
+    const center = await wellnessService.getOwnedFitnessCenterProfile(req.user.id);
+    res.json({ success: true, data: center });
+  })
+);
+
+router.put('/owner/registration-profile',
+  authenticate,
+  requireRole(ROLES.FITNESS_CENTER_OWNER, ROLES.FITNESS_CENTER_OWNER_PENDING),
+  asyncHandler(async (req, res) => {
+    const data = await wellnessService.updateOwnedFitnessCenterProfile(req.user.id, req.body);
+    res.json({ success: true, data });
+  })
+);
+
+router.post('/owner/submit-for-approval',
+  authenticate,
+  requireRole(ROLES.FITNESS_CENTER_OWNER, ROLES.FITNESS_CENTER_OWNER_PENDING),
+  asyncHandler(async (req, res) => {
+    const result = await wellnessService.submitFitnessCenterForApproval(req.user.id);
+    res.json({ success: true, ...result });
+  })
+);
+
 router.get('/coaches/me/center-invites',
   authenticate,
   requireRole(ROLES.WELLNESS_COACH),

@@ -8,7 +8,7 @@ const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
-const { buildProviderResubmissionFields } = require('../utils/providerApproval');
+const { buildProviderResubmissionFields, assertDocumentOwnership } = require('../utils/providerApproval');
 const eventEmitter = require('./eventEmitter');
 const notificationService = require('./notificationService');
 const { logAudit } = require('../utils/auditLogger');
@@ -1062,6 +1062,10 @@ const updateClinic = async (clinicId, userId, updates) => {
   }
   delete safeUpdates.profile_image;
 
+  if (safeUpdates.license_document_url) {
+    assertDocumentOwnership(safeUpdates.license_document_url, userId, clinicId);
+  }
+
   Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingClinic, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
   Object.assign(safeUpdates, buildProviderResubmissionFields('clinic_owner', existingClinic.approval_status));
@@ -1079,6 +1083,31 @@ const updateClinic = async (clinicId, userId, updates) => {
   return {
     ...data,
     profile_image_url: data.profile_image_url || data.image_url || null,
+  };
+};
+
+// Submit clinic application for admin approval
+const submitClinicForApproval = async (userId) => {
+  const clinic = await getClinicByOwner(userId);
+  if (!clinic) throw new ApiError(404, 'Clinic not found');
+
+  const { data: updatedClinic, error } = await supabaseAdmin
+    .from('clinics')
+    .update({
+      approval_status: 'pending',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', clinic.id)
+    .eq('owner_id', userId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  await cacheDel(`auth_user:${userId}`);
+  return {
+    success: true,
+    message: 'Application submitted successfully. Your application is currently under admin review.',
+    data: updatedClinic,
   };
 };
 
@@ -4986,6 +5015,7 @@ module.exports = {
   getSchedule,
   updateSchedule,
   updateClinic,
+  submitClinicForApproval,
   getDoctors,
   getClinicDoctorProfile,
   getDoctorAffiliationHistory,

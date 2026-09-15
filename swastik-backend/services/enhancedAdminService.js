@@ -28,6 +28,12 @@ const revokeProviderAuthSessions = async (userId) => {
       .update({ token_version: Number(user.token_version || 0) + 1 })
       .eq('id', userId);
     if (updateError) throw updateError;
+
+    await rawSupabaseAdmin
+      .from('refresh_tokens')
+      .update({ is_revoked: true, revoked_at: new Date().toISOString() })
+      .eq('user_id', userId);
+
     await cacheDel(`auth_user:${userId}`);
   } catch (error) {
     console.warn('[EnhancedAdminService] Failed to revoke provider auth sessions:', error.message);
@@ -1161,8 +1167,9 @@ const approveProvider = async (type, id, adminId, notes) => {
       .single();
 
     const updates = { is_verified: true };
-    if (userRecord && userRecord.requested_role && userRecord.role !== userRecord.requested_role) {
-      updates.role = userRecord.requested_role;
+    const targetRole = userRecord?.requested_role || (userRecord?.role?.endsWith('_pending') ? userRecord.role.replace(/_pending$/, '') : null);
+    if (targetRole && userRecord.role !== targetRole) {
+      updates.role = targetRole;
     }
     
     await supabaseAdmin.from('users').update(updates).eq('id', userId);

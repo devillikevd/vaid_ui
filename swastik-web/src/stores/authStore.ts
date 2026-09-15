@@ -248,7 +248,23 @@ export const useAuthStore = create<AuthState>()(
                         };
                     }
 
-                    return { success: true };
+                    const user = result.data?.user || result.user;
+                    const tokenPayload = result.data || result;
+                    const accessTk = resolveAccessToken(tokenPayload);
+                    const refreshTk = resolveRefreshToken(tokenPayload);
+
+                    if (accessTk) {
+                        syncTokens(accessTk, refreshTk, { role: user?.role });
+                        set({
+                            user,
+                            accessToken: accessTk,
+                            refreshToken: refreshTk,
+                            isAuthenticated: false, // Pending registration roles must not get operational access
+                            isLoading: false,
+                        });
+                    }
+
+                    return { success: true, data: result.data };
                 } catch (error) {
                     console.error('Register error:', error);
                     return { success: false, error: 'Network error. Please try again.' };

@@ -8,6 +8,13 @@ const rootDir = dirname(fileURLToPath(import.meta.url));
 
 const isPresentation = (process.env.PRESENTATION_MODE === 'true' || process.env.NEXT_PUBLIC_PRESENTATION_MODE === 'true') ? 'true' : 'false';
 
+// React (and Turbopack/webpack HMR) require eval() in development for:
+// - Error overlay call-stack reconstruction
+// - Hot module replacement
+// - Various debugging features
+// Production mode never uses eval(), so we keep a strict CSP there.
+const isDev = process.env.NODE_ENV === 'development';
+
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_PRESENTATION_MODE: isPresentation,
@@ -102,11 +109,13 @@ const nextConfig: NextConfig = {
           {
             // CSP: restrict resource loading to known trusted origins.
             // 'unsafe-inline' is required for Next.js inline scripts/styles and CSS-in-JS.
-            // 'unsafe-eval' is excluded — Next.js does NOT require it in production.
+            // 'unsafe-eval' is added in development only — React's HMR and Turbopack
+            // require eval() for error overlays and call-stack reconstruction.
+            // It is intentionally excluded from production.
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline'",
+              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://*.supabase.co https://*.vaididea.in https://*.amazonaws.com https://*.s3.ap-south-1.amazonaws.com https://images.unsplash.com https://cdnjs.cloudflare.com",

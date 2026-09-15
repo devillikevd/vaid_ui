@@ -24,7 +24,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
-import { authApi } from '@/lib/api';
+import { authApi, diagnosticCenterApi, uploadApi } from '@/lib/api';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
 import VaidideaLogo from '@/components/shared/VaidideaLogo';
 
@@ -195,8 +195,9 @@ export default function DiagnosticRegisterPage() {
             const result = await register(payload, role);
 
             if (result.success) {
+                await diagnosticCenterApi.submitForApproval();
                 setVerificationComplete(true);
-                setVerificationInfo('Your Diagnostic Center account is awaiting approval.');
+                setVerificationInfo('Application submitted successfully. Your application is currently under admin review.');
             } else {
                 if (result.fieldErrors?.length) {
                     const backendFieldErrors = result.fieldErrors.reduce<Record<string, string>>((acc, item) => {
@@ -323,7 +324,7 @@ export default function DiagnosticRegisterPage() {
                             </h1>
                             <p className="text-[#A1A1AA] text-sm leading-relaxed max-w-xs mx-auto">
                                 {verificationComplete ? (
-                                    <>Your Diagnostic Center account is awaiting approval.</>
+                                    <>Your diagnostic center application has been submitted. Our compliance team is currently reviewing your registration and documents.</>
                                 ) : (
                                     <>We've sent a 6-digit verification code to <strong className="text-white">{email}</strong>. Enter it below to complete registration.</>
                                 )}

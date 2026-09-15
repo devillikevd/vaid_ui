@@ -188,15 +188,37 @@ router.put(['/preferences', '/owner/preferences'], requireRole(ROLES.PHARMACY_OW
     res.json({ success: true, data: preferences });
 }));
 
+// Registration Status & Submit for Approval (accessible by pharmacy_owner AND pharmacy_owner_pending)
+router.get('/me/registration-status', requireRole(ROLES.PHARMACY_OWNER, ROLES.PHARMACY_OWNER_PENDING), asyncHandler(async (req, res) => {
+    const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
+    res.json({
+        success: true,
+        data: {
+            id: pharmacy.id,
+            name: pharmacy.name,
+            approval_status: pharmacy.approval_status || 'pending',
+            is_approved: pharmacy.is_approved || false,
+            license_document_url: pharmacy.license_document_url || null,
+            license_number: pharmacy.license_number || null,
+            drug_license_number: pharmacy.drug_license_number || null,
+        },
+    });
+}));
+
+router.post(['/me/submit-for-approval', '/submit-for-approval'], requireRole(ROLES.PHARMACY_OWNER, ROLES.PHARMACY_OWNER_PENDING), asyncHandler(async (req, res) => {
+    const result = await pharmacyService.submitPharmacyForApproval(req.user.id);
+    res.json({ success: true, ...result });
+}));
+
 // Get own pharmacy
-router.get('/profile', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
+router.get(['/profile', '/me/registration-profile'], requireRole(ROLES.PHARMACY_OWNER, ROLES.PHARMACY_OWNER_PENDING), asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
     const profileCompletion = await pharmacyService.getPharmacyProfileCompletion(pharmacy.id, req.user.id);
     res.json({ success: true, data: pharmacy, profileCompletion });
 }));
 
 // Update pharmacy
-router.put('/profile', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
+router.put(['/profile', '/me/registration-profile'], requireRole(ROLES.PHARMACY_OWNER, ROLES.PHARMACY_OWNER_PENDING), asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
     // Whitelist allowed fields to prevent arbitrary column writes
     const allowed = [

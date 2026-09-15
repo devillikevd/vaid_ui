@@ -383,10 +383,14 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 // Stricter rate limiting for auth endpoints (brute-force protection)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 15, // 15 attempts per 15 min
+  max: config.env === 'development' ? 500 : 15,
   message: {
     success: false,
     message: 'Too many authentication attempts, please try again after 15 minutes.',
@@ -403,10 +407,6 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
-
-// Body parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Cookie parsing (M001: HttpOnly refresh-token cookie)
 app.use(cookieParser());

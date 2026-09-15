@@ -7,7 +7,7 @@ const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const { cacheDel } = require('../config/redis');
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
-const { buildProviderResubmissionFields } = require('../utils/providerApproval');
+const { buildProviderResubmissionFields, assertDocumentOwnership } = require('../utils/providerApproval');
 
 // Get hospital by owner/manager
 const getHospitalByOwner = async (userId) => {
@@ -448,6 +448,10 @@ const updateHospital = async (hospitalId, userId, updates) => {
   if (updates.bed_capacity !== undefined && safeUpdates.total_beds === undefined) {
     safeUpdates.total_beds = updates.bed_capacity;
   }
+  if (safeUpdates.license_document_url) {
+    assertDocumentOwnership(safeUpdates.license_document_url, userId, hospitalId);
+  }
+
   Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingHospital, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
   Object.assign(safeUpdates, buildProviderResubmissionFields('hospital_owner', existingHospital.approval_status));
@@ -464,6 +468,31 @@ const updateHospital = async (hospitalId, userId, updates) => {
   return {
     ...data,
     profile_image_url: data.profile_image_url || data.image_url || null,
+  };
+};
+
+// Submit hospital application for admin approval
+const submitHospitalForApproval = async (userId) => {
+  const hospital = await getHospitalByOwner(userId);
+  if (!hospital) throw new ApiError(404, 'Hospital not found');
+
+  const { data: updatedHospital, error } = await supabaseAdmin
+    .from('hospitals')
+    .update({
+      approval_status: 'pending',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', hospital.id)
+    .eq('owner_id', userId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  await cacheDel(`auth_user:${userId}`);
+  return {
+    success: true,
+    message: 'Application submitted successfully. Your application is currently under admin review.',
+    data: updatedHospital,
   };
 };
 
@@ -2069,6 +2098,7 @@ module.exports = {
   getStaffContext,
   getDashboard,
   updateHospital,
+  submitHospitalForApproval,
   getDoctors,
   getDoctorStats,
   inviteDoctor,

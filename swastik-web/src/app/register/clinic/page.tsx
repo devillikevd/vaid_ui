@@ -27,9 +27,10 @@ import {
     ChevronRight,
     ChevronLeft,
     Loader2,
+    Upload,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
-import { authApi } from '@/lib/api';
+import { authApi, clinicApi, uploadApi } from '@/lib/api';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
@@ -77,6 +78,7 @@ export default function ClinicRegisterPage() {
     const [latitude, setLatitude] = useState<number | null>(null);
     const [longitude, setLongitude] = useState<number | null>(null);
     const [licenseNumber, setLicenseNumber] = useState('');
+    const [licenseFile, setLicenseFile] = useState<File | null>(null);
     const [isEmergencyAvailable, setIsEmergencyAvailable] = useState(false);
 
     // Step 3 — OTP / Verify
@@ -226,8 +228,22 @@ export default function ClinicRegisterPage() {
             }, 'clinic_owner');
 
             if (result.success) {
+                if (licenseFile) {
+                    try {
+                        const uploadRes = await uploadApi.uploadFile(licenseFile, 'license', { providerType: 'clinic' });
+                        if (uploadRes.success && (uploadRes.data as any)?.url) {
+                            await clinicApi.updateRegistrationProfile({
+                                license_document_url: (uploadRes.data as any).url,
+                                license_number: licenseNumber.trim(),
+                            });
+                        }
+                    } catch (uploadErr) {
+                        console.error('License upload error:', uploadErr);
+                    }
+                }
+                await clinicApi.submitForApproval();
                 setVerificationComplete(true);
-                setVerificationInfo('Account created successfully. You can now sign in.');
+                setVerificationInfo('Application submitted successfully. Your application is currently under admin review.');
             } else {
                 if (result.fieldErrors?.length) {
                     const backendErrs = result.fieldErrors.reduce<Record<string, string>>((acc, item) => {
@@ -382,11 +398,11 @@ export default function ClinicRegisterPage() {
                                 <CheckCircle className="h-9 w-9 text-pink-400" />
                             </div>
                             <h2 className="text-2xl font-bold text-white mb-2">
-                                {verificationComplete ? 'Account Created!' : 'Verify Your Email'}
+                                {verificationComplete ? 'Application Submitted' : 'Verify Your Email'}
                             </h2>
                             <p className="text-[#A1A1AA] text-sm leading-relaxed max-w-xs mx-auto mb-6">
                                 {verificationComplete
-                                    ? <>Your clinic account for <strong className="text-white">{email}</strong> is ready. Sign in to continue.</>
+                                    ? <>Your clinic application for <strong className="text-white">{email}</strong> has been submitted. Our compliance team is currently reviewing your registration and documents.</>
                                     : <>We sent a 6-digit code to <strong className="text-white">{email}</strong>. Enter it below to activate your account.</>
                                 }
                             </p>
@@ -433,7 +449,7 @@ export default function ClinicRegisterPage() {
                             )}
                             <Link href="/login/clinic">
                                 <button className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-gray-200 to-white text-black py-3 px-4 rounded-xl font-semibold text-[15px] shadow-[0_0_16px_rgba(255,255,255,0.12)] hover:shadow-[0_0_22px_rgba(255,255,255,0.2)] transition-all">
-                                    Go to Login
+                                    Track Status / Sign In
                                 </button>
                             </Link>
                             <p className="text-[#A1A1AA]/50 text-xs mt-4">
@@ -650,6 +666,20 @@ export default function ClinicRegisterPage() {
                                                 error={fieldErrors.licenseNumber}
                                                 required
                                             />
+                                            <div className="space-y-1.5">
+                                                <label className="block text-xs font-medium uppercase tracking-wider text-white/60">
+                                                    Upload Clinic License / Registration Certificate
+                                                </label>
+                                                <input
+                                                    type="file"
+                                                    accept=".pdf,.jpg,.jpeg,.png"
+                                                    onChange={(e) => setLicenseFile(e.target.files?.[0] || null)}
+                                                    className="w-full text-xs text-white/70 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20 cursor-pointer"
+                                                />
+                                                {licenseFile && (
+                                                    <p className="text-xs text-emerald-400 font-medium">Selected: {licenseFile.name}</p>
+                                                )}
+                                            </div>
                                             <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3.5 text-sm text-amber-400 leading-relaxed font-medium">
                                                 Fields marked * are required to complete registration and qualify for admin approval. Provide a reachable phone number, full address, and map location so patients can discover your clinic.
                                             </div>

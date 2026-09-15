@@ -159,7 +159,28 @@ router.put('/owner/preferences', requireRole(ROLES.CLINIC_OWNER), asyncHandler(a
     res.json({ success: true, data: preferences });
 }));
 
-router.put('/owner/profile', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+router.get('/me/registration-status', requireRole(ROLES.CLINIC_OWNER, ROLES.CLINIC_OWNER_PENDING), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    res.json({
+        success: true,
+        data: {
+            id: clinic.id,
+            name: clinic.name,
+            approval_status: clinic.approval_status || 'pending',
+            is_approved: clinic.is_approved || false,
+            license_document_url: clinic.license_document_url || null,
+            registration_number: clinic.registration_number || null,
+            license_number: clinic.license_number || null,
+        },
+    });
+}));
+
+router.post(['/me/submit-for-approval', '/owner/submit-for-approval'], requireRole(ROLES.CLINIC_OWNER, ROLES.CLINIC_OWNER_PENDING), asyncHandler(async (req, res) => {
+    const result = await clinicService.submitClinicForApproval(req.user.id);
+    res.json({ success: true, ...result });
+}));
+
+router.put(['/owner/profile', '/me/registration-profile'], requireRole(ROLES.CLINIC_OWNER, ROLES.CLINIC_OWNER_PENDING), asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     // Whitelist allowed fields to prevent arbitrary column writes
     const allowed = [

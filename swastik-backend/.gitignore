@@ -27,6 +27,7 @@ build/
 
 # Uploads (local development)
 uploads/
+scripts/mock_storage/
 
 # Test coverage
 coverage/

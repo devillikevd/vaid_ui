@@ -1808,6 +1808,13 @@ export const hospitalApi = {
         Object.entries(params).forEach(([k, v]) => { if (v) p.set(k, String(v)); });
         return fetchWithAuth(`/hospital-manager/inhouse-pharmacy/dispensations?${p}`);
     },
+
+    // Registration & Approval Lifecycle
+    getRegistrationStatus: () => fetchWithAuth('/hospitals/me/registration-status'),
+    updateRegistrationProfile: (data: Record<string, unknown>) =>
+        fetchWithAuth('/hospitals/me/registration-profile', { method: 'PUT', body: JSON.stringify(data) }),
+    submitForApproval: () =>
+        fetchWithAuth('/hospitals/me/submit-for-approval', { method: 'POST' }),
 };
 
 // ==================== PHARMACY API ====================
@@ -2094,6 +2101,13 @@ export const pharmacyApi = {
             method: 'PATCH',
             body: JSON.stringify({ action }),
         }),
+
+    // Registration & Approval Lifecycle
+    getRegistrationStatus: () => fetchWithAuth('/pharmacies/me/registration-status'),
+    updateRegistrationProfile: (data: Record<string, unknown>) =>
+        fetchWithAuth('/pharmacies/me/registration-profile', { method: 'PUT', body: JSON.stringify(data) }),
+    submitForApproval: () =>
+        fetchWithAuth('/pharmacies/me/submit-for-approval', { method: 'POST' }),
 };
 
 // ==================== CLINIC API ====================
@@ -2459,6 +2473,13 @@ export const clinicApi = {
     },
     getOutbreakHeatmap: () => fetchWithAuth('/admin/outbreaks/public/heatmap'),
     getOutbreakStats: (days: number = 30) => fetchWithAuth(`/admin/outbreaks/public/stats?days=${days}`),
+
+    // Registration & Approval Lifecycle
+    getRegistrationStatus: () => fetchWithAuth('/clinics/me/registration-status'),
+    updateRegistrationProfile: (data: Record<string, unknown>) =>
+        fetchWithAuth('/clinics/me/registration-profile', { method: 'PUT', body: JSON.stringify(data) }),
+    submitForApproval: () =>
+        fetchWithAuth('/clinics/me/submit-for-approval', { method: 'POST' }),
 };
 
 // ==================== DIAGNOSTIC CENTER API ====================
@@ -2644,6 +2665,13 @@ export const diagnosticCenterApi = {
         fetchWithAuth(`/diagnostic-centers/owner/partnerships/${id}/accept-changes`, { method: 'POST' }),
     terminatePartnership: (id: string) =>
         fetchWithAuth(`/diagnostic-centers/owner/partnerships/${id}`, { method: 'DELETE' }),
+
+    // Registration & Approval Lifecycle
+    getRegistrationStatus: () => fetchWithAuth('/diagnostic-centers/me/registration-status'),
+    updateRegistrationProfile: (data: Record<string, unknown>) =>
+        fetchWithAuth('/diagnostic-centers/me/registration-profile', { method: 'PUT', body: JSON.stringify(data) }),
+    submitForApproval: () =>
+        fetchWithAuth('/diagnostic-centers/me/submit-for-approval', { method: 'POST' }),
 };
 
 // ==================== APPOINTMENTS API ====================
@@ -3391,6 +3419,20 @@ export const wellnessApi = {
         fetchWithAuth(`/wellness/owner/bookings${wellnessQuery(filters)}`),
     getOwnerCheckins: (filters?: Record<string, unknown>) =>
         fetchWithAuth(`/wellness/owner/checkins${wellnessQuery(filters)}`),
+
+    // Registration & Approval Lifecycle - Coach
+    getCoachRegistrationStatus: () => fetchWithAuth('/wellness/coaches/me/registration-status'),
+    updateCoachRegistrationProfile: (data: Record<string, unknown>) =>
+        fetchWithAuth('/wellness/coaches/me/registration-profile', { method: 'PUT', body: JSON.stringify(data) }),
+    submitCoachForApproval: () =>
+        fetchWithAuth('/wellness/coaches/me/submit-for-approval', { method: 'POST' }),
+
+    // Registration & Approval Lifecycle - Fitness Center
+    getFitnessRegistrationStatus: () => fetchWithAuth('/wellness/owner/registration-status'),
+    updateFitnessRegistrationProfile: (data: Record<string, unknown>) =>
+        fetchWithAuth('/wellness/owner/registration-profile', { method: 'PUT', body: JSON.stringify(data) }),
+    submitFitnessForApproval: () =>
+        fetchWithAuth('/wellness/owner/submit-for-approval', { method: 'POST' }),
 };
 
 // ==================== UNIVERSAL REVIEWS & FEEDBACK APIS ====================

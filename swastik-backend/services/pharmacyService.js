@@ -11,7 +11,7 @@ const eventEmitter = require('./eventEmitter');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
-const { buildProviderResubmissionFields } = require('../utils/providerApproval');
+const { buildProviderResubmissionFields, assertDocumentOwnership } = require('../utils/providerApproval');
 const { computeBestPrices, recordRedemptions, voidRedemptionsForOrder } = require('./discountService');
 const organizationPartnershipService = require('./organizationPartnershipService');
 
@@ -705,6 +705,10 @@ const updatePharmacy = async (pharmacyId, userId, updates) => {
     safeUpdates.image_url = safeUpdates.profile_image_url;
     delete safeUpdates.profile_image_url;
   }
+  if (safeUpdates.license_document_url) {
+    assertDocumentOwnership(safeUpdates.license_document_url, userId, pharmacyId);
+  }
+
   Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingPharmacy, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
   Object.assign(safeUpdates, buildProviderResubmissionFields('pharmacy_owner', existingPharmacy.approval_status));
@@ -722,6 +726,31 @@ const updatePharmacy = async (pharmacyId, userId, updates) => {
   return {
     ...data,
     profile_image_url: data.profile_image_url || data.image_url || null,
+  };
+};
+
+// Submit pharmacy application for admin approval
+const submitPharmacyForApproval = async (userId) => {
+  const pharmacy = await getPharmacyByOwner(userId);
+  if (!pharmacy) throw new ApiError(404, 'Pharmacy not found');
+
+  const { data: updatedPharmacy, error } = await supabaseAdmin
+    .from('pharmacies')
+    .update({
+      approval_status: 'pending',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', pharmacy.id)
+    .eq('owner_id', userId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  await cacheDel(`auth_user:${userId}`);
+  return {
+    success: true,
+    message: 'Application submitted successfully. Your application is currently under admin review.',
+    data: updatedPharmacy,
   };
 };
 
@@ -2394,6 +2423,7 @@ module.exports = {
   getPharmacyByOwner,
   getPharmacyByUser,
   updatePharmacy,
+  submitPharmacyForApproval,
   getInventory,
   addInventoryItem,
   addBulkInventoryItems,

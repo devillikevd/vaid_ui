@@ -4,6 +4,7 @@ const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, getBoundingBox } = require('../utils/geo');
 const { sanitizeSearch } = require('../utils/sanitize');
+const { assertDocumentOwnership } = require('../utils/providerApproval');
 
 const ACTIVE_APPROVED = { approval_status: 'approved', is_active: true };
 const HIGH_RISK_TERMS = ['chest_pain', 'pregnancy', 'post_surgery', 'heart_disease', 'severe_pain', 'dizziness'];
@@ -1275,6 +1276,14 @@ const updateMyCoachProfile = async (userId, payload = {}) => {
     if (updates[key] !== undefined) updates[key] = asNumber(updates[key], null);
   });
 
+  const certUrl = payload.certification_document_url || payload.certificationDocumentUrl;
+  if (certUrl) {
+    assertDocumentOwnership(certUrl, userId, coach.id);
+    updates.certification_document_url = certUrl;
+  }
+  if (payload.registration_number !== undefined) updates.registration_number = payload.registration_number;
+  if (payload.license_number !== undefined) updates.license_number = payload.license_number;
+
   const { data, error } = await supabaseAdmin
     .from('wellness_coaches')
     .update(updates)
@@ -1284,6 +1293,103 @@ const updateMyCoachProfile = async (userId, payload = {}) => {
   if (error) throw error;
   await bumpListVersion('coaches');
   return data;
+};
+
+const submitCoachForApproval = async (userId) => {
+  const coach = await resolveCoach(userId);
+  const { data: updatedCoach, error } = await supabaseAdmin
+    .from('wellness_coaches')
+    .update({
+      approval_status: 'pending',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', coach.id)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  await bumpListVersion('coaches');
+  return {
+    success: true,
+    message: 'Application submitted successfully. Your application is currently under admin review.',
+    data: updatedCoach,
+  };
+};
+
+const getOwnedFitnessCenterProfile = async (userId) => resolveFitnessCenterOwner(userId);
+
+const updateOwnedFitnessCenterProfile = async (userId, payload = {}) => {
+  const center = await resolveFitnessCenterOwner(userId);
+  const updates = {
+    name: payload.name,
+    center_type: payload.centerType || payload.center_type,
+    description: payload.description,
+    address: payload.address,
+    city: payload.city,
+    state: payload.state,
+    pincode: payload.pincode,
+    phone: payload.phone,
+    email: payload.email,
+    latitude: payload.latitude,
+    longitude: payload.longitude,
+    facilities: payload.facilities,
+    equipment: payload.equipment,
+    amenities: payload.amenities,
+    is_women_only: payload.isWomenOnly ?? payload.is_women_only,
+    is_beginner_friendly: payload.isBeginnerFriendly ?? payload.is_beginner_friendly,
+    is_24_hours: payload.is24Hours ?? payload.is_24_hours,
+    parking_available: payload.parkingAvailable ?? payload.parking_available,
+    image_url: payload.imageUrl || payload.image_url || payload.profile_image_url,
+    registration_number: payload.registrationNumber || payload.registration_number,
+    license_document_url: payload.licenseDocumentUrl || payload.license_document_url,
+    updated_at: new Date().toISOString(),
+  };
+
+  Object.keys(updates).forEach((key) => {
+    if (updates[key] === undefined) delete updates[key];
+  });
+
+  if (updates.facilities !== undefined) updates.facilities = asArray(updates.facilities);
+  if (updates.equipment !== undefined) updates.equipment = asArray(updates.equipment);
+  if (updates.amenities !== undefined) updates.amenities = asArray(updates.amenities);
+  if (updates.latitude !== undefined) updates.latitude = asNumber(updates.latitude, null);
+  if (updates.longitude !== undefined) updates.longitude = asNumber(updates.longitude, null);
+
+  if (updates.license_document_url) {
+    assertDocumentOwnership(updates.license_document_url, userId, center.id);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('fitness_centers')
+    .update(updates)
+    .eq('id', center.id)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  await bumpListVersion('facilities');
+  return data;
+};
+
+const submitFitnessCenterForApproval = async (userId) => {
+  const center = await resolveFitnessCenterOwner(userId);
+  const { data: updatedCenter, error } = await supabaseAdmin
+    .from('fitness_centers')
+    .update({
+      approval_status: 'pending',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', center.id)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  await bumpListVersion('facilities');
+  return {
+    success: true,
+    message: 'Application submitted successfully. Your application is currently under admin review.',
+    data: updatedCenter,
+  };
 };
 
 const bookCoachSession = async (userId, payload = {}) => {
@@ -3699,6 +3805,10 @@ module.exports = {
   getCoach,
   getMyCoachProfile,
   updateMyCoachProfile,
+  submitCoachForApproval,
+  getOwnedFitnessCenterProfile,
+  updateOwnedFitnessCenterProfile,
+  submitFitnessCenterForApproval,
   bookCoachSession,
   listMySessions,
   listFacilities,

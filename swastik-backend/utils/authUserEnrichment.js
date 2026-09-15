@@ -1,15 +1,30 @@
 const PROVIDER_ROLE_CONFIG = {
   doctor: { table: 'doctors', column: 'user_id', select: 'id, approval_status, approval_notes' },
+  doctor_pending: { table: 'doctors', column: 'user_id', select: 'id, approval_status, approval_notes' },
   hospital_owner: { table: 'hospitals', column: 'owner_id', select: 'id, approval_status, approval_notes' },
+  hospital_owner_pending: { table: 'hospitals', column: 'owner_id', select: 'id, approval_status, approval_notes' },
   clinic_owner: { table: 'clinics', column: 'owner_id', select: 'id, approval_status, approval_notes' },
+  clinic_owner_pending: { table: 'clinics', column: 'owner_id', select: 'id, approval_status, approval_notes' },
   pharmacy_owner: { table: 'pharmacies', column: 'owner_id', select: 'id, approval_status, approval_notes' },
+  pharmacy_owner_pending: { table: 'pharmacies', column: 'owner_id', select: 'id, approval_status, approval_notes' },
   diagnostic_center_owner: { table: 'diagnostic_centers', column: 'owner_id', select: 'id, approval_status, approval_notes' },
+  diagnostic_center_owner_pending: { table: 'diagnostic_centers', column: 'owner_id', select: 'id, approval_status, approval_notes' },
   wellness_coach: {
     table: 'wellness_coaches',
     column: 'user_id',
     select: 'id, approval_status, approval_notes, registration_number, address, city, state, email',
   },
+  wellness_coach_pending: {
+    table: 'wellness_coaches',
+    column: 'user_id',
+    select: 'id, approval_status, approval_notes, registration_number, address, city, state, email',
+  },
   fitness_center_owner: {
+    table: 'fitness_centers',
+    column: 'owner_user_id',
+    select: 'id, approval_status, approval_notes, name, center_type, address, city, state, email',
+  },
+  fitness_center_owner_pending: {
     table: 'fitness_centers',
     column: 'owner_user_id',
     select: 'id, approval_status, approval_notes, name, center_type, address, city, state, email',

@@ -10,7 +10,7 @@ const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
 const eventEmitter = require('./eventEmitter');
-const { buildProviderResubmissionFields } = require('../utils/providerApproval');
+const { buildProviderResubmissionFields, assertDocumentOwnership } = require('../utils/providerApproval');
 const { signStorageUrlsInPayload } = require('../config/minio');
 const { normalizeTimeSlotToTime } = require('./helpers/timeSlotHelper');
 
@@ -352,6 +352,10 @@ const updateDiagnosticCenter = async (centerId, userId, updates) => {
     // keep compatibility if older clients send radius-like value
     safeUpdates.home_collection_fee = updates.home_collection_radius;
   }
+  if (safeUpdates.license_document_url) {
+    assertDocumentOwnership(safeUpdates.license_document_url, userId, centerId);
+  }
+
   Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingCenter, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
   Object.assign(safeUpdates, buildProviderResubmissionFields('diagnostic_center_owner', existingCenter.approval_status));
@@ -369,6 +373,31 @@ const updateDiagnosticCenter = async (centerId, userId, updates) => {
   return {
     ...data,
     profile_image_url: data.profile_image_url || data.image_url || null,
+  };
+};
+
+// Submit diagnostic center application for admin approval
+const submitDiagnosticCenterForApproval = async (userId) => {
+  const center = await getDiagnosticCenterByOwner(userId);
+  if (!center) throw new ApiError(404, 'Diagnostic center not found');
+
+  const { data: updatedCenter, error } = await supabaseAdmin
+    .from('diagnostic_centers')
+    .update({
+      approval_status: 'pending',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', center.id)
+    .eq('owner_id', userId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  await cacheDel(`auth_user:${userId}`);
+  return {
+    success: true,
+    message: 'Application submitted successfully. Your application is currently under admin review.',
+    data: updatedCenter,
   };
 };
 
@@ -1456,6 +1485,7 @@ module.exports = {
   getDiagnosticCenterByOwner,
   getDashboard,
   updateDiagnosticCenter,
+  submitDiagnosticCenterForApproval,
   // Test Catalog
   getTests,
   addTest,

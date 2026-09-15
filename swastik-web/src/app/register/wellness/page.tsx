@@ -28,7 +28,7 @@ import {
     GraduationCap,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
-import { authApi } from '@/lib/api';
+import { authApi, wellnessApi } from '@/lib/api';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 
@@ -229,6 +229,7 @@ export default function WellnessRegisterPage() {
 
             const regRes = await register(payload, 'wellness_coach');
             if (regRes.success) {
+                await wellnessApi.submitCoachForApproval();
                 setVerificationComplete(true);
             } else {
                 setError(regRes.error || 'Registration failed. Please review your details.');
@@ -363,10 +364,10 @@ export default function WellnessRegisterPage() {
 
                         <div className="pt-4">
                             <Button
-                                onClick={() => router.push('/wellness')}
+                                onClick={() => router.push('/login/wellness')}
                                 className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
                             >
-                                Go to Coach Portal
+                                Track Status / Sign In
                             </Button>
                         </div>
                     </motion.div>

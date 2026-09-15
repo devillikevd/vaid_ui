@@ -28,7 +28,7 @@ import {
     Globe,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
-import { authApi } from '@/lib/api';
+import { authApi, hospitalApi, uploadApi } from '@/lib/api';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
@@ -90,6 +90,7 @@ export default function HospitalRegisterPage() {
 
     // Step 3 — License & Verification
     const [licenseNumber, setLicenseNumber] = useState('');
+    const [licenseFile, setLicenseFile] = useState<File | null>(null);
     const [website, setWebsite] = useState('');
     const [verificationSent, setVerificationSent] = useState(false);
     const [verificationOtp, setVerificationOtp] = useState('');
@@ -242,6 +243,20 @@ export default function HospitalRegisterPage() {
 
             const regRes = await register(payload, 'hospital_owner');
             if (regRes.success) {
+                if (licenseFile) {
+                    try {
+                        const uploadRes = await uploadApi.uploadFile(licenseFile, 'license', { providerType: 'hospital' });
+                        if (uploadRes.success && (uploadRes.data as any)?.url) {
+                            await hospitalApi.updateRegistrationProfile({
+                                license_document_url: (uploadRes.data as any).url,
+                                license_number: licenseNumber.trim(),
+                            });
+                        }
+                    } catch (uploadErr) {
+                        console.error('Hospital license upload failed:', uploadErr);
+                    }
+                }
+                await hospitalApi.submitForApproval();
                 setVerificationComplete(true);
             } else {
                 setError(regRes.error || 'Registration failed. Please review your details.');
@@ -368,9 +383,9 @@ export default function HospitalRegisterPage() {
                             <CheckCircle2 className="w-8 h-8" />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-bold text-white font-heading">Hospital Registration Submitted</h2>
+                            <h2 className="text-2xl font-bold text-white font-heading">Application Submitted Successfully</h2>
                             <p className="text-sm text-[#A1A1AA] mt-2 max-w-md mx-auto leading-relaxed">
-                                Your hospital account for <strong>{facilityName}</strong> has been registered. Our compliance team will review your registration and license details.
+                                Your hospital application for <strong>{facilityName}</strong> has been submitted. Our compliance team is currently reviewing your registration and license details.
                             </p>
                         </div>
 
@@ -381,10 +396,10 @@ export default function HospitalRegisterPage() {
 
                         <div className="pt-4">
                             <Button
-                                onClick={() => router.push('/hospital')}
+                                onClick={() => router.push('/login/hospital')}
                                 className="w-full h-11 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-cyan-500/20 transition-all"
                             >
-                                Go to Hospital Portal
+                                Track Status / Sign In
                             </Button>
                         </div>
                     </motion.div>
@@ -685,6 +700,19 @@ export default function HospitalRegisterPage() {
                                             />
                                         </div>
                                         {fieldErrors.licenseNumber && <p className="text-xs text-rose-400 mt-1">{fieldErrors.licenseNumber}</p>}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-[#D4D4D8] mb-1.5">Hospital License / Registration Certificate</label>
+                                        <input
+                                            type="file"
+                                            accept=".pdf,.jpg,.jpeg,.png"
+                                            onChange={(e) => setLicenseFile(e.target.files?.[0] || null)}
+                                            className="w-full text-xs text-white/70 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20 cursor-pointer"
+                                        />
+                                        {licenseFile && (
+                                            <p className="text-xs text-cyan-400 mt-1">Selected: {licenseFile.name}</p>
+                                        )}
                                     </div>
 
                                     <div>

@@ -30,13 +30,34 @@ router.get('/dashboard', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGE
     res.json({ success: true, ...dashboard });
 }));
 
+// Registration Status & Submit for Approval (accessible by hospital_owner AND hospital_owner_pending)
+router.get('/me/registration-status', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_OWNER_PENDING), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    res.json({
+        success: true,
+        data: {
+            id: hospital.id,
+            name: hospital.name,
+            approval_status: hospital.approval_status || 'pending',
+            is_approved: hospital.is_approved || false,
+            license_document_url: hospital.license_document_url || null,
+            license_number: hospital.license_number || null,
+        },
+    });
+}));
+
+router.post(['/me/submit-for-approval', '/submit-for-approval'], requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_OWNER_PENDING), asyncHandler(async (req, res) => {
+    const result = await hospitalManagerService.submitHospitalForApproval(req.user.id);
+    res.json({ success: true, ...result });
+}));
+
 // Profile
-router.get('/profile', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+router.get('/profile', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER, ROLES.HOSPITAL_OWNER_PENDING), asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
     res.json({ success: true, hospital });
 }));
 
-router.put('/profile', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+router.put(['/profile', '/me/registration-profile', '/registration-profile'], requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER, ROLES.HOSPITAL_OWNER_PENDING), [
     body('name').optional().isString().trim().isLength({ min: 2, max: 200 }),
     body('phone').optional().isString().trim(),
     body('email').optional().isEmail().toLowerCase(),

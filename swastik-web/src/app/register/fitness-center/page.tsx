@@ -26,7 +26,7 @@ import {
     Sparkles,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
-import { authApi } from '@/lib/api';
+import { authApi, wellnessApi } from '@/lib/api';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 
@@ -251,6 +251,7 @@ export default function FitnessCenterRegisterPage() {
 
             const regRes = await register(payload, 'fitness_center_owner');
             if (regRes.success) {
+                await wellnessApi.submitFitnessForApproval();
                 setVerificationComplete(true);
             } else {
                 setError(regRes.error || 'Registration failed. Please review your details.');
@@ -385,10 +386,10 @@ export default function FitnessCenterRegisterPage() {
 
                         <div className="pt-4">
                             <Button
-                                onClick={() => router.push('/fitness-center')}
+                                onClick={() => router.push('/login/fitness-center')}
                                 className="w-full h-11 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white font-semibold text-sm rounded-xl shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
                             >
-                                Go to Gym &amp; Studio Portal
+                                Track Status / Sign In
                             </Button>
                         </div>
                     </motion.div>

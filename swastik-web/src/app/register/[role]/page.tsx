@@ -435,11 +435,25 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                     break;
             }
 
+            const isPendingProvider = [
+                'clinic_owner',
+                'hospital_owner',
+                'pharmacy_owner',
+                'diagnostic_center_owner',
+                'wellness_coach',
+                'fitness_center_owner',
+                'doctor',
+            ].includes(config.role);
+
             const result = await register({ ...baseData, ...roleData }, config.role);
 
             if (result.success) {
                 setVerificationComplete(true);
-                setVerificationInfo('Account created successfully. You can now sign in.');
+                setVerificationInfo(
+                    isPendingProvider
+                        ? 'Application submitted successfully. Your application is currently under admin review.'
+                        : 'Account created successfully. You can now sign in.'
+                );
             } else {
                 if (result.fieldErrors?.length) {
                     const backendFieldErrors = result.fieldErrors.reduce<Record<string, string>>((acc, item) => {
@@ -485,11 +499,23 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                     <CheckCircle className="h-10 w-10 text-green-400" />
                                 </div>
                                 <h1 className="text-2xl font-bold text-white">
-                                    {verificationComplete ? 'Email Verified' : 'Enter Verification Code'}
+                                    {verificationComplete ? 'Application Submitted' : 'Enter Verification Code'}
                                 </h1>
                                 <p className="text-white/60 mt-3 text-sm leading-relaxed max-w-xs mx-auto">
                                     {verificationComplete ? (
-                                        <>Your email for <strong className="text-white">{email}</strong> is verified. You can now sign in and continue to approval review.</>
+                                        [
+                                            'clinic_owner',
+                                            'hospital_owner',
+                                            'pharmacy_owner',
+                                            'diagnostic_center_owner',
+                                            'wellness_coach',
+                                            'fitness_center_owner',
+                                            'doctor',
+                                        ].includes(config.role) ? (
+                                            <>Your application for <strong className="text-white">{email}</strong> has been submitted. Our compliance team is currently reviewing your registration and documents.</>
+                                        ) : (
+                                            <>Your email for <strong className="text-white">{email}</strong> is verified. You can now sign in.</>
+                                        )
                                     ) : (
                                         <>We&apos;ve sent a 6-digit verification code to <strong className="text-white">{email}</strong>. Enter it below to activate your account.</>
                                     )}
@@ -539,7 +565,17 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                 <div className="mt-8 space-y-3 border-t border-white/10 pt-6">
                                     <Link href={`/login/${role}${searchParams.get('redirect') ? `?redirect=${encodeURIComponent(searchParams.get('redirect')!)}` : ''}`}>
                                         <Button className="w-full relative overflow-hidden group/btn bg-gradient-to-r from-gray-200 to-white !text-black py-6 rounded-xl font-semibold tracking-wide border-0 shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_30px_rgba(255,255,255,0.25)] transition-all">
-                                            <span className="relative z-10">Go to Login</span>
+                                            <span className="relative z-10">
+                                                {[
+                                                    'clinic_owner',
+                                                    'hospital_owner',
+                                                    'pharmacy_owner',
+                                                    'diagnostic_center_owner',
+                                                    'wellness_coach',
+                                                    'fitness_center_owner',
+                                                    'doctor',
+                                                ].includes(config.role) ? 'Track Status / Sign In' : 'Go to Login'}
+                                            </span>
                                         </Button>
                                     </Link>
                                     <p className="text-white/40 text-xs mt-4">

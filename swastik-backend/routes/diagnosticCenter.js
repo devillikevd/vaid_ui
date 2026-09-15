@@ -180,13 +180,35 @@ router.get('/owner/dashboard', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requi
     res.json({ success: true, ...dashboard });
 }));
 
+// Registration Status & Submit for Approval (accessible by diagnostic_center_owner AND diagnostic_center_owner_pending)
+router.get('/me/registration-status', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER, ROLES.DIAGNOSTIC_CENTER_OWNER_PENDING), asyncHandler(async (req, res) => {
+    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+    res.json({
+        success: true,
+        data: {
+            id: center.id,
+            name: center.name,
+            approval_status: center.approval_status || 'pending',
+            is_approved: center.is_approved || false,
+            license_document_url: center.license_document_url || null,
+            registration_number: center.registration_number || null,
+            license_number: center.license_number || null,
+        },
+    });
+}));
+
+router.post(['/owner/submit-for-approval', '/me/submit-for-approval'], requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER, ROLES.DIAGNOSTIC_CENTER_OWNER_PENDING), asyncHandler(async (req, res) => {
+    const result = await diagnosticCenterService.submitDiagnosticCenterForApproval(req.user.id);
+    res.json({ success: true, ...result });
+}));
+
 // Profile
-router.get('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.get(['/owner/profile', '/me/registration-profile'], requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER, ROLES.DIAGNOSTIC_CENTER_OWNER_PENDING), asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     res.json({ success: true, data: center });
 }));
 
-router.put('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.put(['/owner/profile', '/me/registration-profile'], requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER, ROLES.DIAGNOSTIC_CENTER_OWNER_PENDING), asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     const allowed = [
         'name', 'phone', 'email', 'website', 'website_url', 'emergency_phone', 'address', 'city', 'state', 'pincode',
