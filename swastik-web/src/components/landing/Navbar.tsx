@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import VaidideaLogo from "@/components/shared/VaidideaLogo";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/stores/authStore";
 import AppDownloadModal from "@/components/shared/AppDownloadModal";
 import {
@@ -12,6 +12,10 @@ import {
   User,
   Smartphone,
   ChevronRight,
+  Search,
+  ChevronDown,
+  ArrowRight,
+  HeartPulse,
 } from "lucide-react";
 
 export default function Navbar() {
@@ -50,10 +54,10 @@ export default function Navbar() {
     <>
       {/* ── Desktop / Tablet Header ── */}
       <header
-        className={`sticky top-0 w-full z-50 bg-white transition-all duration-200 ${
+        className={`fixed top-0 w-full z-50 transition-all duration-300 ${
           scrolled
-            ? "border-b border-stone-200/70 shadow-[0_1px_8px_rgba(0,0,0,0.05)]"
-            : "border-b border-stone-200/50"
+            ? "bg-white/80 backdrop-blur-xl shadow-[0_4px_30px_rgba(0,0,0,0.05)] border-b border-white/50"
+            : "bg-white/40 backdrop-blur-md border-b border-white/30"
         }`}
         role="banner"
       >
@@ -67,10 +71,14 @@ export default function Navbar() {
           <Link
             href="/"
             aria-label="Vaididea — go to homepage"
-            className="flex items-center gap-2.5 shrink-0 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest focus-visible:ring-offset-2 rounded-lg"
+            className="flex items-center gap-2.5 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 rounded-md"
           >
-            <VaidideaLogo className="w-8 h-8 sm:w-9 sm:h-9 transition-transform duration-200 group-hover:scale-105" />
-            <span className="text-[1.05rem] sm:text-[1.15rem] font-bold tracking-tight text-vd-forest leading-none select-none">
+            <img 
+              src="/logo.png" 
+              alt="Vaididea Logo" 
+              className="h-8 sm:h-9 w-auto object-contain group-hover:scale-110 transition-transform duration-300" 
+            />
+            <span className="text-2xl sm:text-[26px] font-extrabold text-[#0F5F50] tracking-tight leading-none">
               Vaididea
             </span>
           </Link>
@@ -89,22 +97,20 @@ export default function Navbar() {
                   key={link.href}
                   href={link.href}
                   className={`
-                    relative px-3.5 py-2 rounded-[10px] text-[13px] font-medium
+                    relative px-3.5 py-2 rounded-[10px] text-[14px] font-medium
                     transition-all duration-150 whitespace-nowrap
-                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest focus-visible:ring-offset-1
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1
                     ${
                       isActive
-                        ? "bg-emerald-50 text-vd-forest font-semibold"
-                        : isProviders
-                        ? "text-vd-forest hover:bg-emerald-50/70 hover:text-vd-forest"
-                        : "text-stone-600 hover:text-vd-forest hover:bg-stone-50"
+                        ? "text-emerald-700 font-semibold"
+                        : "text-stone-600 hover:text-emerald-700"
                     }
                   `}
                 >
                   {link.label}
-                  {/* Active indicator dot */}
+                  {/* Active indicator border */}
                   {isActive && (
-                    <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-vd-forest/60" />
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/4 h-[2px] rounded-t-full bg-emerald-600" />
                   )}
                 </Link>
               );
@@ -117,18 +123,28 @@ export default function Navbar() {
             {isAuthenticated ? (
               <Link
                 href="/patient"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-medium text-stone-700 hover:text-vd-forest hover:bg-stone-50 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest"
+                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[14px] font-medium text-stone-700 bg-stone-50 border border-stone-200 hover:bg-stone-100 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
               >
-                <User className="w-3.5 h-3.5 text-vd-forest" />
+                <User className="w-4 h-4 text-emerald-600" />
                 <span>My Account</span>
               </Link>
             ) : (
-              <Link
-                href="/login"
-                className="hidden sm:inline-flex items-center px-3.5 py-2 rounded-full text-[13px] font-medium text-stone-600 hover:text-vd-forest hover:bg-stone-50 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest"
-              >
-                Sign In
-              </Link>
+              <div className="hidden sm:flex items-center gap-3">
+                <Link
+                  href="/download"
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-[13px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 transition-all duration-150 cursor-pointer"
+                >
+                  <Smartphone className="w-4 h-4" />
+                  Patient App
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-[13px] font-bold text-stone-800 bg-white border border-stone-200 hover:bg-stone-50 transition-all duration-150 cursor-pointer"
+                >
+                  <User className="w-4 h-4" />
+                  Sign In
+                </Link>
+              </div>
             )}
 
             {/* Divider */}
@@ -137,11 +153,11 @@ export default function Navbar() {
             {/* Get the App CTA */}
             <button
               onClick={() => setAppModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-semibold text-white bg-vd-forest hover:bg-vd-forest-deep active:scale-[0.98] transition-all duration-150 shadow-[0_1px_6px_rgba(15,95,80,0.25)] hover:shadow-[0_3px_12px_rgba(15,95,80,0.32)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest focus-visible:ring-offset-2 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-[14px] font-semibold text-white bg-gray-900 hover:bg-black active:scale-[0.98] transition-all duration-150 shadow-[0_4px_14px_rgba(0,0,0,0.15)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 cursor-pointer"
               aria-label="Download the Vaididea Patient App"
             >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline sm:inline">Get the App</span>
+              <Smartphone className="w-4 h-4" />
+              <span className="hidden xs:inline sm:inline">Register App</span>
             </button>
 
             {/* Mobile Hamburger */}
@@ -186,9 +202,13 @@ export default function Navbar() {
       >
         {/* Drawer header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
-          <div className="flex items-center gap-2">
-            <VaidideaLogo className="w-7 h-7" />
-            <span className="text-base font-bold text-vd-forest leading-none">
+          <div className="flex items-center gap-2.5">
+            <img 
+              src="/logo.png" 
+              alt="Vaididea Logo" 
+              className="h-8 w-auto object-contain" 
+            />
+            <span className="text-2xl font-extrabold text-[#0F5F50] tracking-tight leading-none">
               Vaididea
             </span>
           </div>
@@ -241,10 +261,10 @@ export default function Navbar() {
               setMobileMenuOpen(false);
               setAppModalOpen(true);
             }}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-vd-forest text-white text-[13.5px] font-semibold shadow-[0_2px_8px_rgba(15,95,80,0.22)] hover:bg-vd-forest-deep transition-all duration-150 cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gray-900 text-white text-[14px] font-semibold shadow-md hover:bg-black transition-all duration-150 cursor-pointer"
           >
             <Smartphone className="w-4 h-4" />
-            <span>Get the Patient App</span>
+            <span>Register App</span>
           </button>
 
           {isAuthenticated ? (

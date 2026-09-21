@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import VaidideaLogo from "@/components/shared/VaidideaLogo";
 import { Instagram, Linkedin, Youtube, ChevronDown } from "lucide-react";
 
 // ─── Accordion section data (single source of truth) ────────────────────────
@@ -178,8 +177,12 @@ export default function Footer() {
             {/* Brand column */}
             <div className="space-y-3 col-span-2 md:col-span-3 lg:col-span-1">
               <Link href="/" className="inline-flex items-center gap-2.5 group">
-                <VaidideaLogo className="w-8 h-8 text-emerald-300" />
-                <span className="font-heading text-xl font-bold tracking-tight text-white">
+                <img 
+                  src="/logo.png" 
+                  alt="Vaididea Logo" 
+                  className="h-10 w-auto object-contain brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity" 
+                />
+                <span className="font-heading text-2xl font-bold tracking-tight text-white">
                   Vaididea
                 </span>
               </Link>
@@ -228,9 +231,13 @@ export default function Footer() {
       <div className="sm:hidden px-4 pt-7 pb-6">
         {/* Brand */}
         <div className="mb-5">
-          <Link href="/" className="inline-flex items-center gap-2 mb-2.5">
-            <VaidideaLogo className="w-7 h-7 text-emerald-300" />
-            <span className="font-heading text-lg font-bold tracking-tight text-white">
+          <Link href="/" className="inline-flex items-center gap-2 mb-2.5 group">
+            <img 
+              src="/logo.png" 
+              alt="Vaididea Logo" 
+              className="h-8 w-auto object-contain brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity" 
+            />
+            <span className="font-heading text-xl font-bold tracking-tight text-white">
               Vaididea
             </span>
           </Link>

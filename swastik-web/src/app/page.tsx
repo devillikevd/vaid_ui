@@ -8,6 +8,9 @@ import PopularSpecialtiesSection from "@/components/landing/PopularSpecialtiesSe
 import FeaturedDoctorsSection from "@/components/landing/FeaturedDoctorsSection";
 import AppPromotionSection from "@/components/landing/AppPromotionSection";
 import HealthLibrarySection from "@/components/landing/HealthLibrarySection";
+import ImpactSection from "@/components/landing/ImpactSection";
+import HowItWorksSection from "@/components/landing/HowItWorksSection";
+import TestimonialsSection from "@/components/landing/TestimonialsSection";
 import Footer from "@/components/landing/Footer";
 
 export const metadata: Metadata = {
@@ -54,19 +57,28 @@ export default function HomePage() {
       {/* 02. Hero / Doctor Search */}
       <Hero />
 
-      {/* 03. Healthcare Services (Find Hospitals, Book Lab Tests, Book Clinic Visit) */}
+      {/* 03. Impact Statistics */}
+      <ImpactSection />
+
+      {/* 04. How It Works */}
+      <HowItWorksSection />
+
+      {/* 05. Healthcare Services */}
       <WhyChooseSection />
 
-      {/* 04. Popular Specialties */}
+      {/* 06. Popular Specialties */}
       <PopularSpecialtiesSection />
 
-      {/* 05. Featured Doctors */}
+      {/* 07. Featured Doctors */}
       <FeaturedDoctorsSection />
 
-      {/* 06. Health Library */}
+      {/* 08. Health Library */}
       <HealthLibrarySection />
 
-      {/* 07. Vaididea Patient App / Download App */}
+      {/* 09. Testimonials */}
+      <TestimonialsSection />
+
+      {/* 10. Vaididea Patient App / Download App */}
       <AppPromotionSection />
 
       {/* 08. Footer */}

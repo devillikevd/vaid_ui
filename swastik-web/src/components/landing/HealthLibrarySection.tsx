@@ -2,25 +2,36 @@
 
 import React from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { BookOpen, ArrowRight, Activity, CheckCircle2 } from "lucide-react";
 
 export default function HealthLibrarySection() {
   return (
-    <section className="py-10 sm:py-14 md:py-18 bg-white border-b border-stone-200/80 relative overflow-hidden" id="health-library">
+    <section className="py-10 sm:py-16 bg-[#F8F9FA] relative overflow-hidden" id="health-library">
+      {/* Background blobs for glass effect */}
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-teal-100/40 rounded-full blur-3xl -z-10 mix-blend-multiply" />
+      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-emerald-100/40 rounded-full blur-3xl -z-10 mix-blend-multiply" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid md:grid-cols-12 gap-10 lg:gap-14 items-center">
           
           {/* ══════════════════════════════════════════════════════════════════════════
               LEFT SIDE: KEPT EXACTLY AS IT IS
               ══════════════════════════════════════════════════════════════════════════ */}
-          <div className="md:col-span-6 space-y-4">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-vd-forest text-xs font-bold uppercase tracking-wider border border-emerald-200/60">
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Clinical Knowledge</span>
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="md:col-span-6 space-y-4"
+          >
+            <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-50 text-vd-forest text-[13px] font-bold tracking-wide shadow-sm border border-emerald-100">
+              <BookOpen className="w-4 h-4" />
+              <span>Health Library</span>
             </div>
 
-            <h2 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold text-vd-forest tracking-tight">
-              Health Library
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-stone-900 tracking-tight leading-tight">
+              Empower Yourself with <br className="hidden sm:inline" />
+              <span className="text-vd-forest">Medical Knowledge</span>
             </h2>
 
             <p className="text-xs sm:text-sm text-stone-600 font-normal leading-relaxed max-w-lg">
@@ -29,13 +40,13 @@ export default function HealthLibrarySection() {
 
             {/* Feature Pills */}
             <div className="flex flex-wrap gap-2 pt-1 pb-2">
-              <span className="px-3 py-1 rounded-full text-xs font-medium bg-stone-50 text-stone-700 border border-stone-200">
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                 10,000+ Conditions
               </span>
-              <span className="px-3 py-1 rounded-full text-xs font-medium bg-stone-50 text-stone-700 border border-stone-200">
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                 ICD-10 Classified
               </span>
-              <span className="px-3 py-1 rounded-full text-xs font-medium bg-stone-50 text-stone-700 border border-stone-200">
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                 Evidence-Based Guidance
               </span>
             </div>
@@ -43,18 +54,24 @@ export default function HealthLibrarySection() {
             <div className="pt-2">
               <Link
                 href="/health-library"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-vd-forest text-white text-xs sm:text-sm font-bold hover:bg-vd-forest-deep transition-all shadow-md shadow-vd-forest/20 hover:-translate-y-0.5 group"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-vd-forest text-white text-xs sm:text-sm font-bold hover:bg-emerald-800 transition-all shadow-md shadow-vd-forest/20 hover:-translate-y-0.5 group cursor-pointer"
               >
                 <span>Explore Health Library</span>
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
-          </div>
+          </motion.div>
 
           {/* ══════════════════════════════════════════════════════════════════════════
               RIGHT SIDE: REALISTIC 3D OPEN MEDICAL BOOK / HEALTH HANDBOOK VISUAL
               ══════════════════════════════════════════════════════════════════════════ */}
-          <div className="md:col-span-6 flex justify-center items-center overflow-hidden" style={{ perspective: "1200px" }}>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.6, delay: 0.2, type: "spring", bounce: 0.3 }}
+            className="md:col-span-6 flex justify-center md:justify-end perspective-[1200px]"
+          >
             <Link
               href="/health-library"
               className="group relative w-full max-w-[min(530px,100%)] block transition-all duration-500 hover:-translate-y-1.5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest focus-visible:ring-offset-4 rounded-3xl"
@@ -70,7 +87,7 @@ export default function HealthLibrarySection() {
                 aria-hidden="true"
               />
 
-              {/* Book Outer Shadow & Hardcover Base Container */}
+              {/* The "Book" container */}
               <div className="relative rounded-[22px] bg-[#0A382F] p-1.5 sm:p-2 shadow-[0_22px_55px_-10px_rgba(15,95,80,0.32)] border border-[#0F5F50]/60">
                 
                 {/* Book Edge Thickness / Paper Pages Stack (Bottom & Side depth simulation) */}
@@ -266,7 +283,7 @@ export default function HealthLibrarySection() {
                 aria-hidden="true"
               />
             </Link>
-          </div>
+          </motion.div>
 
         </div>
       </div>

@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { motion } from "framer-motion";
 import { ArrowRight, Layers } from "lucide-react";
 
 export default function PopularSpecialtiesSection() {
@@ -53,32 +54,28 @@ export default function PopularSpecialtiesSection() {
 
   return (
     <section
-      className="py-8 sm:py-14 bg-stone-50/50 border-b border-stone-200/80"
+      className="py-10 sm:py-16 bg-[#F8F9FA] relative overflow-hidden"
       id="specialties"
     >
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto relative z-10">
         {/* ── Section Header ── */}
-        <div className="px-4 sm:px-6 lg:px-8 mb-5 sm:mb-8 flex items-center justify-between gap-4">
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="px-4 sm:px-6 lg:px-8 mb-8 sm:mb-12 flex flex-col items-center justify-center gap-4 text-center"
+        >
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-vd-forest text-xs font-bold uppercase tracking-wider mb-2 border border-emerald-200/60">
-              <Layers className="w-3.5 h-3.5" />
-              <span>Medical Specialties</span>
+            <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-vd-forest text-white text-[13px] font-bold tracking-wide mb-3">
+              <Layers className="w-4 h-4" />
+              <span>Top Specialties</span>
             </div>
-            <h2 className="font-heading text-xl sm:text-3xl md:text-4xl font-bold text-vd-forest tracking-tight">
-              Popular Specialties
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[#111827] tracking-tight">
+              Highlighting the <span className="text-vd-forest">Care & Support</span>
             </h2>
           </div>
-
-          {/* View All — right-aligned, all breakpoints */}
-          <Link
-            href="/specialties"
-            className="shrink-0 inline-flex items-center gap-1 text-xs font-bold text-vd-forest hover:text-vd-forest-deep transition-colors"
-            aria-label="View all specialties"
-          >
-            <span>View All</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
+        </motion.div>
 
         {/* ══════════════════════════════════════════════════════════
             MOBILE (<sm): Horizontal scroll-snap carousel
@@ -132,41 +129,53 @@ export default function PopularSpecialtiesSection() {
         {/* ══════════════════════════════════════════════════════════
             DESKTOP / TABLET (sm+): Original 6-column grid — UNCHANGED
             ══════════════════════════════════════════════════════════ */}
-        <div className="hidden sm:grid sm:px-6 lg:px-8 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-          {specialties.map((item) => (
-            <Link
+        <motion.div 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.1 }}
+          variants={{
+            hidden: {},
+            visible: { transition: { staggerChildren: 0.15 } }
+          }}
+          className="hidden sm:grid sm:px-6 lg:px-8 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6"
+        >
+          {specialties.map((item, index) => (
+            <motion.div
               key={item.name}
-              href={item.href}
-              className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border border-stone-200/90 bg-white hover:border-vd-forest/50 hover:shadow-md transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
-              aria-label={`Find ${item.name} doctors`}
+              variants={{
+                hidden: { opacity: 0, y: 30, scale: 0.95 },
+                visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.5, type: "spring", bounce: 0.3 } }
+              }}
+              className="h-full"
             >
+              <Link
+                href={item.href}
+                className="p-4 rounded-[20px] bg-white border border-gray-100 hover:border-vd-forest/30 shadow-sm hover:shadow-2xl hover:shadow-vd-forest/15 hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between group cursor-pointer h-full"
+                aria-label={`Find ${item.name} doctors`}
+              >
               <div>
                 {/* Compact Image Container */}
-                <div className="relative w-full aspect-[16/11] rounded-lg sm:rounded-xl overflow-hidden bg-stone-50/80 border border-stone-100 mb-2.5 flex items-center justify-center p-1">
+                <div className="relative w-full aspect-[4/4] rounded-[16px] overflow-hidden bg-gray-100 mb-4 flex items-center justify-center p-1">
                   <Image
                     src={item.image}
                     alt={item.alt || item.name}
                     fill
                     sizes="(max-width: 1024px) 33vw, 16vw"
-                    className="object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
+                    className="object-cover rounded-lg group-hover:scale-110 transition-transform duration-500 ease-out"
                   />
                 </div>
 
-                <h3 className="font-heading text-xs sm:text-sm font-bold text-stone-900 group-hover:text-vd-forest transition-colors mb-0.5 truncate">
+                <h3 className="text-[17px] font-bold text-[#111827] group-hover:text-vd-forest transition-colors mb-1 text-center">
                   {item.name}
                 </h3>
-                <p className="text-[11px] text-stone-500 font-normal line-clamp-1">
-                  {item.subtitle}
+                <p className="text-[13px] text-gray-500 font-normal line-clamp-1 text-center">
+                  254 Doctors
                 </p>
               </div>
-
-              <div className="mt-2.5 pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] font-semibold text-vd-forest group-hover:text-vd-forest-deep">
-                <span>Find Doctors</span>
-                <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
-              </div>
             </Link>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   );

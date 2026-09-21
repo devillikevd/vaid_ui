@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import { motion } from "framer-motion";
 import {
   Smartphone,
   Calendar,
@@ -12,6 +13,7 @@ import {
   QrCode,
   CheckCircle2,
   ShieldCheck,
+  Download,
 } from "lucide-react";
 import AppDownloadModal from "@/components/shared/AppDownloadModal";
 
@@ -28,28 +30,32 @@ export default function AppPromotionSection() {
 
   return (
     <>
-      <section
-        className="py-10 sm:py-16 bg-gradient-to-br from-emerald-50/60 via-[#FAF8F4] to-teal-50/40 border-b border-stone-200/80 relative overflow-hidden"
-        id="app"
-      >
+      <section className="py-12 sm:py-16 relative overflow-hidden bg-vd-forest-deep isolate" id="app">
+        {/* Background with Glass Effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-vd-forest to-vd-forest-deep opacity-90 -z-10" />
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid lg:grid-cols-12 gap-8 lg:gap-10 xl:gap-14 items-center">
 
             {/* ── LEFT: Text Content ── */}
-            <div className="lg:col-span-6 xl:col-span-5 space-y-4 sm:space-y-5">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100/80 border border-emerald-200/80 text-vd-forest text-xs font-bold uppercase tracking-wider">
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>Vaididea Patient App</span>
+            <motion.div 
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="lg:col-span-6 xl:col-span-5 space-y-4 sm:space-y-5"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-xs sm:text-sm font-bold uppercase tracking-wider mb-6 shadow-sm">
+                <Download className="w-4 h-4" />
+                <span>Get the App</span>
               </div>
 
-              <h2 className="text-h2 text-vd-forest">
-                Your healthcare,{" "}
-                <span className="text-emerald-700 font-semibold">
-                  all in one app.
-                </span>
+              <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight mb-6 drop-shadow-sm">
+                Your Health, <br className="hidden sm:block" />
+                <span className="text-teal-200">In Your Hands</span>
               </h2>
 
-              <p className="text-xs sm:text-sm md:text-[15px] text-stone-600 max-w-xl font-light leading-relaxed">
+              <p className="text-xs sm:text-sm md:text-[15px] text-teal-50 max-w-xl font-light leading-relaxed">
                 Consult verified doctors, book clinic visits, order medicines,
                 track diagnostic tests, and manage your family health records
                 anywhere, anytime.
@@ -62,9 +68,9 @@ export default function AppPromotionSection() {
                   return (
                     <div
                       key={f.label}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-stone-200/80 text-xs font-medium text-stone-700 shadow-2xs hover:border-vd-forest/30 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-xs font-medium text-white shadow-sm hover:bg-white/20 transition-colors"
                     >
-                      <Icon className="w-3.5 h-3.5 text-vd-forest shrink-0" />
+                      <Icon className="w-3.5 h-3.5 text-teal-200 shrink-0" />
                       <span>{f.label}</span>
                     </div>
                   );
@@ -76,7 +82,7 @@ export default function AppPromotionSection() {
                 <button
                   type="button"
                   onClick={() => setAppModalOpen(true)}
-                  className="flex-1 sm:flex-none px-6 py-3 rounded-full bg-vd-forest hover:bg-vd-forest-deep text-white font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-95 min-w-0"
+                  className="flex-1 sm:flex-none px-6 py-3.5 rounded-full bg-white hover:bg-teal-50 text-vd-forest font-bold text-xs sm:text-sm transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] hover:-translate-y-1 flex items-center justify-center gap-2 cursor-pointer active:scale-95 min-w-0"
                 >
                   <Smartphone className="w-4 h-4 shrink-0" />
                   <span>Download Vaididea App</span>
@@ -85,28 +91,34 @@ export default function AppPromotionSection() {
                 <button
                   type="button"
                   onClick={() => setAppModalOpen(true)}
-                  className="flex-1 sm:flex-none px-5 py-3 rounded-full bg-white hover:bg-stone-50 border border-stone-300/80 text-stone-800 font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs active:scale-95 min-w-0"
+                  className="flex-1 sm:flex-none px-5 py-3.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 text-white font-semibold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95 min-w-0"
                 >
-                  <QrCode className="w-4 h-4 text-vd-forest shrink-0" />
+                  <QrCode className="w-4 h-4 text-teal-200 shrink-0" />
                   <span>Scan QR to Install</span>
                 </button>
               </div>
 
               {/* Trust Indicators */}
-              <div className="pt-2 flex flex-wrap items-center gap-4 text-xs text-stone-500 font-medium">
+              <div className="pt-2 flex flex-wrap items-center gap-4 text-xs text-teal-50 font-medium">
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <CheckCircle2 className="w-4 h-4 text-teal-200 shrink-0" />
                   <span>Android 8.0+ Supported</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <ShieldCheck className="w-4 h-4 text-teal-200 shrink-0" />
                   <span>ABHA &amp; NDHM Ready</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* ── RIGHT: Dual Phone App Showcase ── */}
-            <div className="lg:col-span-6 xl:col-span-7 flex items-center justify-center relative py-2 lg:py-0">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, rotate: -2 }}
+              whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ duration: 0.7, type: "spring", bounce: 0.4 }}
+              className="lg:col-span-6 xl:col-span-7 flex items-center justify-center relative py-2 lg:py-0"
+            >
               {/* Soft Ambient Radial Glow */}
               <div
                 aria-hidden="true"
@@ -124,8 +136,10 @@ export default function AppPromotionSection() {
                 style={{ minHeight: "clamp(280px, 70vw, 480px)" }}
               >
                 {/* PHONE 1: Home Screen (Front / Primary / Larger) */}
-                <div
-                  className="relative z-20 transition-transform duration-300 hover:-translate-y-2"
+                <motion.div
+                  animate={{ y: [0, -15, 0] }}
+                  transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                  className="relative z-20 hover:scale-[1.02] transition-transform duration-500"
                   style={{ width: "clamp(130px, 38vw, 250px)" }}
                 >
                   <div className="rounded-[28px] sm:rounded-[36px] md:rounded-[40px] p-[8px] sm:p-[11px] bg-gradient-to-b from-[#2a2a2a] via-[#1a1a1a] to-[#111111] border border-[#3a3a3a]/80 shadow-[0_24px_48px_-12px_rgba(15,95,80,0.22),0_12px_24px_-8px_rgba(0,0,0,0.30)]">
@@ -152,11 +166,13 @@ export default function AppPromotionSection() {
                       <div className="w-[38%] h-[2px] sm:h-[3px] rounded-full bg-[#3a3a3a]" />
                     </div>
                   </div>
-                </div>
+                </motion.div>
 
                 {/* PHONE 2: Specialities Screen (Back / Secondary / Smaller) */}
-                <div
-                  className="relative z-10 transition-transform duration-300"
+                <motion.div
+                  animate={{ y: [0, -12, 0] }}
+                  transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
+                  className="relative z-10 hover:scale-[1.02] transition-transform duration-500"
                   style={{
                     width: "clamp(112px, 32vw, 220px)",
                     marginLeft: "clamp(-38px, -10vw, -76px)",
@@ -186,9 +202,9 @@ export default function AppPromotionSection() {
                       <div className="w-[38%] h-[2px] sm:h-[3px] rounded-full bg-[#3a3a3a]" />
                     </div>
                   </div>
-                </div>
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
 
           </div>
         </div>

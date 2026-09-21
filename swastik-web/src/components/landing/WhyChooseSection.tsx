@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { motion } from "framer-motion";
 import {
   Building2,
   FlaskConical,
@@ -13,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Dumbbell,
+  ShieldCheck,
 } from "lucide-react";
 
 export interface HealthcareServiceItem {
@@ -34,7 +36,7 @@ export const services: HealthcareServiceItem[] = [
     icon: Stethoscope,
     label: "Find Doctors",
     href: "/patient/doctors",
-    image: "/images/patient/clinic_visit.webp",
+    image: "/images/patient/clinic_visit.png",
     alt: "Find verified doctors and schedule clinic consultations",
     accentBorder: "group-hover:border-vd-forest/40",
   },
@@ -61,8 +63,8 @@ export const services: HealthcareServiceItem[] = [
     icon: Building2,
     label: "Find Hospitals",
     href: "/patient/hospitals",
-    image: "/images/patient/find_hospital.webp",
-    alt: "Illustrated hospital building with emergency and pharmacy signage",
+    image: "/images/patient/find_hospital.png",
+    alt: "Ultra-modern multi-specialty hospital building exterior",
     accentBorder: "group-hover:border-vd-forest/40",
   },
   {
@@ -284,25 +286,35 @@ export default function WhyChooseSection() {
 
   return (
     <section
-      className="pt-6 pb-10 sm:pt-8 sm:pb-14 bg-white border-b border-stone-200/80 overflow-hidden relative isolate z-10"
-      id="services"
-      aria-label="Healthcare services carousel"
-      role="region"
-      aria-roledescription="carousel"
+      className="py-10 sm:py-16 bg-white relative overflow-hidden"
+      id="why-choose"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+      <div className="absolute inset-0 z-0 bg-stone-50/50 pointer-events-none" />
+      {/* Background blobs for glass effect */}
+      <div className="absolute top-1/4 right-[-10%] w-[500px] h-[500px] bg-emerald-300/20 rounded-full blur-[100px] -z-10 mix-blend-multiply" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-teal-300/20 rounded-full blur-[100px] -z-10 mix-blend-multiply" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
         {/* Section header */}
-        <div className="text-center max-w-xl mx-auto mb-6 sm:mb-8">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-vd-forest text-[11px] font-bold uppercase tracking-wider mb-2.5 border border-emerald-200/60">
-            <Building2 className="w-3 h-3" />
-            <span>Healthcare Services</span>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-2xl mx-auto mb-10 sm:mb-16"
+        >
+          <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-50 text-vd-forest text-[13px] font-bold tracking-wide mb-4">
+            <ShieldCheck className="w-4 h-4" />
+            <span>Why Choose Us</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl md:text-[2rem] font-bold text-vd-forest tracking-tight leading-tight">
-            Everything You Need,{" "}
-            <span className="text-vd-sage font-semibold">In One Place</span>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-stone-900 tracking-tight leading-tight">
+            Leading the Way in <span className="text-vd-forest">Telemedicine</span>
           </h2>
-        </div>
+          <p className="text-sm sm:text-lg text-gray-600 font-light leading-relaxed mt-3">
+            We provide comprehensive healthcare solutions, bringing the best medical professionals and facilities directly to you.
+          </p>
+        </motion.div>
 
         {/* ══════════════════════════════════════════════════════════════════════
             DESKTOP / TABLET: CIRCULAR ORBIT CAROUSEL
@@ -343,21 +355,24 @@ export default function WhyChooseSection() {
                     href={svc.href}
                     onClick={(e) => handleCardClick(e, i, svc.href)}
                     title={svc.description || svc.label}
-                    className={`group flex flex-col justify-between bg-white rounded-2xl border transition-colors duration-250 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest cursor-pointer block ${
+                    className={`group flex flex-col justify-between bg-white/70 backdrop-blur-xl rounded-[24px] border transition-all duration-300 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest cursor-pointer block relative ${
                       isFront
-                        ? "border-emerald-600/50"
-                        : "border-stone-200/90 hover:border-vd-forest/40"
+                        ? "border-emerald-300/50 shadow-[0_20px_40px_rgba(16,185,129,0.15)]"
+                        : "border-white/60 hover:border-emerald-300/40 shadow-lg shadow-stone-200/50 hover:shadow-emerald-500/10"
                     }`}
                     aria-label={`${svc.label}${isFront ? " (Active front card)" : " (Click to bring to front)"}`}
                   >
+                    {/* Hover Glow Behind Card Image */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/0 to-emerald-400/0 group-hover:from-emerald-400/10 group-hover:to-teal-500/10 transition-colors -z-10" />
+
                     {/* Image Area */}
-                    <div className="relative w-full aspect-[16/11] overflow-hidden bg-stone-50/70">
+                    <div className="relative w-full aspect-[16/11] overflow-hidden bg-gradient-to-b from-stone-50/50 to-stone-100/50">
                       <Image
                         src={svc.image}
                         alt={svc.alt}
                         fill
                         sizes="(max-width: 1024px) 250px, 280px"
-                        className="object-contain p-3 sm:p-3.5 transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+                        className="object-contain p-3 sm:p-3.5 transition-transform duration-500 ease-out group-hover:scale-110"
                         priority={i === 0}
                       />
                     </div>
