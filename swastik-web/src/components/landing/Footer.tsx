@@ -79,21 +79,23 @@ function AccordionSection({
   onToggle: () => void;
 }) {
   return (
-    <div className="border-t border-white/10">
+    <div className="border-t" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
       <button
         type="button"
         aria-expanded={isOpen}
         aria-controls={`footer-section-${section.id}`}
         onClick={onToggle}
-        className="w-full flex items-center justify-between py-3.5 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400"
+        className="w-full flex items-center justify-between py-3.5 text-left focus-visible:outline-none focus-visible:ring-1"
+        style={{ color: "rgba(255,255,255,0.9)" }}
       >
-        <span className="text-[11px] font-bold uppercase tracking-wider text-white">
+        <span className="text-[11px] font-bold uppercase tracking-wider">
           {section.label}
         </span>
         <ChevronDown
-          className={`w-4 h-4 text-emerald-300/70 transition-transform duration-250 shrink-0 ${
+          className={`w-4 h-4 transition-transform duration-250 shrink-0 ${
             isOpen ? "rotate-180" : ""
           }`}
+          style={{ color: "var(--medica-peach)" }}
         />
       </button>
 
@@ -113,11 +115,12 @@ function AccordionSection({
             <li key={link.href + link.label}>
               <Link
                 href={link.href}
-                className={`text-sm transition-colors duration-150 ${
+                className={`text-sm transition-colors duration-150 hover:text-white ${
                   link.highlight
-                    ? "font-semibold text-emerald-300 hover:text-white"
-                    : "text-emerald-100/70 hover:text-white"
+                    ? "font-semibold"
+                    : ""
                 }`}
+                style={{ color: link.highlight ? "var(--medica-peach)" : "rgba(255,255,255,0.65)" }}
               >
                 {link.label}
               </Link>
@@ -133,7 +136,7 @@ function AccordionSection({
 function SocialRow() {
   return (
     <div className="flex items-center gap-3">
-      <span className="text-emerald-100/90 font-medium text-xs">
+      <span className="font-medium text-xs" style={{ color: "rgba(255,255,255,0.7)" }}>
         Follow Vaididea
       </span>
       <div className="flex items-center gap-2">
@@ -144,7 +147,12 @@ function SocialRow() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={label}
-            className="w-8 h-8 rounded-full border border-white/15 bg-white/10 text-emerald-100 hover:text-white hover:border-emerald-400 hover:bg-white/20 flex items-center justify-center transition-colors duration-150"
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-150 hover:scale-110"
+            style={{
+              border: "1px solid rgba(255,255,255,0.2)",
+              backgroundColor: "rgba(255,255,255,0.1)",
+              color: "rgba(255,255,255,0.8)",
+            }}
           >
             <Icon className="w-4 h-4" />
           </a>
@@ -166,7 +174,10 @@ export default function Footer() {
   };
 
   return (
-    <footer className="w-full bg-vd-forest-deep text-emerald-100/80 border-t border-emerald-900/30">
+    <footer
+      className="w-full text-white/80"
+      style={{ backgroundColor: "var(--medica-olive)" }}
+    >
 
       {/* ════════════════════════════════════════════════════════════════════
           DESKTOP / TABLET (sm+): Original multi-column grid — UNCHANGED
@@ -182,11 +193,11 @@ export default function Footer() {
                   alt="Vaididea Logo" 
                   className="h-10 w-auto object-contain brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity" 
                 />
-                <span className="font-heading text-2xl font-bold tracking-tight text-white">
+                <span className="font-outfit text-2xl font-bold tracking-tight text-white">
                   Vaididea
                 </span>
               </Link>
-              <p className="text-sm text-emerald-100/70 leading-relaxed max-w-sm font-light">
+              <p className="text-sm leading-relaxed max-w-sm font-light" style={{ color: "rgba(255,255,255,0.65)" }}>
                 Modern healthcare discovery and booking platform connecting
                 patients with verified doctors, hospitals, clinics, diagnostics,
                 and pharmacies.
@@ -194,19 +205,18 @@ export default function Footer() {
             </div>
 
             {/* Link columns */}
-            {footerSections.map((section) => (
+              {footerSections.map((section) => (
               <div key={section.id} className="space-y-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-white font-outfit">
                   {section.label}
                 </h4>
-                <ul className="space-y-2.5 text-sm text-emerald-100/70">
+                <ul className="space-y-2.5 text-sm">
                   {section.links.map((link) => (
                     <li key={link.href + link.label}>
                       <Link
                         href={link.href}
-                        className={`hover:text-white transition-colors duration-150 ${
-                          link.highlight ? "font-semibold text-emerald-300" : ""
-                        }`}
+                        className="hover:text-white transition-colors duration-150"
+                        style={{ color: link.highlight ? "var(--medica-peach)" : "rgba(255,255,255,0.65)" }}
                       >
                         {link.label}
                       </Link>
@@ -218,7 +228,7 @@ export default function Footer() {
           </div>
 
           {/* Bottom row */}
-          <div className="pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-emerald-100/70">
+          <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs" style={{ borderTop: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.55)" }}>
             <p>© {currentYear} Vaididea. All rights reserved.</p>
             <SocialRow />
           </div>

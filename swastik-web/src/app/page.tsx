@@ -3,14 +3,16 @@ import type { Metadata } from "next";
 import { buildJsonLdString } from '@/lib/sanitize';
 import Navbar from "@/components/landing/Navbar";
 import Hero from "@/components/landing/Hero";
+import ImpactSection from "@/components/landing/ImpactSection";
+import HowItWorksSection from "@/components/landing/HowItWorksSection";
+import AboutCareSection from "@/components/landing/AboutCareSection";
 import WhyChooseSection from "@/components/landing/WhyChooseSection";
 import PopularSpecialtiesSection from "@/components/landing/PopularSpecialtiesSection";
 import FeaturedDoctorsSection from "@/components/landing/FeaturedDoctorsSection";
-import AppPromotionSection from "@/components/landing/AppPromotionSection";
 import HealthLibrarySection from "@/components/landing/HealthLibrarySection";
-import ImpactSection from "@/components/landing/ImpactSection";
-import HowItWorksSection from "@/components/landing/HowItWorksSection";
 import TestimonialsSection from "@/components/landing/TestimonialsSection";
+import NewsletterSection from "@/components/landing/NewsletterSection";
+import AppPromotionSection from "@/components/landing/AppPromotionSection";
 import Footer from "@/components/landing/Footer";
 
 export const metadata: Metadata = {
@@ -51,37 +53,44 @@ export default function HomePage() {
   return (
     <main className="bg-white min-h-screen selection:bg-vd-forest selection:text-white">
       <script type="application/ld+json">{buildJsonLdString(homeJsonLd)}</script>
-      {/* 01. Navbar */}
+
+      {/* 01. Navbar — Medica peach top bar */}
       <Navbar />
 
-      {/* 02. Hero / Doctor Search */}
+      {/* 02. Hero — Olive leaf overlay + arch doctor photo + search */}
       <Hero />
 
-      {/* 03. Impact Statistics */}
+      {/* 03. Impact Statistics — Off-white, animated counters */}
       <ImpactSection />
 
-      {/* 04. How It Works */}
+      {/* 04. How It Works — Sage green, 4-step cards */}
       <HowItWorksSection />
 
-      {/* 05. Healthcare Services */}
+      {/* 05. About / Care Section — NEW: sage bg, arch photo + floating badge */}
+      <AboutCareSection />
+
+      {/* 06. Services Grid — Ice blue, 4 arch-card services with AI images */}
       <WhyChooseSection />
 
-      {/* 06. Popular Specialties */}
+      {/* 07. Popular Specialties */}
       <PopularSpecialtiesSection />
 
-      {/* 07. Featured Doctors */}
+      {/* 08. Featured Doctors */}
       <FeaturedDoctorsSection />
 
-      {/* 08. Health Library */}
+      {/* 09. Health Library */}
       <HealthLibrarySection />
 
-      {/* 09. Testimonials */}
+      {/* 10. Testimonials */}
       <TestimonialsSection />
 
-      {/* 10. Vaididea Patient App / Download App */}
+      {/* 11. Newsletter — NEW: Stay Informed subscribe block */}
+      <NewsletterSection />
+
+      {/* 12. App Promotion / Download */}
       <AppPromotionSection />
 
-      {/* 08. Footer */}
+      {/* 13. Footer — Olive green Medica style */}
       <Footer />
     </main>
   );

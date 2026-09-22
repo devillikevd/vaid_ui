@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -977,3 +978,170 @@ option {
     font-weight: 600;
   }
 }
+
+/* =====================================================
+   MEDICA TEMPLATE REDESIGN — Vaididea Landing Page
+   Earthy organic palette: peach + olive + sage + iceblue
+   ===================================================== */
+
+
+:root {
+  /* Medica-inspired palette */
+  --medica-peach:    #F8A97A;
+  --medica-peach-light: #FDE8D5;
+  --medica-olive:    #3A691E;
+  --medica-olive-mid: #4C8A26;
+  --medica-sage:     #E4EBDE;
+  --medica-iceblue:  #E6F5FA;
+  --medica-offwhite: #F5F5F6;
+  --medica-charcoal: #1D1E20;
+  --medica-text:     #2C2C2C;
+  --medica-muted:    #6B7280;
+
+  /* Outfit as landing heading font */
+  --font-outfit: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Medica background utilities */
+.bg-medica-peach   { background-color: var(--medica-peach); }
+.bg-medica-olive   { background-color: var(--medica-olive); }
+.bg-medica-sage    { background-color: var(--medica-sage); }
+.bg-medica-iceblue { background-color: var(--medica-iceblue); }
+.bg-medica-offwhite{ background-color: var(--medica-offwhite); }
+.text-medica-peach  { color: var(--medica-peach); }
+.text-medica-olive  { color: var(--medica-olive); }
+.text-medica-charcoal { color: var(--medica-charcoal); }
+
+/* Outfit font utility */
+.font-outfit { font-family: var(--font-outfit); }
+
+/* Pill button styles (Medica-style) */
+.btn-medica-dark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 50px;
+  background-color: var(--medica-charcoal);
+  color: #ffffff;
+  font-family: var(--font-outfit);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  text-decoration: none;
+}
+.btn-medica-dark:hover {
+  background-color: #000000;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+}
+
+.btn-medica-white {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 50px;
+  background-color: #ffffff;
+  color: var(--medica-charcoal);
+  font-family: var(--font-outfit);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border: 2px solid #ffffff;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  text-decoration: none;
+}
+.btn-medica-white:hover {
+  background-color: rgba(255,255,255,0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+.btn-medica-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 50px;
+  background-color: transparent;
+  color: #ffffff;
+  font-family: var(--font-outfit);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border: 2px solid #ffffff;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  text-decoration: none;
+}
+.btn-medica-outline:hover {
+  background-color: rgba(255,255,255,0.15);
+  transform: translateY(-2px);
+}
+
+/* Arch/dome image clip — top rounded arch shape */
+.arch-image-clip {
+  clip-path: ellipse(50% 52% at 50% 50%);
+  border-radius: 50% 50% 0 0 / 40% 40% 0 0;
+}
+.arch-container {
+  border-radius: 50% 50% 0 0 / 40% 40% 0 0;
+  overflow: hidden;
+}
+
+/* Leaf / organic container shape */
+.leaf-container {
+  border-radius: 60% 40% 55% 45% / 50% 45% 55% 50%;
+}
+
+/* Medica section heading style */
+.medica-heading {
+  font-family: var(--font-outfit);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--medica-charcoal);
+  letter-spacing: -0.02em;
+}
+
+/* Service card arch top */
+.service-card-arch {
+  border-radius: 999px 999px 0 0;
+  overflow: hidden;
+}
+
+/* Floating badge style */
+.medica-badge {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+  border: 1px solid rgba(255,255,255,0.9);
+}
+
+/* Newsletter input style */
+.medica-input {
+  width: 100%;
+  padding: 0.85rem 1.25rem;
+  border-radius: 10px;
+  border: 0.8px solid #B8C0CC;
+  background: #ffffff;
+  font-size: 0.9375rem;
+  color: var(--medica-charcoal);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.medica-input:focus {
+  border-color: var(--medica-olive);
+  box-shadow: 0 0 0 3px rgba(58,105,30,0.1);
+}
+
+/* Medica section divider wave */
+@keyframes medica-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+}
+.medica-float { animation: medica-float 4s ease-in-out infinite; }
+

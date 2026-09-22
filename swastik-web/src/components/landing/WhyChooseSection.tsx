@@ -1,511 +1,198 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
-import Image from "next/image";
+import React from "react";
 import { motion } from "framer-motion";
-import {
-  Building2,
-  FlaskConical,
-  Stethoscope,
-  ArrowRight,
-  UserCheck,
-  Video,
-  ChevronLeft,
-  ChevronRight,
-  Dumbbell,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowRight, Video, TestTube2, Pill, Ambulance } from "lucide-react";
+import Link from "next/link";
 
-export interface HealthcareServiceItem {
-  id: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  label: string;
-  href: string;
-  image: string;
-  alt: string;
-  accentBorder: string;
-  subtitle?: string;
-  description?: string;
-  cta?: string;
-}
-
-export const services: HealthcareServiceItem[] = [
+const services = [
   {
-    id: "doctors",
-    icon: Stethoscope,
-    label: "Find Doctors",
-    href: "/patient/doctors",
-    image: "/images/patient/clinic_visit.png",
-    alt: "Find verified doctors and schedule clinic consultations",
-    accentBorder: "group-hover:border-vd-forest/40",
+    id: 1,
+    title: "Video Consultation",
+    desc: "Connect with verified doctors from the comfort of home. Get prescriptions, advice, and follow-ups instantly.",
+    image: "/images/medica_service_video.png",
+    icon: <Video className="w-5 h-5" />,
+    href: "/doctors",
+    tag: "Most Popular",
   },
   {
-    id: "in-person",
-    icon: UserCheck,
-    label: "In-Person Consultation",
-    href: "/patient/doctors?mode=in_person",
-    image: "/images/patient/inpersonconsultation_new.webp",
-    alt: "In-Person Consultation",
-    accentBorder: "group-hover:border-vd-forest/40",
+    id: 2,
+    title: "Diagnostics & Lab Tests",
+    desc: "Book accredited lab tests at home or at certified diagnostic centres. Get reports digitally, fast.",
+    image: "/images/medica_service_diagnostics.png",
+    icon: <TestTube2 className="w-5 h-5" />,
+    href: "/diagnostics",
+    tag: "At Home",
   },
   {
-    id: "video-consult",
-    icon: Video,
-    label: "Video Consultation",
-    href: "/patient/doctors?mode=video",
-    image: "/images/patient/videoconsultation_new.webp",
-    alt: "Video Consultation",
-    accentBorder: "group-hover:border-teal-500/40",
+    id: 3,
+    title: "Online Pharmacy",
+    desc: "Order genuine medicines from verified pharmacies. Same-day delivery available across 100+ cities.",
+    image: "/images/medica_service_pharmacy.png",
+    icon: <Pill className="w-5 h-5" />,
+    href: "/pharmacy",
+    tag: "Fast Delivery",
   },
   {
-    id: "hospitals",
-    icon: Building2,
-    label: "Find Hospitals",
-    href: "/patient/hospitals",
-    image: "/images/patient/find_hospital.png",
-    alt: "Ultra-modern multi-specialty hospital building exterior",
-    accentBorder: "group-hover:border-vd-forest/40",
-  },
-  {
-    id: "lab-tests",
-    icon: FlaskConical,
-    label: "Book Lab Tests",
-    href: "/patient/diagnostics",
-    image: "/images/patient/book_test_lab.webp",
-    alt: "Lab test booking interface with test tubes, calendar and checklist",
-    accentBorder: "group-hover:border-teal-500/40",
-  },
-  {
-    id: "gym-studio",
-    icon: Dumbbell,
-    label: "Gym & Studio",
-    subtitle: "Fitness & Wellness",
-    description: "Find trusted gyms, fitness studios, personal trainers and wellness centers near you.",
-    cta: "Explore Gyms & Studios",
-    href: "/fitness-center",
-    image: "/images/patient/gymcoach.webp",
-    alt: "Gym & Studio fitness training equipment, coaches and wellness facilities",
-    accentBorder: "group-hover:border-vd-forest/40",
+    id: 4,
+    title: "Emergency & Ambulance",
+    desc: "One-tap emergency ambulance booking with live GPS tracking. Available 24/7 for critical situations.",
+    image: "/images/medica_service_emergency.png",
+    icon: <Ambulance className="w-5 h-5" />,
+    href: "/emergency",
+    tag: "24/7 Available",
   },
 ];
 
-const TOTAL_CARDS = services.length;
-const ANGLE_STEP = (2 * Math.PI) / TOTAL_CARDS;
-
 export default function WhyChooseSection() {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  // Animation references for 60fps orbit without React re-render overhead
-  const angleRef = useRef(0);
-  const targetAngleRef = useRef(0);
-  const isHoveredRef = useRef(false);
-  const isDraggingRef = useRef(false);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  // Track responsive breakpoint and reduced-motion preference
-  useEffect(() => {
-    const checkViewport = () => {
-      setIsMobile(window.innerWidth < 640);
-    };
-    checkViewport();
-
-    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setPrefersReducedMotion(motionQuery.matches);
-
-    const handleMotionChange = (e: MediaQueryListEvent) => {
-      setPrefersReducedMotion(e.matches);
-    };
-
-    window.addEventListener("resize", checkViewport, { passive: true });
-    motionQuery.addEventListener("change", handleMotionChange);
-
-    return () => {
-      window.removeEventListener("resize", checkViewport);
-      motionQuery.removeEventListener("change", handleMotionChange);
-    };
-  }, []);
-
-  // Update card positions in DOM directly for silky 60fps GPU performance
-  const updateCardTransforms = useCallback((currentAngle: number) => {
-    const isTablet = typeof window !== "undefined" && window.innerWidth < 1024;
-    // Responsive horizontal and vertical orbit radii
-    const radiusX = isTablet ? 240 : 350;
-    const radiusY = isTablet ? 36 : 52;
-
-    for (let i = 0; i < TOTAL_CARDS; i++) {
-      const el = cardRefs.current[i];
-      if (!el) continue;
-
-      const theta = currentAngle + i * ANGLE_STEP;
-      const sin = Math.sin(theta);
-      const cos = Math.cos(theta);
-
-      // Depth: 0 (furthest back) to 1 (front center)
-      const depth = (cos + 1) / 2;
-
-      // Perspective horizontal scaling: front cards fan wider, back cards pull gracefully inward
-      const perspectiveFactor = 0.78 + depth * 0.22;
-      const x = sin * radiusX * perspectiveFactor;
-      const y = cos * radiusY;
-
-      // Scale: 0.78 (furthest back) to 1.04 (front center)
-      const scale = 0.78 + depth * 0.26;
-
-      // Opacity: 0.55 (furthest back) to 1.0 (front center)
-      const opacity = 0.55 + depth * 0.45;
-
-      // Z-index: 1 to 20 inside section's isolated stacking context
-      const zIndex = Math.round(depth * 15) + 1;
-
-      el.style.transform = `translate3d(calc(-50% + ${x.toFixed(1)}px), calc(-50% + ${y.toFixed(1)}px), 0) scale(${scale.toFixed(3)})`;
-      el.style.opacity = opacity.toFixed(2);
-      el.style.zIndex = String(zIndex);
-      el.style.pointerEvents = "auto";
-      el.style.visibility = "visible";
-
-      // Elevated shadow and highlight when in the front focus position
-      if (depth > 0.9) {
-        el.style.boxShadow = "0 14px 38px rgba(15, 95, 80, 0.16)";
-        el.style.borderColor = "rgba(15, 95, 80, 0.35)";
-      } else {
-        el.style.boxShadow = "0 2px 12px rgba(0, 0, 0, 0.04)";
-        el.style.borderColor = "rgba(231, 229, 228, 0.9)";
-      }
-    }
-  }, []);
-
-  const activeIndexRef = useRef(0);
-
-  // Main animation loop
-  useEffect(() => {
-    if (isMobile) return;
-
-    let animId: number;
-    let lastTime = performance.now();
-    updateCardTransforms(angleRef.current);
-
-    const animate = (time: number) => {
-      let delta = (time - lastTime) / 1000;
-      lastTime = time;
-      if (delta > 0.1) delta = 0.016; // Clamp lag spikes when tab is hidden
-
-      // If user isn't hovering, dragging, and hasn't requested reduced motion, gently advance
-      if (!isHoveredRef.current && !isDraggingRef.current && !prefersReducedMotion) {
-        // Continuous slow orbit: ~36s per full rotation (0.174 rad/sec)
-        targetAngleRef.current -= 0.16 * delta;
-      }
-
-      // Smooth interpolation towards targetAngle
-      const diff = targetAngleRef.current - angleRef.current;
-      angleRef.current += diff * Math.min(1, delta * 5.5);
-
-      updateCardTransforms(angleRef.current);
-
-      // Compute which card is currently closest to the front
-      const normalizedAngle = (-angleRef.current % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-      const computedFrontIndex = Math.round(normalizedAngle / ANGLE_STEP) % TOTAL_CARDS;
-      if (computedFrontIndex !== activeIndexRef.current) {
-        activeIndexRef.current = computedFrontIndex;
-        setActiveIndex(computedFrontIndex);
-      }
-
-      animId = requestAnimationFrame(animate);
-    };
-
-    animId = requestAnimationFrame(animate);
-
-    return () => {
-      cancelAnimationFrame(animId);
-    };
-  }, [isMobile, prefersReducedMotion, updateCardTransforms]);
-
-  // Navigate to a specific card index
-  const rotateToIndex = useCallback((index: number) => {
-    // Find closest angle representing index at the front
-    const currentAngle = targetAngleRef.current;
-    const baseTarget = -index * ANGLE_STEP;
-    const twoPi = 2 * Math.PI;
-
-    // Normalize difference to [-PI, PI] to rotate shortest path
-    let diff = (baseTarget - currentAngle) % twoPi;
-    if (diff > Math.PI) diff -= twoPi;
-    if (diff < -Math.PI) diff += twoPi;
-
-    targetAngleRef.current = currentAngle + diff;
-    activeIndexRef.current = index;
-    setActiveIndex(index);
-  }, []);
-
-  const handlePrev = () => {
-    const nextIdx = (activeIndex - 1 + TOTAL_CARDS) % TOTAL_CARDS;
-    rotateToIndex(nextIdx);
-  };
-
-  const handleNext = () => {
-    const nextIdx = (activeIndex + 1) % TOTAL_CARDS;
-    rotateToIndex(nextIdx);
-  };
-
-  // Card click handler: if not front card, rotate it to front instead of immediate navigation
-  const handleCardClick = (e: React.MouseEvent, index: number, href: string) => {
-    if (isMobile) return; // On mobile, standard link navigation applies
-
-    if (index !== activeIndex) {
-      e.preventDefault();
-      rotateToIndex(index);
-    }
-  };
-
-  // Touch / Swipe handler for mobile
-  const touchStartXRef = useRef(0);
-  const touchEndXRef = useRef(0);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartXRef.current = e.targetTouches[0].clientX;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndXRef.current = e.targetTouches[0].clientX;
-  };
-
-  const handleTouchEnd = () => {
-    const distance = touchStartXRef.current - touchEndXRef.current;
-    if (Math.abs(distance) > 40) {
-      if (distance > 0) {
-        // Swiped left -> Next
-        handleNext();
-      } else {
-        // Swiped right -> Prev
-        handlePrev();
-      }
-    }
-  };
-
   return (
     <section
-      className="py-10 sm:py-16 bg-white relative overflow-hidden"
-      id="why-choose"
+      id="services"
+      className="py-20 sm:py-28 relative overflow-hidden"
+      style={{ backgroundColor: "var(--medica-iceblue)" }}
     >
-      <div className="absolute inset-0 z-0 bg-stone-50/50 pointer-events-none" />
-      {/* Background blobs for glass effect */}
-      <div className="absolute top-1/4 right-[-10%] w-[500px] h-[500px] bg-emerald-300/20 rounded-full blur-[100px] -z-10 mix-blend-multiply" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-teal-300/20 rounded-full blur-[100px] -z-10 mix-blend-multiply" />
+      {/* Subtle texture */}
+      <div
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 2px 2px, #1D1E20 1px, transparent 0)",
+          backgroundSize: "28px 28px",
+        }}
+      />
+
+      {/* Ambient orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full blur-[120px] opacity-25"
+          style={{ backgroundColor: "var(--medica-peach)" }}
+        />
+        <div
+          className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full blur-[100px] opacity-20"
+          style={{ backgroundColor: "var(--medica-olive)" }}
+        />
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-
-        {/* Section header */}
-        <motion.div 
+        {/* Header */}
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center max-w-2xl mx-auto mb-10 sm:mb-16"
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.7 }}
+          className="text-center mb-14"
         >
-          <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-50 text-vd-forest text-[13px] font-bold tracking-wide mb-4">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Why Choose Us</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-stone-900 tracking-tight leading-tight">
-            Leading the Way in <span className="text-vd-forest">Telemedicine</span>
+          <span
+            className="inline-block text-sm font-bold font-outfit tracking-[0.12em] uppercase mb-4"
+            style={{ color: "var(--medica-olive)" }}
+          >
+            What We Offer
+          </span>
+          <h2 className="medica-heading text-center mb-4">
+            Everything You Need,{" "}
+            <span style={{ color: "var(--medica-olive)" }}>
+              All in One Place
+            </span>
           </h2>
-          <p className="text-sm sm:text-lg text-gray-600 font-light leading-relaxed mt-3">
-            We provide comprehensive healthcare solutions, bringing the best medical professionals and facilities directly to you.
+          <p
+            className="max-w-2xl mx-auto text-[17px] leading-relaxed"
+            style={{ color: "var(--medica-text)" }}
+          >
+            From video consultations to home lab tests — Vaididea brings complete
+            healthcare right to your doorstep.
           </p>
         </motion.div>
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            DESKTOP / TABLET: CIRCULAR ORBIT CAROUSEL
-            ══════════════════════════════════════════════════════════════════════ */}
-        <div
-          className="hidden sm:block relative w-full h-[340px] md:h-[370px] max-w-5xl mx-auto select-none"
-          onMouseEnter={() => {
-            isHoveredRef.current = true;
-          }}
-          onMouseLeave={() => {
-            isHoveredRef.current = false;
-          }}
-        >
-          {/* Subtle decorative dashed orbital ring */}
-          <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[660px] md:w-[740px] h-[130px] md:h-[150px] rounded-[50%] border border-dashed border-emerald-800/25 pointer-events-none z-0"
-            aria-hidden="true"
-          />
-
-          {/* Orbiting Cards Container */}
-          <div className="relative w-full h-full">
-            {services.map((svc, i) => {
-              const Icon = svc.icon;
-              const isFront = i === activeIndex;
-
-              return (
-                <div
-                  key={svc.id}
-                  ref={(el) => {
-                    cardRefs.current[i] = el;
-                  }}
-                  className="absolute top-1/2 left-1/2 w-[220px] md:w-[250px] transition-shadow duration-300 will-change-transform"
-                  style={{
-                    transform: "translate3d(-50%, -50%, 0)",
-                  }}
-                >
-                  <Link
-                    href={svc.href}
-                    onClick={(e) => handleCardClick(e, i, svc.href)}
-                    title={svc.description || svc.label}
-                    className={`group flex flex-col justify-between bg-white/70 backdrop-blur-xl rounded-[24px] border transition-all duration-300 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest cursor-pointer block relative ${
-                      isFront
-                        ? "border-emerald-300/50 shadow-[0_20px_40px_rgba(16,185,129,0.15)]"
-                        : "border-white/60 hover:border-emerald-300/40 shadow-lg shadow-stone-200/50 hover:shadow-emerald-500/10"
-                    }`}
-                    aria-label={`${svc.label}${isFront ? " (Active front card)" : " (Click to bring to front)"}`}
-                  >
-                    {/* Hover Glow Behind Card Image */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/0 to-emerald-400/0 group-hover:from-emerald-400/10 group-hover:to-teal-500/10 transition-colors -z-10" />
-
-                    {/* Image Area */}
-                    <div className="relative w-full aspect-[16/11] overflow-hidden bg-gradient-to-b from-stone-50/50 to-stone-100/50">
-                      <Image
-                        src={svc.image}
-                        alt={svc.alt}
-                        fill
-                        sizes="(max-width: 1024px) 250px, 280px"
-                        className="object-contain p-3 sm:p-3.5 transition-transform duration-500 ease-out group-hover:scale-110"
-                        priority={i === 0}
-                      />
-                    </div>
-
-                    {/* Content area: Solid Vaididea dark-green CTA strip */}
-                    <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-vd-forest group-hover:bg-vd-forest-deep transition-colors duration-200">
-                      {/* Left: icon + label */}
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-7 h-7 rounded-lg bg-white/15 border border-white/20 flex items-center justify-center shrink-0 transition-colors duration-200">
-                          <Icon className="w-3.5 h-3.5 text-emerald-200" strokeWidth={1.75} />
-                        </div>
-                        <span className="text-xs sm:text-[13px] font-bold text-white transition-colors duration-150 leading-snug line-clamp-2">
-                          {svc.label}
-                        </span>
-                      </div>
-
-                      {/* Right: Explore CTA */}
-                      <div className="flex items-center gap-0.5 shrink-0 text-[11px] font-semibold text-white whitespace-nowrap">
-                        <span>Explore</span>
-                        <ArrowRight className="w-3 h-3 text-white transition-transform duration-150 group-hover:translate-x-0.5" />
-                      </div>
-                    </div>
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            MOBILE (<640px): COMPACT TOUCH-FRIENDLY SWIPE CAROUSEL
-            ══════════════════════════════════════════════════════════════════════ */}
-        <div
-          className="block sm:hidden relative w-full px-4"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {services.map((svc, i) => {
-            if (i !== activeIndex) return null;
-            const Icon = svc.icon;
-
-            return (
+        {/* 2×2 Service Card Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {services.map((svc, i) => (
+            <motion.div
+              key={svc.id}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ duration: 0.6, delay: i * 0.1, type: "spring", bounce: 0.3 }}
+              className="group bg-white rounded-[24px] overflow-hidden hover:-translate-y-3 hover:shadow-2xl transition-all duration-400 cursor-pointer"
+              style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}
+            >
+              {/* Arch-top image */}
               <div
-                key={svc.id}
-                className="max-w-[310px] mx-auto transition-all duration-300 animate-in fade-in zoom-in-95 duration-200"
+                className="relative overflow-hidden"
+                style={{
+                  height: "220px",
+                  borderRadius: "999px 999px 0 0",
+                  margin: "12px 12px 0 12px",
+                }}
               >
+                {/* Tag pill */}
+                <div
+                  className="absolute top-4 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full text-[11px] font-bold font-outfit text-white"
+                  style={{ backgroundColor: "var(--medica-olive)" }}
+                >
+                  {svc.tag}
+                </div>
+
+                <img
+                  src={svc.image}
+                  alt={svc.title}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+
+                {/* Gradient overlay at bottom of image */}
+                <div
+                  className="absolute inset-x-0 bottom-0 h-16"
+                  style={{
+                    background:
+                      "linear-gradient(to top, rgba(255,255,255,1), transparent)",
+                  }}
+                />
+              </div>
+
+              {/* Card content */}
+              <div className="p-6 pt-4">
+                {/* Icon pill */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center"
+                    style={{
+                      backgroundColor: "var(--medica-sage)",
+                      color: "var(--medica-olive)",
+                    }}
+                  >
+                    {svc.icon}
+                  </div>
+                </div>
+
+                <h3
+                  className="text-[18px] font-bold font-outfit mb-2"
+                  style={{ color: "var(--medica-charcoal)" }}
+                >
+                  {svc.title}
+                </h3>
+                <p
+                  className="text-[13px] leading-relaxed mb-5"
+                  style={{ color: "var(--medica-muted)" }}
+                >
+                  {svc.desc}
+                </p>
+
+                {/* Explore button */}
                 <Link
                   href={svc.href}
-                  title={svc.description || svc.label}
-                  className="group flex flex-col justify-between bg-white rounded-2xl border border-stone-200/90 shadow-[0_8px_24px_rgba(0,0,0,0.06)] overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest block"
-                  aria-label={svc.label}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-bold font-outfit transition-all duration-200 hover:shadow-md group-hover:-translate-y-0.5"
+                  style={{
+                    backgroundColor: "var(--medica-charcoal)",
+                    color: "#ffffff",
+                  }}
+                  id={`service-explore-${svc.id}`}
                 >
-                  {/* Image area */}
-                  <div className="relative w-full aspect-[16/11] overflow-hidden bg-stone-50/70">
-                    <Image
-                      src={svc.image}
-                      alt={svc.alt}
-                      fill
-                      sizes="310px"
-                      className="object-contain p-4"
-                    />
-                  </div>
-
-                  {/* Bottom Action Strip */}
-                  <div className="flex items-center justify-between gap-2 px-4 py-3 bg-vd-forest">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-7 h-7 rounded-lg bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
-                        <Icon className="w-3.5 h-3.5 text-emerald-200" strokeWidth={1.75} />
-                      </div>
-                      <span className="text-xs sm:text-[13px] font-bold text-white leading-snug">
-                        {svc.label}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-0.5 shrink-0 text-[11px] font-semibold text-white whitespace-nowrap">
-                      <span>Explore</span>
-                      <ArrowRight className="w-3 h-3 text-white" />
-                    </div>
-                  </div>
+                  Explore
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
-            );
-          })}
+            </motion.div>
+          ))}
         </div>
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            CONTROLS: PREVIOUS / NEXT ARROWS & 6 PAGINATION DOTS
-            ══════════════════════════════════════════════════════════════════════ */}
-        <div className="mt-5 sm:mt-6 flex items-center justify-center gap-3">
-          {/* Previous Button */}
-          <button
-            type="button"
-            onClick={handlePrev}
-            aria-label="Previous healthcare service"
-            className="w-8 h-8 rounded-full bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-vd-forest border border-stone-200/80 transition-all flex items-center justify-center cursor-pointer shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          {/* 5 Pagination Dots */}
-          <div className="flex items-center gap-1.5" role="tablist" aria-label="Carousel pagination">
-            {services.map((svc, i) => {
-              const isActive = i === activeIndex;
-              return (
-                <button
-                  key={svc.id}
-                  type="button"
-                  onClick={() => rotateToIndex(i)}
-                  aria-label={`Go to ${svc.label}`}
-                  aria-selected={isActive}
-                  role="tab"
-                  className={`transition-all duration-300 rounded-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest ${
-                    isActive
-                      ? "w-6 h-2 bg-vd-forest"
-                      : "w-2 h-2 bg-stone-300 hover:bg-stone-400"
-                  }`}
-                />
-              );
-            })}
-          </div>
-
-          {/* Next Button */}
-          <button
-            type="button"
-            onClick={handleNext}
-            aria-label="Next healthcare service"
-            className="w-8 h-8 rounded-full bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-vd-forest border border-stone-200/80 transition-all flex items-center justify-center cursor-pointer shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
       </div>
     </section>
   );

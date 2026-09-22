@@ -54,11 +54,13 @@ export default function Navbar() {
     <>
       {/* ── Desktop / Tablet Header ── */}
       <header
-        className={`fixed top-0 w-full z-50 transition-all duration-300 ${
-          scrolled
-            ? "bg-white/80 backdrop-blur-xl shadow-[0_4px_30px_rgba(0,0,0,0.05)] border-b border-white/50"
-            : "bg-white/40 backdrop-blur-md border-b border-white/30"
-        }`}
+        className={`fixed top-0 w-full z-50 transition-all duration-500`}
+        style={{
+          backgroundColor: scrolled ? "rgba(255,255,255,0.95)" : "var(--medica-peach)",
+          backdropFilter: scrolled ? "blur(20px)" : "none",
+          boxShadow: scrolled ? "0 4px 30px rgba(0,0,0,0.06)" : "none",
+          borderBottom: scrolled ? "1px solid rgba(0,0,0,0.06)" : "none",
+        }}
         role="banner"
       >
         <nav
@@ -78,7 +80,10 @@ export default function Navbar() {
               alt="Vaididea Logo" 
               className="h-8 sm:h-9 w-auto object-contain group-hover:scale-110 transition-transform duration-300" 
             />
-            <span className="text-2xl sm:text-[26px] font-extrabold text-[#0F5F50] tracking-tight leading-none">
+            <span
+              className="text-2xl sm:text-[26px] font-extrabold tracking-tight leading-none font-outfit transition-colors duration-500"
+              style={{ color: scrolled ? "var(--medica-olive)" : "var(--medica-charcoal)" }}
+            >
               Vaididea
             </span>
           </Link>
@@ -90,27 +95,25 @@ export default function Navbar() {
                 link.href === "/"
                   ? pathname === "/"
                   : pathname?.startsWith(link.href);
-              const isProviders = link.href === "/providers";
 
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`
-                    relative px-3.5 py-2 rounded-[10px] text-[14px] font-medium
-                    transition-all duration-150 whitespace-nowrap
-                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1
-                    ${
-                      isActive
-                        ? "text-emerald-700 font-semibold"
-                        : "text-stone-600 hover:text-emerald-700"
-                    }
-                  `}
+                  className="relative px-3.5 py-2 rounded-[10px] text-[14px] font-medium whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1 transition-all duration-150 font-outfit"
+                  style={{
+                    color: scrolled
+                      ? (isActive ? "var(--medica-olive)" : "var(--medica-charcoal)")
+                      : (isActive ? "#ffffff" : "rgba(29,30,32,0.85)"),
+                    fontWeight: isActive ? 600 : 500,
+                  }}
                 >
                   {link.label}
-                  {/* Active indicator border */}
                   {isActive && (
-                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/4 h-[2px] rounded-t-full bg-emerald-600" />
+                    <span
+                      className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/4 h-[2.5px] rounded-t-full"
+                      style={{ backgroundColor: scrolled ? "var(--medica-olive)" : "var(--medica-charcoal)" }}
+                    />
                   )}
                 </Link>
               );
@@ -123,23 +126,24 @@ export default function Navbar() {
             {isAuthenticated ? (
               <Link
                 href="/patient"
-                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[14px] font-medium text-stone-700 bg-stone-50 border border-stone-200 hover:bg-stone-100 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-semibold font-outfit transition-all duration-150"
+                style={{
+                  backgroundColor: scrolled ? "var(--medica-sage)" : "rgba(255,255,255,0.25)",
+                  color: scrolled ? "var(--medica-olive)" : "var(--medica-charcoal)",
+                }}
               >
-                <User className="w-4 h-4 text-emerald-600" />
+                <User className="w-4 h-4" />
                 <span>My Account</span>
               </Link>
             ) : (
-              <div className="hidden sm:flex items-center gap-3">
-                <Link
-                  href="/download"
-                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-[13px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 transition-all duration-150 cursor-pointer"
-                >
-                  <Smartphone className="w-4 h-4" />
-                  Patient App
-                </Link>
+              <div className="hidden sm:flex items-center gap-2">
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-[13px] font-bold text-stone-800 bg-white border border-stone-200 hover:bg-stone-50 transition-all duration-150 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-semibold font-outfit transition-all duration-150"
+                  style={{
+                    backgroundColor: scrolled ? "var(--medica-sage)" : "rgba(255,255,255,0.25)",
+                    color: scrolled ? "var(--medica-olive)" : "var(--medica-charcoal)",
+                  }}
                 >
                   <User className="w-4 h-4" />
                   Sign In
@@ -147,22 +151,19 @@ export default function Navbar() {
               </div>
             )}
 
-            {/* Divider */}
-            <div className="hidden sm:block w-px h-4 bg-stone-200" />
-
-            {/* Get the App CTA */}
-            <button
-              onClick={() => setAppModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-[14px] font-semibold text-white bg-gray-900 hover:bg-black active:scale-[0.98] transition-all duration-150 shadow-[0_4px_14px_rgba(0,0,0,0.15)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 cursor-pointer"
-              aria-label="Download the Vaididea Patient App"
+            {/* Book Appointment pill CTA */}
+            <Link
+              href="/doctors"
+              className="btn-medica-dark text-[13px] px-5 py-2.5 hidden sm:inline-flex"
+              id="navbar-book-cta"
             >
-              <Smartphone className="w-4 h-4" />
-              <span className="hidden xs:inline sm:inline">Register App</span>
-            </button>
+              Book Appointment
+            </Link>
 
             {/* Mobile Hamburger */}
             <button
-              className="lg:hidden p-2 rounded-lg text-stone-600 hover:bg-stone-100 hover:text-stone-900 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest cursor-pointer"
+              className="lg:hidden p-2 rounded-lg transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vd-forest cursor-pointer"
+              style={{ color: scrolled ? "var(--medica-charcoal)" : "var(--medica-charcoal)" }}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
               aria-expanded={mobileMenuOpen}

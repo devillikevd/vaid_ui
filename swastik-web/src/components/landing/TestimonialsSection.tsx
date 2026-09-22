@@ -12,7 +12,7 @@ export default function TestimonialsSection() {
       role: "Patient",
       text: "Vaididea made finding a specialist so incredibly easy. I booked an appointment and had a video consultation within hours. The doctor was amazing and the whole process was completely frictionless.",
       rating: 5,
-      avatar: "https://i.pravatar.cc/150?img=11"
+      avatar: "/images/avatar_rahul.png"
     },
     {
       id: 2,
@@ -20,15 +20,15 @@ export default function TestimonialsSection() {
       role: "Mother of two",
       text: "As a working mom, I don't always have time to sit in a clinic waiting room. The Vaididea app lets me consult pediatricians from home. It's been a lifesaver for my family's health.",
       rating: 5,
-      avatar: "https://i.pravatar.cc/150?img=5"
+      avatar: "/images/avatar_priya.png"
     },
     {
       id: 3,
       name: "Amit Desai",
       role: "Patient",
       text: "I was skeptical about telemedicine, but the video quality and the doctor's professionalism completely won me over. Plus, my prescribed medicines were delivered the next day!",
-      rating: 4,
-      avatar: "https://i.pravatar.cc/150?img=12"
+      rating: 5,
+      avatar: "/images/avatar_amit.png"
     },
     {
       id: 4,
@@ -36,7 +36,7 @@ export default function TestimonialsSection() {
       role: "Verified Doctor",
       text: "The provider portal is fantastic. It allows me to manage my schedule, access patient records securely, and conduct consultations without any technical glitches. Highly recommended for clinics.",
       rating: 5,
-      avatar: "https://i.pravatar.cc/150?img=9"
+      avatar: "/images/avatar_sneha.png"
     }
   ];
 
@@ -60,7 +60,7 @@ export default function TestimonialsSection() {
   }, []);
 
   return (
-    <section className="py-16 sm:py-24 bg-[#059669] relative overflow-hidden" id="testimonials">
+    <section className="py-16 sm:py-24 relative overflow-hidden" id="testimonials" style={{ backgroundColor: "var(--medica-olive)" }}>
       {/* Abstract Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div 
@@ -84,10 +84,16 @@ export default function TestimonialsSection() {
           transition={{ duration: 0.6 }}
           className="text-center mb-12 sm:mb-16"
         >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4">
+          <span
+            className="inline-block text-sm font-bold font-outfit tracking-[0.12em] uppercase mb-4"
+            style={{ color: "var(--medica-peach)" }}
+          >
+            Patient Stories
+          </span>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4 font-outfit">
             Loved by Thousands
           </h2>
-          <p className="text-emerald-100 max-w-2xl mx-auto">
+          <p className="text-white/70 max-w-2xl mx-auto">
             Don't just take our word for it. Here is what our patients and doctors have to say about their Vaididea experience.
           </p>
         </motion.div>

@@ -1,42 +1,28 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { motion, useInView, useAnimation } from "framer-motion";
+import { motion, useInView } from "framer-motion";
 import { Users, Building2, Stethoscope, Award } from "lucide-react";
 
-// A small component to animate a number from 0 to target
-const AnimatedNumber = ({ value, duration = 2 }: { value: number, duration?: number }) => {
+const AnimatedNumber = ({ value, duration = 2 }: { value: number; duration?: number }) => {
   const [count, setCount] = useState(0);
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, amount: 0.5 });
 
   useEffect(() => {
     if (isInView) {
-      let start = 0;
-      const stepTime = Math.abs(Math.floor((duration * 1000) / value));
-      const end = value;
-      
+      let current = 0;
+      const increment = Math.ceil(value / 60);
       const timer = setInterval(() => {
-        start += 1;
-        setCount(start);
-        if (start === end) clearInterval(timer);
-      }, stepTime > 0 ? stepTime : 10); // Minimum 10ms step to avoid freezing
-
-      // For large numbers, jump in bigger increments
-      if (value > 200) {
-        clearInterval(timer);
-        let current = 0;
-        const increment = Math.ceil(value / 60); // 60 frames
-        const fastTimer = setInterval(() => {
-          current += increment;
-          if (current >= value) {
-            setCount(value);
-            clearInterval(fastTimer);
-          } else {
-            setCount(current);
-          }
-        }, 33);
-      }
+        current += increment;
+        if (current >= value) {
+          setCount(value);
+          clearInterval(timer);
+        } else {
+          setCount(current);
+        }
+      }, 33);
+      return () => clearInterval(timer);
     }
   }, [isInView, value, duration]);
 
@@ -50,98 +36,118 @@ export default function ImpactSection() {
       name: "Happy Patients",
       value: 150000,
       suffix: "+",
-      icon: <Users className="w-8 h-8 text-emerald-600" />,
-      color: "from-emerald-500/20 to-emerald-500/5",
+      icon: <Users className="w-7 h-7" />,
+      accent: "var(--medica-peach)",
     },
     {
       id: 2,
       name: "Verified Doctors",
       value: 10000,
       suffix: "+",
-      icon: <Stethoscope className="w-8 h-8 text-teal-600" />,
-      color: "from-teal-500/20 to-teal-500/5",
+      icon: <Stethoscope className="w-7 h-7" />,
+      accent: "var(--medica-olive)",
     },
     {
       id: 3,
       name: "Partner Hospitals",
       value: 500,
       suffix: "+",
-      icon: <Building2 className="w-8 h-8 text-[#059669]" />,
-      color: "from-[#059669]/20 to-[#059669]/5",
+      icon: <Building2 className="w-7 h-7" />,
+      accent: "var(--medica-peach)",
     },
     {
       id: 4,
       name: "Awards Won",
       value: 25,
       suffix: "",
-      icon: <Award className="w-8 h-8 text-orange-500" />,
-      color: "from-orange-500/20 to-orange-500/5",
+      icon: <Award className="w-7 h-7" />,
+      accent: "var(--medica-olive)",
     },
   ];
 
-  const containerVariants = {
-    hidden: {},
-    visible: {
-      transition: {
-        staggerChildren: 0.15,
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 30, scale: 0.9 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      scale: 1,
-      transition: { duration: 0.6, type: "spring" as const, bounce: 0.4 }
-    }
-  };
-
   return (
-    <section className="py-12 sm:py-20 bg-stone-50 relative overflow-hidden border-t border-stone-200/50" id="impact">
-      {/* Ambient Mesh Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
-        <motion.div 
-          animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.7, 0.5] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-emerald-300/40 rounded-full blur-[100px] mix-blend-multiply" 
-        />
-        <motion.div 
-          animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.8, 0.5] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-          className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-teal-300/40 rounded-full blur-[100px] mix-blend-multiply" 
-        />
-      </div>
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <motion.div 
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.2 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-6 lg:gap-10"
-        >
-          {stats.map((stat) => (
-            <motion.div 
-              key={stat.id}
-              variants={itemVariants}
-              className="relative flex flex-col items-center justify-center p-6 sm:p-8 bg-white/40 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-lg shadow-emerald-500/5 hover:shadow-xl hover:shadow-emerald-500/15 hover:-translate-y-2 transition-all duration-300 group cursor-default overflow-hidden"
-            >
-              {/* Subtle hover gradient border */}
-              <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+    <section
+      id="impact"
+      className="py-16 sm:py-20 relative overflow-hidden"
+      style={{ backgroundColor: "var(--medica-offwhite)" }}
+    >
+      {/* Subtle texture */}
+      <div
+        className="absolute inset-0 opacity-[0.025] pointer-events-none"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 2px 2px, #1D1E20 1px, transparent 0)",
+          backgroundSize: "28px 28px",
+        }}
+      />
 
-              <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-5 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 relative z-10 shadow-inner`}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        {/* Section label */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-12"
+        >
+          <span
+            className="inline-block text-sm font-bold font-outfit tracking-[0.12em] uppercase mb-3"
+            style={{ color: "var(--medica-olive)" }}
+          >
+            Our Impact
+          </span>
+          <h2 className="medica-heading text-center">
+            Numbers That Speak
+          </h2>
+        </motion.div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+          {stats.map((stat, i) => (
+            <motion.div
+              key={stat.id}
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.5, delay: i * 0.1, type: "spring", bounce: 0.3 }}
+              className="bg-white rounded-[24px] p-6 sm:p-8 text-center hover:-translate-y-2 hover:shadow-xl transition-all duration-300 cursor-default"
+              style={{ boxShadow: "0 2px 16px rgba(0,0,0,0.05)" }}
+            >
+              {/* Icon circle */}
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5"
+                style={{
+                  backgroundColor: `${stat.accent}20`,
+                  color: stat.accent,
+                }}
+              >
                 {stat.icon}
               </div>
-              <div className="flex items-baseline gap-0.5 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-stone-800 to-stone-600 mb-1 relative z-10">
+
+              {/* Number */}
+              <div
+                className="text-3xl sm:text-4xl lg:text-5xl font-extrabold font-outfit mb-2 leading-none"
+                style={{ color: "var(--medica-charcoal)" }}
+              >
                 <AnimatedNumber value={stat.value} />
-                <span>{stat.suffix}</span>
+                {stat.suffix}
               </div>
-              <p className="text-sm font-bold text-stone-500 tracking-wider uppercase relative z-10">{stat.name}</p>
+
+              {/* Label */}
+              <p
+                className="text-sm font-semibold font-outfit tracking-wide uppercase"
+                style={{ color: "var(--medica-muted)" }}
+              >
+                {stat.name}
+              </p>
+
+              {/* Accent bar */}
+              <div
+                className="mt-4 h-1 w-12 rounded-full mx-auto"
+                style={{ backgroundColor: stat.accent }}
+              />
             </motion.div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );
