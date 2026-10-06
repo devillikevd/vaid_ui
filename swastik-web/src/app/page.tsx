@@ -3,17 +3,13 @@ import type { Metadata } from "next";
 import { buildJsonLdString } from '@/lib/sanitize';
 import Navbar from "@/components/landing/Navbar";
 import Hero from "@/components/landing/Hero";
-import ImpactSection from "@/components/landing/ImpactSection";
-import HowItWorksSection from "@/components/landing/HowItWorksSection";
-import AboutCareSection from "@/components/landing/AboutCareSection";
-import WhyChooseSection from "@/components/landing/WhyChooseSection";
-import PopularSpecialtiesSection from "@/components/landing/PopularSpecialtiesSection";
-import FeaturedDoctorsSection from "@/components/landing/FeaturedDoctorsSection";
-import HealthLibrarySection from "@/components/landing/HealthLibrarySection";
-import TestimonialsSection from "@/components/landing/TestimonialsSection";
-import NewsletterSection from "@/components/landing/NewsletterSection";
-import AppPromotionSection from "@/components/landing/AppPromotionSection";
-import Footer from "@/components/landing/Footer";
+import CanvaAppShowcaseSection from "@/components/landing/CanvaAppShowcaseSection";
+import CanvaServicesSection from "@/components/landing/CanvaServicesSection";
+import CanvaDoctorSection from "@/components/landing/CanvaDoctorSection";
+import CanvaTestimonials from "@/components/landing/CanvaTestimonials";
+import CanvaPortalsSection from "@/components/landing/CanvaPortalsSection";
+import VaidIdeaAISection from "@/components/landing/VaidIdeaAISection";
+import CanvaFooter from "@/components/landing/CanvaFooter";
 
 export const metadata: Metadata = {
   title: "Vaididea — Find Trusted Doctors & Healthcare Services",
@@ -51,47 +47,21 @@ const homeJsonLd = {
 
 export default function HomePage() {
   return (
-    <main className="bg-white min-h-screen selection:bg-vd-forest selection:text-white">
+    <main className="bg-[#F5F8F7] min-h-screen selection:bg-[#2B6A60] selection:text-white">
       <script type="application/ld+json">{buildJsonLdString(homeJsonLd)}</script>
 
-      {/* 01. Navbar — Medica peach top bar */}
       <Navbar />
-
-      {/* 02. Hero — Olive leaf overlay + arch doctor photo + search */}
       <Hero />
-
-      {/* 03. Impact Statistics — Off-white, animated counters */}
-      <ImpactSection />
-
-      {/* 04. How It Works — Sage green, 4-step cards */}
-      <HowItWorksSection />
-
-      {/* 05. About / Care Section — NEW: sage bg, arch photo + floating badge */}
-      <AboutCareSection />
-
-      {/* 06. Services Grid — Ice blue, 4 arch-card services with AI images */}
-      <WhyChooseSection />
-
-      {/* 07. Popular Specialties */}
-      <PopularSpecialtiesSection />
-
-      {/* 08. Featured Doctors */}
-      <FeaturedDoctorsSection />
-
-      {/* 09. Health Library */}
-      <HealthLibrarySection />
-
-      {/* 10. Testimonials */}
-      <TestimonialsSection />
-
-      {/* 11. Newsletter — NEW: Stay Informed subscribe block */}
-      <NewsletterSection />
-
-      {/* 12. App Promotion / Download */}
-      <AppPromotionSection />
-
-      {/* 13. Footer — Olive green Medica style */}
-      <Footer />
+      <CanvaAppShowcaseSection />
+      <CanvaServicesSection />
+      <CanvaDoctorSection />
+      <CanvaTestimonials />
+      
+      {/* From Page 2 of Canva Design (Provider Login stuff they wanted on Landing Page) */}
+      <CanvaPortalsSection />
+      <VaidIdeaAISection />
+      
+      <CanvaFooter />
     </main>
   );
 }
