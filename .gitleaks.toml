@@ -15,6 +15,7 @@ useDefault = true
     "env.production.example",
     "test/fixtures/",
     "__tests__/",
+    "swastik-web/public/draco-gltf/draco_decoder.js",
   ]
   # Permit placeholder values in example env files so CI doesn't flag the
   # documented sample secrets. Real production secrets must never appear here.
