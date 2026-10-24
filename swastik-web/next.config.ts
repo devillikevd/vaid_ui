@@ -115,11 +115,13 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+              // `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`, //for local use on local machine it uses Draco-compressed
+              `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ''}`, // required WebAssembly to load Draco-compressed GLTF models in local development
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://*.supabase.co https://*.vaididea.in https://*.amazonaws.com https://*.s3.ap-south-1.amazonaws.com https://images.unsplash.com https://cdnjs.cloudflare.com",
-              "connect-src 'self' https://api.vaididea.in wss://api.vaididea.in https://*.supabase.co",
+              "connect-src 'self' blob: https://api.vaididea.in wss://api.vaididea.in https://*.supabase.co",
+              "worker-src 'self' blob:",
               "media-src 'self' blob: https://*.vaididea.in https://*.supabase.co",
               "frame-src 'none'",
               "object-src 'none'",

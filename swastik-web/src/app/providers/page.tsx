@@ -20,9 +20,9 @@ export default function ProvidersPage() {
           <ProviderServicesGrid />
           <VaidideaAIBanner />
           <div className="mt-16" />
-          <CanvaFooter />
         </div>
       </div>
+      <CanvaFooter />
     </main>
   );
 }

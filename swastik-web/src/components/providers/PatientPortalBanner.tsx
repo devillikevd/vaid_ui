@@ -16,7 +16,7 @@ export default function PatientPortalBanner() {
             <h2 id="patients-heading" className="font-serif text-xl font-black tracking-[.06em] text-black sm:text-2xl">PATIENTS</h2>
           </div>
           <p className="mt-1 max-w-[360px] font-serif text-sm leading-relaxed text-slate-700 sm:text-base">Book appointments, manage health records, order medicines and more</p>
-          <Link href="/login" className="mt-3 inline-flex items-center gap-3 rounded-full bg-white/60 px-4 py-2 text-xs font-extrabold text-slate-700 transition hover:bg-white sm:text-sm">Login/Sign up <ArrowRight size={20} /></Link>
+          <Link href="/login/patient" className="mt-3 inline-flex items-center gap-3 rounded-full bg-white/60 px-4 py-2 text-xs font-extrabold text-slate-700 transition hover:bg-white sm:text-sm">Login/Sign up <ArrowRight size={20} /></Link>
         </div>
         <div className="relative z-10 ml-auto hidden max-w-[245px] text-right font-sans text-3xl font-extrabold leading-tight text-[#11656a] sm:block lg:text-4xl">Your Health<br />Our Priority</div>
       </div>

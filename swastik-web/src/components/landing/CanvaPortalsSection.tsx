@@ -57,32 +57,32 @@ export default function CanvaPortalsSection() {
   ];
 
   return (
-    <section className="py-28 bg-[#F5F8F7] font-sans relative overflow-hidden">
+    <section className="relative overflow-hidden bg-[#F5F8F7] py-14 font-sans sm:py-20 lg:py-28">
       {/* Decorative blobs */}
       <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-[#2B6A60]/5 rounded-full blur-[150px] -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-purple-200/20 rounded-full blur-[120px] translate-x-1/3 translate-y-1/3 pointer-events-none" />
 
-      <div className="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
+      <div className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-8 lg:px-16">
         
-        <div className="text-center mb-20">
-          <div className="inline-flex items-center gap-2 bg-[#2B6A60]/10 text-[#2B6A60] text-sm font-bold px-5 py-2 rounded-full mb-6 tracking-wider uppercase">
+        <div className="mb-12 text-center sm:mb-20">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#2B6A60]/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#2B6A60] sm:text-sm">
             <span className="w-2 h-2 bg-[#2B6A60] rounded-full animate-pulse"></span> For Healthcare Providers
           </div>
-          <h2 className="text-5xl md:text-6xl font-bold text-[#222] tracking-tight mb-6">
+          <h2 className="mb-5 text-4xl font-bold tracking-tight text-[#222] sm:text-5xl md:text-6xl">
             One Ecosystem, <br/>
             <span className="italic text-[#2B6A60] font-serif font-medium">Many Possibilities.</span>
           </h2>
-          <p className="text-lg text-gray-500 font-medium max-w-xl mx-auto leading-relaxed">
+          <p className="mx-auto max-w-xl text-base font-medium leading-relaxed text-gray-500 sm:text-lg">
             Join the VaidIdea network. Whether you're a doctor, hospital, or pharmacy — we have a portal built just for you.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-[1200px] mx-auto">
+        <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
           {portals.map((portal, index) => (
             <Link 
               key={index} 
               href={portal.href}
-              className="group bg-white hover:bg-white p-8 rounded-[32px] transition-all duration-500 border border-gray-100 hover:border-gray-200 shadow-sm hover:shadow-2xl hover:-translate-y-2 flex flex-col items-start relative overflow-hidden"
+              className="group relative flex flex-col items-start overflow-hidden rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm transition-all duration-500 hover:-translate-y-1 hover:border-gray-200 hover:shadow-2xl sm:p-8"
             >
               {/* Gradient accent on hover */}
               <div className={`absolute inset-0 bg-gradient-to-br ${portal.color} opacity-0 group-hover:opacity-[0.03] transition-opacity duration-500`} />

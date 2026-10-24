@@ -9,6 +9,7 @@ import '@/lib/env'; // Validates env vars on server startup
 import { GlobalSocketToastsDynamic } from '@/components/shared/GlobalSocketToastsDynamic';
 import { PublicThemeGuard } from '@/components/shared/PublicThemeGuard';
 import { PresentationModeBadge } from '@/components/shared/PresentationModeBadge';
+import { CopyProtection } from '@/components/shared/CopyProtection';
 
 const inter = Inter({
   subsets: ["latin"],
@@ -139,6 +140,7 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <PublicThemeGuard />
+        <CopyProtection />
         <ToastProvider>
           {children}
           <GlobalSocketToastsDynamic />

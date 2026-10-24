@@ -109,6 +109,22 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+body,
+body * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"],
+[contenteditable=""],
+[data-copy-allowed] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 option {
   @apply bg-white text-gray-900;
 }
@@ -1144,4 +1160,3 @@ option {
   50% { transform: translateY(-12px); }
 }
 .medica-float { animation: medica-float 4s ease-in-out infinite; }
-

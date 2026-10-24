@@ -9,18 +9,18 @@ export default function CanvaTestimonials() {
   ];
 
   return (
-    <section className="bg-[#F5F8F7] py-24 font-sans">
-      <div className="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
-        <div className="max-w-[1200px] mx-auto bg-[#EAEFEF] rounded-[56px] pt-20 pb-24 px-16 relative overflow-hidden shadow-inner border border-white">
+    <section className="bg-[#F5F8F7] py-14 font-sans sm:py-20 lg:py-24">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-8 lg:px-16">
+        <div className="relative mx-auto max-w-[1200px] overflow-hidden rounded-[2rem] border border-white bg-[#EAEFEF] px-5 pb-12 pt-12 shadow-inner sm:rounded-[3.5rem] sm:px-10 sm:pb-20 sm:pt-16 lg:px-16">
            
-           <div className="flex flex-col md:flex-row justify-between items-end mb-20 relative z-10">
+           <div className="relative z-10 mb-12 flex flex-col items-start justify-between md:mb-20 md:flex-row md:items-end">
               <div>
-                <h2 className="text-[52px] font-bold text-[#222] leading-tight tracking-tight">
+                <h2 className="text-4xl font-bold leading-tight tracking-tight text-[#222] sm:text-[52px]">
                   Check Out What Our <br/>
                   <span className="font-serif italic text-[#2B6A60] font-medium text-[56px]">Customers Are Saying</span>
                 </h2>
               </div>
-              <div className="mt-10 md:mt-0 text-right flex flex-col items-end">
+              <div className="mt-8 flex flex-col items-start md:mt-0 md:items-end">
                 <div className="flex -space-x-4 mb-4">
                    <div className="w-14 h-14 rounded-full bg-gray-300 border-[3px] border-white overflow-hidden shadow-md"><img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=150&auto=format&fit=crop" className="w-full h-full object-cover"/></div>
                    <div className="w-14 h-14 rounded-full bg-gray-400 border-[3px] border-white overflow-hidden shadow-md"><img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=150&auto=format&fit=crop" className="w-full h-full object-cover"/></div>
@@ -34,9 +34,9 @@ export default function CanvaTestimonials() {
               </div>
            </div>
 
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
+           <div className="relative z-10 grid grid-cols-1 gap-5 md:grid-cols-3 md:gap-8">
               {reviews.map((item, idx) => (
-                <div key={idx} className="bg-white rounded-[40px] p-10 shadow-sm flex flex-col relative border border-gray-100 hover:shadow-2xl transition-shadow duration-300">
+                <div key={idx} className="relative flex flex-col rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm transition-shadow duration-300 hover:shadow-2xl sm:p-10">
                   <span className="text-[80px] text-[#2B6A60]/10 absolute top-4 left-8 font-serif leading-none">"</span>
                   <p className="text-base lg:text-lg text-gray-600 mb-10 mt-8 leading-relaxed font-medium z-10 relative">
                     "{item.review}"

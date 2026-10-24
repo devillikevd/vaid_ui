@@ -6,9 +6,9 @@ import { MessageSquareText, Sparkles, Brain, ShieldCheck, Zap } from "lucide-rea
 
 export default function VaidIdeaAISection() {
   return (
-    <section className="py-28 bg-[#F5F8F7] font-sans relative overflow-hidden">
-      <div className="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
-        <div className="max-w-[1200px] mx-auto bg-gradient-to-br from-[#1E5B53] via-[#2B6A60] to-[#1E5B53] rounded-[56px] p-12 md:p-20 flex flex-col lg:flex-row items-center justify-between gap-16 relative overflow-hidden shadow-2xl">
+    <section className="relative overflow-hidden bg-[#F5F8F7] py-10 font-sans sm:py-14 lg:py-20">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-8 lg:px-16">
+        <div className="relative mx-auto flex max-w-[1200px] flex-col items-center justify-between gap-6 overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#1E5B53] via-[#2B6A60] to-[#1E5B53] p-6 shadow-2xl sm:rounded-[3.5rem] sm:p-10 lg:flex-row lg:gap-12 lg:p-16">
           
           {/* Decorative elements */}
           <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none" />
@@ -17,22 +17,22 @@ export default function VaidIdeaAISection() {
           
           {/* Left Content */}
           <div className="flex-1 text-center lg:text-left relative z-10">
-            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/10 border border-white/20 text-white text-sm font-bold mb-8 backdrop-blur-sm">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-bold text-white backdrop-blur-sm">
               <Sparkles className="w-4 h-4 text-yellow-300" />
               VaidIdea AI Beta
             </div>
             
-            <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white tracking-tight mb-6 leading-[1.1]">
+            <h2 className="mb-4 text-3xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl md:text-6xl">
               Ask Anything <br className="hidden lg:block"/>
               <span className="italic font-serif font-medium text-white/90">about your Health</span>
             </h2>
             
-            <p className="text-white/70 text-lg mb-10 max-w-lg mx-auto lg:mx-0 leading-relaxed font-medium">
+            <p className="mx-auto mb-5 max-w-lg text-base font-medium leading-relaxed text-white/70 sm:mb-6 sm:text-lg lg:mx-0">
               Get instant, AI-powered insights on your symptoms, medications, and general wellness. Smart healthcare assistance is just a chat away.
             </p>
             
             {/* Features pills */}
-            <div className="flex flex-wrap gap-3 mb-10 justify-center lg:justify-start">
+            <div className="mb-6 flex flex-wrap justify-center gap-2 lg:justify-start">
               <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
                 <Brain className="w-4 h-4 text-emerald-300" />
                 <span className="text-white/90 text-sm font-medium">AI Powered</span>
@@ -49,7 +49,7 @@ export default function VaidIdeaAISection() {
             
             <Link 
               href="/ai-chat"
-              className="inline-flex items-center gap-3 bg-white text-[#1E5B53] px-8 py-4 rounded-full font-bold text-lg transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 hover:bg-gray-50"
+            className="inline-flex items-center gap-3 rounded-full bg-white px-6 py-3.5 text-base font-bold text-[#1E5B53] shadow-xl transition-all hover:-translate-y-1 hover:bg-gray-50 hover:shadow-2xl sm:px-8 sm:py-4 sm:text-lg"
             >
               <MessageSquareText className="w-5 h-5" />
               Chat with VaidIdea AI
@@ -58,12 +58,12 @@ export default function VaidIdeaAISection() {
 
           {/* Right - Visual */}
           <div className="flex-1 flex justify-center items-center relative z-10">
-            <div className="relative w-72 h-72 md:w-96 md:h-96">
+            <div className="relative h-56 w-56 sm:h-72 sm:w-72 md:h-96 md:w-96">
               {/* Outer ring glow */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-emerald-400/30 to-teal-300/30 rounded-full animate-pulse blur-3xl" />
+              <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-emerald-400/25 to-teal-300/25 blur-2xl motion-reduce:animate-none animate-[pulse_4s_ease-in-out_infinite]" />
               
               {/* Middle ring */}
-              <div className="absolute inset-6 border-2 border-white/10 rounded-full animate-[spin_20s_linear_infinite]">
+              <div className="absolute inset-6 rounded-full border-2 border-white/10 motion-reduce:animate-none animate-[spin_24s_linear_infinite]">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-emerald-400 rounded-full shadow-lg shadow-emerald-400/50" />
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-3 h-3 bg-teal-300 rounded-full shadow-lg shadow-teal-300/50" />
               </div>
@@ -77,8 +77,8 @@ export default function VaidIdeaAISection() {
               </div>
               
               {/* Floating dots */}
-              <div className="absolute top-8 right-8 w-3 h-3 bg-yellow-400 rounded-full animate-bounce shadow-lg shadow-yellow-400/50" />
-              <div className="absolute bottom-16 left-4 w-2 h-2 bg-blue-400 rounded-full animate-bounce delay-300 shadow-lg shadow-blue-400/50" />
+              <div className="absolute right-8 top-8 h-3 w-3 rounded-full bg-yellow-400 shadow-lg shadow-yellow-400/50 motion-reduce:animate-none animate-[pulse_3s_ease-in-out_infinite]" />
+              <div className="absolute bottom-16 left-4 h-2 w-2 rounded-full bg-blue-400 shadow-lg shadow-blue-400/50 motion-reduce:animate-none animate-[pulse_3.5s_ease-in-out_infinite_0.5s]" />
             </div>
           </div>
 

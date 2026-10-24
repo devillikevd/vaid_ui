@@ -1,153 +1,149 @@
-"use client";
+import Link from "next/link";
+import { ArrowUpRight, Quote, ShieldCheck, Star } from "lucide-react";
 
-import React, { useRef, useState, useEffect } from "react";
-import { motion, useAnimation, useInView } from "framer-motion";
-import { Star, Quote } from "lucide-react";
+const testimonials = [
+  {
+    name: "Rahul Sharma",
+    role: "Patient",
+    text: "I booked an appointment and had a video consultation within hours. The entire experience felt simple, clear, and genuinely thoughtful.",
+    avatar: "/images/avatar_rahul.png",
+    featured: true,
+  },
+  {
+    name: "Priya Patel",
+    role: "Mother of two",
+    text: "I can consult a pediatrician from home without rearranging my whole day. Vaididea has made family healthcare much easier.",
+    avatar: "/images/avatar_priya.png",
+  },
+  {
+    name: "Amit Desai",
+    role: "Patient",
+    text: "The doctor was professional, the video quality was excellent, and my prescribed medicines arrived the next day.",
+    avatar: "/images/avatar_amit.png",
+  },
+  {
+    name: "Dr. Sneha Rao",
+    role: "Verified Doctor",
+    text: "The provider portal lets me manage my schedule and patient records securely without getting in the way of care.",
+    avatar: "/images/avatar_sneha.png",
+  },
+];
+
+function Rating() {
+  return (
+    <div className="flex items-center gap-1 text-[#D9A441]" aria-label="5 out of 5 stars">
+      {Array.from({ length: 5 }, (_, index) => (
+        <Star key={index} className="h-4 w-4 fill-current" aria-hidden="true" />
+      ))}
+    </div>
+  );
+}
 
 export default function TestimonialsSection() {
-  const testimonials = [
-    {
-      id: 1,
-      name: "Rahul Sharma",
-      role: "Patient",
-      text: "Vaididea made finding a specialist so incredibly easy. I booked an appointment and had a video consultation within hours. The doctor was amazing and the whole process was completely frictionless.",
-      rating: 5,
-      avatar: "/images/avatar_rahul.png"
-    },
-    {
-      id: 2,
-      name: "Priya Patel",
-      role: "Mother of two",
-      text: "As a working mom, I don't always have time to sit in a clinic waiting room. The Vaididea app lets me consult pediatricians from home. It's been a lifesaver for my family's health.",
-      rating: 5,
-      avatar: "/images/avatar_priya.png"
-    },
-    {
-      id: 3,
-      name: "Amit Desai",
-      role: "Patient",
-      text: "I was skeptical about telemedicine, but the video quality and the doctor's professionalism completely won me over. Plus, my prescribed medicines were delivered the next day!",
-      rating: 5,
-      avatar: "/images/avatar_amit.png"
-    },
-    {
-      id: 4,
-      name: "Dr. Sneha Rao",
-      role: "Verified Doctor",
-      text: "The provider portal is fantastic. It allows me to manage my schedule, access patient records securely, and conduct consultations without any technical glitches. Highly recommended for clinics.",
-      rating: 5,
-      avatar: "/images/avatar_sneha.png"
-    }
-  ];
-
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
-  const isInView = useInView(carouselRef, { once: true, amount: 0.2 });
-
-  useEffect(() => {
-    if (carouselRef.current) {
-      setWidth(carouselRef.current.scrollWidth - carouselRef.current.offsetWidth);
-    }
-    
-    const handleResize = () => {
-      if (carouselRef.current) {
-        setWidth(carouselRef.current.scrollWidth - carouselRef.current.offsetWidth);
-      }
-    };
-    
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
   return (
-    <section className="py-16 sm:py-24 relative overflow-hidden" id="testimonials" style={{ backgroundColor: "var(--medica-olive)" }}>
-      {/* Abstract Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div 
-          animate={{ rotate: 360, scale: [1, 1.1, 1] }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-[20%] -right-[10%] w-[500px] h-[500px] rounded-full bg-emerald-400/30 blur-[100px]" 
-        />
-        <motion.div 
-          animate={{ rotate: -360, scale: [1, 1.2, 1] }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          className="absolute -bottom-[20%] -left-[10%] w-[600px] h-[600px] rounded-full bg-teal-500/20 blur-[120px]" 
-        />
-      </div>
+    <section id="testimonials" className="relative overflow-hidden bg-[#F5F8F7] py-16 font-sans sm:py-24 lg:py-28">
+      <div className="absolute left-[-12rem] top-20 h-96 w-96 rounded-full bg-[#CFE8DE]/60 blur-3xl" aria-hidden="true" />
+      <div className="absolute bottom-[-12rem] right-[-8rem] h-[30rem] w-[30rem] rounded-full bg-[#E7DDF5]/50 blur-3xl" aria-hidden="true" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.2 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-12 sm:mb-16"
-        >
-          <span
-            className="inline-block text-sm font-bold font-outfit tracking-[0.12em] uppercase mb-4"
-            style={{ color: "var(--medica-peach)" }}
-          >
-            Patient Stories
-          </span>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4 font-outfit">
-            Loved by Thousands
-          </h2>
-          <p className="text-white/70 max-w-2xl mx-auto">
-            Don't just take our word for it. Here is what our patients and doctors have to say about their Vaididea experience.
-          </p>
-        </motion.div>
-
-        {/* Draggable Carousel */}
-        <div className="relative cursor-grab active:cursor-grabbing overflow-hidden pb-10" ref={carouselRef}>
-          <motion.div 
-            drag="x"
-            dragConstraints={{ right: 0, left: -width }}
-            initial={{ opacity: 0, x: 100 }}
-            animate={isInView ? { opacity: 1, x: 0 } : {}}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="flex gap-6 sm:gap-8 w-max"
-          >
-            {testimonials.map((testimonial, idx) => (
-              <motion.div 
-                key={testimonial.id}
-                className="w-[300px] sm:w-[400px] bg-white/10 backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-white/20 shadow-2xl flex flex-col hover:bg-white/20 hover:border-emerald-300/40 hover:shadow-[0_0_40px_rgba(255,255,255,0.15)] transition-all duration-300 relative overflow-hidden group"
-                whileHover={{ y: -8, scale: 1.02 }}
-              >
-                {/* Subtle gradient overlay on hover */}
-                <div className="absolute inset-0 bg-gradient-to-br from-white/0 to-emerald-200/0 group-hover:to-emerald-200/10 transition-colors duration-300 pointer-events-none" />
-
-                <Quote className="w-10 h-10 text-emerald-300/40 mb-4 relative z-10 group-hover:text-emerald-300/60 transition-colors duration-300 group-hover:scale-110" />
-                
-                <div className="flex items-center gap-1 mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <Star 
-                      key={i} 
-                      className={`w-4 h-4 ${i < testimonial.rating ? "fill-yellow-400 text-yellow-400" : "fill-white/20 text-transparent"}`} 
-                    />
-                  ))}
+      <div className="relative mx-auto max-w-[1240px] px-4 sm:px-8">
+        <div className="mb-12 grid gap-8 lg:mb-16 lg:grid-cols-[0.95fr_1.05fr] lg:items-end">
+          <div>
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#2B6A60]/15 bg-white/70 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-[#2B6A60]">
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              Trusted by our community
+            </div>
+            <h2 className="max-w-xl text-4xl font-bold leading-[1.08] tracking-tight text-[#173B34] sm:text-5xl lg:text-6xl">
+              Care that feels
+              <span className="block font-serif italic font-medium text-[#2B6A60]">personal.</span>
+            </h2>
+          </div>
+          <div className="max-w-lg lg:justify-self-end">
+            <p className="text-base leading-relaxed text-[#61756E] sm:text-lg">
+              From the first search to the next follow-up, people choose Vaididea for healthcare that is easier to access and easier to trust.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-extrabold text-[#173B34]">4.9</span>
+                  <Rating />
                 </div>
-                
-                <p className="text-white/90 leading-relaxed mb-8 flex-1 text-sm sm:text-base">
-                  "{testimonial.text}"
-                </p>
-                
-                <div className="flex items-center gap-4 mt-auto">
-                  <img 
-                    src={testimonial.avatar} 
-                    alt={testimonial.name} 
-                    className="w-12 h-12 rounded-full border-2 border-white/30 object-cover"
-                  />
-                  <div>
-                    <h4 className="text-white font-bold text-sm sm:text-base">{testimonial.name}</h4>
-                    <p className="text-emerald-200 text-xs">{testimonial.role}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+                <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-[#84948E]">Average experience rating</p>
+              </div>
+              <div className="h-10 w-px bg-[#C9DCD5]" />
+              <div>
+                <p className="text-2xl font-extrabold text-[#173B34]">25k+</p>
+                <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-[#84948E]">Care journeys started</p>
+              </div>
+            </div>
+          </div>
         </div>
 
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12">
+          <article className="relative flex min-h-[340px] flex-col overflow-hidden rounded-[2.5rem] bg-[#1E5B53] p-7 text-white shadow-[0_20px_50px_rgba(30,91,83,0.18)] sm:p-9 lg:col-span-7">
+            <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full border-[30px] border-white/[0.07]" aria-hidden="true" />
+            <div className="relative z-10 flex items-start justify-between">
+              <Quote className="h-12 w-12 text-[#A9DED0]" aria-hidden="true" />
+              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white/80">Patient story</span>
+            </div>
+            <p className="relative z-10 mt-8 max-w-2xl text-2xl font-medium leading-[1.35] sm:text-3xl">
+              “{testimonials[0].text}”
+            </p>
+            <div className="relative z-10 mt-auto flex items-center gap-3 pt-8">
+              <img src={testimonials[0].avatar} alt={testimonials[0].name} className="h-12 w-12 rounded-full border-2 border-white/30 object-cover" />
+              <div>
+                <p className="font-bold">{testimonials[0].name}</p>
+                <p className="text-sm text-white/60">{testimonials[0].role}</p>
+              </div>
+              <Rating />
+            </div>
+          </article>
+
+          <article className="flex min-h-[340px] flex-col rounded-[2.5rem] border border-white bg-white p-7 shadow-sm sm:p-9 lg:col-span-5">
+            <div className="flex items-center justify-between">
+              <span className="rounded-full bg-[#E4F6F0] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#2B6A60]">For families</span>
+              <Quote className="h-9 w-9 text-[#B9D8CF]" aria-hidden="true" />
+            </div>
+            <p className="mt-8 text-xl font-semibold leading-relaxed text-[#29443D]">“{testimonials[1].text}”</p>
+            <div className="mt-auto flex items-center gap-3 border-t border-[#E6EFEC] pt-7">
+              <img src={testimonials[1].avatar} alt={testimonials[1].name} className="h-11 w-11 rounded-full object-cover" />
+              <div>
+                <p className="text-sm font-bold text-[#173B34]">{testimonials[1].name}</p>
+                <p className="text-xs text-[#84948E]">{testimonials[1].role}</p>
+              </div>
+              <div className="ml-auto"><Rating /></div>
+            </div>
+          </article>
+
+          {testimonials.slice(2).map((testimonial) => (
+            <article key={testimonial.name} className="flex min-h-[250px] flex-col rounded-[2rem] border border-[#DCEAE5] bg-white/75 p-6 shadow-sm backdrop-blur-sm transition-shadow hover:shadow-lg sm:p-8 lg:col-span-4">
+              <div className="flex items-center justify-between">
+                <Rating />
+                <Quote className="h-7 w-7 text-[#B9D8CF]" aria-hidden="true" />
+              </div>
+              <p className="mt-6 text-base leading-relaxed text-[#61756E]">“{testimonial.text}”</p>
+              <div className="mt-auto flex items-center gap-3 pt-7">
+                <img src={testimonial.avatar} alt={testimonial.name} className="h-10 w-10 rounded-full object-cover" />
+                <div>
+                  <p className="text-sm font-bold text-[#173B34]">{testimonial.name}</p>
+                  <p className="text-xs text-[#84948E]">{testimonial.role}</p>
+                </div>
+              </div>
+            </article>
+          ))}
+
+          <div className="flex min-h-[250px] flex-col justify-between rounded-[2rem] border border-[#BFDCD2] bg-[#E4F6F0] p-6 sm:p-8 lg:col-span-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#2B6A60] shadow-sm">
+              <ArrowUpRight className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold leading-tight text-[#173B34]">Your experience could be next.</h3>
+              <p className="mt-3 text-sm leading-relaxed text-[#61756E]">Find care that fits your life and start your journey with Vaididea.</p>
+              <Link href="/doctors" className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-[#2B6A60] hover:text-[#173B34]">
+                Find care <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );

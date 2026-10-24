@@ -4,20 +4,20 @@ import { Facebook, Twitter, Linkedin, Instagram, Mail, Phone, MapPin, ArrowUpRig
 
 export default function CanvaFooter() {
   return (
-    <footer className="bg-[#1A2E2A] text-white pt-24 pb-8 font-sans relative overflow-hidden">
+    <footer className="relative overflow-hidden rounded-t-[3rem] bg-gradient-to-b from-[#286b5b] via-[#1A2E2A] from-0% via-20% to-[#1A2E2A] pb-8 pt-14 font-sans text-white sm:rounded-t-[4rem] sm:pt-24">
       {/* Watermark */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[18vw] font-black text-white/[0.02] select-none pointer-events-none whitespace-nowrap z-0 font-serif tracking-tighter">
         Vaididea
       </div>
 
-      <div className="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
+      <div className="relative z-10 mx-auto max-w-[1400px] px-4 sm:px-8 lg:px-16">
         
         {/* Top CTA Bar */}
-        <div className="bg-gradient-to-r from-[#2B6A60] to-[#1E5B53] rounded-[40px] p-10 md:p-14 flex flex-col md:flex-row items-center justify-between gap-8 mb-20 shadow-2xl relative overflow-hidden">
+        <div className="relative mb-14 flex flex-col items-start justify-between gap-6 overflow-hidden rounded-[2rem] bg-gradient-to-r from-[#2B6A60] to-[#1E5B53] p-7 shadow-2xl sm:mb-20 sm:rounded-[2.5rem] sm:p-10 md:flex-row md:items-center md:p-14">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
           <div className="relative z-10">
-            <h3 className="text-3xl md:text-4xl font-bold mb-2">Ready to Transform Your Health?</h3>
-            <p className="text-white/70 font-medium text-lg">Join 25,000+ patients already using VaidIdea.</p>
+            <h3 className="mb-2 text-2xl font-bold sm:text-3xl md:text-4xl">Ready to Transform Your Health?</h3>
+            <p className="text-base font-medium text-white/70 sm:text-lg">Join 25,000+ patients already using VaidIdea.</p>
           </div>
           <Link href="/login" className="relative z-10 bg-white text-[#1E5B53] px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-50 transition-all shadow-xl hover:-translate-y-1 hover:shadow-2xl whitespace-nowrap flex items-center gap-2">
             Get Started <ArrowUpRight className="w-5 h-5" />
@@ -51,10 +51,17 @@ export default function CanvaFooter() {
           <div>
             <h4 className="font-bold text-sm uppercase tracking-widest text-white/40 mb-6">Quick Links</h4>
             <div className="flex flex-col gap-3">
-              {['Home', 'About Us', 'Our Services', 'Health Library', 'Blogs', 'Contact'].map((item) => (
-                <Link key={item} href="#" className="text-white/60 hover:text-white hover:translate-x-1 transition-all text-sm font-medium flex items-center gap-1 group">
+              {[
+                { label: 'Home', href: '/' },
+                { label: 'About Us', href: '/vision' },
+                { label: 'Our Services', href: '/doctors' },
+                { label: 'Health Library', href: '/health-library' },
+                { label: 'Blogs', href: '/blogs' },
+                { label: 'Contact', href: '/vision#contact' },
+              ].map((item) => (
+                <Link key={item.label} href={item.href} className="text-white/60 hover:text-white hover:translate-x-1 transition-all text-sm font-medium flex items-center gap-1 group">
                   <span className="w-0 group-hover:w-2 h-px bg-[#2B6A60] transition-all" />
-                  {item}
+                  {item.label}
                 </Link>
               ))}
             </div>
@@ -65,7 +72,7 @@ export default function CanvaFooter() {
             <h4 className="font-bold text-sm uppercase tracking-widest text-white/40 mb-6">For Providers</h4>
             <div className="flex flex-col gap-3">
               {['Doctor Portal', 'Hospital Portal', 'Clinic Portal', 'Pharmacy Portal', 'Ambulance Service', 'Gym & Fitness'].map((item) => (
-                <Link key={item} href="#" className="text-white/60 hover:text-white hover:translate-x-1 transition-all text-sm font-medium flex items-center gap-1 group">
+                <Link key={item} href="/providers" className="text-white/60 hover:text-white hover:translate-x-1 transition-all text-sm font-medium flex items-center gap-1 group">
                   <span className="w-0 group-hover:w-2 h-px bg-[#2B6A60] transition-all" />
                   {item}
                 </Link>
@@ -95,9 +102,9 @@ export default function CanvaFooter() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between text-white/40 text-sm font-medium gap-4">
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 text-center text-sm font-medium text-white/40 md:flex-row md:text-left">
           <p>&copy; 2026 Vaididea. All Rights Reserved.</p>
-          <div className="flex gap-6">
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6 md:justify-end">
             <Link href="#" className="hover:text-white transition-colors">Terms of Service</Link>
             <Link href="#" className="hover:text-white transition-colors">Privacy Policy</Link>
             <Link href="#" className="hover:text-white transition-colors">Cookie Policy</Link>

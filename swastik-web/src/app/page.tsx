@@ -6,8 +6,9 @@ import Hero from "@/components/landing/Hero";
 import CanvaAppShowcaseSection from "@/components/landing/CanvaAppShowcaseSection";
 import CanvaServicesSection from "@/components/landing/CanvaServicesSection";
 import CanvaDoctorSection from "@/components/landing/CanvaDoctorSection";
-import CanvaTestimonials from "@/components/landing/CanvaTestimonials";
+import TestimonialsSection from "@/components/landing/TestimonialsSection";
 import CanvaPortalsSection from "@/components/landing/CanvaPortalsSection";
+import VaidIdeaPlatformSections from "@/components/landing/VaidIdeaPlatformSections";
 import VaidIdeaAISection from "@/components/landing/VaidIdeaAISection";
 import CanvaFooter from "@/components/landing/CanvaFooter";
 
@@ -54,11 +55,10 @@ export default function HomePage() {
       <Hero />
       <CanvaAppShowcaseSection />
       <CanvaServicesSection />
-      <CanvaDoctorSection />
-      <CanvaTestimonials />
-      
-      {/* From Page 2 of Canva Design (Provider Login stuff they wanted on Landing Page) */}
-      <CanvaPortalsSection />
+      {/* <CanvaDoctorSection /> */}
+      <VaidIdeaPlatformSections />
+      {/* <CanvaPortalsSection /> */}
+      <TestimonialsSection />
       <VaidIdeaAISection />
       
       <CanvaFooter />

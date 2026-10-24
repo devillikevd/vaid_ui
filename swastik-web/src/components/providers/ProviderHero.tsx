@@ -23,7 +23,7 @@ export default function ProviderHero() {
         </h1>
         <p className="mt-8 font-serif text-lg font-bold italic text-slate-900 sm:text-xl">Different needs. Personalized solutions</p>
         <p className="mt-4 max-w-[410px] font-serif text-sm leading-relaxed text-slate-700">
-          Whether you’re a patient or a healthcare provider, Vaididea gives you dedicated tools, support and a seamless experience to manage your healthcare journey.
+          Whether you're a patient or a healthcare provider, Vaididea gives you dedicated tools, support and a seamless experience to manage your healthcare journey.
         </p>
       </div>
       <div className="pointer-events-none absolute inset-0 hidden lg:block">
