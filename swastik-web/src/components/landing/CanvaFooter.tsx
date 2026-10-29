@@ -105,8 +105,8 @@ export default function CanvaFooter() {
         <div className="flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 text-center text-sm font-medium text-white/40 md:flex-row md:text-left">
           <p>&copy; 2026 Vaididea. All Rights Reserved.</p>
           <div className="flex flex-wrap justify-center gap-4 sm:gap-6 md:justify-end">
-            <Link href="#" className="hover:text-white transition-colors">Terms of Service</Link>
-            <Link href="#" className="hover:text-white transition-colors">Privacy Policy</Link>
+            <Link href="/terms-and-conditions" className="hover:text-white transition-colors">Terms of Service</Link>
+            <Link href="/Privacy-Policy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <Link href="#" className="hover:text-white transition-colors">Cookie Policy</Link>
           </div>
         </div>
